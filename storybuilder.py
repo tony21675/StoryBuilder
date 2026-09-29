@@ -368,7 +368,6 @@ class StoryBuilderApp(tk.Tk):
         # a right-click context menu automatically on Linux. Add one to every
         # text-entry widget used by StoryBuilder.
         widgets = [
-            self.command_entry,
             self.premise_text,
             *self.character_texts.values(),
             self.cast_text,
