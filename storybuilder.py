@@ -461,26 +461,60 @@ class StoryBuilderApp(tk.Tk):
         if not isinstance(location, dict):
             return []
 
-        # Prefer people explicitly described as being somewhere other than the
-        # primary location. This matches the existing LocalStoryChat state
-        # structure without inventing a new fact.
-        primary = str(location.get("primary", "")).strip().casefold()
-        separated = []
+        current_situation = str(state.get("current_situation", "") or "").casefold()
+
+        # Respect an explicit statement that someone is not participating in
+        # the current scene. This is preferable to guessing from location text.
+        excluded = set()
         for name, place in location.items():
             if name == "primary":
                 continue
-            place_text = str(place).strip()
-            if not place_text:
+            name_cf = str(name).casefold()
+            if (
+                f"{name_cf} remains at home" in current_situation
+                and "not participating in their scene" in current_situation
+            ) or (
+                f"{name_cf} is not participating" in current_situation
+            ):
+                excluded.add(str(name))
+
+        primary = str(location.get("primary", "") or "").casefold()
+
+        def location_matches_primary(person_location):
+            text = str(person_location or "").casefold()
+            if not text or not primary:
+                return False
+
+            # Common natural-language equivalents used by the current state
+            # schema. This avoids treating "At home" as a separate place from
+            # "Tony and Tiffany's home."
+            if "home" in primary and "home" in text:
+                return True
+            if "house" in primary and ("house" in text or "home" in text):
+                return True
+            if "garage" in primary and "garage" in text:
+                return True
+
+            # Otherwise require a meaningful shared phrase/token.
+            primary_words = {
+                word for word in re.findall(r"[a-z0-9]+", primary)
+                if len(word) >= 4 and word not in {"tony", "tiffany", "maya", "chloe"}
+            }
+            text_words = set(re.findall(r"[a-z0-9]+", text))
+            return bool(primary_words & text_words)
+
+        cast = []
+        for name, person_location in location.items():
+            if name == "primary" or str(name) in excluded:
                 continue
-            if primary and primary not in place_text.casefold():
-                separated.append(str(name))
+            if not location_matches_primary(person_location):
+                cast.append(str(name))
 
-        if separated:
-            return separated
-
-        # If the location structure does not distinguish people from the
-        # primary location, show all explicitly located characters.
-        return [str(name) for name in location if name != "primary"]
+        # If no reliable separation exists, fall back to every explicitly
+        # located character rather than inventing a cast list.
+        if cast:
+            return cast
+        return [str(name) for name in location if name != "primary" and str(name) not in excluded]
 
     def _apply_situation_edit(self):
         if self.package is None:
