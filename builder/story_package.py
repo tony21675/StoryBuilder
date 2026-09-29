@@ -31,7 +31,8 @@ class StoryPackage:
             "premise": "",
             "character_cards": [],
             "relationships": {},
-            "locations": {}
+            "locations": {},
+            "story_planning": {}
         }
         package.current_state = {
             "story_format_version": FORMAT_VERSION,
