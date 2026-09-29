@@ -7,6 +7,7 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 
 FORMAT_VERSION = "1.0"
+CORE_FILES = {"story_bible.json", "current_state.json"}
 
 
 class StoryPackage:
@@ -17,6 +18,7 @@ class StoryPackage:
         self.story_bible: dict = {}
         self.current_state: dict = {}
         self.characters: dict[str, dict] = {}
+        self.extra_json: dict[str, dict] = {}
 
     @classmethod
     def new(cls, title: str = "Untitled") -> "StoryPackage":
@@ -29,7 +31,7 @@ class StoryPackage:
             "premise": "",
             "character_cards": [],
             "relationships": {},
-            "locations": {},
+            "locations": {}
         }
         package.current_state = {
             "story_format_version": FORMAT_VERSION,
@@ -40,7 +42,7 @@ class StoryPackage:
             "location": "",
             "scene_cast": [],
             "events": [],
-            "continuity_notes": [],
+            "continuity_notes": []
         }
         return package
 
@@ -60,7 +62,12 @@ class StoryPackage:
             package.current_state = cls.new().current_state
 
         package.characters = {}
-        for filename in package.story_bible.get("character_cards", []):
+        listed_cards = package.story_bible.get("character_cards", [])
+
+        # Only files explicitly named in character_cards are loaded as editable
+        # character cards. Other root-level JSON files belong to the package's
+        # optional modules and must survive a StoryBuilder save unchanged.
+        for filename in listed_cards:
             path = folder / filename
             if not path.exists():
                 continue
@@ -72,15 +79,15 @@ class StoryPackage:
             except (OSError, json.JSONDecodeError):
                 continue
 
-        # Keep valid root-level character files even when the card list is stale.
+        package.extra_json = {}
         for path in folder.glob("*.json"):
-            if path.name in {"story_bible.json", "current_state.json"}:
+            if path.name in CORE_FILES or path.name in package.characters:
                 continue
             try:
                 with path.open("r", encoding="utf-8") as f:
                     data = json.load(f)
                 if isinstance(data, dict):
-                    package.characters.setdefault(path.name, data)
+                    package.extra_json[path.name] = data
             except (OSError, json.JSONDecodeError):
                 continue
 
@@ -98,7 +105,7 @@ class StoryPackage:
             raise ValueError("Character name cannot be empty.")
 
         filename = self.safe_filename(name)
-        if filename in self.characters:
+        if filename in self.characters or filename in self.extra_json:
             raise ValueError(f"{filename} already exists.")
 
         self.characters[filename] = {
@@ -109,7 +116,7 @@ class StoryPackage:
             "background": "",
             "occupation": "",
             "hair": "",
-            "eyes": "",
+            "eyes": ""
         }
         cards = self.story_bible.setdefault("character_cards", [])
         if filename not in cards:
@@ -147,14 +154,16 @@ class StoryPackage:
         for filename, data in self.characters.items():
             self._write_json_atomic(target / filename, data)
 
+        for filename, data in self.extra_json.items():
+            self._write_json_atomic(target / filename, data)
+
         for path in target.glob("*.json"):
-            if path.name in {"story_bible.json", "current_state.json"}:
+            if path.name in CORE_FILES or path.name in active or path.name in self.extra_json:
                 continue
-            if path.name not in active:
-                try:
-                    path.unlink()
-                except OSError:
-                    pass
+            try:
+                path.unlink()
+            except OSError:
+                pass
 
         return target
 
