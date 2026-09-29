@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "StoryBuilder / LocalStoryChat Novel Package",
+  "type": "object",
+  "properties": {
+    "story_format_version": {"type": "string"},
+    "title": {"type": "string"},
+    "version": {"type": "string"},
+    "status": {"type": "string"},
+    "premise": {"type": "string"},
+    "character_cards": {"type": "array", "items": {"type": "string"}}
+  },
+  "required": ["story_format_version", "title", "character_cards"]
+}
