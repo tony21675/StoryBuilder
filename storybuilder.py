@@ -49,6 +49,8 @@ class StoryBuilderApp(tk.Tk):
         self._build_chat_tab()
         self._build_story_tab()
         self._build_characters_tab()
+        self._build_relationships_tab()
+        self._build_locations_tab()
         self._build_state_tab()
         self._install_context_menus()
         self._install_spellchecking()
@@ -142,6 +144,52 @@ class StoryBuilderApp(tk.Tk):
             row=len(fields), column=1, sticky="e", pady=8
         )
         right.columnconfigure(1, weight=1)
+
+    def _build_relationships_tab(self):
+        tab = ttk.Frame(self.notebook, padding=12)
+        self.notebook.add(tab, text="Relationships")
+
+        ttk.Label(
+            tab,
+            text="Established relationships (one per line: Name-Name: relationship)",
+            font=("", 11, "bold"),
+        ).pack(anchor="w")
+        ttk.Label(
+            tab,
+            text="Edit relationship facts already stored in story_bible.json.",
+        ).pack(anchor="w", pady=(4, 10))
+
+        self.relationships_text = tk.Text(tab, wrap="word")
+        self.relationships_text.pack(fill="both", expand=True)
+
+        ttk.Button(
+            tab,
+            text="Apply Relationship Edits",
+            command=self._apply_relationship_edits,
+        ).pack(anchor="e", pady=(8, 0))
+
+    def _build_locations_tab(self):
+        tab = ttk.Frame(self.notebook, padding=12)
+        self.notebook.add(tab, text="Locations")
+
+        ttk.Label(
+            tab,
+            text="Established locations (one per line: location_id: description)",
+            font=("", 11, "bold"),
+        ).pack(anchor="w")
+        ttk.Label(
+            tab,
+            text="Edit location facts already stored in story_bible.json.",
+        ).pack(anchor="w", pady=(4, 10))
+
+        self.locations_text = tk.Text(tab, wrap="word")
+        self.locations_text.pack(fill="both", expand=True)
+
+        ttk.Button(
+            tab,
+            text="Apply Location Edits",
+            command=self._apply_location_edits,
+        ).pack(anchor="e", pady=(8, 0))
 
     def _build_state_tab(self):
         tab = ttk.Frame(self.notebook, padding=12)
@@ -283,6 +331,24 @@ class StoryBuilderApp(tk.Tk):
 
         self.dirty = True
 
+    def _apply_relationship_edits(self):
+        if self.package is None:
+            return
+        self.package.story_bible["relationships"] = self._parse_key_value_block(
+            self.relationships_text.get("1.0", "end-1c")
+        )
+        self.dirty = True
+        self._update_path_label()
+
+    def _apply_location_edits(self):
+        if self.package is None:
+            return
+        self.package.story_bible["locations"] = self._parse_key_value_block(
+            self.locations_text.get("1.0", "end-1c")
+        )
+        self.dirty = True
+        self._update_path_label()
+
     def _apply_state_edits(self):
         if self.package is None:
             return
@@ -312,6 +378,8 @@ class StoryBuilderApp(tk.Tk):
     def _apply_all_edits(self):
         self._apply_story_edits()
         self._apply_character_edits()
+        self._apply_relationship_edits()
+        self._apply_location_edits()
         self._apply_state_edits()
 
     def _add_character(self):
@@ -410,6 +478,18 @@ class StoryBuilderApp(tk.Tk):
         self.story_vars["status"].set(bible.get("status", "active"))
         self.premise_text.delete("1.0", "end")
         self.premise_text.insert("1.0", bible.get("premise", ""))
+
+        self.relationships_text.delete("1.0", "end")
+        self.relationships_text.insert(
+            "1.0",
+            self._format_key_value_block(bible.get("relationships", {})),
+        )
+
+        self.locations_text.delete("1.0", "end")
+        self.locations_text.insert(
+            "1.0",
+            self._format_key_value_block(bible.get("locations", {})),
+        )
 
         self._refresh_characters()
         state = self.package.current_state
@@ -562,6 +642,8 @@ class StoryBuilderApp(tk.Tk):
             *self.character_texts.values(),
             self.cast_text,
             self.notes_text,
+            self.relationships_text,
+            self.locations_text,
         ]
         for widget in self._spellcheck_text_widgets:
             widget.tag_configure("misspelled", underline=True)
