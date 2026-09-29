@@ -1039,6 +1039,12 @@ class StoryBuilderApp(tk.Tk):
             *self.character_texts.values(),
             self.cast_text,
             self.notes_text,
+            self.relationships_text,
+            self.locations_text,
+            self.module_text,
+            self.situation_text,
+            self.themes_text,
+            self.open_questions_text,
         ]
 
         # Find the Entry widgets associated with StringVars by walking the
