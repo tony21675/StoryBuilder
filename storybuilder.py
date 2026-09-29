@@ -51,6 +51,7 @@ class StoryBuilderApp(tk.Tk):
         self._build_characters_tab()
         self._build_relationships_tab()
         self._build_locations_tab()
+        self._build_modules_tab()
         self._build_state_tab()
         self._install_context_menus()
         self._install_spellchecking()
@@ -189,6 +190,45 @@ class StoryBuilderApp(tk.Tk):
             tab,
             text="Apply Location Edits",
             command=self._apply_location_edits,
+        ).pack(anchor="e", pady=(8, 0))
+
+    def _build_modules_tab(self):
+        tab = ttk.Frame(self.notebook, padding=12)
+        self.notebook.add(tab, text="Story Modules")
+
+        left = ttk.Frame(tab)
+        left.pack(side="left", fill="y", padx=(0, 12))
+
+        ttk.Label(
+            left,
+            text="Optional Modules",
+            font=("", 11, "bold"),
+        ).pack(anchor="w")
+
+        self.module_list = tk.Listbox(left, width=32, height=18)
+        self.module_list.pack(fill="y", expand=True, pady=(6, 8))
+        self.module_list.bind("<<ListboxSelect>>", self._select_module)
+
+        ttk.Button(left, text="Activate Module", command=lambda: self._set_module_status("active")).pack(
+            fill="x", pady=2
+        )
+        ttk.Button(left, text="Set Optional", command=lambda: self._set_module_status("optional")).pack(
+            fill="x", pady=2
+        )
+
+        right = ttk.Frame(tab)
+        right.pack(side="left", fill="both", expand=True)
+
+        self.module_info = ttk.Label(right, text="Select a module.", justify="left", anchor="w")
+        self.module_info.pack(fill="x", pady=(0, 8))
+
+        self.module_text = tk.Text(right, wrap="none", undo=True)
+        self.module_text.pack(fill="both", expand=True)
+
+        ttk.Button(
+            right,
+            text="Apply Module JSON",
+            command=self._apply_module_edits,
         ).pack(anchor="e", pady=(8, 0))
 
     def _build_state_tab(self):
@@ -349,6 +389,123 @@ class StoryBuilderApp(tk.Tk):
         self.dirty = True
         self._update_path_label()
 
+    def _refresh_modules(self, select_file=None):
+        self.module_list.delete(0, "end")
+        if self.package is None:
+            return
+
+        modules = self.package.story_bible.get("optional_story_modules", [])
+        selected_index = None
+
+        for index, module in enumerate(modules):
+            if not isinstance(module, dict):
+                continue
+            filename = str(module.get("file", "")).strip()
+            if not filename:
+                continue
+            data = self.package.extra_json.get(filename, {})
+            name = str(module.get("name") or data.get("name") or filename)
+            status = str(data.get("status", module.get("status", "optional")))
+            label = f"{name} [{status}]"
+            self.module_list.insert("end", label)
+            if filename == select_file:
+                selected_index = self.module_list.size() - 1
+
+        if selected_index is not None:
+            self.module_list.selection_set(selected_index)
+            self.module_list.see(selected_index)
+            self._select_module()
+
+    def _selected_module(self):
+        if self.package is None:
+            return None
+
+        selection = self.module_list.curselection()
+        if not selection:
+            return None
+
+        modules = [
+            module
+            for module in self.package.story_bible.get("optional_story_modules", [])
+            if isinstance(module, dict) and str(module.get("file", "")).strip()
+        ]
+        if selection[0] >= len(modules):
+            return None
+        return modules[selection[0]]
+
+    def _select_module(self, _event=None):
+        module = self._selected_module()
+        if module is None:
+            self.module_info.configure(text="Select a module.")
+            self.module_text.delete("1.0", "end")
+            return
+
+        filename = str(module.get("file", "")).strip()
+        data = self.package.extra_json.get(filename, {})
+        name = str(module.get("name") or data.get("name") or filename)
+        status = str(data.get("status", module.get("status", "optional")))
+        module_type = str(data.get("type", module.get("type", "story_module")))
+        char_files = module.get("character_files", [])
+
+        info = f"File: {filename}\nStatus: {status}\nType: {module_type}"
+        if char_files:
+            info += "\nCharacter files: " + ", ".join(map(str, char_files))
+        self.module_info.configure(text=info)
+
+        self.module_text.delete("1.0", "end")
+        self.module_text.insert(
+            "1.0",
+            json.dumps(data, indent=2, ensure_ascii=False),
+        )
+
+    def _apply_module_edits(self):
+        import json as _json
+        module = self._selected_module()
+        if module is None or self.package is None:
+            return
+
+        filename = str(module.get("file", "")).strip()
+        if not filename:
+            return
+
+        raw = self.module_text.get("1.0", "end-1c").strip()
+        if not raw:
+            messagebox.showerror("Module", "Module JSON cannot be empty.")
+            return
+
+        try:
+            data = _json.loads(raw)
+        except _json.JSONDecodeError as exc:
+            messagebox.showerror(
+                "Module",
+                f"Invalid JSON at line {exc.lineno}, column {exc.colno}.\n\n{exc.msg}",
+            )
+            return
+
+        if not isinstance(data, dict):
+            messagebox.showerror("Module", "Module JSON must contain an object at the top level.")
+            return
+
+        self.package.extra_json[filename] = data
+        self.dirty = True
+        self._refresh_modules(select_file=filename)
+        self._update_path_label()
+
+    def _set_module_status(self, status):
+        module = self._selected_module()
+        if module is None or self.package is None:
+            return
+
+        filename = str(module.get("file", "")).strip()
+        if not filename:
+            return
+
+        data = self.package.extra_json.setdefault(filename, {})
+        data["status"] = status
+        self.dirty = True
+        self._refresh_modules(select_file=filename)
+        self._update_path_label()
+
     def _apply_state_edits(self):
         if self.package is None:
             return
@@ -492,6 +649,7 @@ class StoryBuilderApp(tk.Tk):
         )
 
         self._refresh_characters()
+        self._refresh_modules()
         state = self.package.current_state
         self.state_vars["chapter"].set(str(state.get("chapter", "")))
         self.state_vars["scene"].set(str(state.get("scene", "")))
@@ -643,6 +801,8 @@ class StoryBuilderApp(tk.Tk):
             self.cast_text,
             self.notes_text,
             self.relationships_text,
+            self.locations_text,
+            self.module_text,
             self.locations_text,
         ]
         for widget in self._spellcheck_text_widgets:
