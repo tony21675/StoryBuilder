@@ -44,6 +44,7 @@ class StoryBuilderApp(tk.Tk):
         self._build_story_tab()
         self._build_characters_tab()
         self._build_state_tab()
+        self._install_context_menus()
 
     def _build_chat_tab(self):
         tab = ttk.Frame(self.notebook, padding=12)
@@ -122,7 +123,8 @@ class StoryBuilderApp(tk.Tk):
                 self.character_texts[key] = widget
             else:
                 var = tk.StringVar()
-                ttk.Entry(right, textvariable=var).grid(row=row, column=1, sticky="ew", pady=5)
+                entry = ttk.Entry(right, textvariable=var)
+                entry.grid(row=row, column=1, sticky="ew", pady=5)
                 self.character_vars[key] = var
 
         ttk.Button(right, text="Apply Character Edits", command=self._apply_character_edits).grid(
@@ -145,7 +147,8 @@ class StoryBuilderApp(tk.Tk):
         for row, (key, label) in enumerate(fields):
             ttk.Label(tab, text=label).grid(row=row, column=0, sticky="w", pady=5)
             var = tk.StringVar()
-            ttk.Entry(tab, textvariable=var, width=60).grid(row=row, column=1, sticky="ew", pady=5)
+            entry = ttk.Entry(tab, textvariable=var, width=60)
+            entry.grid(row=row, column=1, sticky="ew", pady=5)
             self.state_vars[key] = var
 
         ttk.Label(tab, text="Scene Cast (one name per line)").grid(row=5, column=0, sticky="nw", pady=5)
@@ -359,6 +362,51 @@ class StoryBuilderApp(tk.Tk):
         if result.changed:
             self.dirty = True
             self._refresh_all()
+
+    def _install_context_menus(self):
+        # Tkinter provides keyboard clipboard shortcuts, but does not create
+        # a right-click context menu automatically on Linux. Add one to every
+        # text-entry widget used by StoryBuilder.
+        widgets = [
+            self.command_entry,
+            self.premise_text,
+            *self.character_texts.values(),
+            self.cast_text,
+            self.notes_text,
+        ]
+
+        # Find the Entry widgets associated with StringVars by walking the
+        # widget tree. This keeps the data model unchanged.
+        widgets.extend(self._find_entry_widgets(self))
+
+        for widget in widgets:
+            self._add_context_menu(widget)
+
+    @staticmethod
+    def _find_entry_widgets(root):
+        entries = []
+        for child in root.winfo_children():
+            if isinstance(child, ttk.Entry):
+                entries.append(child)
+            entries.extend(StoryBuilderApp._find_entry_widgets(child))
+        return entries
+
+    @staticmethod
+    def _add_context_menu(widget):
+        menu = tk.Menu(widget, tearoff=0)
+        menu.add_command(label="Cut", command=lambda w=widget: w.event_generate("<<Cut>>"))
+        menu.add_command(label="Copy", command=lambda w=widget: w.event_generate("<<Copy>>"))
+        menu.add_command(label="Paste", command=lambda w=widget: w.event_generate("<<Paste>>"))
+        menu.add_separator()
+        menu.add_command(label="Select All", command=lambda w=widget: w.event_generate("<<SelectAll>>"))
+
+        def show_menu(event):
+            try:
+                menu.tk_popup(event.x_root, event.y_root)
+            finally:
+                menu.grab_release()
+
+        widget.bind("<Button-3>", show_menu, add="+")
 
     def _chat(self, speaker, message):
         self.chat_log.configure(state="normal")
