@@ -8,6 +8,7 @@ StoryBuilder is a small standalone desktop utility for creating and maintaining 
 - Open an existing novel package
 - Edit title, premise, and basic story metadata
 - Add, edit, and remove character cards
+- Guided novel setup through a question-and-answer flow
 - Edit current chapter/scene state
 - Make simple natural-language changes such as:
   - "Change Maya's age to 22"
@@ -52,4 +53,4 @@ The first version uses Python's standard library and Tkinter only.
 
 ## Roadmap
 
-The next layer is the guided novel-building conversation: StoryBuilder will ask questions about the novel, characters, relationships, setting, and starting state, then write the answers into the package. A small optional local LLM can later help interpret natural-language answers without becoming the source of truth for the package structure.
+The guided setup flow now asks about the novel, characters, relationships, locations, and starting state, then writes the answers directly into the package. A small optional local LLM can later help interpret richer natural-language answers without becoming the source of truth for the package.
