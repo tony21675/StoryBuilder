@@ -442,8 +442,12 @@ class StoryBuilderApp(tk.Tk):
         self.state_vars["location"].set(location_display)
         self.cast_text.delete("1.0", "end")
         self.cast_text.insert("1.0", "\n".join(map(str, state.get("scene_cast", []))))
+
+        continuity = state.get("continuity_notes")
+        if not continuity:
+            continuity = state.get("continuity_requirements", [])
         self.notes_text.delete("1.0", "end")
-        self.notes_text.insert("1.0", "\n".join(map(str, state.get("continuity_notes", []))))
+        self.notes_text.insert("1.0", "\n".join(map(str, continuity)))
         self.situation_text.delete("1.0", "end")
         self.situation_text.insert("1.0", str(state.get("current_situation", "")))
         self._update_path_label()
