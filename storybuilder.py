@@ -1066,19 +1066,53 @@ class StoryBuilderApp(tk.Tk):
     @staticmethod
     def _add_context_menu(widget):
         menu = tk.Menu(widget, tearoff=0)
-        menu.add_command(label="Cut", command=lambda w=widget: w.event_generate("<<Cut>>"))
-        menu.add_command(label="Copy", command=lambda w=widget: w.event_generate("<<Copy>>"))
-        menu.add_command(label="Paste", command=lambda w=widget: w.event_generate("<<Paste>>"))
+
+        def cut():
+            try:
+                widget.focus_set()
+                widget.event_generate("<<Cut>>")
+            except tk.TclError:
+                pass
+
+        def copy():
+            try:
+                widget.focus_set()
+                widget.event_generate("<<Copy>>")
+            except tk.TclError:
+                pass
+
+        def paste():
+            try:
+                widget.focus_set()
+                widget.event_generate("<<Paste>>")
+            except tk.TclError:
+                pass
+
+        def select_all():
+            try:
+                widget.focus_set()
+                widget.event_generate("<<SelectAll>>")
+            except tk.TclError:
+                pass
+
+        menu.add_command(label="Cut", command=cut)
+        menu.add_command(label="Copy", command=copy)
+        menu.add_command(label="Paste", command=paste)
         menu.add_separator()
-        menu.add_command(label="Select All", command=lambda w=widget: w.event_generate("<<SelectAll>>"))
+        menu.add_command(label="Select All", command=select_all)
 
         def show_menu(event):
             try:
+                widget.focus_set()
                 menu.tk_popup(event.x_root, event.y_root)
             finally:
                 menu.grab_release()
 
         widget.bind("<Button-3>", show_menu, add="+")
+        widget.bind("<Control-x>", lambda _event: (cut(), "break")[1], add="+")
+        widget.bind("<Control-c>", lambda _event: (copy(), "break")[1], add="+")
+        widget.bind("<Control-v>", lambda _event: (paste(), "break")[1], add="+")
+        widget.bind("<Control-a>", lambda _event: (select_all(), "break")[1], add="+")
 
     def _chat(self, speaker, message):
         self.chat_log.configure(state="normal")
