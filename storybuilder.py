@@ -55,6 +55,7 @@ class StoryBuilderApp(tk.Tk):
         self._build_relationships_tab()
         self._build_locations_tab()
         self._build_modules_tab()
+        self._build_planning_tab()
         self._build_state_tab()
         self._install_context_menus()
         self._install_spellchecking()
@@ -235,6 +236,48 @@ class StoryBuilderApp(tk.Tk):
             text="Apply Module JSON",
             command=self._apply_module_edits,
         ).pack(anchor="e", pady=(8, 0))
+
+
+    def _build_planning_tab(self):
+        tab = ttk.Frame(self.notebook, padding=12)
+        self.notebook.add(tab, text="Story Planning")
+
+        ttk.Label(
+            tab,
+            text="Optional story planning",
+            font=("", 12, "bold"),
+        ).pack(anchor="w")
+        ttk.Label(
+            tab,
+            text="These are planning facts, not requirements. Leave unknown items blank and come back later.",
+        ).pack(anchor="w", pady=(4, 10))
+
+        fields = [
+            ("genre", "Genre"),
+            ("tone", "Tone"),
+            ("core_conflict", "Central Conflict"),
+            ("opposition", "Opposition / Antagonist"),
+            ("setting", "Setting / World"),
+            ("important_elements", "Important Elements"),
+        ]
+        self.planning_vars = {}
+        for key, label in fields:
+            frame = ttk.Frame(tab)
+            frame.pack(fill="x", pady=4)
+            ttk.Label(frame, text=label, width=24).pack(side="left", anchor="nw")
+            var = tk.StringVar()
+            ttk.Entry(frame, textvariable=var).pack(side="left", fill="x", expand=True)
+            self.planning_vars[key] = var
+
+        ttk.Label(tab, text="Themes (one per line)").pack(anchor="w", pady=(8, 2))
+        self.themes_text = tk.Text(tab, height=5, wrap="word")
+        self.themes_text.pack(fill="x")
+
+        ttk.Label(tab, text="Open Questions / Undecided Details (one per line)").pack(anchor="w", pady=(8, 2))
+        self.open_questions_text = tk.Text(tab, height=7, wrap="word")
+        self.open_questions_text.pack(fill="both", expand=True)
+
+        ttk.Button(tab, text="Apply Story Planning", command=self._apply_planning_edits).pack(anchor="e", pady=(8, 0))
 
     def _build_state_tab(self):
         tab = ttk.Frame(self.notebook, padding=12)
@@ -536,6 +579,33 @@ class StoryBuilderApp(tk.Tk):
         self._refresh_modules(select_file=filename)
         self._update_path_label()
 
+
+    def _apply_planning_edits(self):
+        if self.package is None:
+            return
+        planning = self.package.story_bible.setdefault("story_planning", {})
+        for key, var in self.planning_vars.items():
+            value = var.get().strip()
+            if value:
+                planning[key] = value
+            else:
+                planning.pop(key, None)
+
+        themes = self._lines(self.themes_text)
+        if themes:
+            planning["themes"] = themes
+        else:
+            planning.pop("themes", None)
+
+        questions = self._lines(self.open_questions_text)
+        if questions:
+            planning["open_questions"] = questions
+        else:
+            planning.pop("open_questions", None)
+
+        self.dirty = True
+        self._update_path_label()
+
     def _apply_state_edits(self):
         if self.package is None:
             return
@@ -573,6 +643,7 @@ class StoryBuilderApp(tk.Tk):
 
     def _apply_all_edits(self):
         self._apply_story_edits()
+        self._apply_planning_edits()
         self._apply_character_edits()
         self._apply_relationship_edits()
         self._apply_location_edits()
@@ -674,6 +745,18 @@ class StoryBuilderApp(tk.Tk):
         self.story_vars["status"].set(bible.get("status", "active"))
         self.premise_text.delete("1.0", "end")
         self.premise_text.insert("1.0", bible.get("premise", ""))
+
+        planning = bible.get("story_planning", {})
+        if not isinstance(planning, dict):
+            planning = {}
+        for key, var in self.planning_vars.items():
+            var.set(str(planning.get(key, "") or ""))
+
+        self.themes_text.delete("1.0", "end")
+        self.themes_text.insert("1.0", "\n".join(map(str, planning.get("themes", []) or [])))
+
+        self.open_questions_text.delete("1.0", "end")
+        self.open_questions_text.insert("1.0", "\n".join(map(str, planning.get("open_questions", []) or [])))
 
         self.relationships_text.delete("1.0", "end")
         self.relationships_text.insert(
@@ -867,6 +950,8 @@ class StoryBuilderApp(tk.Tk):
             self.locations_text,
             self.module_text,
             self.situation_text,
+            self.themes_text,
+            self.open_questions_text,
         ]
         for widget in self._spellcheck_text_widgets:
             widget.tag_configure("misspelled", underline=True)
