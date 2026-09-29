@@ -441,7 +441,10 @@ class StoryBuilderApp(tk.Tk):
             location_display = str(location_data or "")
         self.state_vars["location"].set(location_display)
         self.cast_text.delete("1.0", "end")
-        self.cast_text.insert("1.0", "\n".join(map(str, state.get("scene_cast", []))))
+        scene_cast = state.get("scene_cast")
+        if not scene_cast:
+            scene_cast = self._infer_scene_cast(state)
+        self.cast_text.insert("1.0", "\n".join(map(str, scene_cast)))
 
         continuity = state.get("continuity_notes")
         if not continuity:
@@ -451,6 +454,33 @@ class StoryBuilderApp(tk.Tk):
         self.situation_text.delete("1.0", "end")
         self.situation_text.insert("1.0", str(state.get("current_situation", "")))
         self._update_path_label()
+
+    @staticmethod
+    def _infer_scene_cast(state):
+        location = state.get("location", {})
+        if not isinstance(location, dict):
+            return []
+
+        # Prefer people explicitly described as being somewhere other than the
+        # primary location. This matches the existing LocalStoryChat state
+        # structure without inventing a new fact.
+        primary = str(location.get("primary", "")).strip().casefold()
+        separated = []
+        for name, place in location.items():
+            if name == "primary":
+                continue
+            place_text = str(place).strip()
+            if not place_text:
+                continue
+            if primary and primary not in place_text.casefold():
+                separated.append(str(name))
+
+        if separated:
+            return separated
+
+        # If the location structure does not distinguish people from the
+        # primary location, show all explicitly located characters.
+        return [str(name) for name in location if name != "primary"]
 
     def _apply_situation_edit(self):
         if self.package is None:
