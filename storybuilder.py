@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 import shutil
 import subprocess
@@ -353,21 +354,41 @@ class StoryBuilderApp(tk.Tk):
             else:
                 char[key] = value
 
-        char["description"] = self.character_texts["description"].get("1.0", "end-1c").strip()
-        char["personality"] = self._parse_multivalue(
+        description = self.character_texts["description"].get("1.0", "end-1c").strip()
+        if description or "description" in char:
+            char["description"] = description
+
+        personality = self._parse_multivalue(
             self.character_texts["personality"].get("1.0", "end-1c")
         )
-        char["background"] = self.character_texts["background"].get("1.0", "end-1c").strip()
-        char["appearance"] = self._parse_key_value_block(
+        if personality or "personality" in char:
+            char["personality"] = personality
+
+        background = self.character_texts["background"].get("1.0", "end-1c").strip()
+        if background or "background" in char:
+            char["background"] = background
+
+        appearance = self._parse_key_value_block(
             self.character_texts["appearance"].get("1.0", "end-1c")
         )
-        char["relationships"] = self._parse_key_value_block(
+        if appearance or "appearance" in char:
+            char["appearance"] = appearance
+
+        relationships = self._parse_key_value_block(
             self.character_texts["relationships"].get("1.0", "end-1c")
         )
-        char["important_items"] = self._parse_key_value_block(
+        if relationships or "relationships" in char:
+            char["relationships"] = relationships
+
+        important_items = self._parse_key_value_block(
             self.character_texts["important_items"].get("1.0", "end-1c")
         )
-        char["knowledge_rule"] = self.character_texts["knowledge_rule"].get("1.0", "end-1c").strip()
+        if important_items or "important_items" in char:
+            char["important_items"] = important_items
+
+        knowledge_rule = self.character_texts["knowledge_rule"].get("1.0", "end-1c").strip()
+        if knowledge_rule or "knowledge_rule" in char:
+            char["knowledge_rule"] = knowledge_rule
 
         self.dirty = True
 
@@ -459,7 +480,6 @@ class StoryBuilderApp(tk.Tk):
         )
 
     def _apply_module_edits(self):
-        import json as _json
         module = self._selected_module()
         if module is None or self.package is None:
             return
@@ -474,7 +494,7 @@ class StoryBuilderApp(tk.Tk):
             return
 
         try:
-            data = _json.loads(raw)
+            data = json.loads(raw)
         except _json.JSONDecodeError as exc:
             messagebox.showerror(
                 "Module",
@@ -528,8 +548,17 @@ class StoryBuilderApp(tk.Tk):
         else:
             state["location"] = location_text
 
-        state["scene_cast"] = self._lines(self.cast_text)
-        state["continuity_notes"] = self._lines(self.notes_text)
+        inferred_cast = self._infer_scene_cast(state)
+        entered_cast = self._lines(self.cast_text)
+        if "scene_cast" in state or entered_cast != inferred_cast:
+            state["scene_cast"] = entered_cast
+
+        entered_notes = self._lines(self.notes_text)
+        existing_notes = state.get("continuity_notes")
+        if existing_notes is None:
+            existing_notes = state.get("continuity_requirements", [])
+        if "continuity_notes" in state or entered_notes != list(map(str, existing_notes)):
+            state["continuity_notes"] = entered_notes
         self.dirty = True
 
     def _apply_all_edits(self):
