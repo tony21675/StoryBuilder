@@ -112,13 +112,16 @@ class StoryBuilderApp(tk.Tk):
 
         fields = [
             ("name", "Name", False),
+            ("role", "Role", False),
             ("age", "Age", False),
             ("description", "Description", True),
             ("personality", "Personality", True),
             ("background", "Background", True),
             ("occupation", "Occupation", False),
-            ("hair", "Hair", False),
-            ("eyes", "Eyes", False),
+            ("appearance", "Appearance", True),
+            ("relationships", "Relationships", True),
+            ("important_items", "Important Items", True),
+            ("knowledge_rule", "Knowledge Rule", True),
         ]
         self.character_vars = {}
         self.character_texts = {}
@@ -168,9 +171,15 @@ class StoryBuilderApp(tk.Tk):
         self.notes_text.grid(row=6, column=1, sticky="nsew", pady=5)
 
         ttk.Button(tab, text="Apply State Edits", command=self._apply_state_edits).grid(row=7, column=1, sticky="e", pady=8)
+        ttk.Label(tab, text="Current Situation").grid(row=8, column=0, sticky="nw", pady=5)
+        self.situation_text = tk.Text(tab, height=5, wrap="word")
+        self.situation_text.grid(row=8, column=1, sticky="nsew", pady=5)
+        ttk.Button(tab, text="Apply Situation", command=self._apply_situation_edit).grid(row=9, column=1, sticky="e", pady=8)
+
         tab.columnconfigure(1, weight=1)
         tab.rowconfigure(5, weight=1)
         tab.rowconfigure(6, weight=1)
+        tab.rowconfigure(8, weight=1)
 
     def _new_novel(self):
         self.package = StoryPackage.new()
@@ -248,27 +257,56 @@ class StoryBuilderApp(tk.Tk):
         if self.package is None or self.character_filename is None:
             return
         char = self.package.characters[self.character_filename]
+
         for key, var in self.character_vars.items():
             value = var.get().strip()
             if key == "age":
                 char[key] = int(value) if value.isdigit() else (None if not value else value)
             else:
                 char[key] = value
-        for key, widget in self.character_texts.items():
-            char[key] = widget.get("1.0", "end-1c").strip()
+
+        char["description"] = self.character_texts["description"].get("1.0", "end-1c").strip()
+        char["personality"] = self._parse_multivalue(
+            self.character_texts["personality"].get("1.0", "end-1c")
+        )
+        char["background"] = self.character_texts["background"].get("1.0", "end-1c").strip()
+        char["appearance"] = self._parse_key_value_block(
+            self.character_texts["appearance"].get("1.0", "end-1c")
+        )
+        char["relationships"] = self._parse_key_value_block(
+            self.character_texts["relationships"].get("1.0", "end-1c")
+        )
+        char["important_items"] = self._parse_key_value_block(
+            self.character_texts["important_items"].get("1.0", "end-1c")
+        )
+        char["knowledge_rule"] = self.character_texts["knowledge_rule"].get("1.0", "end-1c").strip()
+
         self.dirty = True
 
     def _apply_state_edits(self):
         if self.package is None:
             return
+        state = self.package.current_state
         chapter = self.state_vars["chapter"].get().strip()
         scene = self.state_vars["scene"].get().strip()
-        self.package.current_state["chapter"] = int(chapter) if chapter.isdigit() else 1
-        self.package.current_state["scene"] = int(scene) if scene.isdigit() else 1
-        for key in ("status", "time_of_day", "location"):
-            self.package.current_state[key] = self.state_vars[key].get().strip()
-        self.package.current_state["scene_cast"] = self._lines(self.cast_text)
-        self.package.current_state["continuity_notes"] = self._lines(self.notes_text)
+        state["chapter"] = int(chapter) if chapter.isdigit() else 1
+        state["scene"] = int(scene) if scene.isdigit() else 1
+        state["status"] = self.state_vars["status"].get().strip()
+
+        time_text = self.state_vars["time_of_day"].get().strip()
+        if isinstance(state.get("time"), dict):
+            state["time"]["period"] = time_text
+        else:
+            state["time_of_day"] = time_text
+
+        location_text = self.state_vars["location"].get().strip()
+        if isinstance(state.get("location"), dict):
+            state["location"]["primary"] = location_text
+        else:
+            state["location"] = location_text
+
+        state["scene_cast"] = self._lines(self.cast_text)
+        state["continuity_notes"] = self._lines(self.notes_text)
         self.dirty = True
 
     def _apply_all_edits(self):
@@ -318,9 +356,50 @@ class StoryBuilderApp(tk.Tk):
         for key, var in self.character_vars.items():
             value = char.get(key, "")
             var.set("" if value is None else str(value))
-        for key, widget in self.character_texts.items():
-            widget.delete("1.0", "end")
-            widget.insert("1.0", str(char.get(key, "")))
+
+        self._set_character_text("description", char.get("description", ""))
+        self._set_character_text("background", char.get("background", ""))
+        self._set_character_text("knowledge_rule", char.get("knowledge_rule", ""))
+        self._set_character_text("personality", self._format_multivalue(char.get("personality", [])))
+        self._set_character_text("appearance", self._format_key_value_block(char.get("appearance", {})))
+        self._set_character_text("relationships", self._format_key_value_block(char.get("relationships", {})))
+        self._set_character_text("important_items", self._format_key_value_block(char.get("important_items", {})))
+
+    def _set_character_text(self, key, value):
+        widget = self.character_texts.get(key)
+        if widget is None:
+            return
+        widget.delete("1.0", "end")
+        widget.insert("1.0", str(value))
+
+    @staticmethod
+    def _format_multivalue(value):
+        if isinstance(value, list):
+            return "\n".join(str(item) for item in value)
+        return str(value or "")
+
+    @staticmethod
+    def _parse_multivalue(value):
+        return [line.strip() for line in value.splitlines() if line.strip()]
+
+    @staticmethod
+    def _format_key_value_block(value):
+        if not isinstance(value, dict):
+            return str(value or "")
+        return "\n".join(f"{key}: {val}" for key, val in value.items())
+
+    @staticmethod
+    def _parse_key_value_block(value):
+        result = {}
+        for line in value.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            if ":" not in line:
+                continue
+            key, val = line.split(":", 1)
+            result[key.strip()] = val.strip()
+        return result
 
     def _refresh_all(self):
         if self.package is None:
@@ -334,12 +413,46 @@ class StoryBuilderApp(tk.Tk):
 
         self._refresh_characters()
         state = self.package.current_state
-        for key in ("chapter", "scene", "status", "time_of_day", "location"):
-            self.state_vars[key].set(str(state.get(key, "")))
+        self.state_vars["chapter"].set(str(state.get("chapter", "")))
+        self.state_vars["scene"].set(str(state.get("scene", "")))
+        self.state_vars["status"].set(str(state.get("status", "")))
+
+        time_data = state.get("time", state.get("time_of_day", ""))
+        if isinstance(time_data, dict):
+            period = time_data.get("period", "")
+            exact = time_data.get("exact_time", "")
+            time_display = period if not exact or exact == "not established" else f"{period} ({exact})"
+        else:
+            time_display = str(time_data or "")
+        self.state_vars["time_of_day"].set(time_display)
+
+        location_data = state.get("location", "")
+        if isinstance(location_data, dict):
+            primary = str(location_data.get("primary", "") or "")
+            people = [
+                f"{name}: {value}"
+                for name, value in location_data.items()
+                if name != "primary"
+            ]
+            location_display = primary
+            if people:
+                location_display += " | " + " | ".join(people)
+        else:
+            location_display = str(location_data or "")
+        self.state_vars["location"].set(location_display)
         self.cast_text.delete("1.0", "end")
         self.cast_text.insert("1.0", "\n".join(map(str, state.get("scene_cast", []))))
         self.notes_text.delete("1.0", "end")
         self.notes_text.insert("1.0", "\n".join(map(str, state.get("continuity_notes", []))))
+        self.situation_text.delete("1.0", "end")
+        self.situation_text.insert("1.0", str(state.get("current_situation", "")))
+        self._update_path_label()
+
+    def _apply_situation_edit(self):
+        if self.package is None:
+            return
+        self.package.current_state["current_situation"] = self.situation_text.get("1.0", "end-1c").strip()
+        self.dirty = True
         self._update_path_label()
 
     def _refresh_characters(self, select_filename=None):
