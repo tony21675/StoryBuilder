@@ -819,6 +819,9 @@ class StoryBuilderApp(tk.Tk):
             return
 
         self._apply_all_edits()
+        # Guided setup writes directly to the package. Do not let stale editor
+        # selection state cause a later chat answer to overwrite a character.
+        self.character_filename = None
         message = self.guided_setup.start(self.package)
         self.guided_button.configure(text="Stop Guided Setup")
         self._chat("Builder", message)
