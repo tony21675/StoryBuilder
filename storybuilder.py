@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import re
+import shutil
+import subprocess
+import threading
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, simpledialog, ttk
@@ -19,6 +23,8 @@ class StoryBuilderApp(tk.Tk):
         self.package: StoryPackage | None = None
         self.character_filename: str | None = None
         self.dirty = False
+        self.spellcheck_available = shutil.which("aspell") is not None
+        self._spellcheck_jobs = {}
 
         self._build_ui()
         self._new_novel()
@@ -45,6 +51,7 @@ class StoryBuilderApp(tk.Tk):
         self._build_characters_tab()
         self._build_state_tab()
         self._install_context_menus()
+        self._install_spellchecking()
 
     def _build_chat_tab(self):
         tab = ttk.Frame(self.notebook, padding=12)
@@ -63,7 +70,8 @@ class StoryBuilderApp(tk.Tk):
         row.pack(fill="x", pady=(10, 0))
         self.command_entry = ttk.Entry(row)
         self.command_entry.pack(side="left", fill="x", expand=True)
-        self.command_entry.bind("<Return>", lambda _e: self._run_command())
+        self.command_entry.bind("<Return>", self._submit_on_enter)
+        self.command_entry.bind("<KP_Enter>", self._submit_on_enter)
         ttk.Button(row, text="Apply Change", command=self._run_command).pack(side="left", padx=(8, 0))
         self._chat("Builder", "Ready. Tell me what you want to change.")
 
@@ -362,6 +370,94 @@ class StoryBuilderApp(tk.Tk):
         if result.changed:
             self.dirty = True
             self._refresh_all()
+
+    def _submit_on_enter(self, _event=None):
+        self._run_command()
+        return "break"
+
+    def _install_spellchecking(self):
+        self._spellcheck_text_widgets = [
+            self.premise_text,
+            *self.character_texts.values(),
+            self.cast_text,
+            self.notes_text,
+        ]
+        for widget in self._spellcheck_text_widgets:
+            widget.tag_configure("misspelled", underline=True)
+            widget.bind("<<Modified>>", self._schedule_spellcheck, add="+")
+            widget.edit_modified(False)
+
+        if not self.spellcheck_available:
+            self._chat(
+                "Builder",
+                "Live spell check is available when the system 'aspell' program is installed."
+            )
+
+    def _schedule_spellcheck(self, event=None):
+        widget = event.widget if event is not None else None
+        if widget is None or widget not in self._spellcheck_text_widgets:
+            return
+
+        try:
+            widget.edit_modified(False)
+        except tk.TclError:
+            return
+
+        job = self._spellcheck_jobs.get(widget)
+        if job is not None:
+            try:
+                self.after_cancel(job)
+            except tk.TclError:
+                pass
+
+        self._spellcheck_jobs[widget] = self.after(450, lambda w=widget: self._spellcheck_widget(w))
+
+    def _spellcheck_widget(self, widget):
+        self._spellcheck_jobs.pop(widget, None)
+        if not self.spellcheck_available:
+            return
+
+        text = widget.get("1.0", "end-1c")
+        if not text.strip():
+            widget.tag_remove("misspelled", "1.0", "end")
+            return
+
+        def check_in_background(source_text):
+            try:
+                proc = subprocess.run(
+                    ["aspell", "--lang=en_US", "list"],
+                    input=source_text,
+                    text=True,
+                    capture_output=True,
+                    timeout=2,
+                    check=False,
+                )
+                words = {line.strip().lower() for line in proc.stdout.splitlines() if line.strip()}
+            except (OSError, subprocess.SubprocessError):
+                words = None
+
+            self.after(0, lambda: self._apply_spellcheck_result(widget, source_text, words))
+
+        threading.Thread(target=check_in_background, args=(text,), daemon=True).start()
+
+    def _apply_spellcheck_result(self, widget, source_text, misspelled):
+        try:
+            current_text = widget.get("1.0", "end-1c")
+        except tk.TclError:
+            return
+
+        if current_text != source_text or misspelled is None:
+            return
+
+        widget.tag_remove("misspelled", "1.0", "end")
+
+        for match in re.finditer(r"\b[A-Za-z][A-Za-z'-]*\b", source_text):
+            word = match.group(0)
+            if word.lower() not in misspelled:
+                continue
+            start = f"1.0+{match.start()}c"
+            end = f"1.0+{match.end()}c"
+            widget.tag_add("misspelled", start, end)
 
     def _install_context_menus(self):
         # Tkinter provides keyboard clipboard shortcuts, but does not create
