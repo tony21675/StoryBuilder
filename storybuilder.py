@@ -10,6 +10,7 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, simpledialog, ttk
 
 from builder.conversation import apply_command
+from builder.guided_setup import GuidedSetupSession
 from builder.story_package import StoryPackage
 from builder.validator import validate_package
 
@@ -24,6 +25,7 @@ class StoryBuilderApp(tk.Tk):
         self.package: StoryPackage | None = None
         self.character_filename: str | None = None
         self.dirty = False
+        self.guided_setup = GuidedSetupSession()
         self.spellcheck_available = shutil.which("aspell") is not None
         self._spellcheck_jobs = {}
 
@@ -77,6 +79,8 @@ class StoryBuilderApp(tk.Tk):
         self.command_entry.bind("<Return>", self._submit_on_enter)
         self.command_entry.bind("<KP_Enter>", self._submit_on_enter)
         ttk.Button(row, text="Apply Change", command=self._run_command).pack(side="left", padx=(8, 0))
+        self.guided_button = ttk.Button(row, text="Guided Setup", command=self._toggle_guided_setup)
+        self.guided_button.pack(side="left", padx=(8, 0))
         self._chat("Builder", "Ready. Tell me what you want to change.")
 
     def _build_story_tab(self):
@@ -271,6 +275,9 @@ class StoryBuilderApp(tk.Tk):
         tab.rowconfigure(8, weight=1)
 
     def _new_novel(self):
+        self.guided_setup.stop()
+        if hasattr(self, "guided_button"):
+            self.guided_button.configure(text="Guided Setup")
         self.package = StoryPackage.new()
         self.character_filename = None
         self.dirty = True
@@ -278,6 +285,9 @@ class StoryBuilderApp(tk.Tk):
         self._chat("Builder", "New novel created.")
 
     def _open_novel(self):
+        self.guided_setup.stop()
+        if hasattr(self, "guided_button"):
+            self.guided_button.configure(text="Guided Setup")
         folder = filedialog.askdirectory(title="Open Novel Package")
         if not folder:
             return
@@ -495,7 +505,7 @@ class StoryBuilderApp(tk.Tk):
 
         try:
             data = json.loads(raw)
-        except _json.JSONDecodeError as exc:
+        except json.JSONDecodeError as exc:
             messagebox.showerror(
                 "Module",
                 f"Invalid JSON at line {exc.lineno}, column {exc.colno}.\n\n{exc.msg}",
@@ -695,15 +705,9 @@ class StoryBuilderApp(tk.Tk):
 
         location_data = state.get("location", "")
         if isinstance(location_data, dict):
-            primary = str(location_data.get("primary", "") or "")
-            people = [
-                f"{name}: {value}"
-                for name, value in location_data.items()
-                if name != "primary"
-            ]
-            location_display = primary
-            if people:
-                location_display += " | " + " | ".join(people)
+            # Only edit the authoritative primary location here. Preserve any
+            # per-character location entries already stored in nested state.
+            location_display = str(location_data.get("primary", "") or "")
         else:
             location_display = str(location_data or "")
         self.state_vars["location"].set(location_display)
@@ -804,6 +808,21 @@ class StoryBuilderApp(tk.Tk):
             self.character_list.see(selected_index)
             self._select_character()
 
+
+    def _toggle_guided_setup(self):
+        if self.package is None:
+            return
+        if self.guided_setup.active:
+            message = self.guided_setup.stop()
+            self.guided_button.configure(text="Guided Setup")
+            self._chat("Builder", message)
+            return
+
+        self._apply_all_edits()
+        message = self.guided_setup.start(self.package)
+        self.guided_button.configure(text="Stop Guided Setup")
+        self._chat("Builder", message)
+
     def _run_command(self):
         if self.package is None:
             return
@@ -811,10 +830,22 @@ class StoryBuilderApp(tk.Tk):
         command = self.command_entry.get().strip()
         if not command:
             return
+
         self._chat("You", command)
+        self.command_entry.delete(0, "end")
+
+        if self.guided_setup.active:
+            result = self.guided_setup.handle(self.package, command)
+            self._chat("Builder", result.message)
+            if not result.error:
+                self.dirty = True
+                self._refresh_all()
+            if result.complete:
+                self.guided_button.configure(text="Guided Setup")
+            return
+
         result = apply_command(self.package, command)
         self._chat("Builder", result.message)
-        self.command_entry.delete(0, "end")
         if result.changed:
             self.dirty = True
             self._refresh_all()
@@ -832,7 +863,7 @@ class StoryBuilderApp(tk.Tk):
             self.relationships_text,
             self.locations_text,
             self.module_text,
-            self.locations_text,
+            self.situation_text,
         ]
         for widget in self._spellcheck_text_widgets:
             widget.tag_configure("misspelled", underline=True)
