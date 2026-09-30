@@ -55,6 +55,26 @@ def extract_json_object(text: str) -> dict[str, Any]:
     raise ValueError("The continuity manager did not return a JSON object.")
 
 
+def remove_unchanged(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
+    """Remove values that are identical to the baseline."""
+    result: dict[str, Any] = {}
+
+    for key, value in patch.items():
+        if key not in base:
+            result[key] = value
+            continue
+
+        base_value = base[key]
+        if isinstance(value, dict) and isinstance(base_value, dict):
+            nested = remove_unchanged(base_value, value)
+            if nested:
+                result[key] = nested
+        elif value != base_value:
+            result[key] = value
+
+    return result
+
+
 class StateManager:
     """Turns accepted prose into a reviewable current_state patch."""
 
@@ -111,7 +131,7 @@ class StateManager:
             args.extend(["-ngl", "0", "--device", "none"])
 
         args.extend([
-            "-c", "12288",
+            "-c", "8192",
             "--reasoning", "off",
             "--temp", "0.10",
             "--top-k", "20",
@@ -154,4 +174,6 @@ class StateManager:
         if not isinstance(patch, dict):
             raise ValueError("Continuity analysis did not return an object.")
 
-        return patch
+        # Models sometimes repeat unchanged state. Normalize that away so a
+        # proposal contains only actual changes.
+        return remove_unchanged(current_state, patch)
