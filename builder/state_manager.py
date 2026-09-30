@@ -117,6 +117,8 @@ class StateManager:
         )
 
         env = os.environ.copy()
+        env["GGML_VK_DISABLE_COOPMAT"] = "1"
+        env["GGML_VK_DISABLE_COOPMAT2"] = "1"
         env["LD_LIBRARY_PATH"] = str(
             DEFAULT_LLAMA.parent
         ) + (
