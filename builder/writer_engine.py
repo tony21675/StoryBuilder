@@ -76,35 +76,9 @@ class WriterEngine:
 
     @staticmethod
     def detect_accelerator() -> str | None:
-        """Return the first non-CPU llama.cpp device, unless overridden."""
+        """Use CPU unless acceleration is explicitly requested."""
         override = os.environ.get("STORY_LLM_DEVICE", "").strip()
-        if override:
-            return override
-
-        try:
-            result = subprocess.run(
-                [str(DEFAULT_LLAMA), "--list-devices"],
-                capture_output=True,
-                text=True,
-                timeout=30,
-                check=False,
-            )
-        except (OSError, subprocess.SubprocessError):
-            return None
-
-        if result.returncode != 0:
-            return None
-
-        for line in result.stdout.splitlines():
-            match = re.match(r"^\s*([A-Za-z]+\d+):\s+(.+)$", line)
-            if not match:
-                continue
-            device = match.group(1)
-            label = match.group(2).casefold()
-            if "cpu" not in device.casefold() and "cpu" not in label:
-                return device
-
-        return None
+        return override or None
 
     def start(self, model_path: str | Path, system_prompt: str) -> None:
         with self.lock:
@@ -117,8 +91,6 @@ class WriterEngine:
                 )
 
             env = os.environ.copy()
-            env["GGML_VK_DISABLE_COOPMAT"] = "1"
-            env["GGML_VK_DISABLE_COOPMAT2"] = "1"
             env["LD_LIBRARY_PATH"] = str(
                 DEFAULT_LLAMA.parent
             ) + (
