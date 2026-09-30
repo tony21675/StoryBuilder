@@ -26,10 +26,12 @@ class StoryBuilderApp(tk.Tk):
         self.character_filename: str | None = None
         self.dirty = False
         self.guided_setup = GuidedSetupSession()
+        self._closing = False
         self.spellcheck_available = shutil.which("aspell") is not None
         self._spellcheck_jobs = {}
 
         self._build_ui()
+        self.protocol("WM_DELETE_WINDOW", self._close_and_sync)
         self._new_novel()
 
     def _build_ui(self):
@@ -43,6 +45,7 @@ class StoryBuilderApp(tk.Tk):
             ("Validate", self._validate),
         ]:
             ttk.Button(toolbar, text=label, command=command).pack(side="left", padx=3)
+        ttk.Button(toolbar, text="Close & Sync", command=self._close_and_sync).pack(side="left", padx=(10, 3))
         self.path_label = ttk.Label(toolbar, text="Unsaved novel")
         self.path_label.pack(side="right", padx=8)
 
@@ -316,6 +319,56 @@ class StoryBuilderApp(tk.Tk):
         tab.rowconfigure(5, weight=1)
         tab.rowconfigure(6, weight=1)
         tab.rowconfigure(8, weight=1)
+
+    def _close_and_sync(self):
+        if self._closing:
+            return
+        self._closing = True
+
+        try:
+            # Save all current editor contents before running the repository sync.
+            self._save()
+            if self.dirty:
+                # Save was cancelled or failed, so do not close and risk losing work.
+                self._closing = False
+                return
+
+            sync_script = Path(__file__).resolve().parent / "sync.sh"
+            if not sync_script.exists():
+                messagebox.showerror(
+                    "Close & Sync",
+                    f"Could not find sync.sh at:\n\n{sync_script}\n\nThe app will remain open."
+                )
+                self._closing = False
+                return
+
+            result = subprocess.run(
+                ["bash", str(sync_script), "finish"],
+                cwd=sync_script.parent,
+                text=True,
+                capture_output=True,
+                timeout=120,
+                check=False,
+            )
+
+            if result.returncode != 0:
+                details = (result.stderr or result.stdout or "Unknown sync error").strip()
+                messagebox.showerror(
+                    "Close & Sync",
+                    "The novel was saved locally, but GitHub sync failed.\n\n"
+                    + details
+                    + "\n\nThe app will remain open so you can resolve the problem."
+                )
+                self._closing = False
+                return
+
+            self.destroy()
+        except (OSError, subprocess.SubprocessError) as exc:
+            messagebox.showerror(
+                "Close & Sync",
+                f"The novel was saved locally, but the GitHub sync could not be completed.\n\n{exc}\n\nThe app will remain open."
+            )
+            self._closing = False
 
     def _new_novel(self):
         self.guided_setup.stop()
