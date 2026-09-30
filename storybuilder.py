@@ -649,7 +649,9 @@ class StoryBuilderApp(tk.Tk):
                         lines.append(f"- Direction: {direction}")
                     end_condition = str(guidance.get("end_condition", "") or "").strip()
                     if end_condition:
-                        lines.append(f"- End condition: {end_condition}")
+                        lines.append(
+                            f"- HARD STOP: {end_condition} DO NOT GO PAST THIS BOUNDARY."
+                        )
                     pacing = str(guidance.get("pacing", "") or "").strip()
                     if pacing:
                         lines.append(f"- Pacing: {pacing}")
@@ -714,9 +716,12 @@ Writing rules:
 - Write only the requested story prose.
 - Continue from the exact current state.
 - Do not restart earlier scenes.
+- Treat explicit AUTHOR DIRECTION as the highest-priority instruction for this scene.
+- If the author direction contains a HARD STOP or End condition, obey that boundary exactly. Do not continue past it, even if the scene feels unfinished.
 - Only characters listed in the current scene cast should be physically present or actively participating in the scene unless the author direction explicitly says otherwise.
 - Do not cut away to or narrate characters outside the current scene cast merely because their location is recorded for continuity.
 - Preserve requested scene order and emotional beats.
+- Do not establish an exact date, exact time, season, or other timeline detail unless the current state or author direction establishes it.
 - Do not summarize the scene or provide notes.
 """
         parts = [base, "\nAUTHORITATIVE STORY FILES START\n"]
