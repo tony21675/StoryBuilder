@@ -1137,21 +1137,44 @@ Writing rules:
             return
 
         try:
+            completed_chapter = int(self.package.current_state.get("chapter", 1) or 1)
+            completed_scene = int(self.package.current_state.get("scene", 1) or 1)
+
             self.package.current_state = StateManager.merge_patch(
                 self.package.current_state,
                 self.pending_state_patch,
             )
+
+            # The accepted section is now complete. Advance the package to the
+            # next scene so the Writer tab can immediately build the next scene
+            # direction without requiring a separate chat command.
+            current_chapter = int(self.package.current_state.get("chapter", completed_chapter) or completed_chapter)
+            current_scene = int(self.package.current_state.get("scene", completed_scene) or completed_scene)
+
+            if current_chapter == completed_chapter and current_scene == completed_scene:
+                self.package.current_state["scene"] = completed_scene + 1
+            else:
+                # If the continuity manager explicitly advanced the state, keep
+                # its chapter/scene decision intact.
+                pass
+
+            self.package.current_state["scene_completed"] = False
             self.dirty = True
             self.pending_state_patch = None
+            self.generated_scene = ""
+            self.accepted_scene = ""
+            self.writer_output_text.delete("1.0", "end")
             self.writer_state_preview.delete("1.0", "end")
             self._refresh_all()
             self._save()
             self._chat(
                 "Builder",
-                "Applied the accepted scene's proposed state changes to current_state and saved them.",
+                f"Scene {completed_scene} is complete. Current scene advanced to "
+                f"Chapter {self.package.current_state.get('chapter', current_chapter)}, "
+                f"Scene {self.package.current_state.get('scene')} and saved.",
             )
             self.writer_status.configure(
-                text="State update applied and saved to the novel."
+                text="Previous scene saved. Build Scene Direction to begin the next scene."
             )
             self._update_writer_buttons()
         except Exception as exc:
