@@ -15,6 +15,7 @@ from builder.story_package import StoryPackage
 from builder.validator import validate_package
 from builder.writer_engine import WriterEngine
 from builder.manuscript import ManuscriptManager
+from builder.state_manager import StateManager
 
 
 class StoryBuilderApp(tk.Tk):
@@ -34,6 +35,8 @@ class StoryBuilderApp(tk.Tk):
         self.writer_engine = WriterEngine()
         self.writer_thread = None
         self.generated_scene = ""
+        self.accepted_scene = ""
+        self.pending_state_patch = None
 
         self._build_ui()
         self.protocol("WM_DELETE_WINDOW", self._close_and_sync)
@@ -409,6 +412,14 @@ class StoryBuilderApp(tk.Tk):
         ).pack(anchor="w")
         self.writer_output_text = tk.Text(tab, height=22, wrap="word", undo=True)
         self.writer_output_text.pack(fill="both", expand=True, pady=(4, 0))
+
+        ttk.Label(
+            tab,
+            text="Proposed State Changes",
+            font=("", 11, "bold"),
+        ).pack(anchor="w", pady=(10, 0))
+        self.writer_state_preview = tk.Text(tab, height=8, wrap="none")
+        self.writer_state_preview.pack(fill="x", pady=(4, 0))
         self._refresh_writer_models()
         self._update_writer_buttons()
 
@@ -554,6 +565,8 @@ Writing rules:
             and self.writer_engine.child.isalive()
         )
         has_scene = bool(self.generated_scene.strip())
+        has_accepted = bool(self.accepted_scene.strip())
+        has_patch = isinstance(self.pending_state_patch, dict)
 
         self.writer_start_button.configure(
             state="disabled" if running else "normal"
@@ -697,18 +710,100 @@ Writing rules:
                 scene,
                 self.generated_scene,
             )
+            self.accepted_scene = self.generated_scene
+            self.pending_state_patch = None
+            self.writer_state_preview.delete("1.0", "end")
             self._refresh_manuscript()
             self._chat(
                 "Builder",
                 f"Accepted Scene {scene} and saved it to {path}.",
             )
-            messagebox.showinfo(
-                "Writer",
-                f"Scene {scene} was accepted and saved to:\n\n{path}\n\n"
-                "State has not been changed automatically yet.",
+            self.writer_status.configure(
+                text="Scene accepted. You can now analyze it for state changes."
             )
+            self._update_writer_buttons()
         except Exception as exc:
             messagebox.showerror("Writer", str(exc))
+
+    def _analyze_accepted_scene(self):
+        if (
+            not self.package
+            or not self.accepted_scene.strip()
+            or not self.writer_engine.model_path
+        ):
+            return
+
+        current_state = dict(self.package.current_state)
+        story_text = self.accepted_scene
+        model = self.writer_engine.model_path
+
+        self.writer_analyze_button.configure(state="disabled")
+        self.writer_apply_state_button.configure(state="disabled")
+        self.writer_status.configure(text="Analyzing accepted scene...")
+
+        def work():
+            try:
+                patch = StateManager.propose(
+                    model,
+                    current_state,
+                    story_text,
+                )
+                error = None
+            except Exception as exc:
+                patch = None
+                error = str(exc)
+
+            self.after(
+                0,
+                lambda: self._finish_state_analysis(patch, error),
+            )
+
+        self.writer_thread = threading.Thread(
+            target=work,
+            daemon=True,
+        )
+        self.writer_thread.start()
+
+    def _finish_state_analysis(self, patch, error):
+        if error:
+            messagebox.showerror("State Update", error)
+            self._update_writer_buttons()
+            return
+
+        self.pending_state_patch = patch or {}
+        self.writer_state_preview.delete("1.0", "end")
+        self.writer_state_preview.insert(
+            "1.0",
+            json.dumps(self.pending_state_patch, indent=2, ensure_ascii=False),
+        )
+        self.writer_status.configure(
+            text="State update proposed. Review it before applying."
+        )
+        self._update_writer_buttons()
+
+    def _apply_state_update(self):
+        if self.package is None or not isinstance(self.pending_state_patch, dict):
+            return
+
+        try:
+            self.package.current_state = StateManager.merge_patch(
+                self.package.current_state,
+                self.pending_state_patch,
+            )
+            self.dirty = True
+            self.pending_state_patch = None
+            self.writer_state_preview.delete("1.0", "end")
+            self._refresh_all()
+            self._chat(
+                "Builder",
+                "Applied the accepted scene's proposed state changes to current_state.",
+            )
+            self.writer_status.configure(
+                text="State update applied to the novel."
+            )
+            self._update_writer_buttons()
+        except Exception as exc:
+            messagebox.showerror("State Update", str(exc))
 
     def _refresh_manuscript(self):
         if not hasattr(self, "manuscript_list"):
@@ -811,11 +906,14 @@ Writing rules:
         except Exception:
             pass
         self.generated_scene = ""
+        self.accepted_scene = ""
+        self.pending_state_patch = None
         self.package = StoryPackage.new()
         self.character_filename = None
         self.dirty = True
         if hasattr(self, "writer_output_text"):
             self.writer_output_text.delete("1.0", "end")
+            self.writer_state_preview.delete("1.0", "end")
         self._refresh_all()
         self._chat("Builder", "New novel created.")
 
@@ -837,9 +935,12 @@ Writing rules:
             return
         self.character_filename = None
         self.generated_scene = ""
+        self.accepted_scene = ""
+        self.pending_state_patch = None
         self.dirty = False
         if hasattr(self, "writer_output_text"):
             self.writer_output_text.delete("1.0", "end")
+            self.writer_state_preview.delete("1.0", "end")
         self._refresh_all()
         self._refresh_writer_models()
         self._chat("Builder", f'Opened "{self.package.story_bible.get("title", Path(folder).name)}".')
