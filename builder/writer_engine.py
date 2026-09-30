@@ -117,6 +117,8 @@ class WriterEngine:
                 )
 
             env = os.environ.copy()
+            env["GGML_VK_DISABLE_COOPMAT"] = "1"
+            env["GGML_VK_DISABLE_COOPMAT2"] = "1"
             env["LD_LIBRARY_PATH"] = str(
                 DEFAULT_LLAMA.parent
             ) + (
@@ -136,7 +138,7 @@ class WriterEngine:
                 args.extend(["-ngl", "0", "--device", "none"])
 
             args.extend([
-                "-c", "12288",
+                "-c", "8192",
                 "--reasoning", "off",
                 "--repeat-last-n", "256",
                 "--repeat-penalty", "1.08",
