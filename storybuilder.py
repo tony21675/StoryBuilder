@@ -13,6 +13,8 @@ from builder.conversation import apply_command
 from builder.guided_setup import GuidedSetupSession
 from builder.story_package import StoryPackage
 from builder.validator import validate_package
+from builder.writer_engine import WriterEngine
+from builder.manuscript import ManuscriptManager
 
 
 class StoryBuilderApp(tk.Tk):
@@ -29,6 +31,9 @@ class StoryBuilderApp(tk.Tk):
         self._closing = False
         self.spellcheck_available = shutil.which("aspell") is not None
         self._spellcheck_jobs = {}
+        self.writer_engine = WriterEngine()
+        self.writer_thread = None
+        self.generated_scene = ""
 
         self._build_ui()
         self.protocol("WM_DELETE_WINDOW", self._close_and_sync)
@@ -60,6 +65,8 @@ class StoryBuilderApp(tk.Tk):
         self._build_modules_tab()
         self._build_planning_tab()
         self._build_state_tab()
+        self._build_writer_tab()
+        self._build_manuscript_tab()
         self._install_context_menus()
         self._install_spellchecking()
 
@@ -320,12 +327,437 @@ class StoryBuilderApp(tk.Tk):
         tab.rowconfigure(6, weight=1)
         tab.rowconfigure(8, weight=1)
 
+    def _build_writer_tab(self):
+        tab = ttk.Frame(self.notebook, padding=12)
+        self.notebook.add(tab, text="Writer")
+
+        ttk.Label(
+            tab,
+            text="Local Story Writer",
+            font=("", 14, "bold"),
+        ).pack(anchor="w")
+        ttk.Label(
+            tab,
+            text="Uses the current novel package as the writer's reference. The writer does not change canon by itself.",
+        ).pack(anchor="w", pady=(4, 10))
+
+        model_row = ttk.Frame(tab)
+        model_row.pack(fill="x", pady=(0, 8))
+        ttk.Label(model_row, text="Model").pack(side="left")
+        self.writer_model_var = tk.StringVar()
+        self.writer_model_combo = ttk.Combobox(
+            model_row,
+            textvariable=self.writer_model_var,
+            state="readonly",
+            width=72,
+        )
+        self.writer_model_combo.pack(side="left", fill="x", expand=True, padx=(8, 8))
+        ttk.Button(model_row, text="Refresh Models", command=self._refresh_writer_models).pack(side="left")
+        self.writer_start_button = ttk.Button(
+            model_row,
+            text="Start Writer",
+            command=self._start_writer,
+        )
+        self.writer_start_button.pack(side="left", padx=(8, 3))
+        self.writer_stop_button = ttk.Button(
+            model_row,
+            text="Stop",
+            command=self._stop_writer,
+        )
+        self.writer_stop_button.pack(side="left", padx=3)
+
+        self.writer_status = ttk.Label(tab, text="Writer stopped.")
+        self.writer_status.pack(anchor="w", pady=(0, 8))
+
+        ttk.Label(
+            tab,
+            text="Scene Direction",
+            font=("", 11, "bold"),
+        ).pack(anchor="w")
+        self.writer_direction_text = tk.Text(tab, height=7, wrap="word")
+        self.writer_direction_text.pack(fill="x", pady=(4, 8))
+        self.writer_direction_text.insert(
+            "1.0",
+            "Write the next scene naturally from the current story state. Follow the active scene guidance and preserve established continuity.",
+        )
+
+        button_row = ttk.Frame(tab)
+        button_row.pack(fill="x", pady=(0, 8))
+        self.writer_write_button = ttk.Button(
+            button_row,
+            text="Write Next Scene",
+            command=self._write_next_scene,
+        )
+        self.writer_write_button.pack(side="left")
+        self.writer_save_draft_button = ttk.Button(
+            button_row,
+            text="Save Draft",
+            command=self._save_generated_draft,
+        )
+        self.writer_save_draft_button.pack(side="left", padx=(8, 0))
+        self.writer_accept_button = ttk.Button(
+            button_row,
+            text="Accept Scene",
+            command=self._accept_generated_scene,
+        )
+        self.writer_accept_button.pack(side="left", padx=(8, 0))
+
+        ttk.Label(
+            tab,
+            text="Generated Scene",
+            font=("", 11, "bold"),
+        ).pack(anchor="w")
+        self.writer_output_text = tk.Text(tab, height=22, wrap="word", undo=True)
+        self.writer_output_text.pack(fill="both", expand=True, pady=(4, 0))
+        self._refresh_writer_models()
+        self._update_writer_buttons()
+
+    def _build_manuscript_tab(self):
+        tab = ttk.Frame(self.notebook, padding=12)
+        self.notebook.add(tab, text="Manuscript")
+
+        ttk.Label(
+            tab,
+            text="Accepted Scenes",
+            font=("", 14, "bold"),
+        ).pack(anchor="w")
+        ttk.Label(
+            tab,
+            text="Accepted scenes are stored inside the novel package under Manuscript/Chapters.",
+        ).pack(anchor="w", pady=(4, 10))
+
+        row = ttk.Frame(tab)
+        row.pack(fill="both", expand=True)
+
+        left = ttk.Frame(row)
+        left.pack(side="left", fill="y", padx=(0, 12))
+        self.manuscript_list = tk.Listbox(left, width=34, height=28, exportselection=False)
+        self.manuscript_list.pack(fill="y", expand=True)
+        self.manuscript_list.bind("<<ListboxSelect>>", self._select_manuscript_scene)
+        ttk.Button(left, text="Refresh Manuscript", command=self._refresh_manuscript).pack(fill="x", pady=(8, 0))
+
+        self.manuscript_output = tk.Text(row, wrap="word", undo=True)
+        self.manuscript_output.pack(side="left", fill="both", expand=True)
+
+    def _refresh_writer_models(self):
+        if not hasattr(self, "writer_model_combo"):
+            return
+        paths = WriterEngine.available_models()
+        values = [str(p) for p in paths]
+        self.writer_model_combo["values"] = values
+        current = self.writer_model_var.get()
+        if current in values:
+            self.writer_model_var.set(current)
+        elif values:
+            self.writer_model_var.set(values[0])
+        else:
+            self.writer_model_var.set("")
+        self._update_writer_buttons()
+
+    def _writer_package_files(self):
+        if self.package is None:
+            return []
+
+        files = []
+        for filename in sorted(self.package.characters):
+            files.append((
+                filename,
+                json.dumps(
+                    self.package.characters[filename],
+                    indent=2,
+                    ensure_ascii=False,
+                ),
+            ))
+
+        files.append((
+            "story_bible.json",
+            json.dumps(self.package.story_bible, indent=2, ensure_ascii=False),
+        ))
+        files.append((
+            "current_state.json",
+            json.dumps(self.package.current_state, indent=2, ensure_ascii=False),
+        ))
+
+        guidance = self.package.extra_json.get("writing_guidance.json")
+        if isinstance(guidance, dict):
+            files.append((
+                "writing_guidance.json",
+                json.dumps(guidance, indent=2, ensure_ascii=False),
+            ))
+
+        for module in self.package.story_bible.get("optional_story_modules", []):
+            if not isinstance(module, dict):
+                continue
+
+            filename = str(module.get("file", "")).strip()
+            if not filename:
+                continue
+
+            data = self.package.extra_json.get(filename)
+            status = str(
+                data.get("status", module.get("status", "optional"))
+                if isinstance(data, dict)
+                else module.get("status", "optional")
+            ).casefold()
+
+            if not isinstance(data, dict) or status != "active":
+                continue
+
+            files.append((
+                filename,
+                json.dumps(data, indent=2, ensure_ascii=False),
+            ))
+
+            for char_file in module.get("character_files", []):
+                char_name = str(char_file).strip()
+                char_data = self.package.extra_json.get(char_name)
+                if isinstance(char_data, dict):
+                    files.append((
+                        char_name,
+                        json.dumps(char_data, indent=2, ensure_ascii=False),
+                    ))
+
+        return files
+
+    def _writer_system_prompt(self, files):
+        base = """You are the local story generation engine for an ongoing fictional novel.
+
+Use the attached files as private reference material. Do not quote or explain the reference files.
+Character files establish character identity and knowledge. story_bible.json establishes permanent canon. current_state.json establishes the exact current situation. writing_guidance.json provides reusable creative guidance. Active story modules provide scene-specific or optional material that has been activated.
+
+Knowledge rules:
+- Characters know only what they witnessed, experienced, were told, or could reasonably infer.
+- Keep unknown information unknown.
+- Do not reveal hidden module information unless the active module or current scene naturally establishes it.
+- Do not invent major plot facts, identities, motives, locations, evidence, consequential backstory, or secret knowledge.
+- Natural small talk, ordinary memories, harmless feelings, and everyday interpersonal details between established relationships are allowed unless they contradict canon.
+
+Writing rules:
+- Write only the requested story prose.
+- Continue from the exact current state.
+- Do not restart earlier scenes.
+- Preserve requested scene order and emotional beats.
+- Do not summarize the scene or provide notes.
+"""
+        parts = [base, "\nAUTHORITATIVE STORY FILES START\n"]
+        for name, content in files:
+            parts.append(f"\n[Attached File: {name}]\n{content}\n")
+        parts.append("\nAUTHORITATIVE STORY FILES END")
+        return "\n".join(parts)
+
+    def _update_writer_buttons(self):
+        if not hasattr(self, "writer_start_button"):
+            return
+
+        running = (
+            self.writer_engine.child is not None
+            and self.writer_engine.child.isalive()
+        )
+        has_scene = bool(self.generated_scene.strip())
+
+        self.writer_start_button.configure(
+            state="disabled" if running else "normal"
+        )
+        self.writer_stop_button.configure(
+            state="normal" if running else "disabled"
+        )
+        self.writer_write_button.configure(
+            state="normal" if running and self.package else "disabled"
+        )
+        self.writer_save_draft_button.configure(
+            state="normal" if has_scene and self.package else "disabled"
+        )
+        self.writer_accept_button.configure(
+            state="normal" if has_scene and self.package else "disabled"
+        )
+        self.writer_status.configure(
+            text=(
+                f"Writer running: {self.writer_engine.model_path.name}"
+                if running and self.writer_engine.model_path
+                else "Writer stopped."
+            )
+        )
+
+    def _start_writer(self):
+        if self.package is None:
+            messagebox.showerror("Writer", "Open or create a novel first.")
+            return
+
+        model = self.writer_model_var.get().strip()
+        if not model:
+            messagebox.showerror("Writer", "Select a GGUF model first.")
+            return
+
+        self._save()
+        if self.dirty:
+            return
+
+        files = self._writer_package_files()
+        system_prompt = self._writer_system_prompt(files)
+        self.writer_status.configure(text="Starting writer...")
+        self.writer_start_button.configure(state="disabled")
+
+        def work():
+            try:
+                self.writer_engine.start(model, system_prompt)
+                error = None
+            except Exception as exc:
+                error = str(exc)
+            self.after(0, lambda: self._finish_writer_start(error))
+
+        self.writer_thread = threading.Thread(target=work, daemon=True)
+        self.writer_thread.start()
+
+    def _finish_writer_start(self, error):
+        if error:
+            messagebox.showerror("Writer", error)
+        self._update_writer_buttons()
+
+    def _stop_writer(self):
+        try:
+            self.writer_engine.stop()
+        finally:
+            self._update_writer_buttons()
+
+    def _write_next_scene(self):
+        direction = self.writer_direction_text.get("1.0", "end-1c").strip()
+        if not direction:
+            direction = "Write the next scene naturally from the current story state."
+
+        self._save()
+        if self.dirty:
+            return
+
+        self.writer_write_button.configure(state="disabled")
+        self.writer_status.configure(text="Writing scene...")
+
+        prompt = (
+            "AUTHOR DIRECTION:\n"
+            + direction
+            + "\n\n"
+            "Write the next scene now. Output only the prose."
+        )
+
+        def work():
+            try:
+                answer = self.writer_engine.generate(prompt)
+                error = None
+            except Exception as exc:
+                answer = ""
+                error = str(exc)
+            self.after(0, lambda: self._finish_generated_scene(answer, error))
+
+        self.writer_thread = threading.Thread(target=work, daemon=True)
+        self.writer_thread.start()
+
+    def _finish_generated_scene(self, answer, error):
+        if error:
+            messagebox.showerror("Writer", error)
+            self._update_writer_buttons()
+            return
+
+        self.generated_scene = answer.strip()
+        self.writer_output_text.delete("1.0", "end")
+        self.writer_output_text.insert("1.0", self.generated_scene)
+        self.writer_status.configure(
+            text="Scene generated. Review it before accepting."
+        )
+        self._update_writer_buttons()
+
+    def _save_generated_draft(self):
+        if not self.package or self.package.path is None or not self.generated_scene.strip():
+            return
+
+        try:
+            chapter = int(self.package.current_state.get("chapter", 1))
+            scene = int(self.package.current_state.get("scene", 1))
+            path = ManuscriptManager(self.package.path).save_draft(
+                chapter,
+                scene,
+                self.generated_scene,
+            )
+            self._refresh_manuscript()
+            messagebox.showinfo("Writer", f"Draft saved to:\n\n{path}")
+        except Exception as exc:
+            messagebox.showerror("Writer", str(exc))
+
+    def _accept_generated_scene(self):
+        if not self.package or self.package.path is None or not self.generated_scene.strip():
+            return
+
+        edited = self.writer_output_text.get("1.0", "end-1c").strip()
+        if edited:
+            self.generated_scene = edited
+
+        try:
+            chapter = int(self.package.current_state.get("chapter", 1))
+            scene = int(self.package.current_state.get("scene", 1))
+            path = ManuscriptManager(self.package.path).save_scene(
+                chapter,
+                scene,
+                self.generated_scene,
+            )
+            self._refresh_manuscript()
+            self._chat(
+                "Builder",
+                f"Accepted Scene {scene} and saved it to {path}.",
+            )
+            messagebox.showinfo(
+                "Writer",
+                f"Scene {scene} was accepted and saved to:\n\n{path}\n\n"
+                "State has not been changed automatically yet.",
+            )
+        except Exception as exc:
+            messagebox.showerror("Writer", str(exc))
+
+    def _refresh_manuscript(self):
+        if not hasattr(self, "manuscript_list"):
+            return
+        self.manuscript_list.delete(0, "end")
+
+        if self.package is None or self.package.path is None:
+            return
+
+        for path in ManuscriptManager(self.package.path).list_scenes():
+            self.manuscript_list.insert(
+                "end",
+                str(path.relative_to(self.package.path)),
+            )
+
+    def _select_manuscript_scene(self, _event=None):
+        if self.package is None or self.package.path is None:
+            return
+
+        selection = self.manuscript_list.curselection()
+        if not selection:
+            return
+
+        items = ManuscriptManager(self.package.path).list_scenes()
+        index = selection[0]
+        if index >= len(items):
+            return
+
+        path = items[index]
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError as exc:
+            messagebox.showerror("Manuscript", str(exc))
+            return
+
+        self.manuscript_output.delete("1.0", "end")
+        self.manuscript_output.insert("1.0", text)
+
     def _close_and_sync(self):
         if self._closing:
             return
         self._closing = True
 
         try:
+            try:
+                self.writer_engine.stop()
+            except Exception:
+                pass
+
             # Save all current editor contents before running the repository sync.
             self._save()
             if self.dirty:
@@ -838,6 +1270,8 @@ class StoryBuilderApp(tk.Tk):
 
         self._refresh_characters()
         self._refresh_modules()
+        if hasattr(self, "_refresh_manuscript"):
+            self._refresh_manuscript()
         state = self.package.current_state
         self.state_vars["chapter"].set(str(state.get("chapter", "")))
         self.state_vars["scene"].set(str(state.get("scene", "")))
@@ -1015,9 +1449,12 @@ class StoryBuilderApp(tk.Tk):
             self.relationships_text,
             self.locations_text,
             self.module_text,
-            self.situation_text,
-            self.themes_text,
-            self.open_questions_text,
+        self.situation_text,
+        self.themes_text,
+        self.open_questions_text,
+            self.writer_direction_text,
+            self.writer_output_text,
+            self.manuscript_output,
         ]
         for widget in self._spellcheck_text_widgets:
             widget.tag_configure("misspelled", underline=True)
@@ -1111,6 +1548,9 @@ class StoryBuilderApp(tk.Tk):
             self.situation_text,
             self.themes_text,
             self.open_questions_text,
+            self.writer_direction_text,
+            self.writer_output_text,
+            self.manuscript_output,
         ]
 
         # Find the Entry widgets associated with StringVars by walking the
