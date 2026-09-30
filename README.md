@@ -35,6 +35,31 @@ Novel_Name/
 
 The shared format is versioned with `story_format_version: "1.0"`. This gives LocalStoryChat and StoryBuilder a stable interface and leaves room for future migrations.
 
+## Workspace storage
+
+StoryBuilder can keep the entire local AI/story workspace on a separate drive.
+
+Recommended layout:
+
+```
+StoryWorkspace/
+├── StoryBuilder/
+├── MyNovel/
+├── LocalStoryChat/
+├── Models/
+└── llama.cpp/
+```
+
+The applications discover the workspace from their repository location. You can also override it with:
+
+```
+STORY_WORKSPACE_ROOT=/path/to/StoryWorkspace
+```
+
+Optional overrides are available for the model directory, llama-cli path, and novel directory with `STORY_MODELS_DIR`, `STORY_LLAMA_PATH`, and `STORY_NOVEL_ROOT`.
+
+GitHub stores the source code and novel files. Large local AI assets such as GGUF models and the llama.cpp build stay on the workspace drive and are not committed to the repositories.
+
 ## Run
 
 From the project directory:
@@ -50,7 +75,7 @@ chmod +x start.sh
 ./start.sh
 ```
 
-The first version uses Python's standard library and Tkinter only.
+The desktop interface uses Python's standard library and Tkinter. The integrated local writer uses the Python `pexpect` package.
 
 ## Roadmap
 
