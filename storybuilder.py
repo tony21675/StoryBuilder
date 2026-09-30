@@ -631,6 +631,29 @@ class StoryBuilderApp(tk.Tk):
             lines.append(f"Current situation: {situation}")
 
         found_guidance = False
+
+        # Extract only the current scene's recurring writing guidance. The full
+        # writing_guidance.json stays out of the model context to reduce prompt size.
+        writing_guidance = self.package.extra_json.get("writing_guidance.json")
+        if isinstance(writing_guidance, dict):
+            scene_plan = writing_guidance.get("scene_plan", {})
+            if isinstance(scene_plan, dict):
+                guidance = scene_plan.get(str(scene))
+                if guidance is None:
+                    guidance = scene_plan.get(scene)
+                if isinstance(guidance, dict):
+                    found_guidance = True
+                    lines.append("Scene plan guidance:")
+                    direction = str(guidance.get("direction", "") or "").strip()
+                    if direction:
+                        lines.append(f"- Direction: {direction}")
+                    end_condition = str(guidance.get("end_condition", "") or "").strip()
+                    if end_condition:
+                        lines.append(f"- End condition: {end_condition}")
+                    pacing = str(guidance.get("pacing", "") or "").strip()
+                    if pacing:
+                        lines.append(f"- Pacing: {pacing}")
+
         for module in self.package.story_bible.get("optional_story_modules", []):
             if not isinstance(module, dict):
                 continue
