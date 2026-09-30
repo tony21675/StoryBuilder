@@ -831,6 +831,10 @@ Writing rules:
             "AUTHOR DIRECTION:\n"
             + direction
             + "\n\n"
+            "IMPORTANT SCENE BOUNDARY:\n"
+            "The HARD STOP in the author direction is mandatory. "
+            "The scene is not complete until that exact endpoint is reached. "
+            "Do not end the scene early. Do not skip ahead beyond the endpoint.\n\n"
             "Write the next scene now. Output only the prose."
         )
 
