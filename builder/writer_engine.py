@@ -96,7 +96,7 @@ class WriterEngine:
             return None
 
         for line in result.stdout.splitlines():
-            match = re.match(r"^\\s*([A-Za-z]+\\d+):\\s+(.+)$", line)
+            match = re.match(r"^\s*([A-Za-z]+\d+):\s+(.+)$", line)
             if not match:
                 continue
             device = match.group(1)
