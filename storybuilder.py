@@ -542,20 +542,8 @@ class StoryBuilderApp(tk.Tk):
             command=self._refresh_manuscript,
         ).pack(fill="x")
 
-        self.manuscript_analyze_button = ttk.Button(
-            manuscript_button_row,
-            text="Analyze Saved Section",
-            command=self._analyze_saved_manuscript_scene,
-        )
-        self.manuscript_analyze_button.pack(fill="x", pady=(6, 0))
-
-        self.manuscript_restore_button = ttk.Button(
-            manuscript_button_row,
-            text="Restore Reconstructed State",
-            command=self._restore_saved_state_candidate,
-        )
-        self.manuscript_restore_button.pack(fill="x", pady=(6, 0))
-
+        # Recovery actions are placed beside the reconstructed-state panel so
+        # they remain visible on smaller displays.
         right = ttk.Frame(row)
         right.pack(side="left", fill="both", expand=True)
 
@@ -571,16 +559,33 @@ class StoryBuilderApp(tk.Tk):
 
         self.manuscript_recovery_status = ttk.Label(
             recovery_header,
-            text="Select an accepted section to analyze its state.",
+            text="Select an accepted section, then analyze its state.",
         )
         self.manuscript_recovery_status.pack(side="left")
 
+        recovery_actions = ttk.Frame(recovery_header)
+        recovery_actions.pack(side="right")
+
+        self.manuscript_analyze_button = ttk.Button(
+            recovery_actions,
+            text="Analyze Saved Section",
+            command=self._analyze_saved_manuscript_scene,
+        )
+        self.manuscript_analyze_button.pack(side="left")
+
+        self.manuscript_restore_button = ttk.Button(
+            recovery_actions,
+            text="Restore Reconstructed State",
+            command=self._restore_saved_state_candidate,
+        )
+        self.manuscript_restore_button.pack(side="left", padx=(6, 0))
+
         self.manuscript_copy_state_button = ttk.Button(
-            recovery_header,
+            recovery_actions,
             text="Copy Reconstructed JSON",
             command=self._copy_saved_state_candidate,
         )
-        self.manuscript_copy_state_button.pack(side="right")
+        self.manuscript_copy_state_button.pack(side="left", padx=(6, 0))
 
         ttk.Label(
             right,
@@ -1400,7 +1405,7 @@ Writing rules:
         self.saved_state_candidate = None
         self.manuscript_state_preview.delete("1.0", "end")
         self.manuscript_recovery_status.configure(
-            text=f"Selected {path.name}. Analyze it to reconstruct its state."
+            text=f"Selected {path.name}. Click Analyze Saved Section to reconstruct its state."
         )
         self._update_saved_state_buttons()
         try:
