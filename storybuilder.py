@@ -834,7 +834,11 @@ Writing rules:
             "IMPORTANT SCENE BOUNDARY:\n"
             "The HARD STOP in the author direction is mandatory. "
             "The scene is not complete until that exact endpoint is reached. "
-            "Do not end the scene early. Do not skip ahead beyond the endpoint.\n\n"
+            "Do not end the scene early. Do not skip ahead beyond the endpoint. "
+            "Use enough prose to naturally cover the requested movement and arrive at the endpoint, "
+            "typically about 500 to 700 words when the scene direction does not specify another length. "
+            "Characters outside the scene cast are continuity-only and should not be mentioned or narrated "
+            "unless the author direction explicitly requires it.\n\n"
             "Write the next scene now. Output only the prose."
         )
 
