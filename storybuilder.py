@@ -560,11 +560,13 @@ class StoryBuilderApp(tk.Tk):
         self.manuscript_recovery_status = ttk.Label(
             recovery_header,
             text="Select an accepted section, then analyze its state.",
+            anchor="w",
+            justify="left",
         )
-        self.manuscript_recovery_status.pack(side="left")
+        self.manuscript_recovery_status.pack(fill="x")
 
-        recovery_actions = ttk.Frame(recovery_header)
-        recovery_actions.pack(side="right")
+        recovery_actions = ttk.Frame(right)
+        recovery_actions.pack(fill="x", pady=(6, 0))
 
         self.manuscript_analyze_button = ttk.Button(
             recovery_actions,
@@ -591,7 +593,7 @@ class StoryBuilderApp(tk.Tk):
             right,
             text="Reconstructed State",
             font=("", 11, "bold"),
-        ).pack(anchor="w", pady=(6, 0))
+        ).pack(anchor="w", pady=(8, 0))
 
         self.manuscript_state_preview = tk.Text(
             right,
