@@ -554,12 +554,9 @@ class StoryBuilderApp(tk.Tk):
             json.dumps(self.package.current_state, indent=2, ensure_ascii=False),
         ))
 
-        guidance = self.package.extra_json.get("writing_guidance.json")
-        if isinstance(guidance, dict):
-            files.append((
-                "writing_guidance.json",
-                json.dumps(guidance, indent=2, ensure_ascii=False),
-            ))
+        # writing_guidance.json is intentionally not attached wholesale here.
+        # Build Scene Direction extracts the relevant scene guidance and supplies
+        # it directly to the writer, avoiding unnecessary context pressure.
 
         if self.package.path is not None:
             recent = ManuscriptManager(self.package.path).recent_text()
@@ -681,7 +678,7 @@ class StoryBuilderApp(tk.Tk):
         base = """You are the local story generation engine for an ongoing fictional novel.
 
 Use the attached files as private reference material. Do not quote or explain the reference files.
-Character files establish character identity and knowledge. story_bible.json establishes permanent canon. current_state.json establishes the exact current situation. writing_guidance.json provides reusable creative guidance. Active story modules provide scene-specific or optional material that has been activated.
+Character files establish character identity and knowledge. story_bible.json establishes permanent canon. current_state.json establishes the exact current situation. The generated scene direction provides the relevant writing guidance for this scene. Active story modules provide scene-specific or optional material that has been activated.
 
 Knowledge rules:
 - Characters know only what they witnessed, experienced, were told, or could reasonably infer.
