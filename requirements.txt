@@ -1,1 +1,2 @@
 # StoryBuilder currently uses only Python's standard library.
+pexpect>=4.9
