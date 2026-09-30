@@ -5,18 +5,7 @@ import threading
 import time
 from pathlib import Path
 
-try:
-    import pexpect
-except Exception as exc:
-    raise RuntimeError(
-        "StoryBuilder's Writer Engine requires the Python 'pexpect' package."
-    ) from exc
-
-
-DEFAULT_LLAMA = Path(
-    os.path.expanduser("~/Documents/llama.cpp/build/bin/llama-cli")
-)
-MODELS_DIR = Path(os.path.expanduser("~/Documents/Models"))
+from builder.workspace import LLAMA as DEFAULT_LLAMA, MODELS_DIR
 
 
 class WriterEngine:
@@ -46,7 +35,7 @@ class WriterEngine:
             model.relative_to(root)
         except ValueError as exc:
             raise ValueError(
-                "The selected model must be inside ~/Documents/Models."
+                f"The selected model must be inside {MODELS_DIR}."
             ) from exc
 
         if model.suffix.casefold() != ".gguf":
