@@ -710,7 +710,10 @@ Knowledge rules:
 - Keep unknown information unknown.
 - Do not reveal hidden module information unless the active module or current scene naturally establishes it.
 - Do not invent major plot facts, identities, motives, locations, evidence, consequential backstory, or secret knowledge.
-- Natural small talk, ordinary memories, harmless feelings, and everyday interpersonal details between established relationships are allowed unless they contradict canon.
+- Natural small talk, ordinary memories, harmless feelings, shared experiences, inside jokes, and everyday interpersonal details between established relationships are encouraged.
+- Minor scene-level details may be invented freely when they fit the characters, setting, and established relationships.
+- These harmless details do not need to already exist in the reference files.
+- Only treat a detail as a continuity problem when it creates a contradiction, reveals information the characters could not know, changes a consequential fact, or crosses an explicit scene boundary.
 
 Writing rules:
 - Write only the requested story prose.
