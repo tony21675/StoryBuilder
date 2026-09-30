@@ -56,45 +56,13 @@ def apply_command(package, command: str) -> ChangeResult:
         return ChangeResult(True, f"Current chapter set to {match.group(1)}.")
 
     match = re.fullmatch(
-        r"(?:set|change) (?:the )?(?:current )?scene to (\d+)(?:[.!:]\s*(.*))?",
+        r"(?:set|change) (?:the )?(?:current )?scene to (\d+)",
         text,
         re.IGNORECASE,
     )
     if match:
-        scene_number = int(match.group(1))
-        details = (match.group(2) or "").strip()
-        package.current_state["scene"] = scene_number
-        if details:
-            package.current_state["current_situation"] = details
-            package.current_state["status"] = "in_progress" if scene_number > 1 else package.current_state.get("status", "story_start")
-            package.current_state["scene_completed"] = False
-
-            cast_match = re.search(
-                r"only (.+?) participate in the scene\.?$",
-                details,
-                re.IGNORECASE,
-            )
-            if cast_match:
-                package.current_state["scene_cast"] = [
-                    name.strip()
-                    for name in re.split(r"\s*(?:,|and)\s*", cast_match.group(1))
-                    if name.strip()
-                ]
-
-            location = package.current_state.get("location")
-            if isinstance(location, dict):
-                arrived = re.search(
-                    r"(?:have|has) arrived at (?:the )?(.+?)(?=\.|$)",
-                    details,
-                    re.IGNORECASE,
-                )
-                if arrived:
-                    location["primary"] = arrived.group(1).strip()
-
-        message = f"Current scene set to {scene_number}."
-        if details:
-            message = f"Current scene set to {scene_number} and transition details updated."
-        return ChangeResult(True, message)
+        package.current_state["scene"] = int(match.group(1))
+        return ChangeResult(True, f"Current scene set to {match.group(1)}.")
 
     match = re.fullmatch(
         r"(?:change|set) ([A-Za-z][A-Za-z0-9 _'-]*)'s (.+?) to (.+)",
