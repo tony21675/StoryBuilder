@@ -113,7 +113,7 @@ class WriterEngine:
             )
 
             try:
-                child.expect_exact("> ", timeout=180)
+                child.expect(r"(?m)^> ", timeout=180)
                 child.timeout = 900
             except Exception:
                 output = child.before if child else ""
@@ -141,7 +141,7 @@ class WriterEngine:
             self.child.sendline(prompt)
 
             try:
-                self.child.expect_exact("> ", timeout=900)
+                self.child.expect(r"(?m)^> ", timeout=900)
             except Exception:
                 output = self.child.before or ""
                 raise RuntimeError(
