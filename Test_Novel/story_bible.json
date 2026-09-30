@@ -1,0 +1,13 @@
+{
+  "story_format_version": "1.0",
+  "title": "The Last Signal",
+  "version": "1.0",
+  "status": "active",
+  "premise": "A small-town mystery begins when a strange package is left on someone's porch.",
+  "character_cards": [
+    "Jack.json",
+    "Sarah.json"
+  ],
+  "relationships": {},
+  "locations": {}
+}

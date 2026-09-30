@@ -1,0 +1,18 @@
+{
+  "story_format_version": "1.0",
+  "chapter": 2,
+  "scene": 3,
+  "status": "story_start",
+  "time_of_day": "Morning",
+  "location": "Jack's garage",
+  "scene_cast": [
+    "Jack",
+    "Sarah"
+  ],
+  "events": [],
+  "continuity_notes": [
+    "Jack owns the garage.",
+    "Sarah has known Jack for years.",
+    "The story begins on an ordinary morning."
+  ]
+}
