@@ -652,6 +652,8 @@ Writing rules:
 - Write only the requested story prose.
 - Continue from the exact current state.
 - Do not restart earlier scenes.
+- Only characters listed in the current scene cast should be physically present or actively participating in the scene unless the author direction explicitly says otherwise.
+- Do not cut away to or narrate characters outside the current scene cast merely because their location is recorded for continuity.
 - Preserve requested scene order and emotional beats.
 - Do not summarize the scene or provide notes.
 """
