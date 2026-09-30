@@ -211,7 +211,7 @@ class WriterEngine:
                 answer = answer[len(echoed_prompt):].lstrip()
 
             # Remove llama.cpp timing diagnostics accidentally captured with the response.
-            answer = re.sub(r"\\n?\\[ Prompt: [^\\n\\]]+ \\| Generation: [^\\n\\]]+ \\]\\s*$", "", answer).strip()
+            answer = re.sub(r"\n?\[ Prompt: .*? \| Generation: .*? \]\s*$", "", answer, flags=re.DOTALL).strip()
 
             if not answer:
                 raise RuntimeError("The writer returned an empty response.")
