@@ -6,10 +6,7 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-
-DEFAULT_LLAMA = Path(
-    os.path.expanduser("~/Documents/llama.cpp/build/bin/llama-cli")
-)
+from builder.workspace import LLAMA as DEFAULT_LLAMA
 
 STATE_SYSTEM_PROMPT = """You are the continuity manager for an ongoing fictional story.
 
@@ -61,6 +58,38 @@ def extract_json_object(text: str) -> dict[str, Any]:
 class StateManager:
     """Turns accepted prose into a reviewable current_state patch."""
 
+
+    @staticmethod
+    def _detect_accelerator() -> str | None:
+        override = os.environ.get("STORY_LLM_DEVICE", "").strip()
+        if override:
+            return override
+
+        try:
+            result = subprocess.run(
+                [str(DEFAULT_LLAMA), "--list-devices"],
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return None
+
+        if result.returncode != 0:
+            return None
+
+        for line in result.stdout.splitlines():
+            parts = line.strip().split(":", 1)
+            if len(parts) != 2:
+                continue
+            device = parts[0].strip()
+            label = parts[1].casefold()
+            if device and "cpu" not in device.casefold() and "cpu" not in label:
+                return device
+
+        return None
+
     @staticmethod
     def propose(
         model_path: str | Path,
@@ -96,11 +125,17 @@ class StateManager:
             else ""
         )
 
+        device = StateManager._detect_accelerator()
         args = [
             str(DEFAULT_LLAMA),
             "-m", str(model),
-            "-ngl", "0",
-            "--device", "none",
+        ]
+        if device:
+            args.extend(["--device", device, "-ngl", "all"])
+        else:
+            args.extend(["-ngl", "0", "--device", "none"])
+
+        args.extend([
             "-c", "12288",
             "--reasoning", "off",
             "--temp", "0.10",
