@@ -503,6 +503,11 @@ class StoryBuilderApp(tk.Tk):
                 json.dumps(guidance, indent=2, ensure_ascii=False),
             ))
 
+        if self.package.path is not None:
+            recent = ManuscriptManager(self.package.path).recent_text()
+            if recent:
+                files.append(("recent_manuscript.txt", recent))
+
         for module in self.package.story_bible.get("optional_story_modules", []):
             if not isinstance(module, dict):
                 continue
