@@ -372,11 +372,18 @@ class StoryBuilderApp(tk.Tk):
         self.writer_status = ttk.Label(tab, text="Writer stopped.")
         self.writer_status.pack(anchor="w", pady=(0, 8))
 
+        direction_header = ttk.Frame(tab)
+        direction_header.pack(fill="x")
         ttk.Label(
-            tab,
+            direction_header,
             text="Scene Direction",
             font=("", 11, "bold"),
-        ).pack(anchor="w")
+        ).pack(side="left")
+        ttk.Button(
+            direction_header,
+            text="Build Scene Direction",
+            command=self._build_scene_direction,
+        ).pack(side="right")
         self.writer_direction_text = tk.Text(tab, height=7, wrap="word")
         self.writer_direction_text.pack(fill="x", pady=(4, 8))
         self.writer_direction_text.insert(
@@ -529,6 +536,83 @@ class StoryBuilderApp(tk.Tk):
                     ))
 
         return files
+
+    def _build_scene_direction(self):
+        if self.package is None:
+            return
+
+        state = self.package.current_state
+        chapter = int(state.get("chapter", 1) or 1)
+        scene = int(state.get("scene", 1) or 1)
+        location = state.get("location", "")
+        time_data = state.get("time", state.get("time_of_day", ""))
+        cast = state.get("scene_cast", [])
+        situation = str(state.get("current_situation", "") or "").strip()
+
+        lines = [
+            f"Continue Chapter {chapter}, Scene {scene} from the exact current story state.",
+        ]
+
+        if location:
+            lines.append(f"Current location: {location}.")
+        if isinstance(time_data, dict):
+            period = str(time_data.get("period", "") or "").strip()
+            exact = str(time_data.get("exact_time", "") or "").strip()
+            if period:
+                lines.append(
+                    f"Time: {period}."
+                    + (f" Exact time: {exact}." if exact and exact != "not established" else "")
+                )
+        elif time_data:
+            lines.append(f"Time: {time_data}.")
+        if cast:
+            lines.append("Scene cast: " + ", ".join(map(str, cast)) + ".")
+        if situation:
+            lines.append(f"Current situation: {situation}")
+
+        found_guidance = False
+        for module in self.package.story_bible.get("optional_story_modules", []):
+            if not isinstance(module, dict):
+                continue
+
+            filename = str(module.get("file", "")).strip()
+            data = self.package.extra_json.get(filename)
+            if not isinstance(data, dict):
+                continue
+
+            status = str(data.get("status", module.get("status", "optional"))).casefold()
+            if status != "active":
+                continue
+
+            scene_guidance = data.get("scene_guidance", {})
+            guidance = scene_guidance.get(str(scene))
+            if guidance is None:
+                guidance = scene_guidance.get(scene)
+            if not isinstance(guidance, dict):
+                continue
+
+            found_guidance = True
+            name = str(data.get("name") or module.get("name") or filename)
+            lines.append(f"Active module guidance: {name}")
+            for event in guidance.get("required_events", []):
+                lines.append(f"- Required beat: {event}")
+            end_condition = guidance.get("end_condition")
+            if end_condition:
+                lines.append(f"- End condition: {end_condition}")
+            for item in guidance.get("do_not_advance", []):
+                lines.append(f"- Do not advance: {item}")
+
+        if not found_guidance:
+            lines.append("No activated scene-specific module guidance was found.")
+
+        lines.append(
+            "Write the scene naturally. Use harmless everyday interpersonal details when appropriate, "
+            "but do not invent consequential canon or reveal information the characters do not know."
+        )
+
+        self.writer_direction_text.delete("1.0", "end")
+        self.writer_direction_text.insert("1.0", "\n".join(lines))
+        self.writer_status.configure(text="Scene direction built from the current state and active modules.")
 
     def _writer_system_prompt(self, files):
         base = """You are the local story generation engine for an ongoing fictional novel.
