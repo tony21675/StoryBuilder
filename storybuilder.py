@@ -332,20 +332,61 @@ class StoryBuilderApp(tk.Tk):
         tab.rowconfigure(8, weight=1)
 
     def _build_writer_tab(self):
-        tab = ttk.Frame(self.notebook, padding=12)
+        tab = ttk.Frame(self.notebook)
         self.notebook.add(tab, text="Writer")
 
+        # The Writer tab contains more controls than a small laptop display can
+        # show at once. Keep the tab itself scrollable so the lower analysis and
+        # state-update controls remain reachable without requiring full-screen.
+        scroll_frame = ttk.Frame(tab)
+        scroll_frame.pack(fill="both", expand=True)
+
+        canvas = tk.Canvas(scroll_frame, highlightthickness=0, borderwidth=0)
+        scrollbar = ttk.Scrollbar(
+            scroll_frame,
+            orient="vertical",
+            command=canvas.yview,
+        )
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        scrollbar.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+
+        content_frame = ttk.Frame(canvas, padding=12)
+        window_id = canvas.create_window((0, 0), window=content_frame, anchor="nw")
+
+        def update_scroll_region(_event=None):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        def fit_content_width(event):
+            canvas.itemconfigure(window_id, width=event.width)
+
+        content_frame.bind("<Configure>", update_scroll_region)
+        canvas.bind("<Configure>", fit_content_width)
+
+        def on_mousewheel(event):
+            if event.delta:
+                canvas.yview_scroll(int(-event.delta / 120), "units")
+            elif event.num == 4:
+                canvas.yview_scroll(-3, "units")
+            elif event.num == 5:
+                canvas.yview_scroll(3, "units")
+
+        canvas.bind_all("<MouseWheel>", on_mousewheel, add="+")
+        canvas.bind_all("<Button-4>", on_mousewheel, add="+")
+        canvas.bind_all("<Button-5>", on_mousewheel, add="+")
+
         ttk.Label(
-            tab,
+            content_frame,
             text="Local Story Writer",
             font=("", 14, "bold"),
         ).pack(anchor="w")
         ttk.Label(
-            tab,
+            content_frame,
             text="Uses the current novel package as the writer's reference. The writer does not change canon by itself.",
         ).pack(anchor="w", pady=(4, 10))
 
-        model_row = ttk.Frame(tab)
+        model_row = ttk.Frame(content_frame)
         model_row.pack(fill="x", pady=(0, 8))
         ttk.Label(model_row, text="Model").pack(side="left")
         self.writer_model_var = tk.StringVar()
@@ -370,10 +411,10 @@ class StoryBuilderApp(tk.Tk):
         )
         self.writer_stop_button.pack(side="left", padx=3)
 
-        self.writer_status = ttk.Label(tab, text="Writer stopped.")
+        self.writer_status = ttk.Label(content_frame, text="Writer stopped.")
         self.writer_status.pack(anchor="w", pady=(0, 8))
 
-        direction_header = ttk.Frame(tab)
+        direction_header = ttk.Frame(content_frame)
         direction_header.pack(fill="x")
         ttk.Label(
             direction_header,
@@ -385,14 +426,14 @@ class StoryBuilderApp(tk.Tk):
             text="Build Scene Direction",
             command=self._build_scene_direction,
         ).pack(side="right")
-        self.writer_direction_text = tk.Text(tab, height=7, wrap="word")
+        self.writer_direction_text = tk.Text(content_frame, height=7, wrap="word")
         self.writer_direction_text.pack(fill="x", pady=(4, 8))
         self.writer_direction_text.insert(
             "1.0",
             "Write the next scene naturally from the current story state. Follow the active scene guidance and preserve established continuity.",
         )
 
-        button_row = ttk.Frame(tab)
+        button_row = ttk.Frame(content_frame)
         button_row.pack(fill="x", pady=(0, 8))
         self.writer_write_button = ttk.Button(
             button_row,
@@ -414,14 +455,14 @@ class StoryBuilderApp(tk.Tk):
         self.writer_accept_button.pack(side="left", padx=(8, 0))
 
         ttk.Label(
-            tab,
+            content_frame,
             text="Generated Scene",
             font=("", 11, "bold"),
         ).pack(anchor="w")
-        self.writer_output_text = tk.Text(tab, height=22, wrap="word", undo=True)
-        self.writer_output_text.pack(fill="both", expand=True, pady=(4, 0))
+        self.writer_output_text = tk.Text(content_frame, height=22, wrap="word", undo=True)
+        self.writer_output_text.pack(fill="x", pady=(4, 0))
 
-        state_button_row = ttk.Frame(tab)
+        state_button_row = ttk.Frame(content_frame)
         state_button_row.pack(fill="x", pady=(8, 0))
         self.writer_analyze_button = ttk.Button(
             state_button_row,
@@ -437,12 +478,13 @@ class StoryBuilderApp(tk.Tk):
         self.writer_apply_state_button.pack(side="left", padx=(8, 0))
 
         ttk.Label(
-            tab,
+            content_frame,
             text="Proposed State Changes",
             font=("", 11, "bold"),
         ).pack(anchor="w", pady=(10, 0))
-        self.writer_state_preview = tk.Text(tab, height=8, wrap="none")
+        self.writer_state_preview = tk.Text(content_frame, height=8, wrap="none")
         self.writer_state_preview.pack(fill="x", pady=(4, 0))
+
         self._refresh_writer_models()
         self._update_writer_buttons()
 
