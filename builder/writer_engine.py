@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+import re
+import subprocess
 import threading
 
 import pexpect
@@ -69,6 +71,38 @@ class WriterEngine:
                 except Exception:
                     pass
 
+    @staticmethod
+    def detect_accelerator() -> str | None:
+        """Return the first non-CPU llama.cpp device, unless overridden."""
+        override = os.environ.get("STORY_LLM_DEVICE", "").strip()
+        if override:
+            return override
+
+        try:
+            result = subprocess.run(
+                [str(DEFAULT_LLAMA), "--list-devices"],
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return None
+
+        if result.returncode != 0:
+            return None
+
+        for line in result.stdout.splitlines():
+            match = re.match(r"^\\s*([A-Za-z]+\\d+):\\s+(.+)$", line)
+            if not match:
+                continue
+            device = match.group(1)
+            label = match.group(2).casefold()
+            if "cpu" not in device.casefold() and "cpu" not in label:
+                return device
+
+        return None
+
     def start(self, model_path: str | Path, system_prompt: str) -> None:
         with self.lock:
             model = self.validate_model(model_path)
@@ -88,11 +122,17 @@ class WriterEngine:
                 else ""
             )
 
+            device = self.detect_accelerator()
             args = [
                 str(DEFAULT_LLAMA),
                 "-m", str(model),
-                "-ngl", "0",
-                "--device", "none",
+            ]
+            if device:
+                args.extend(["--device", device, "-ngl", "all"])
+            else:
+                args.extend(["-ngl", "0", "--device", "none"])
+
+            args.extend([
                 "-c", "12288",
                 "--reasoning", "off",
                 "--repeat-last-n", "256",
@@ -102,7 +142,7 @@ class WriterEngine:
                 "--color", "off",
                 "--no-display-prompt",
                 "--simple-io",
-            ]
+            ])
 
             child = pexpect.spawn(
                 args[0],
