@@ -421,6 +421,21 @@ class StoryBuilderApp(tk.Tk):
         self.writer_output_text = tk.Text(tab, height=22, wrap="word", undo=True)
         self.writer_output_text.pack(fill="both", expand=True, pady=(4, 0))
 
+        state_button_row = ttk.Frame(tab)
+        state_button_row.pack(fill="x", pady=(8, 0))
+        self.writer_analyze_button = ttk.Button(
+            state_button_row,
+            text="Analyze Accepted Scene",
+            command=self._analyze_accepted_scene,
+        )
+        self.writer_analyze_button.pack(side="left")
+        self.writer_apply_state_button = ttk.Button(
+            state_button_row,
+            text="Apply State Update",
+            command=self._apply_state_update,
+        )
+        self.writer_apply_state_button.pack(side="left", padx=(8, 0))
+
         ttk.Label(
             tab,
             text="Proposed State Changes",
@@ -672,6 +687,12 @@ Writing rules:
         )
         self.writer_accept_button.configure(
             state="normal" if has_scene and self.package else "disabled"
+        )
+        self.writer_analyze_button.configure(
+            state="normal" if has_accepted and self.package else "disabled"
+        )
+        self.writer_apply_state_button.configure(
+            state="normal" if has_patch and self.package else "disabled"
         )
         self.writer_status.configure(
             text=(
