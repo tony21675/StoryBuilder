@@ -723,6 +723,8 @@ Writing rules:
 - If the author direction contains a HARD STOP or End condition, obey that boundary exactly. Do not continue past it, even if the scene feels unfinished.
 - Only characters listed in the current scene cast should be physically present or actively participating in the scene unless the author direction explicitly says otherwise.
 - Do not cut away to or narrate characters outside the current scene cast merely because their location is recorded for continuity.
+- Treat off-cast character locations as continuity information only. Do not infer that an off-cast character's home, house, activities, or whereabouts lie along the characters' travel route.
+- Do not mention an off-cast character's home or location unless the current scene direction explicitly calls for it or the scene itself naturally establishes it as relevant.
 - Preserve requested scene order and emotional beats.
 - Do not establish an exact date, exact time, season, or other timeline detail unless the current state or author direction establishes it.
 - Do not summarize the scene or provide notes.
