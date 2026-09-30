@@ -16,6 +16,7 @@ from builder.validator import validate_package
 from builder.writer_engine import WriterEngine
 from builder.manuscript import ManuscriptManager
 from builder.state_manager import StateManager
+from builder.workspace import WORKSPACE_ROOT
 
 
 class StoryBuilderApp(tk.Tk):
@@ -1020,7 +1021,10 @@ Writing rules:
         self.guided_setup.stop()
         if hasattr(self, "guided_button"):
             self.guided_button.configure(text="Guided Setup")
-        folder = filedialog.askdirectory(title="Open Novel Package")
+        folder = filedialog.askdirectory(
+            title="Open Novel Package",
+            initialdir=str(WORKSPACE_ROOT),
+        )
         if not folder:
             return
         try:
@@ -1062,7 +1066,10 @@ Writing rules:
         if self.package is None:
             return
         self._apply_all_edits()
-        parent = filedialog.askdirectory(title="Choose a folder for the novel package")
+        parent = filedialog.askdirectory(
+            title="Choose a folder for the novel package",
+            initialdir=str(WORKSPACE_ROOT),
+        )
         if not parent:
             return
         name = self.package.story_bible.get("title", "Untitled").strip() or "Untitled"
