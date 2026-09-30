@@ -204,6 +204,15 @@ class WriterEngine:
             while answer.startswith("> "):
                 answer = answer[2:].lstrip()
 
+            # llama-cli may echo the submitted user turn before returning the model
+            # response. Remove that echoed prompt so only prose reaches the editor.
+            echoed_prompt = single_line_prompt if "single_line_prompt" in locals() else ""
+            if echoed_prompt and answer.startswith(echoed_prompt):
+                answer = answer[len(echoed_prompt):].lstrip()
+
+            # Remove llama.cpp timing diagnostics accidentally captured with the response.
+            answer = re.sub(r"\\n?\\[ Prompt: [^\\n\\]]+ \\| Generation: [^\\n\\]]+ \\]\\s*$", "", answer).strip()
+
             if not answer:
                 raise RuntimeError("The writer returned an empty response.")
 
