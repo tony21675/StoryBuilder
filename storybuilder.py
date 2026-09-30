@@ -878,12 +878,13 @@ Writing rules:
             self.pending_state_patch = None
             self.writer_state_preview.delete("1.0", "end")
             self._refresh_all()
+            self._save()
             self._chat(
                 "Builder",
-                "Applied the accepted scene's proposed state changes to current_state.",
+                "Applied the accepted scene's proposed state changes to current_state and saved them.",
             )
             self.writer_status.configure(
-                text="State update applied to the novel."
+                text="State update applied and saved to the novel."
             )
             self._update_writer_buttons()
         except Exception as exc:
