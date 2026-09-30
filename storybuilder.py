@@ -477,12 +477,22 @@ class StoryBuilderApp(tk.Tk):
         )
         self.writer_apply_state_button.pack(side="left", padx=(8, 0))
 
+        proposed_state_header = ttk.Frame(content_frame)
+        proposed_state_header.pack(fill="x", pady=(10, 0))
         ttk.Label(
-            content_frame,
+            proposed_state_header,
             text="Proposed State Changes",
             font=("", 11, "bold"),
-        ).pack(anchor="w", pady=(10, 0))
-        self.writer_state_preview = tk.Text(content_frame, height=8, wrap="none")
+        ).pack(side="left")
+
+        self.writer_copy_state_button = ttk.Button(
+            proposed_state_header,
+            text="Copy JSON",
+            command=self._copy_proposed_state,
+        )
+        self.writer_copy_state_button.pack(side="right")
+
+        self.writer_state_preview = tk.Text(content_frame, height=8, wrap="none", undo=True)
         self.writer_state_preview.pack(fill="x", pady=(4, 0))
 
         self._refresh_writer_models()
@@ -1056,6 +1066,27 @@ Writing rules:
             self._update_writer_buttons()
         except Exception as exc:
             messagebox.showerror("State Update", str(exc))
+
+    def _copy_proposed_state(self):
+        if not hasattr(self, "writer_state_preview"):
+            return
+
+        value = self.writer_state_preview.get("1.0", "end-1c").strip()
+        if not value:
+            return
+
+        try:
+            self.clipboard_clear()
+            self.clipboard_append(value)
+            self.update_idletasks()
+            if hasattr(self, "writer_copy_state_button"):
+                self.writer_copy_state_button.configure(text="Copied ✓")
+                self.after(
+                    1200,
+                    lambda: self.writer_copy_state_button.configure(text="Copy JSON")
+                )
+        except tk.TclError:
+            pass
 
     def _refresh_manuscript(self):
         if not hasattr(self, "manuscript_list"):
@@ -1828,6 +1859,7 @@ Writing rules:
             self.open_questions_text,
             self.writer_direction_text,
             self.writer_output_text,
+            self.writer_state_preview,
             self.manuscript_output,
         ]
         for widget in self._spellcheck_text_widgets:
