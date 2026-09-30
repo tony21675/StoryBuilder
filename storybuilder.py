@@ -554,14 +554,20 @@ class StoryBuilderApp(tk.Tk):
             json.dumps(self.package.current_state, indent=2, ensure_ascii=False),
         ))
 
-        # writing_guidance.json is intentionally not attached wholesale here.
-        # Build Scene Direction extracts the relevant scene guidance and supplies
-        # it directly to the writer, avoiding unnecessary context pressure.
+        # Keep the recurring guidance out of the model context. The relevant
+        # scene_plan guidance is extracted by Build Scene Direction instead.
+        scene = int(self.package.current_state.get("scene", 1) or 1)
+        scene_cast = {
+            str(name).casefold()
+            for name in self.package.current_state.get("scene_cast", [])
+        }
 
         if self.package.path is not None:
             recent = ManuscriptManager(self.package.path).recent_text()
             if recent:
-                files.append(("recent_manuscript.txt", recent))
+                # Keep only a useful recent window so context does not grow
+                # without bound as the manuscript gets longer.
+                files.append(("recent_manuscript.txt", recent[-8000:]))
 
         for module in self.package.story_bible.get("optional_story_modules", []):
             if not isinstance(module, dict):
@@ -581,18 +587,61 @@ class StoryBuilderApp(tk.Tk):
             if not isinstance(data, dict) or status != "active":
                 continue
 
-            files.append((
-                filename,
-                json.dumps(data, indent=2, ensure_ascii=False),
-            ))
+            # Only load scene-specific module guidance for the current scene.
+            # Do not expose an entire active module, which can contain future
+            # events, hidden motives, identities, or other information the
+            # current scene must not know.
+            scene_guidance = data.get("scene_guidance", {})
+            current_guidance = None
+            if isinstance(scene_guidance, dict):
+                current_guidance = scene_guidance.get(str(scene))
+                if current_guidance is None:
+                    current_guidance = scene_guidance.get(scene)
 
-            for char_file in module.get("character_files", []):
-                char_name = str(char_file).strip()
-                char_data = self.package.extra_json.get(char_name)
-                if isinstance(char_data, dict):
+            if isinstance(current_guidance, dict):
+                files.append((
+                    filename,
+                    json.dumps(
+                        {
+                            "name": data.get("name", module.get("name", filename)),
+                            "scene_guidance": {str(scene): current_guidance},
+                        },
+                        indent=2,
+                        ensure_ascii=False,
+                    ),
+                ))
+                continue
+
+            # Relationship dynamics has no scene-numbered module guidance.
+            # Only expose the small portion relevant when Tony or Chloe is
+            # actually present in the scene. Scene 1-5 do not need it.
+            relationships = data.get("relationships")
+            writing_guidance = data.get("writing_guidance")
+            if (
+                isinstance(relationships, dict)
+                and (
+                    "tony" in scene_cast
+                    or "chloe" in scene_cast
+                )
+            ):
+                relevant = {}
+                for key, value in relationships.items():
+                    if not isinstance(value, dict):
+                        continue
+                    key_text = str(key).casefold()
+                    if any(person in key_text for person in scene_cast):
+                        relevant[key] = value
+
+                compact = {}
+                if relevant:
+                    compact["relationships"] = relevant
+                if isinstance(writing_guidance, dict):
+                    compact["writing_guidance"] = writing_guidance
+
+                if compact:
                     files.append((
-                        char_name,
-                        json.dumps(char_data, indent=2, ensure_ascii=False),
+                        filename,
+                        json.dumps(compact, indent=2, ensure_ascii=False),
                     ))
 
         return files
