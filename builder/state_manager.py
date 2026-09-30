@@ -78,6 +78,9 @@ def remove_unchanged(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, A
 class StateManager:
     """Turns accepted prose into a reviewable current_state patch."""
 
+    @staticmethod
+    def merge_patch(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
+        return merge_patch(base, patch)
 
     @staticmethod
     def _detect_accelerator() -> str | None:
