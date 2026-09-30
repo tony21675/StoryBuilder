@@ -38,6 +38,10 @@ class StoryBuilderApp(tk.Tk):
         self.generated_scene = ""
         self.accepted_scene = ""
         self.pending_state_patch = None
+        self.selected_manuscript_path = None
+        self.saved_state_candidate = None
+        self.selected_manuscript_path = None
+        self.saved_state_candidate = None
 
         self._build_ui()
         self.protocol("WM_DELETE_WINDOW", self._close_and_sync)
@@ -517,13 +521,84 @@ class StoryBuilderApp(tk.Tk):
 
         left = ttk.Frame(row)
         left.pack(side="left", fill="y", padx=(0, 12))
-        self.manuscript_list = tk.Listbox(left, width=34, height=28, exportselection=False)
+        self.manuscript_list = tk.Listbox(
+            left,
+            width=34,
+            height=28,
+            exportselection=False,
+        )
         self.manuscript_list.pack(fill="y", expand=True)
-        self.manuscript_list.bind("<<ListboxSelect>>", self._select_manuscript_scene)
-        ttk.Button(left, text="Refresh Manuscript", command=self._refresh_manuscript).pack(fill="x", pady=(8, 0))
+        self.manuscript_list.bind(
+            "<<ListboxSelect>>",
+            self._select_manuscript_scene,
+        )
 
-        self.manuscript_output = tk.Text(row, wrap="word", undo=True)
-        self.manuscript_output.pack(side="left", fill="both", expand=True)
+        manuscript_button_row = ttk.Frame(left)
+        manuscript_button_row.pack(fill="x", pady=(8, 0))
+
+        ttk.Button(
+            manuscript_button_row,
+            text="Refresh Manuscript",
+            command=self._refresh_manuscript,
+        ).pack(fill="x")
+
+        self.manuscript_analyze_button = ttk.Button(
+            manuscript_button_row,
+            text="Analyze Saved Section",
+            command=self._analyze_saved_manuscript_scene,
+        )
+        self.manuscript_analyze_button.pack(fill="x", pady=(6, 0))
+
+        self.manuscript_restore_button = ttk.Button(
+            manuscript_button_row,
+            text="Restore Reconstructed State",
+            command=self._restore_saved_state_candidate,
+        )
+        self.manuscript_restore_button.pack(fill="x", pady=(6, 0))
+
+        right = ttk.Frame(row)
+        right.pack(side="left", fill="both", expand=True)
+
+        self.manuscript_output = tk.Text(
+            right,
+            wrap="word",
+            undo=True,
+        )
+        self.manuscript_output.pack(fill="both", expand=True)
+
+        recovery_header = ttk.Frame(right)
+        recovery_header.pack(fill="x", pady=(10, 0))
+
+        self.manuscript_recovery_status = ttk.Label(
+            recovery_header,
+            text="Select an accepted section to analyze its state.",
+        )
+        self.manuscript_recovery_status.pack(side="left")
+
+        self.manuscript_copy_state_button = ttk.Button(
+            recovery_header,
+            text="Copy Reconstructed JSON",
+            command=self._copy_saved_state_candidate,
+        )
+        self.manuscript_copy_state_button.pack(side="right")
+
+        ttk.Label(
+            right,
+            text="Reconstructed State",
+            font=("", 11, "bold"),
+        ).pack(anchor="w", pady=(6, 0))
+
+        self.manuscript_state_preview = tk.Text(
+            right,
+            height=16,
+            wrap="none",
+            undo=True,
+        )
+        self.manuscript_state_preview.pack(fill="both", expand=True, pady=(4, 0))
+
+        self.manuscript_analyze_button.configure(state="disabled")
+        self.manuscript_restore_button.configure(state="disabled")
+        self.manuscript_copy_state_button.configure(state="disabled")
 
     def _refresh_writer_models(self):
         if not hasattr(self, "writer_model_combo"):
@@ -971,6 +1046,14 @@ Writing rules:
                 scene,
                 self.generated_scene,
             )
+            # Preserve the exact current state that existed before this accepted
+            # section. This provides a durable recovery baseline for later state
+            # reconstruction.
+            manager.save_state_before(
+                chapter,
+                scene,
+                json.loads(json.dumps(self.package.current_state)),
+            )
             self.accepted_scene = self.generated_scene
             self.pending_state_patch = None
             self.writer_state_preview.delete("1.0", "end")
@@ -1088,6 +1171,203 @@ Writing rules:
         except tk.TclError:
             pass
 
+    def _selected_manuscript_scene(self):
+        if self.package is None or self.package.path is None:
+            return None
+        selection = self.manuscript_list.curselection()
+        if not selection:
+            return None
+        items = ManuscriptManager(self.package.path).list_scenes()
+        index = selection[0]
+        if index >= len(items):
+            return None
+        return items[index]
+
+    def _selected_writer_model_for_analysis(self):
+        model = self.writer_engine.model_path
+        if model:
+            return model
+        selected = self.writer_model_var.get().strip()
+        if not selected:
+            raise ValueError("Select a GGUF model first.")
+        return WriterEngine.validate_model(selected)
+
+    def _analyze_saved_manuscript_scene(self):
+        path = self._selected_manuscript_scene()
+        if path is None or self.package is None or self.package.path is None:
+            return
+
+        numbers = ManuscriptManager.scene_numbers(path)
+        if numbers is None:
+            messagebox.showerror(
+                "State Recovery",
+                f"Could not determine chapter and scene numbers from {path.name}.",
+            )
+            return
+
+        try:
+            story_text = path.read_text(encoding="utf-8").strip()
+            if not story_text:
+                raise ValueError("The selected manuscript section is empty.")
+
+            chapter, scene = numbers
+            manager = ManuscriptManager(self.package.path)
+            baseline = manager.load_state_before(chapter, scene)
+            used_fallback = baseline is None
+            if baseline is None:
+                # Scene 1 currently predates the snapshot feature. For this
+                # existing section, the current state is the best available
+                # starting point.
+                baseline = json.loads(
+                    json.dumps(self.package.current_state)
+                )
+
+            model = self._selected_writer_model_for_analysis()
+
+            self.manuscript_analyze_button.configure(state="disabled")
+            self.manuscript_restore_button.configure(state="disabled")
+            self.manuscript_copy_state_button.configure(state="disabled")
+            self.manuscript_recovery_status.configure(
+                text=f"Analyzing {path.name}..."
+            )
+
+            def work():
+                try:
+                    patch = StateManager.propose(
+                        model,
+                        baseline,
+                        story_text,
+                    )
+                    candidate = StateManager.merge_patch(
+                        baseline,
+                        patch,
+                    )
+                    save_path = manager.save_state_after_candidate(
+                        chapter,
+                        scene,
+                        candidate,
+                    )
+                    result = {
+                        "patch": patch,
+                        "candidate": candidate,
+                        "save_path": save_path,
+                        "used_fallback": used_fallback,
+                        "error": None,
+                    }
+                except Exception as exc:
+                    result = {
+                        "patch": None,
+                        "candidate": None,
+                        "save_path": None,
+                        "used_fallback": used_fallback,
+                        "error": str(exc),
+                    }
+
+                self.after(
+                    0,
+                    lambda result=result: self._finish_saved_state_analysis(result),
+                )
+
+            self.writer_thread = threading.Thread(
+                target=work,
+                daemon=True,
+            )
+            self.writer_thread.start()
+
+        except Exception as exc:
+            messagebox.showerror("State Recovery", str(exc))
+            self._update_saved_state_buttons()
+
+    def _finish_saved_state_analysis(self, result):
+        error = result.get("error")
+        if error:
+            messagebox.showerror("State Recovery", error)
+            self._update_saved_state_buttons()
+            return
+
+        self.saved_state_candidate = result.get("candidate")
+        self.manuscript_state_preview.delete("1.0", "end")
+        self.manuscript_state_preview.insert(
+            "1.0",
+            json.dumps(
+                self.saved_state_candidate,
+                indent=2,
+                ensure_ascii=False,
+            ),
+        )
+
+        save_path = result.get("save_path")
+        note = "using the current state as the baseline because no before-state snapshot exists" if result.get("used_fallback") else "using the saved before-state snapshot"
+        self.manuscript_recovery_status.configure(
+            text=f"Reconstructed state saved to {save_path.name} ({note})."
+        )
+        self._update_saved_state_buttons()
+
+    def _update_saved_state_buttons(self):
+        has_selection = self._selected_manuscript_scene() is not None
+        has_candidate = isinstance(self.saved_state_candidate, dict)
+
+        if hasattr(self, "manuscript_analyze_button"):
+            self.manuscript_analyze_button.configure(
+                state="normal" if has_selection else "disabled"
+            )
+        if hasattr(self, "manuscript_restore_button"):
+            self.manuscript_restore_button.configure(
+                state="normal" if has_candidate and self.package else "disabled"
+            )
+        if hasattr(self, "manuscript_copy_state_button"):
+            self.manuscript_copy_state_button.configure(
+                state="normal" if has_candidate else "disabled"
+            )
+
+    def _restore_saved_state_candidate(self):
+        if self.package is None or not isinstance(self.saved_state_candidate, dict):
+            return
+
+        if not messagebox.askyesno(
+            "Restore Reconstructed State",
+            "Replace the current story state with this reconstructed state?\\n\\n"
+            "The reconstructed JSON has already been saved as a recovery file.",
+        ):
+            return
+
+        self.package.current_state = json.loads(
+            json.dumps(self.saved_state_candidate)
+        )
+        self.dirty = True
+        self._refresh_all()
+        self._save()
+        self._chat(
+            "Builder",
+            "Restored current_state from the selected manuscript section's reconstructed state.",
+        )
+        self.manuscript_recovery_status.configure(
+            text="Reconstructed state restored and saved to current_state.json."
+        )
+        self._update_saved_state_buttons()
+
+    def _copy_saved_state_candidate(self):
+        if not isinstance(self.saved_state_candidate, dict):
+            return
+        try:
+            value = json.dumps(
+                self.saved_state_candidate,
+                indent=2,
+                ensure_ascii=False,
+            )
+            self.clipboard_clear()
+            self.clipboard_append(value)
+            self.update_idletasks()
+            self.manuscript_copy_state_button.configure(text="Copied ✓")
+            self.after(
+                1200,
+                lambda: self.manuscript_copy_state_button.configure(
+                    text="Copy Reconstructed JSON"
+                ),
+            )
+        except tk.TclError:
+            pass
+
     def _refresh_manuscript(self):
         if not hasattr(self, "manuscript_list"):
             return
@@ -1116,6 +1396,13 @@ Writing rules:
             return
 
         path = items[index]
+        self.selected_manuscript_path = path
+        self.saved_state_candidate = None
+        self.manuscript_state_preview.delete("1.0", "end")
+        self.manuscript_recovery_status.configure(
+            text=f"Selected {path.name}. Analyze it to reconstruct its state."
+        )
+        self._update_saved_state_buttons()
         try:
             text = path.read_text(encoding="utf-8")
         except OSError as exc:
@@ -1860,6 +2147,7 @@ Writing rules:
             self.writer_direction_text,
             self.writer_output_text,
             self.writer_state_preview,
+            self.manuscript_state_preview,
             self.manuscript_output,
         ]
         for widget in self._spellcheck_text_widgets:
