@@ -211,7 +211,7 @@ class StoryBuilderApp(tk.Tk):
             font=("", 11, "bold"),
         ).pack(anchor="w")
 
-        self.module_list = tk.Listbox(left, width=32, height=18)
+        self.module_list = tk.Listbox(left, width=32, height=18, exportselection=False)
         self.module_list.pack(fill="y", expand=True, pady=(6, 8))
         self.module_list.bind("<<ListboxSelect>>", self._select_module)
 
@@ -508,14 +508,30 @@ class StoryBuilderApp(tk.Tk):
         return modules[selection[0]]
 
     def _select_module(self, _event=None):
-        module = self._selected_module()
-        if module is None:
-            self.module_info.configure(text="Select a module.")
-            self.module_text.delete("1.0", "end")
+        if self.package is None:
             return
 
+        # Use the listbox selection directly and avoid destructive clearing
+        # when a transient selection event fires while the widget is updating.
+        selection = self.module_list.curselection()
+        if not selection:
+            return
+
+        modules = [
+            module
+            for module in self.package.story_bible.get("optional_story_modules", [])
+            if isinstance(module, dict) and str(module.get("file", "")).strip()
+        ]
+        index = selection[0]
+        if index < 0 or index >= len(modules):
+            return
+
+        module = modules[index]
         filename = str(module.get("file", "")).strip()
-        data = self.package.extra_json.get(filename, {})
+        data = self.package.extra_json.get(filename)
+        if not isinstance(data, dict):
+            data = {}
+
         name = str(module.get("name") or data.get("name") or filename)
         status = str(data.get("status", module.get("status", "optional")))
         module_type = str(data.get("type", module.get("type", "story_module")))
@@ -527,10 +543,7 @@ class StoryBuilderApp(tk.Tk):
         self.module_info.configure(text=info)
 
         self.module_text.delete("1.0", "end")
-        self.module_text.insert(
-            "1.0",
-            json.dumps(data, indent=2, ensure_ascii=False),
-        )
+        self.module_text.insert("1.0", json.dumps(data, indent=2, ensure_ascii=False))
 
     def _apply_module_edits(self):
         module = self._selected_module()
