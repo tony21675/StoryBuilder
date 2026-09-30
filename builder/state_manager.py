@@ -150,7 +150,7 @@ class StateManager:
             "--no-display-prompt",
             "--simple-io",
             "--single-turn",
-        ]
+        ])
 
         proc = subprocess.Popen(
             args,
