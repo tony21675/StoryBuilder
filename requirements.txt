@@ -1,2 +1,2 @@
-# StoryBuilder currently uses only Python's standard library.
+# StoryBuilder uses Python's standard library plus pexpect for the local writer engine.
 pexpect>=4.9
