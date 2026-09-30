@@ -806,9 +806,16 @@ Writing rules:
         self.guided_setup.stop()
         if hasattr(self, "guided_button"):
             self.guided_button.configure(text="Guided Setup")
+        try:
+            self.writer_engine.stop()
+        except Exception:
+            pass
+        self.generated_scene = ""
         self.package = StoryPackage.new()
         self.character_filename = None
         self.dirty = True
+        if hasattr(self, "writer_output_text"):
+            self.writer_output_text.delete("1.0", "end")
         self._refresh_all()
         self._chat("Builder", "New novel created.")
 
@@ -820,13 +827,21 @@ Writing rules:
         if not folder:
             return
         try:
+            self.writer_engine.stop()
+        except Exception:
+            pass
+        try:
             self.package = StoryPackage.load(Path(folder))
         except Exception as exc:
             messagebox.showerror("Open Novel", f"Could not open that novel package.\n\n{exc}")
             return
         self.character_filename = None
+        self.generated_scene = ""
         self.dirty = False
+        if hasattr(self, "writer_output_text"):
+            self.writer_output_text.delete("1.0", "end")
         self._refresh_all()
+        self._refresh_writer_models()
         self._chat("Builder", f'Opened "{self.package.story_bible.get("title", Path(folder).name)}".')
 
     def _save(self):
@@ -1448,10 +1463,10 @@ Writing rules:
             self.notes_text,
             self.relationships_text,
             self.locations_text,
-            self.module_text,
-        self.situation_text,
-        self.themes_text,
-        self.open_questions_text,
+                self.module_text,
+            self.situation_text,
+            self.themes_text,
+            self.open_questions_text,
             self.writer_direction_text,
             self.writer_output_text,
             self.manuscript_output,
