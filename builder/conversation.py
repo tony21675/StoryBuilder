@@ -56,7 +56,7 @@ def apply_command(package, command: str) -> ChangeResult:
         return ChangeResult(True, f"Current chapter set to {match.group(1)}.")
 
     match = re.fullmatch(
-        r"(?:set|change) (?:the )?(?:current )?scene to (\d+)(?:[.!:]\\s*(.*))?",
+        r"(?:set|change) (?:the )?(?:current )?scene to (\d+)(?:[.!:]\s*(.*))?",
         text,
         re.IGNORECASE,
     )
@@ -70,21 +70,21 @@ def apply_command(package, command: str) -> ChangeResult:
             package.current_state["scene_completed"] = False
 
             cast_match = re.search(
-                r"only (.+?) participate in the scene\\.?$",
+                r"only (.+?) participate in the scene\.?$",
                 details,
                 re.IGNORECASE,
             )
             if cast_match:
                 package.current_state["scene_cast"] = [
                     name.strip()
-                    for name in re.split(r"\\s*(?:,|and)\\s*", cast_match.group(1))
+                    for name in re.split(r"\s*(?:,|and)\s*", cast_match.group(1))
                     if name.strip()
                 ]
 
             location = package.current_state.get("location")
             if isinstance(location, dict):
                 arrived = re.search(
-                    r"(?:have|has) arrived at (?:the )?(.+?)(?=\\.|$)",
+                    r"(?:have|has) arrived at (?:the )?(.+?)(?=\.|$)",
                     details,
                     re.IGNORECASE,
                 )
