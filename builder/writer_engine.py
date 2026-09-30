@@ -178,7 +178,13 @@ class WriterEngine:
                     "Writer is not running. Start the Writer first."
                 )
 
-            self.child.sendline(prompt)
+            # llama-cli's interactive input is line-oriented. Collapse the
+            # multi-line author direction into one user turn so embedded newlines
+            # are not interpreted as additional commands or prompts.
+            single_line_prompt = " ".join(
+                line.strip() for line in prompt.replace("\r", "").split("\n") if line.strip()
+            )
+            self.child.sendline(single_line_prompt)
 
             try:
                 self.child.expect(r"(?m)^> ", timeout=900)
