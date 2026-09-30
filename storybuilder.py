@@ -1080,31 +1080,76 @@ class StoryBuilderApp(tk.Tk):
     def _add_context_menu(widget):
         menu = tk.Menu(widget, tearoff=0)
 
-        def cut():
+        def selection_range():
             try:
-                widget.focus_set()
-                widget.event_generate("<<Cut>>")
+                if isinstance(widget, tk.Text):
+                    ranges = widget.tag_ranges("sel")
+                    if len(ranges) == 2:
+                        return ranges[0], ranges[1]
+                else:
+                    if widget.selection_present():
+                        return widget.index("sel.first"), widget.index("sel.last")
             except tk.TclError:
                 pass
+            return None
 
         def copy():
             try:
-                widget.focus_set()
-                widget.event_generate("<<Copy>>")
+                selected = selection_range()
+                if selected is None:
+                    return
+                start_index, end_index = selected
+                value = widget.get(start_index, end_index)
+                widget.clipboard_clear()
+                widget.clipboard_append(value)
+                widget.update_idletasks()
+            except tk.TclError:
+                pass
+
+        def cut():
+            try:
+                selected = selection_range()
+                if selected is None:
+                    return
+                start_index, end_index = selected
+                value = widget.get(start_index, end_index)
+                widget.clipboard_clear()
+                widget.clipboard_append(value)
+                widget.update_idletasks()
+                widget.delete(start_index, end_index)
             except tk.TclError:
                 pass
 
         def paste():
             try:
-                widget.focus_set()
-                widget.event_generate("<<Paste>>")
+                value = widget.clipboard_get()
+            except tk.TclError:
+                return
+
+            try:
+                selected = selection_range()
+                if selected is not None:
+                    start_index, end_index = selected
+                    widget.delete(start_index, end_index)
+                    widget.insert(start_index, value)
+                    if isinstance(widget, tk.Text):
+                        widget.mark_set("insert", f"{start_index} + {len(value)} chars")
+                    else:
+                        widget.icursor(widget.index(start_index) + len(value))
+                else:
+                    widget.insert("insert", value)
             except tk.TclError:
                 pass
 
         def select_all():
             try:
+                if isinstance(widget, tk.Text):
+                    widget.tag_add("sel", "1.0", "end-1c")
+                    widget.mark_set("insert", "end-1c")
+                else:
+                    widget.select_range(0, "end")
+                    widget.icursor("end")
                 widget.focus_set()
-                widget.event_generate("<<SelectAll>>")
             except tk.TclError:
                 pass
 
@@ -1116,7 +1161,9 @@ class StoryBuilderApp(tk.Tk):
 
         def show_menu(event):
             try:
-                widget.focus_set()
+                # Do not move focus or insertion point here. A right-click
+                # must preserve an existing text selection so Paste can replace
+                # the highlighted text.
                 menu.tk_popup(event.x_root, event.y_root)
             finally:
                 menu.grab_release()
