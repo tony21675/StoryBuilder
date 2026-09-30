@@ -12,6 +12,9 @@ from pathlib import Path
 from builder.workspace import LLAMA as DEFAULT_LLAMA, MODELS_DIR
 
 
+WRITER_TIMEOUT = int(os.environ.get("STORY_WRITER_TIMEOUT", "3600"))
+
+
 class WriterEngine:
     """Persistent local llama-cli session used by StoryBuilder."""
 
@@ -153,8 +156,8 @@ class WriterEngine:
             )
 
             try:
-                child.expect(r"(?m)^> ", timeout=180)
-                child.timeout = 900
+                child.expect(r"(?m)^> ", timeout=WRITER_TIMEOUT)
+                child.timeout = WRITER_TIMEOUT
             except Exception:
                 output = child.before if child else ""
                 try:
@@ -187,7 +190,7 @@ class WriterEngine:
             self.child.sendline(single_line_prompt)
 
             try:
-                self.child.expect(r"(?m)^> ", timeout=900)
+                self.child.expect(r"(?m)^> ", timeout=WRITER_TIMEOUT)
             except Exception:
                 output = self.child.before or ""
                 raise RuntimeError(
