@@ -794,7 +794,16 @@ Writing rules:
         try:
             chapter = int(self.package.current_state.get("chapter", 1))
             scene = int(self.package.current_state.get("scene", 1))
-            path = ManuscriptManager(self.package.path).save_scene(
+            manager = ManuscriptManager(self.package.path)
+            path = manager.scene_path(chapter, scene)
+            if path.exists():
+                replace = messagebox.askyesno(
+                    "Replace Existing Scene",
+                    f"{path.name} already exists. Replace it with this accepted scene?"
+                )
+                if not replace:
+                    return
+            path = manager.save_scene(
                 chapter,
                 scene,
                 self.generated_scene,
