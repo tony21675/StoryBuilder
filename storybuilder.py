@@ -1016,7 +1016,7 @@ Rules:
                 except OSError:
                     previous_text = ""
                 if previous_text:
-                    previous_ending = previous_text[-3500:]
+                    previous_ending = previous_text[-1400:]
 
         prompt_parts = [
             "AUTHOR DIRECTION:\n",
@@ -1025,7 +1025,7 @@ Rules:
         ]
         if previous_ending:
             prompt_parts.extend([
-                "PREVIOUS SCENE ENDING (continuation reference only):\n",
+                "PREVIOUS SCENE FINAL MOMENT (continuation reference only):\n",
                 previous_ending,
                 "\n\n"
                 "Do not repeat, restart, or paraphrase this quoted ending. "
