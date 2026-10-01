@@ -741,27 +741,35 @@ class StoryBuilderApp(tk.Tk):
             f"Time: {time_text or 'not established'}",
             "Cast: " + ", ".join(cast),
             f"Start here: {situation or 'continue from the exact current state.'}",
-            "Do not replay events already completed before this scene.",
         ]
 
+        # The current situation is the scene's resolved starting point.
+        # Older plan directions/beats may describe how the story arrived here,
+        # so do not copy them into the writer direction when a concrete current
+        # situation already exists. This prevents replaying completed movement
+        # or relationship dynamics.
+        current_plan_end = None
         plan = self.package.extra_json.get("writing_guidance.json")
-        found_guidance = False
         if isinstance(plan, dict):
             scene_plan = plan.get("scene_plan", {})
             guidance = scene_plan.get(str(scene)) if isinstance(scene_plan, dict) else None
             if guidance is None and isinstance(scene_plan, dict):
                 guidance = scene_plan.get(scene)
             if isinstance(guidance, dict):
-                found_guidance = True
-                direction = str(guidance.get("direction", "") or "").strip()
-                end_condition = str(guidance.get("end_condition", "") or "").strip()
-                pacing = str(guidance.get("pacing", "") or "").strip()
-                if direction:
-                    lines.append(f"Goal: {direction}")
-                if end_condition:
-                    lines.append(f"End: {end_condition}")
-                if pacing:
-                    lines.append(f"Pacing: {pacing}")
+                current_plan_end = str(
+                    guidance.get("end_condition", "") or ""
+                ).strip()
+                if not situation:
+                    direction = str(guidance.get("direction", "") or "").strip()
+                    pacing = str(guidance.get("pacing", "") or "").strip()
+                    if direction:
+                        lines.append(f"Goal: {direction}")
+                    if pacing:
+                        lines.append(f"Pacing: {pacing}")
+
+        module_endings = []
+        module_beats = []
+        module_do_not = []
 
         for module in self.package.story_bible.get("optional_story_modules", []):
             if not isinstance(module, dict):
@@ -781,46 +789,38 @@ class StoryBuilderApp(tk.Tk):
             if not isinstance(guidance, dict):
                 continue
 
-            found_guidance = True
-            events = guidance.get("required_events", [])
-            compact_events = []
-            situation_words = {
-                word for word in re.findall(r"[a-z0-9]+", situation.casefold())
-                if len(word) >= 4
-            }
-            for event in (events if isinstance(events, list) else []):
-                event_text = str(event).strip()
-                if not event_text:
-                    continue
-                event_words = {
-                    word for word in re.findall(r"[a-z0-9]+", event_text.casefold())
-                    if len(word) >= 4
-                }
-                overlap = (
-                    len(event_words & situation_words) / max(1, len(event_words))
-                )
-                if overlap >= 0.55:
-                    continue
-                compact_events.append(event_text)
-
-            if compact_events:
-                lines.append("Beats: " + " | ".join(compact_events))
             module_end = str(guidance.get("end_condition", "") or "").strip()
-            if module_end and not any(line.startswith("End:") for line in lines):
+            if module_end:
+                module_endings.append(module_end)
+
+            if not situation:
+                events = guidance.get("required_events", [])
+                for event in events if isinstance(events, list) else []:
+                    event_text = str(event).strip()
+                    if event_text:
+                        module_beats.append(event_text)
+
+                no_advance = guidance.get("do_not_advance", [])
+                if isinstance(no_advance, list):
+                    for item in no_advance:
+                        item_text = str(item).strip()
+                        if item_text:
+                            module_do_not.append(item_text)
+
+        if current_plan_end:
+            lines.append(f"End: {current_plan_end}")
+        for module_end in module_endings:
+            if module_end and module_end != current_plan_end:
                 lines.append(f"End: {module_end}")
 
-            no_advance = guidance.get("do_not_advance", [])
-            compact_no_advance = [
-                str(item).strip()
-                for item in no_advance if str(item).strip()
-            ] if isinstance(no_advance, list) else []
-            if compact_no_advance:
-                lines.append("Do not: " + " | ".join(compact_no_advance))
+        if module_beats:
+            lines.append("Beats: " + " | ".join(module_beats))
+        if module_do_not:
+            lines.append("Do not: " + " | ".join(module_do_not))
 
-        if not found_guidance:
-            lines.append("No additional scene-specific plan.")
-
-        lines.append("Write natural prose only. Current state and this scene direction are authoritative.")
+        lines.append(
+            "Write natural prose only. Current state and this scene direction are authoritative."
+        )
 
         self.writer_direction_text.delete("1.0", "end")
         self.writer_direction_text.insert("1.0", "\n".join(lines))
