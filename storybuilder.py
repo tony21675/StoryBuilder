@@ -1053,6 +1053,9 @@ Writing rules:
         self.writer_write_button.configure(state="disabled")
         self.writer_status.configure(text="Writing scene...")
 
+        chapter = int(self.package.current_state.get("chapter", 1) or 1)
+        scene = int(self.package.current_state.get("scene", 1) or 1)
+
         previous_ending = ""
         if self.package.path is not None and scene > 1:
             manager = ManuscriptManager(self.package.path)
