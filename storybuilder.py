@@ -788,7 +788,7 @@ class StoryBuilderApp(tk.Tk):
                 word for word in re.findall(r"[a-z0-9]+", situation.casefold())
                 if len(word) >= 4
             }
-            for event in events if isinstance(events, list) else []:
+            for event in (events if isinstance(events, list) else []):
                 event_text = str(event).strip()
                 if not event_text:
                     continue
@@ -836,6 +836,7 @@ Rules:
 - Only current-scene characters may participate.
 - Never replay completed earlier scenes or invent off-cast characters.
 - Preserve established names, genders, pronouns, relationships, possessions, appearance, and scents.
+- Current-novel signature scents: Tiffany = coconut + strawberry; Maya = vanilla; Chloe = pineapple.
 - Keep character knowledge limited to what they could know.
 - Natural small talk, ordinary memories, harmless feelings, and minor scene details are welcome.
 - Do not invent consequential canon, motives, identities, hidden plans, or secret knowledge.
