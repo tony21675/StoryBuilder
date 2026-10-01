@@ -9,19 +9,24 @@
     "5": {
       "required_events": [
         "Begin immediately at the confrontation already established at the end of Scene 4.",
-        "Kidnapper Driver remains with the van.",
+        "Kidnapper Driver remains in or directly at the van and does not physically restrain Tiffany.",
         "Kidnapper Grabber is the only kidnapper who physically takes Tiffany.",
-        "Tiffany realizes what is happening and resists before being overwhelmed and taken.",
-        "Maya witnesses Tiffany being taken and remains outside."
+        "Tiffany realizes she is being abducted and fights hard, hitting and kicking the captor as he tries to take her.",
+        "Kidnapper Grabber overpowers Tiffany, lifts her off the ground while she continues kicking and striking him, and carries her to the van.",
+        "The captor throws Tiffany into the van, then slams the door shut.",
+        "Kidnapper Driver immediately drives the van away with Tiffany inside.",
+        "Maya witnesses Tiffany being taken, is unable to stop the abduction, and remains alone outside after the van leaves."
       ],
-      "end_condition": "End after Tiffany has been taken and Maya is left alone, shocked and extremely distressed.",
+      "end_condition": "End after the van has driven away with Tiffany inside and Maya is left alone on the road, shocked and extremely distressed.",
       "do_not_advance": [
         "Do not replay the walk from the gas station or earlier conversation.",
         "Do not include Chloe.",
-        "Do not have both kidnappers physically restrain Tiffany or enter the van with her.",
+        "Do not have both kidnappers physically restrain Tiffany.",
+        "Do not have Kidnapper Driver leave the van to help physically take Tiffany.",
         "Do not send Maya to Tony's house in this scene.",
         "Do not reveal the kidnappers' motive, identities, destination, or hidden planning beyond what is directly seen or experienced.",
-        "Do not activate or explain the tracker unless the scene itself naturally establishes that happening."
+        "Do not activate or explain the tracker unless the scene itself naturally establishes that happening.",
+        "Do not end the scene before the van drives away."
       ]
     },
     "6": {
