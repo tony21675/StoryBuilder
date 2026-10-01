@@ -148,6 +148,10 @@ class WriterEngine:
             self.system_prompt = system_prompt
             self.started_at = time.time()
 
+    def reset_context(self, model_path: str | Path, system_prompt: str) -> None:
+        """Restart llama-cli with a fresh conversation context."""
+        self.start(model_path, system_prompt)
+
     def generate(self, prompt: str) -> str:
         with self.lock:
             if self.child is None or not self.child.isalive():
