@@ -665,10 +665,6 @@ class StoryBuilderApp(tk.Tk):
             "time": time_data,
             "cast": scene_cast_names,
             "current_situation": str(state.get("current_situation", "") or "").strip(),
-            "continuity_notes": state.get(
-                "continuity_notes",
-                state.get("continuity_requirements", []),
-            ),
         }
         files.append((
             "scene_state.json",
