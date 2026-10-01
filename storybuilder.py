@@ -739,11 +739,10 @@ class StoryBuilderApp(tk.Tk):
             f"Current state: {situation or 'continue from the exact current state.'}",
         ]
 
-        # The current situation is the scene's resolved starting point.
-        # Older plan directions/beats may describe how the story arrived here,
-        # so do not copy them into the writer direction when a concrete current
-        # situation already exists. This prevents replaying completed movement
-        # or relationship dynamics.
+        # Current situation defines where the scene starts. The current scene
+        # plan defines what should happen from that starting point. Keep both:
+        # suppressing the plan when a situation exists hides the actual scene
+        # action and leaves the writer with only a starting-state description.
         current_plan_end = None
         plan = self.package.extra_json.get("writing_guidance.json")
         if isinstance(plan, dict):
@@ -755,13 +754,12 @@ class StoryBuilderApp(tk.Tk):
                 current_plan_end = str(
                     guidance.get("end_condition", "") or ""
                 ).strip()
-                if not situation:
-                    direction = str(guidance.get("direction", "") or "").strip()
-                    pacing = str(guidance.get("pacing", "") or "").strip()
-                    if direction:
-                        lines.append(f"Goal: {direction}")
-                    if pacing:
-                        lines.append(f"Pacing: {pacing}")
+                direction = str(guidance.get("direction", "") or "").strip()
+                pacing = str(guidance.get("pacing", "") or "").strip()
+                if direction:
+                    lines.append(f"Scene direction: {direction}")
+                if pacing:
+                    lines.append(f"Pacing: {pacing}")
 
         module_endings = []
         module_beats = []
@@ -789,7 +787,7 @@ class StoryBuilderApp(tk.Tk):
             if module_end:
                 module_endings.append(module_end)
 
-            if not situation:
+            if not situation and not current_plan_end:
                 events = guidance.get("required_events", [])
                 for event in events if isinstance(events, list) else []:
                     event_text = str(event).strip()
