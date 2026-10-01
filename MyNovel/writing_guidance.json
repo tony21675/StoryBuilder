@@ -1,0 +1,80 @@
+{
+  "purpose": "Recurring writing guidance for the current stretch of the story. This is creative direction, not permanent canon.",
+  "scene_goal": "",
+  "recurring_instructions": [
+    "Write natural, grounded, character-driven prose.",
+    "Allow ordinary conversation, humor, memory, emotion, and small observations to unfold naturally.",
+    "Let established friends and family members interact like people with real shared history.",
+    "The story may invent harmless small talk, past shared stories, inside jokes, ordinary feelings, and everyday interpersonal details when they do not contradict hard canon, timeline, character knowledge, or explicit scene constraints.",
+    "Treat harmless invented relationship details as scene-level creative material, not permanent canon.",
+    "Use personality cues to shape behavior, dialogue, humor, reactions, and what characters notice. Show personality instead of explaining it.",
+    "Use signature scents only as occasional, natural sensory details. Do not mention a scent simply because it is available in the character data.",
+    "Keep the scene grounded in the user's direction and the established present situation.",
+    "Show relationships through behavior, dialogue, shared routines, and natural interaction instead of explaining relationship labels to the reader.",
+    "Do not add ominous narration or imply that an unseen event is coming when the current scene gives no reason for it."
+  ],
+  "relationship_freedom": [
+    "Characters may casually refer to plausible shared experiences from their established relationship.",
+    "Characters may have ordinary feelings and reactions that fit their established personalities and relationships.",
+    "Do not require every harmless conversational detail to already exist in a JSON file."
+  ],
+  "avoid": [
+    "Do not turn harmless relationship details into major biography or consequential backstory.",
+    "Do not force every scene to accomplish a major plot development.",
+    "Do not manufacture a major plot development merely to add drama."
+  ],
+  "scene_plan": {
+    "1": {
+      "direction": "Start from Tiffany and Maya leaving school and walking along the front road toward the nearby gas station. Keep this section focused on the beginning of their walk and their natural conversation.",
+      "end_condition": "HARD STOP while they are still on the road between the school and the gas station, before they reach the entrance. Do not enter or arrive at the gas station yet, and do not begin the soda stop or walk home.",
+      "pacing": "Keep this a small opening section. Let Tiffany and Maya settle into their walk and conversation with ordinary observations, humor, memories, and everyday life details.",
+      "state_after": {
+        "location": {
+          "primary": "Road between the school and the nearby gas station",
+          "Tiffany": "Walking from school toward the gas station with Maya.",
+          "Maya": "Walking from school toward the gas station with Tiffany."
+        },
+        "current_situation": "Tiffany and Maya have left school and are walking together toward the nearby gas station. They have not reached the gas station yet. Tony remains at home asleep and Chloe remains home sick and is not participating."
+      }
+    },
+    "2": {
+      "direction": "Continue directly from Scene 1 with Tiffany and Maya still walking toward the nearby gas station. Let the walk and conversation continue naturally until they reach the gas station entrance.",
+      "end_condition": "HARD STOP when Tiffany and Maya arrive at and clearly stand at the gas station entrance. Do not enter the store, choose drinks, approach the counter, speak with the cashier, buy anything, leave the gas station, or begin walking home.",
+      "pacing": "Use this section to complete the physical trip to the gas station. Keep the focus on the two friends and their natural interaction. The endpoint should be unmistakable: they have arrived at the entrance.",
+      "state_after": {
+        "location": {
+          "Tiffany": "At the gas station entrance.",
+          "Maya": "At the gas station entrance."
+        },
+        "current_situation": "Tiffany and Maya have walked from school and arrived together at the gas station entrance. Tony remains at home asleep and Chloe is home sick and not participating."
+      }
+    },
+    "3": {
+      "direction": "Begin exactly with Tiffany and Maya at the gas station entrance where Scene 2 ended. They enter the convenience store, choose sodas, talk naturally with each other and the attendant, pay, receive their drinks and change, then leave the store and step outside.",
+      "end_condition": "HARD STOP after they have finished the purchase, stepped outside with their drinks, and put on their sunglasses because of the bright afternoon sunlight. Do not begin walking home.",
+      "pacing": "Spend most of the section on the simple soda stop, natural conversation, and the small actions of choosing and buying the drinks. End immediately after they are outside with sunglasses on."
+    },
+    "4": {
+      "direction": "Continue from Scene 3 with Tiffany and Maya outside the gas station. They begin walking home and continue a normal conversation as they leave the busy area and move farther along their route.",
+      "end_condition": "HARD STOP before the kidnapping. End while Tiffany and Maya are still walking home, after they have left the immediate gas-station area and reached the quieter stretch where the next scene can begin.",
+      "pacing": "Keep this section ordinary and relaxed. Do not force suspense, foreshadow the kidnapping, or partially begin the abduction."
+    },
+    "5": {
+      "direction": "Continue from Scene 4 with Tiffany and Maya walking through the quieter stretch on their way home. The active kidnapping module governs this scene. Two male kidnappers intercept them, one driving a van and the other physically grabs Tiffany and forces her into it. Maya witnesses Tiffany being taken and is not taken herself.",
+      "end_condition": "HARD STOP after Tiffany has been taken and Maya is left alone, shocked and extremely distressed. Do not send Maya to Tony's house in this scene.",
+      "pacing": "Let the scene begin as an ordinary continuation before the abduction changes everything. Keep the kidnapping itself grounded in what Maya can see and experience. Do not reveal motives, identities, destination, or hidden planning.",
+      "state_after": {
+        "location": {
+          "Tiffany": "Taken by the kidnappers.",
+          "Maya": "At the place where Tiffany was taken, alone and distressed."
+        },
+        "current_situation": "Tiffany has been taken by two male kidnappers. Maya witnessed the abduction and was not taken. Tony remains at home and does not know what happened yet."
+      }
+    },
+    "6": {
+      "direction": "Maya runs from the place where Tiffany was taken to Tony and Tiffany's home and wakes Tony. She is panicked and distraught, and Tony focuses first on calming and protecting her before getting a clear explanation.",
+      "end_condition": "HARD STOP after Tony understands from Maya that Tiffany has been taken and the immediate response begins. Do not skip ahead into the larger search or investigation.",
+      "pacing": "Give Maya's panic and Tony's effort to steady her time to develop before the facts are explained."
+    }
+  }
+}

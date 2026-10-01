@@ -1,0 +1,67 @@
+{
+  "title": "Taken at Dusk",
+  "version": "1.6",
+  "status": "active",
+  "character_cards": [
+    "Chloe.json",
+    "Maya.json",
+    "Tiffany.json",
+    "Tony.json"
+  ],
+  "optional_story_modules": [
+    {
+      "id": "relationship_dynamics",
+      "name": "Relationship Dynamics",
+      "file": "relationship_dynamics.json",
+      "character_files": []
+    },
+    {
+      "id": "kidnapping",
+      "name": "Kidnapping",
+      "file": "kidnapping.json",
+      "character_files": [
+        "Kidnappers.json"
+      ],
+      "status": "active"
+    }
+  ],
+  "relationships": {
+    "Tony-Tiffany": "father/daughter; Tony has known Tiffany since birth",
+    "Tony-Maya": "friends; Tony has known Maya since Maya was a baby",
+    "Tony-Chloe": "friends; Chloe lives next door on the opposite side of Tony and Tiffany.",
+    "Tiffany-Maya": "best friends with a close, sister-like platonic relationship; they have known each other since they were babies",
+    "Tiffany-Chloe": "close friends",
+    "Maya-Chloe": "close friends",
+    "Tiffany-mother": "Tiffany's mother died while giving birth to Tiffany.",
+    "Maya-mother": "Maya lives with her mother next door to Tony and Tiffany."
+  },
+  "locations": {
+    "tony_tiffany_home": "Tony and Tiffany live together in the same house.",
+    "garage": "The garage is part of Tony and Tiffany's home.",
+    "maya_home": "Maya lives with her mother next door to Tony and Tiffany."
+  },
+  "premise": "",
+  "story_format_version": "1.0",
+  "story_planning": {
+    "genre": "Thriller / Suspense / Character Drama",
+    "tone": "Grounded, tense, emotional, suspenseful, character-focused",
+    "core_conflict": "Tiffany is kidnapped, forcing Tony to protect and rescue his daughter while uncovering who took her, why she was targeted, and what they want. The kidnapping also puts Maya and Chloe in danger as they become involved in the effort to find Tiffany.",
+    "opposition": "A group of kidnappers who target Tiffany and become the primary threat to Tony, Tiffany, Maya, and Chloe. Their identities, leadership, motives, and ultimate objectives will be developed as the story progresses.",
+    "setting": "A contemporary small-town or suburban American community where Tony and Tiffany live together in their home. Maya and her mother live next door, and Chloe lives on the opposite side of Tony and Tiffany, making all three households neighbors. The story begins in ordinary, familiar surroundings including their homes, garage, school, nearby roads, and local businesses such as the gas station. The setting is grounded and realistic.",
+    "important_elements": "Tony's 2010 Chevrolet Silverado, Tony's former U.S. Army Special Forces background, Tiffany's dog tags that belonged to Tony and that she always wears, the close lifelong relationships between Tony, Tiffany, Maya, and Chloe, the kidnapping of Tiffany, the kidnappers and their operation, and Tracker.",
+    "themes": [
+      "Family, loyalty, friendship, trust, sacrifice, resilience, and the lengths people will go to protect the people they love."
+    ],
+    "open_questions": [
+      "Who are the kidnappers and who is their leader?",
+      "How many kidnappers are involved?",
+      "What do the kidnappers know about Tony and his background?",
+      "How do the kidnappers locate and approach Tiffany?",
+      "What is Tracker, and how does Tracker fit into the story?",
+      "Where is Tiffany taken after the abduction?",
+      "Who else may be involved in the kidnapping operation?",
+      "What happens immediately after Tiffany is taken?",
+      "How will Tony, Maya, and Chloe begin trying to find her?"
+    ]
+  }
+}

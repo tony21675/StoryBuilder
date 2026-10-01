@@ -1,0 +1,115 @@
+{
+  "id": "kidnapping",
+  "name": "Kidnapping",
+  "type": "story_module",
+  "status": "active",
+  "purpose": "Introduces the kidnapping arc when the author activates this module.",
+  "secret_until_activated": true,
+  "scene_guidance": {
+    "5": {
+      "required_events": [
+        "Tiffany and Maya leave the gas station and begin walking home.",
+        "They continue their normal conversation and interaction as they leave the busy area.",
+        "They travel farther along their route and reach a quieter stretch away from the gas station before the kidnapping occurs.",
+        "Two male kidnappers take Tiffany during the walk.",
+        "One kidnapper drives the van and the other physically grabs Tiffany and forces her into the van.",
+        "Maya witnesses Tiffany being taken.",
+        "Maya is not taken."
+      ],
+      "end_condition": "End after Tiffany has been taken and Maya is left alone, shocked and extremely distressed.",
+      "do_not_advance": [
+        "Do not send Maya to Tony's house in this scene.",
+        "Do not have the kidnapping occur in the gas station parking lot unless the author specifically directs it.",
+        "Do not reveal the kidnappers' motive, identities, destination, or planning beyond what is directly seen or experienced during the abduction.",
+        "Do not activate or explain the tracker unless the scene itself naturally establishes that happening."
+      ]
+    },
+    "6": {
+      "required_events": [
+        "Maya runs from the place where Tiffany was taken toward Tony and Tiffany's home.",
+        "Maya has a key to Tony and Tiffany's house and uses it to get inside without stopping to knock or wait.",
+        "Tony is asleep in his bed because he works the night shift.",
+        "Maya runs directly into Tony's bedroom.",
+        "Maya is terrified, crying, trembling, and struggling to speak clearly.",
+        "Maya jumps onto Tony in her panic and repeatedly tries to get his attention while crying and mumbling for help.",
+        "Tony wakes abruptly and immediately focuses on calming and protecting Maya.",
+        "Tony responds to Maya with the same steady, affectionate reassurance he would give to family.",
+        "Tony holds Maya and gently caresses her hair and back while she cries, giving her time to calm down rather than pressuring her to speak immediately.",
+        "Maya cannot give Tony a clear explanation immediately because she is too frightened and distraught.",
+        "Tony calms Maya enough for her to communicate what happened.",
+        "When Maya can finally speak, her first clear message is essentially that they took Tiffany. Because she is still extremely shaken, she initially cannot provide the other details.",
+        "Tony learns about the kidnapping from Maya rather than witnessing it himself."
+      ],
+      "end_condition": "End after Tony understands from Maya that Tiffany has been taken and is able to begin responding to the situation.",
+      "do_not_advance": [
+        "Do not have Tony already know Tiffany has been kidnapped before Maya tells him.",
+        "Do not have Maya immediately provide a complete, calm account before Tony helps her settle down.",
+        "Do not have Maya go anywhere else before reaching Tony unless the author specifically directs it.",
+        "Do not reveal information Maya could not have personally seen or reasonably know.",
+        "Do not make Maya immediately give Tony a complete description of the kidnapping in her first attempt to speak."
+      ]
+    }
+  },
+  "plot": {
+    "victim": "Tiffany",
+    "method": "Tiffany is forcibly taken and placed into a van.",
+    "kidnappers": "Two male kidnappers.",
+    "motive": "The kidnappers were hired to find a young woman who matches a general physical description requested by a wealthy overseas buyer. Tiffany is not targeted because of her identity or anything she personally did. She is selected because her age, appearance, and body type fit the requested description. The larger plan is to traffic her to the overseas buyer for sexual exploitation.",
+    "van": "unknown",
+    "destination": "unknown",
+    "planning": "The kidnappers were not specifically tracking Tiffany. They encounter her by chance while stopping for gas and decide that she matches the buyer's requested description.",
+    "sequence": [
+      "The kidnappers stop at the gas station for fuel.",
+      "They happen to see Tiffany while they are there.",
+      "They recognize that Tiffany matches the general age, appearance, and body-type description they were hired to find.",
+      "They decide to take Tiffany because she appears to fit the buyer's request.",
+      "Tiffany and Maya leave the gas station and walk home.",
+      "The kidnappers follow or intercept them farther along the route, after they reach a quieter stretch away from the gas station.",
+      "Two male kidnappers are involved.",
+      "One male kidnapper drives the van.",
+      "The other male kidnapper physically grabs Tiffany and forces her into the van.",
+      "Maya witnesses what happens and is not taken.",
+      "Maya is left alone, shocked and extremely distressed.",
+      "Maya later runs to Tony after Tiffany is taken.",
+      "Maya reaches Tony alone while crying and extremely distraught.",
+      "Maya immediately seeks Tony's help and comfort.",
+      "Tony calms Maya before getting a clear explanation.",
+      "After Tony calms her, Maya tells him that Tiffany has been taken.",
+      "Tony learns what happened from Maya rather than witnessing it himself."
+    ],
+    "selection_reason": "The kidnappers stop for gas and happen to see Tiffany. They recognize that her age, appearance, and body type match the general description they were hired to find, so they decide to take her.",
+    "client": "A wealthy overseas buyer. His identity and background are unknown. The characters will later learn that he lives in Russia.",
+    "business_purpose": "Human trafficking for sexual exploitation.",
+    "tony_connection": "The kidnappers do not initially target Tony or choose Tiffany because she is Tony's daughter. Tony becomes involved because Tiffany is his daughter and he responds when she is taken.",
+    "client_location": "Unknown at the beginning of the story. Later revealed to be Russia."
+  },
+  "tracker": {
+    "location": "inside Tiffany's dog tags",
+    "origin": "The tracker was originally part of Tony's U.S. Army Special Forces gear.",
+    "known_by": [
+      "Tony"
+    ],
+    "secrecy": "Tiffany does not know there is a tracker inside the dog tags. She holds the dog tags dear because they belonged to Tony.",
+    "connection": "Tony has adapted the tracker to link to his phone instead of the military tracking system or database it was originally associated with.",
+    "activation": "The exact event that causes activation has not yet been decided. At some point, something makes Tiffany genuinely fearful, and she instinctively grabs and tightly squeezes the dog tags she holds dear because they belonged to Tony. That action activates the hidden tracker.",
+    "active": false,
+    "activation_behavior": "After activation, the tracker takes time to link up before it can begin sending useful location information.",
+    "location_progression": [
+      "The first useful information is broad, beginning with the country Tiffany is in.",
+      "As the tracker continues to establish and update its connection, the location information becomes more specific, progressing to the state and then increasingly precise areas.",
+      "The increasing precision takes time and does not provide Tony with Tiffany's exact location immediately after activation."
+    ],
+    "satellite_uplink": "The tracker has a limited operating range and relies on a satellite uplink to transmit location information. It can establish a satellite uplink only once every 24 hours.",
+    "story_function": "The tracker provides Tony with progressively more useful information over time, but its delayed connection, limited range, and 24-hour satellite uplink prevent it from immediately revealing Tiffany's location and ending the search.",
+    "activation_trigger": "Unknown / to be established naturally in the story.",
+    "activation_feedback": "When the tracker activates, Tiffany feels a very small electrical jolt through the dog tags. It is not painful or harmful, but she notices it and does not understand what caused it or what it means.",
+    "tiffany_effect": "The unexplained jolt gives Tiffany a small sense of hope during a frightening situation. She thinks of Tony and believes that her father will never stop looking for her, no matter what it costs him. That belief gives her strength to keep fighting and trying to survive."
+  },
+  "rules": {
+    "tracker": "The tracker remains hidden and inactive until the story naturally establishes its discovery and activation.",
+    "unknowns": "The kidnappers' identities, the buyer's identity, the buyer's background, the exact financial arrangement, destination, van details, and detailed planning remain unknown to the characters until established by the story. The buyer's eventual connection to Russia should not be revealed before the story establishes it.",
+    "scene_cast": "Only characters explicitly selected for a scene are physically present and participating in that scene.",
+    "police": "Tony intends to handle the situation himself unless the established story later changes that.",
+    "choice": "Maya and Chloe are not required to participate in Tony's search. They may choose to help."
+  }
+}

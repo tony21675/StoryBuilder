@@ -1,0 +1,80 @@
+{
+  "status": "in_progress",
+  "chapter": 1,
+  "scene": 2,
+  "scene_completed": false,
+  "location": {
+    "primary": "Nearby gas station",
+    "Tony": "At home, sleeping.",
+    "Tiffany": "Walking from school toward the gas station with Maya.",
+    "Maya": "Walking from school toward the gas station with Tiffany.",
+    "Chloe": "At home sick and not participating in the scene."
+  },
+  "time": {
+    "period": "late afternoon",
+    "exact_time": "not established"
+  },
+  "current_situation": "Tiffany and Maya have arrived at the nearby gas station. They are outside at the gas station getting a drink and talking with the attendant. Tony is at home asleep. Chloe is at home sick and is not participating in the scene.",
+  "character_knowledge": {
+    "Tony": [
+      "Knows Tiffany is his daughter.",
+      "Knows Maya is Tiffany's best friend and is also a friend of his.",
+      "Tiffany's mother died while giving birth to Tiffany."
+    ],
+    "Tiffany": [
+      "Is walking home from school with Maya.",
+      "Knows Tony is at home.",
+      "Knows Maya lives next door with her mother.",
+      "Her mother died while giving birth to her."
+    ],
+    "Maya": [
+      "Is walking home from school with Tiffany.",
+      "Knows Tony is at home.",
+      "Knows she lives with her mother next door.",
+      "Knows Tiffany's mother died while giving birth to Tiffany."
+    ]
+  },
+  "completed_events": [],
+  "active_clues": [],
+  "new_clues": [],
+  "unresolved_questions": [],
+  "active_objectives": {
+    "Tony": "Remain at home and sleep.",
+    "Tiffany": "Walk to the nearby gas station with Maya to get a drink and spend some time talking.",
+    "Maya": "Walk to the nearby gas station with Tiffany to get a drink and spend some time talking."
+  },
+  "continuity_requirements": [
+    "Chapter 1 begins here.",
+    "Tony and Tiffany live together in the same house.",
+    "Maya lives with her mother in her own separate home next door to Tony and Tiffany.",
+    "Maya and Tiffany are best friends with a close, sister-like platonic relationship.",
+    "Tiffany's mother died while giving birth to Tiffany, so Tiffany never knew her mother personally.",
+    "Only characters explicitly listed for a scene are physically present and participating in that scene.",
+    "From his current position, Tony cannot see or hear the front road or Tiffany and Maya.",
+    "Tiffany always wears Tony's dog tags on a chain close to her heart and keeps them with her.",
+    "Tony works the night shift, so it is normal for him to be asleep in his bed during the late afternoon while resting between shifts."
+  ],
+  "story_format_version": "1.0",
+  "continuity_notes": [
+    "Scene 2 begins at the nearby gas station.",
+    "Tony and Tiffany live together in the same house.",
+    "Maya lives with her mother in her own separate home next door to Tony and Tiffany.",
+    "Chloe lives next door on the opposite side of Tony and Tiffany.",
+    "Maya and Tiffany are best friends with a close, sister-like platonic relationship.",
+    "Tiffany's mother died while giving birth to Tiffany, so Tiffany never knew her mother personally.",
+    "Chloe stayed home sick from school and is not participating in this scene.",
+    "Only characters explicitly listed for a scene are physically present and participating in that scene.",
+    "From his current position, Tony cannot see or hear the front road or Tiffany and Maya.",
+    "Tiffany always wears Tony's dog tags on a chain close to her heart and keeps them with her.",
+    "Tony works the night shift, so it is normal for him to be asleep in his bed during the late afternoon while resting between shifts."
+  ],
+  "scene_cast": [
+    "Tiffany",
+    "Maya"
+  ],
+  "primary": "Road between the school and the nearby gas station",
+  "Tony": "At home, sleeping.",
+  "Tiffany": "Walking from school toward the gas station with Maya.",
+  "Maya": "Walking from school toward the gas station with Tiffany.",
+  "Chloe": "At home sick and not participating in the scene."
+}

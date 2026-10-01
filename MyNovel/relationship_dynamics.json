@@ -1,0 +1,28 @@
+{
+  "id": "relationship_dynamics",
+  "name": "Relationship Dynamics",
+  "type": "story_module",
+  "status": "active",
+  "purpose": "Contains private romantic feelings and subtle behavior that should only be supplied to the writer when the author activates this relationship material.",
+  "relationships": {
+    "Maya-Tony": {
+      "Maya_feelings": "Maya is secretly in love with Tony.",
+      "Tony_knowledge": "Tony does not know Maya is in love with him.",
+      "behavior": "Maya's love for Tony is private. It may show through subtle, natural behavior such as nervousness, lingering attention, changes in tone, or becoming unusually aware of herself around him. Do not make her feelings constant, obvious, or the main focus of ordinary scenes unless the author's direction calls for it.",
+      "boundaries": "Maya's feelings are private. Do not reveal them to Tony unless the story naturally establishes that she tells him or he otherwise learns them.",
+      "knowledge_notes": "Maya knows she is in love with Tony. Tiffany suspects that Maya really likes Tony but is not certain and does not know for sure. Tony does not know Maya has romantic feelings for him. Chloe does not know unless the story establishes that."
+    },
+    "Chloe-Tony": {
+      "Chloe_feelings": "Chloe has a secret romantic crush on Tony.",
+      "Tony_knowledge": "Tony does not know Chloe has romantic feelings for him.",
+      "behavior": "Chloe may become a little more self-conscious around Tony. Her private feelings can show through in subtle, natural ways such as nervousness, lingering attention, changes in tone, or becoming unusually aware of herself around him. Do not make her attraction constant or obvious.",
+      "boundaries": "Chloe's feelings are private. Do not reveal them to Tony unless the story naturally establishes that she tells him or he otherwise learns them.",
+      "knowledge_notes": "Chloe knows her own feelings. Tony does not know. Tiffany does not know Chloe has romantic feelings for Tony unless the story later establishes that she learns this."
+    }
+  },
+  "writing_guidance": {
+    "naturalism": "Use these details subtly and only when they are relevant to the scene. Do not make attraction the main subject of ordinary scenes unless the author's direction calls for it.",
+    "character_knowledge": "Maya knows she is in love with Tony. Tiffany suspects Maya really likes Tony but is not certain and has no confirmed knowledge. Chloe knows her own feelings about Tony. Tony does not know about either woman's private feelings unless the story establishes that he learns them.",
+    "appearance": "The women retain their normal everyday clothing styles. Any change around Tony should be subtle and character-driven, not a constant costume change or repeated description."
+  }
+}
