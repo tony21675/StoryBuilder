@@ -788,6 +788,12 @@ class StoryBuilderApp(tk.Tk):
             lines.append("Scene cast: " + ", ".join(map(str, cast)) + ".")
         if situation:
             lines.append(f"Current situation: {situation}")
+            lines.append(
+                "SCENE START CHECKPOINT: The current situation is already true when this scene begins. "
+                "Treat the preceding scene as complete. Do not replay earlier travel, conversation, setup, "
+                "or other events that have already happened. Active module beats are targets for this scene "
+                "after the established starting point, not instructions to reconstruct the previous scene."
+            )
 
         found_guidance = False
 
