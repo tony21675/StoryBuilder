@@ -8,45 +8,41 @@
   "scene_guidance": {
     "5": {
       "required_events": [
-        "Tiffany and Maya leave the gas station and begin walking home.",
-        "They continue their normal conversation and interaction as they leave the busy area.",
-        "They travel farther along their route and reach a quieter stretch away from the gas station before the kidnapping occurs.",
-        "Two male kidnappers take Tiffany during the walk.",
-        "One kidnapper drives the van and the other physically grabs Tiffany and forces her into the van.",
-        "Maya witnesses Tiffany being taken.",
-        "Maya is not taken."
+        "Begin immediately at the confrontation already established at the end of Scene 4.",
+        "Kidnapper Driver remains with the van.",
+        "Kidnapper Grabber is the only kidnapper who physically takes Tiffany.",
+        "Tiffany realizes what is happening and resists before being overwhelmed and taken.",
+        "Maya witnesses Tiffany being taken and remains outside."
       ],
       "end_condition": "End after Tiffany has been taken and Maya is left alone, shocked and extremely distressed.",
       "do_not_advance": [
+        "Do not replay the walk from the gas station or earlier conversation.",
+        "Do not include Chloe.",
+        "Do not have both kidnappers physically restrain Tiffany or enter the van with her.",
         "Do not send Maya to Tony's house in this scene.",
-        "Do not have the kidnapping occur in the gas station parking lot unless the author specifically directs it.",
-        "Do not reveal the kidnappers' motive, identities, destination, or planning beyond what is directly seen or experienced during the abduction.",
+        "Do not reveal the kidnappers' motive, identities, destination, or hidden planning beyond what is directly seen or experienced.",
         "Do not activate or explain the tracker unless the scene itself naturally establishes that happening."
       ]
     },
     "6": {
       "required_events": [
-        "Maya runs from the place where Tiffany was taken toward Tony and Tiffany's home.",
-        "Maya has a key to Tony and Tiffany's house and uses it to get inside without stopping to knock or wait.",
+        "Maya runs from the place where Tiffany was taken to Tony and Tiffany's home.",
+        "Maya uses her key to get inside and runs directly into Tony's bedroom.",
         "Tony is asleep in his bed because he works the night shift.",
-        "Maya runs directly into Tony's bedroom.",
-        "Maya is terrified, crying, trembling, and struggling to speak clearly.",
-        "Maya jumps onto Tony in her panic and repeatedly tries to get his attention while crying and mumbling for help.",
-        "Tony wakes abruptly and immediately focuses on calming and protecting Maya.",
-        "Tony responds to Maya with the same steady, affectionate reassurance he would give to family.",
-        "Tony holds Maya and gently caresses her hair and back while she cries, giving her time to calm down rather than pressuring her to speak immediately.",
-        "Maya cannot give Tony a clear explanation immediately because she is too frightened and distraught.",
-        "Tony calms Maya enough for her to communicate what happened.",
-        "When Maya can finally speak, her first clear message is essentially that they took Tiffany. Because she is still extremely shaken, she initially cannot provide the other details.",
-        "Tony learns about the kidnapping from Maya rather than witnessing it himself."
+        "Maya is terrified, crying, trembling, and struggling to speak.",
+        "Maya jumps onto Tony in her panic and clings to him.",
+        "Tony wakes abruptly and focuses on calming and reassuring Maya.",
+        "Tony patiently holds Maya and gives her time to settle rather than immediately demanding an explanation.",
+        "Maya remains too distressed to explain everything at first.",
+        "Maya eventually manages to say exactly: \"Tiffany is gone\"."
       ],
-      "end_condition": "End after Tony understands from Maya that Tiffany has been taken and is able to begin responding to the situation.",
+      "end_condition": "End immediately after Maya says exactly: \"Tiffany is gone\". Those three words must be the final spoken dialogue. Do not have Tony respond after them.",
       "do_not_advance": [
         "Do not have Tony already know Tiffany has been kidnapped before Maya tells him.",
-        "Do not have Maya immediately provide a complete, calm account before Tony helps her settle down.",
-        "Do not have Maya go anywhere else before reaching Tony unless the author specifically directs it.",
-        "Do not reveal information Maya could not have personally seen or reasonably know.",
-        "Do not make Maya immediately give Tony a complete description of the kidnapping in her first attempt to speak."
+        "Do not have Maya immediately provide a complete calm account.",
+        "Do not have Tony leave the bedroom.",
+        "Do not introduce Chloe.",
+        "Do not continue after Maya says the three final words."
       ]
     }
   },
