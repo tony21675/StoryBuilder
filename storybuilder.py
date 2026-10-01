@@ -764,9 +764,14 @@ class StoryBuilderApp(tk.Tk):
 
         lines = [
             f"Continue Chapter {chapter}, Scene {scene} from the exact current story state.",
+            "AUTHORITATIVE STATE RULE: The current scene number, primary location, scene cast, and current situation are authoritative for the present scene. If older continuity text or older scene-plan wording conflicts with them, follow the current state instead.",
         ]
 
-        if location:
+        if isinstance(location, dict):
+            primary_location = str(location.get("primary", "") or "").strip()
+            if primary_location:
+                lines.append(f"Current location: {primary_location}.")
+        elif location:
             lines.append(f"Current location: {location}.")
         if isinstance(time_data, dict):
             period = str(time_data.get("period", "") or "").strip()
@@ -796,14 +801,16 @@ class StoryBuilderApp(tk.Tk):
                     guidance = scene_plan.get(scene)
                 if isinstance(guidance, dict):
                     found_guidance = True
-                    lines.append("Scene plan guidance:")
+                    lines.append(
+                        "Scene plan guidance (secondary to the current state and any author edits in this direction):"
+                    )
                     direction = str(guidance.get("direction", "") or "").strip()
                     if direction:
                         lines.append(f"- Direction: {direction}")
                     end_condition = str(guidance.get("end_condition", "") or "").strip()
                     if end_condition:
                         lines.append(
-                            f"- HARD STOP: {end_condition} DO NOT GO PAST THIS BOUNDARY."
+                            f"- Planned scene boundary: {end_condition}"
                         )
                     pacing = str(guidance.get("pacing", "") or "").strip()
                     if pacing:
@@ -887,6 +894,8 @@ Writing rules:
 - Treat off-cast character locations as continuity information only. Do not infer that an off-cast character's home, house, activities, or whereabouts lie along the characters' travel route.
 - Do not mention an off-cast character's home or location unless the current scene direction explicitly calls for it or the scene itself naturally establishes it as relevant.
 - Preserve requested scene order and emotional beats.
+- Treat current_state.current_situation, current_state.scene_cast, and the primary current location as authoritative for the present scene when they conflict with stale continuity wording or older planning text.
+- Scene-plan guidance is useful planning context, but it is secondary to explicit author edits and the authoritative current state.
 - When the author direction calls for a detailed action, confrontation, kidnapping, escape, or emotional recovery, fully dramatize the event rather than skipping over it or summarizing it. Give important physical and emotional beats enough room to develop, generally allowing roughly 800–1200 words unless the author direction specifies another length.
 - For a character with established relevant training or experience, let that background affect their instincts, awareness, choices, and resistance without making them unrealistically invincible. Tiffany may struggle, resist, improvise, and use determination shaped by being raised by a Special Forces father, but she can still be overwhelmed or captured when the scene requires it. Keep action grounded and story-focused rather than providing real-world tactical instructions.
 - When a scene is an emotional aftermath or rescue/recovery scene, stay with the characters' interaction long enough for the emotions, reassurance, physical grounding, and relationship dynamics to play out. Do not rush directly to exposition.
