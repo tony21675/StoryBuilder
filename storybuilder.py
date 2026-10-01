@@ -732,11 +732,11 @@ class StoryBuilderApp(tk.Tk):
             time_text = str(time_data or "").strip()
 
         lines = [
-            f"SCENE {chapter}.{scene}",
+            f"CHAPTER {chapter}, SCENE {scene}",
             f"Location: {primary_location or 'not established'}",
             f"Time: {time_text or 'not established'}",
             "Cast: " + ", ".join(cast),
-            f"Start here: {situation or 'continue from the exact current state.'}",
+            f"Current state: {situation or 'continue from the exact current state.'}",
         ]
 
         # The current situation is the scene's resolved starting point.
@@ -803,11 +803,19 @@ class StoryBuilderApp(tk.Tk):
                         if item_text:
                             module_do_not.append(item_text)
 
+        end_texts = []
         if current_plan_end:
-            lines.append(f"End: {current_plan_end}")
-        for module_end in module_endings:
-            if module_end and module_end != current_plan_end:
-                lines.append(f"End: {module_end}")
+            end_texts.append(current_plan_end)
+        end_texts.extend(
+            item for item in module_endings if item and item != current_plan_end
+        )
+        seen_endings = set()
+        for end_text in end_texts:
+            key = " ".join(end_text.casefold().split())
+            if key in seen_endings:
+                continue
+            seen_endings.add(key)
+            lines.append(f"End: {end_text}")
 
         if module_beats:
             lines.append("Beats: " + " | ".join(module_beats))
