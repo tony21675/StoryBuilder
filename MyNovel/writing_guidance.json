@@ -60,21 +60,14 @@
       "pacing": "Keep this section ordinary and relaxed. Do not force suspense, foreshadow the kidnapping, or partially begin the abduction."
     },
     "5": {
-      "direction": "Continue from Scene 4 with Tiffany and Maya walking through the quieter stretch on their way home. The active kidnapping module governs this scene. Two male kidnappers intercept them, one driving a van and the other physically grabs Tiffany and forces her into it. Maya witnesses Tiffany being taken and is not taken herself.",
+      "direction": "Begin immediately at the confrontation already established at the end of Scene 4. Tiffany and Maya are already on the road facing the suspicious van and two unfamiliar men. Tiffany is the target. Kidnapper Driver stays with the van while Kidnapper Grabber physically takes Tiffany. Maya witnesses the kidnapping and remains outside.",
       "end_condition": "HARD STOP after Tiffany has been taken and Maya is left alone, shocked and extremely distressed. Do not send Maya to Tony's house in this scene.",
-      "pacing": "Let the scene begin as an ordinary continuation before the abduction changes everything. Keep the kidnapping itself grounded in what Maya can see and experience. Do not reveal motives, identities, destination, or hidden planning.",
-      "state_after": {
-        "location": {
-          "Tiffany": "Taken by the kidnappers.",
-          "Maya": "At the place where Tiffany was taken, alone and distressed."
-        },
-        "current_situation": "Tiffany has been taken by two male kidnappers. Maya witnessed the abduction and was not taken. Tony remains at home and does not know what happened yet."
-      }
+      "pacing": "Fully dramatize the confrontation, Tiffany's realization and resistance, the physical struggle, and Maya's emotional reaction. Do not replay the walk from the gas station."
     },
     "6": {
-      "direction": "Maya runs from the place where Tiffany was taken to Tony and Tiffany's home and wakes Tony. She is panicked and distraught, and Tony focuses first on calming and protecting her before getting a clear explanation.",
-      "end_condition": "HARD STOP after Tony understands from Maya that Tiffany has been taken and the immediate response begins. Do not skip ahead into the larger search or investigation.",
-      "pacing": "Give Maya's panic and Tony's effort to steady her time to develop before the facts are explained."
+      "direction": "Maya runs from the place where Tiffany was taken to Tony and Tiffany's home, uses her key, and rushes into Tony's bedroom. She is crying, trembling, and overwhelmed. She jumps onto Tony in panic and clings to him while he wakes and spends the scene calming and reassuring her. Do not rush her into explaining what happened.",
+      "end_condition": "HARD STOP immediately after Maya finally says exactly: \"Tiffany is gone\". That must be the final spoken dialogue. Do not have Tony respond after it.",
+      "pacing": "Spend most of the scene on Maya's panic and Tony's patient physical and emotional reassurance. Let her struggle to speak before she can finally get the three words out."
     }
   }
 }
