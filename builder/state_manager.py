@@ -130,6 +130,9 @@ class StateManager:
                 "\n\nSCENE END GUIDANCE (REFERENCE ONLY):\n",
                 end_guidance,
                 "\nUse this only to identify the intended ending boundary. "
+                "If an EXPECTED END STATE HINT is present, treat it as a candidate summary of the intended ending, "
+                "but verify it against the completed prose. When the prose clearly confirms the hinted ending, use "
+                "the hinted changed locations and immediate situation rather than copying the before-state. "
                 "Do not copy planned wording or invent anything that did not occur in the completed prose."
             ])
 
@@ -138,6 +141,8 @@ class StateManager:
             final_excerpt,
             "\n\nDetermine the smallest state update needed AFTER this completed section. "
             "Read the entire section, but give special weight to the final actions and final paragraph. "
+            "If the expected ending-state hint agrees with the completed prose, the returned patch should "
+            "reflect that ending rather than the initial state. "
             "The current state above describes what was true BEFORE the section and must not override what "
             "the completed prose establishes at the end. For each character whose final location or immediate "
             "situation changed, include the changed value under location. Update current_situation to describe "
