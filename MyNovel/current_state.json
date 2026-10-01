@@ -6,8 +6,8 @@
   "location": {
     "primary": "Road between the gas station and home",
     "Tony": "At home, sleeping.",
-    "Tiffany": "At the confrontation on the road home with Maya and two unfamiliar men.",
-    "Maya": "At the confrontation on the road home with Tiffany and two unfamiliar men.",
+    "Tiffany": "At the confrontation on the road home with Maya and one unfamiliar man.",
+    "Maya": "At the confrontation on the road home with Tiffany and one unfamiliar man.",
     "Chloe": "At home sick and not participating in the scene."
   },
   "time": {
@@ -24,14 +24,14 @@
     ],
     "Tiffany": [
       "Is with Maya on the road home from the gas station.",
-      "Can see an unfamiliar van and two unfamiliar men confronting them.",
+      "Can see an unfamiliar van and one unfamiliar man confronting them.",
       "Knows Tony is at home.",
       "Knows Maya lives next door with her mother.",
       "Her mother died while giving birth to her."
     ],
     "Maya": [
       "Is with Tiffany on the road home from the gas station.",
-      "Can see an unfamiliar van and two unfamiliar men confronting them.",
+      "Can see an unfamiliar van and one unfamiliar man confronting them.",
       "Knows Tony is at home.",
       "Knows she lives with her mother next door.",
       "Knows Tiffany's mother died while giving birth to Tiffany."
@@ -57,7 +57,7 @@
   ],
   "story_format_version": "1.0",
   "continuity_notes": [
-    "Scene 5 begins at the confrontation established at the end of Scene 4, with Tiffany and Maya already on the road facing the approaching kidnappers and van.",
+    "Scene 5 begins at the confrontation established at the end of Scene 4, with Tiffany and Maya already on the road facing an unfamiliar man and the van.",
     "Tony and Tiffany live together in the same house.",
     "Maya lives with her mother in her own separate home next door to Tony and Tiffany.",
     "Chloe lives next door on the opposite side of Tony and Tiffany.",
@@ -71,8 +71,7 @@
   "scene_cast": [
     "Tiffany",
     "Maya",
-    "Kidnapper Driver",
-    "Kidnapper Grabber"
+    "Kidnapper"
   ],
   "primary": "Road between the gas station and home",
   "Tony": "At home, sleeping.",
