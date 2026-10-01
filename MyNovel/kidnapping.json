@@ -16,8 +16,8 @@
         "Maya quickly realizes that because of her smaller size she cannot physically stop the captor and is unable to free Tiffany.",
         "Kidnapper Grabber overpowers Tiffany, lifts her completely off the ground while she continues kicking and striking him, and carries her to the van.",
         "The captor throws Tiffany into the van, then slams the door shut.",
-        "While Tiffany is being carried toward the van, she digs her fingernails into the captor's face during the struggle, leaving visible scratches.",
-        "Maya sees Tiffany's nails catch the captor's face and notices the resulting scratches, but she is too overwhelmed in the moment to process or report the detail.",
+        "While Tiffany is being carried toward the van, she digs her fingernails into the captor's left cheek, leaving three deep scratches that break the skin and draw blood.",
+        "Maya sees Tiffany's nails catch the captor's left cheek and notices the three bleeding scratches, but she is too overwhelmed in the moment to process or report the detail.",
         "Kidnapper Driver immediately drives the van away with Tiffany inside.",
         "Maya watches the van leave, then is left confused, shocked, and emotionally overwhelmed. She may sink or drop to her knees after Tiffany is gone.",
         "After the van disappears, Maya is left alone and visibly overwhelmed by shock and confusion; she may drop to her knees as the reality of Tiffany being gone hits her.",
@@ -93,10 +93,11 @@
     "tony_connection": "The kidnappers do not initially target Tony or choose Tiffany because she is Tony's daughter. Tony becomes involved because Tiffany is his daughter and he responds when she is taken.",
     "client_location": "Unknown at the beginning of the story. Later revealed to be Russia.",
     "future_identification_clue": {
-      "source": "During Tiffany's abduction in Scene 5, Tiffany scratches Kidnapper Grabber's face with her fingernails while he is carrying her to the van.",
-      "witness": "Maya sees the scratch happen.",
+      "source": "During Tiffany's abduction in Scene 5, Tiffany digs her fingernails into Kidnapper Grabber's left cheek while he is carrying her.",
+      "injury": "Three deep scratches break the skin on his left cheek and draw blood.",
+      "witness": "Maya sees the scratches happen.",
       "immediate_use": "Maya is too shocked and focused on Tiffany being taken to consciously report the detail when she first reaches Tony.",
-      "later_use": "The detail may surface later during Tony and Maya's reconstruction of the abduction and can help Tony identify or distinguish the physical kidnapper if a matching facial injury or scar becomes relevant.",
+      "later_use": "The detail may surface later during Tony and Maya's reconstruction of the abduction and can help Tony identify or distinguish the physical kidnapper if the matching left-cheek scratches are relevant.",
       "writer_rule": "Do not reveal or force the later identification payoff in Scene 5 or Scene 6."
     }
   },
