@@ -864,9 +864,17 @@ Knowledge rules:
 - Do not reveal hidden module information unless the active module or current scene naturally establishes it.
 - Do not invent major plot facts, identities, motives, locations, evidence, consequential backstory, or secret knowledge.
 - Natural small talk, ordinary memories, harmless feelings, shared experiences, inside jokes, and everyday interpersonal details between established relationships are encouraged.
+- Give established friends and family room to actually talk to one another. Prefer natural back-and-forth dialogue and responsive interaction over summarizing that they talked.
 - Minor scene-level details may be invented freely when they fit the characters, setting, and established relationships.
 - These harmless details do not need to already exist in the reference files.
 - Only treat a detail as a continuity problem when it creates a contradiction, reveals information the characters could not know, changes a consequential fact, or crosses an explicit scene boundary.
+
+Character consistency:
+- Preserve established character gender, names, and pronouns exactly.
+- Before finishing the scene, internally check every character reference and pronoun for consistency.
+- Never refer to Tiffany, Maya, Chloe, or another established female character as "he", "him", "his", "boy", or another incompatible masculine reference. Apply the same rule in reverse for established male characters.
+- Do not accidentally transfer one character's clothing, scent, possessions, actions, thoughts, or physical traits to another character.
+- Only characters in the current scene cast should contribute actions, dialogue, thoughts, or sensory details unless the author direction explicitly permits otherwise.
 
 Writing rules:
 - Write only the requested story prose.
@@ -879,6 +887,9 @@ Writing rules:
 - Treat off-cast character locations as continuity information only. Do not infer that an off-cast character's home, house, activities, or whereabouts lie along the characters' travel route.
 - Do not mention an off-cast character's home or location unless the current scene direction explicitly calls for it or the scene itself naturally establishes it as relevant.
 - Preserve requested scene order and emotional beats.
+- When the author direction calls for a detailed action, confrontation, kidnapping, escape, or emotional recovery, fully dramatize the event rather than skipping over it or summarizing it. Give important physical and emotional beats enough room to develop, generally allowing roughly 800–1200 words unless the author direction specifies another length.
+- For a character with established relevant training or experience, let that background affect their instincts, awareness, choices, and resistance without making them unrealistically invincible. Tiffany may struggle, resist, improvise, and use determination shaped by being raised by a Special Forces father, but she can still be overwhelmed or captured when the scene requires it. Keep action grounded and story-focused rather than providing real-world tactical instructions.
+- When a scene is an emotional aftermath or rescue/recovery scene, stay with the characters' interaction long enough for the emotions, reassurance, physical grounding, and relationship dynamics to play out. Do not rush directly to exposition.
 - Do not establish an exact date, exact time, season, or other timeline detail unless the current state or author direction establishes it.
 - Do not summarize the scene or provide notes.
 """
@@ -1043,9 +1054,11 @@ Writing rules:
             "The HARD STOP in the author direction is mandatory. "
             "The scene is not complete until that exact endpoint is reached. "
             "Do not end the scene early. Do not skip ahead beyond the endpoint. "
-            "Use enough prose to naturally cover the requested movement and arrive at the endpoint, "
-            "typically about 500 to 700 words when the scene direction does not specify another length. "
-            "Characters outside the scene cast are continuity-only and should not be mentioned or narrated "
+            "Use enough prose to fully dramatize the requested movement and arrive at the endpoint. "
+            "Do not treat a generic word count as a hard limit. Ordinary scenes can be concise, while detailed "
+            "action or emotional scenes should be substantially longer when needed, generally around 800 to 1200 "
+            "words unless the scene direction specifies another length. Characters outside the scene cast are "
+            "continuity-only and should not be mentioned or narrated "
             "unless the author direction explicitly requires it.\n\n"
             "Write the next scene now. Output only the prose."
         )
