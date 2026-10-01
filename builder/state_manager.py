@@ -146,7 +146,7 @@ class StateManager:
             "Do not copy planning instructions or future events into it. "
             "Return ONLY the changed fields as a JSON object. Return {} if nothing changed."
         ])
-        prompt = "".join(prompt_parts))
+        prompt = "".join(prompt_parts)
 
         env = os.environ.copy()
         env["LD_LIBRARY_PATH"] = str(
