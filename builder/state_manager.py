@@ -17,6 +17,9 @@ Rules:
 - Do not repeat unchanged fields.
 - For changed nested objects, include only changed nested keys.
 - For arrays, replace the array only when that array truly changed.
+- Treat current_situation as a live scene-state field, not as a scene-plan instruction. When the completed section ends in a materially different immediate situation, update current_situation to a concise description of that ending state so it can serve as the starting state for the next scene.
+- Do not copy scene-plan wording, future-scene instructions, hard stops, or author directions into current_situation.
+- When the section crosses a scene boundary, describe what is true at the end of the completed section, not what should happen afterward.
 - Never invent future events.
 - Never turn an unknown fact into a known fact.
 - Keep character knowledge limited to what each character could actually know.
@@ -111,7 +114,11 @@ class StateManager:
             + json.dumps(current_state, indent=2, ensure_ascii=False)
             + "\n\nCOMPLETED STORY SECTION:\n"
             + story_text.strip()
-            + "\n\nReturn ONLY the changed fields as a JSON object. Return {} if nothing changed."
+            + "\n\nDetermine the smallest state update needed after this completed section. "
+            "In particular, update current_situation when the section ends in a new immediate situation; "
+            "this field becomes the starting situation for the next scene. Keep it concise and factual. "
+            "Do not copy planning instructions or future events into it. "
+            "Return ONLY the changed fields as a JSON object. Return {} if nothing changed."
         )
 
         env = os.environ.copy()
