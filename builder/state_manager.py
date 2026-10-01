@@ -64,11 +64,16 @@ def extract_json_object(text: str) -> dict[str, Any]:
 
 def extract_expected_end_state(scene_end_guidance: str) -> dict[str, Any] | None:
     """Extract the structured expected end-state hint from scene guidance."""
-    marker = "EXPECTED END STATE HINT:"
+    marker = "EXPECTED END STATE HINT"
     if marker not in scene_end_guidance:
         return None
 
-    payload = scene_end_guidance.split(marker, 1)[1].strip()
+    payload = scene_end_guidance.split(marker, 1)[1]
+    if payload.startswith(" ("):
+        payload = payload.split("):", 1)[1]
+    elif payload.startswith(":"):
+        payload = payload[1:]
+    payload = payload.strip()
     try:
         value = json.loads(payload)
     except json.JSONDecodeError:
