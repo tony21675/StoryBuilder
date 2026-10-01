@@ -1006,33 +1006,15 @@ Rules:
         chapter = int(self.package.current_state.get("chapter", 1) or 1)
         scene = int(self.package.current_state.get("scene", 1) or 1)
 
-        previous_ending = ""
-        if self.package.path is not None and scene > 1:
-            manager = ManuscriptManager(self.package.path)
-            previous_scene_path = manager.scene_path(chapter, scene - 1)
-            if previous_scene_path.is_file():
-                try:
-                    previous_text = previous_scene_path.read_text(encoding="utf-8").strip()
-                except OSError:
-                    previous_text = ""
-                if previous_text:
-                    previous_ending = previous_text[-1400:]
-
+        # The current story state and resolved scene direction already define
+        # the exact starting point. Do not send previous manuscript prose to the
+        # writer, because it can pull completed scenes, old characters, or stale
+        # details back into the new scene.
         prompt_parts = [
             "AUTHOR DIRECTION:\n",
             direction,
             "\n\n",
         ]
-        if previous_ending:
-            prompt_parts.extend([
-                "PREVIOUS SCENE FINAL MOMENT (continuation reference only):\n",
-                previous_ending,
-                "\n\n"
-                "Do not repeat, restart, or paraphrase this quoted ending. "
-                "Begin Scene "
-                + str(scene)
-                + " at the point where the previous scene ends and continue forward.\n\n",
-            ])
         prompt_parts.extend([
             "IMPORTANT SCENE BOUNDARY:\n",
             "The HARD STOP in the author direction is mandatory. "
