@@ -803,12 +803,15 @@ class StoryBuilderApp(tk.Tk):
                         if item_text:
                             module_do_not.append(item_text)
 
+        # Prefer one authoritative endpoint. The recurring scene plan and
+        # active module often express the same boundary in different words;
+        # showing both only makes the compact direction noisier and can look
+        # like two separate requirements to the model.
         end_texts = []
         if current_plan_end:
             end_texts.append(current_plan_end)
-        end_texts.extend(
-            item for item in module_endings if item and item != current_plan_end
-        )
+        elif module_endings:
+            end_texts.append(module_endings[0])
         seen_endings = set()
         for end_text in end_texts:
             key = " ".join(end_text.casefold().split())
