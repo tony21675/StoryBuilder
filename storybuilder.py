@@ -1139,12 +1139,27 @@ Rules:
             messagebox.showerror("Writer", str(exc))
 
     def _scene_end_guidance(self, scene: int) -> str:
-        """Return the saved end condition for a scene when available."""
+        """Return the saved end condition and optional expected ending state."""
         try:
             guidance = self.package.extra_json.get("writing_guidance.json", {}) if self.package else {}
             scene_plan = guidance.get("scene_plan", {}) if isinstance(guidance, dict) else {}
             entry = scene_plan.get(str(scene), {}) if isinstance(scene_plan, dict) else {}
-            return str(entry.get("end_condition", "") or "").strip()
+            if not isinstance(entry, dict):
+                return ""
+
+            parts = []
+            end_condition = str(entry.get("end_condition", "") or "").strip()
+            if end_condition:
+                parts.append("END CONDITION:\n" + end_condition)
+
+            state_after = entry.get("state_after")
+            if isinstance(state_after, dict):
+                parts.append(
+                    "EXPECTED END STATE HINT (VERIFY AGAINST THE COMPLETED PROSE):\n"
+                    + json.dumps(state_after, indent=2, ensure_ascii=False)
+                )
+
+            return "\n\n".join(parts)
         except Exception:
             return ""
 
