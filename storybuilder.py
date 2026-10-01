@@ -881,6 +881,7 @@ Character consistency:
 - Before finishing the scene, internally check every character reference and pronoun for consistency.
 - Never refer to Tiffany, Maya, Chloe, or another established female character as "he", "him", "his", "boy", or another incompatible masculine reference. Apply the same rule in reverse for established male characters.
 - Do not accidentally transfer one character's clothing, scent, possessions, actions, thoughts, or physical traits to another character.
+- Preserve established signature scents exactly. In the current novel: Tiffany = coconut and strawberry; Maya = vanilla; Chloe = pineapple. Do not assign one character's established scent to another or invent a conflicting signature scent.
 - Only characters in the current scene cast should contribute actions, dialogue, thoughts, or sensory details unless the author direction explicitly permits otherwise.
 
 Writing rules:
