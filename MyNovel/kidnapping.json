@@ -9,26 +9,26 @@
     "5": {
       "required_events": [
         "Begin immediately at the confrontation already established at the end of Scene 4.",
-        "Kidnapper Driver remains inside the van throughout the confrontation and does not physically restrain Tiffany.",
-        "Kidnapper Grabber is the only kidnapper who physically takes Tiffany.",
+        "The Kidnapper remains in control of the van and personally carries out the abduction.",
+        "The Kidnapper is the only person who physically takes Tiffany.",
         "Tiffany uses the practical self-defense skills Tony taught her and lands a couple of clean, solid strikes on the captor before he overpowers her.",
         "Tiffany continues fighting with hits and kicks, but the captor is significantly larger and stronger and ultimately overpowers her.",
-        "Kidnapper Grabber lifts Tiffany completely off the ground while she continues fighting and carries her toward the van.",
+        "The Kidnapper lifts Tiffany completely off the ground while she continues fighting and carries her toward the van.",
         "Maya initially freezes in shock and then runs after them, trying to help.",
         "The captor turns toward Maya to knock her away. As he turns, Tiffany can reach his left cheek and digs her fingernails into it, leaving three deep scratches that break the skin and draw blood.",
         "At the same moment, the captor knocks Maya down with a single backhand that catches the side of her cheek, leaving only a temporary red mark.",
         "Maya realizes she does not know how to fight well enough to stop a much larger opponent and cannot physically stop the abduction.",
         "Maya sees the fresh scratches and blood on the captor's left cheek, but she is too shocked to consciously process the detail as something important.",
         "The captor throws Tiffany into the van, then slams the door shut.",
-        "Kidnapper Driver immediately drives the van away with Tiffany inside.",
+        "The Kidnapper puts Tiffany in the van, gets behind the wheel, and drives away with her inside.",
         "Maya watches the van leave, then is left alone in confusion and shock as the reality of Tiffany being gone finally hits her. She may drop to her knees."
       ],
       "end_condition": "End after the van has driven away with Tiffany inside. Maya remains alone on the road in confusion and shock, and the emotional impact finally hits her. She may drop to her knees after the van disappears. Do not send Maya to Tony's house in this scene.",
       "do_not_advance": [
         "Do not replay the walk from the gas station or earlier conversation.",
         "Do not include Chloe.",
-        "Do not have both kidnappers physically restrain Tiffany.",
-        "Do not have Kidnapper Driver leave the van or physically help restrain Tiffany.",
+        "Do not introduce a second kidnapper into the scene.",
+        "Do not introduce a separate Driver or Grabber role.",
         "Do not make Maya remain motionless throughout the entire abduction.",
         "Do not make Maya capable of overpowering or successfully fighting the captor.",
         "Do not give Maya more than a minor temporary red mark on her cheek from being knocked down.",
@@ -66,7 +66,7 @@
   "plot": {
     "victim": "Tiffany",
     "method": "Tiffany is forcibly taken and placed into a van.",
-    "kidnappers": "Two male kidnappers.",
+    "kidnappers": "One unidentified male kidnapper is present during the abduction.",
     "motive": "The kidnappers were hired to find a young woman who matches a general physical description requested by a wealthy overseas buyer. Tiffany is not targeted because of her identity or anything she personally did. She is selected because her age, appearance, and body type fit the requested description. The larger plan is to traffic her to the overseas buyer for sexual exploitation.",
     "van": "unknown",
     "destination": "unknown",
@@ -78,9 +78,9 @@
       "They decide to take Tiffany because she appears to fit the buyer's request.",
       "Tiffany and Maya leave the gas station and walk home.",
       "The kidnappers follow or intercept them farther along the route, after they reach a quieter stretch away from the gas station.",
-      "Two male kidnappers are involved.",
-      "One male kidnapper drives the van.",
-      "The other male kidnapper physically grabs Tiffany and forces her into the van.",
+      "One unidentified male kidnapper is involved in the abduction seen in Scene 5.",
+      "The Kidnapper drives the van.",
+      "The Kidnapper physically grabs Tiffany and forces her into the van.",
       "Maya witnesses what happens and is not taken.",
       "Maya is left alone, shocked and extremely distressed.",
       "Maya later runs to Tony after Tiffany is taken.",
@@ -96,11 +96,11 @@
     "tony_connection": "The kidnappers do not initially target Tony or choose Tiffany because she is Tony's daughter. Tony becomes involved because Tiffany is his daughter and he responds when she is taken.",
     "client_location": "Unknown at the beginning of the story. Later revealed to be Russia.",
     "future_identification_clue": {
-      "source": "During Tiffany's abduction in Scene 5, Tiffany digs her fingernails into Kidnapper Grabber's left cheek while he is carrying her.",
+      "source": "During Tiffany's abduction in Scene 5, Tiffany digs her fingernails into the Kidnapper's left cheek while he is carrying her.",
       "injury": "Three deep scratches break the skin on his left cheek and draw blood.",
       "witness": "Maya sees the scratches happen.",
       "immediate_use": "Maya is too shocked and focused on Tiffany being taken to consciously report the detail when she first reaches Tony.",
-      "later_use": "The detail may surface later during Tony and Maya's reconstruction of the abduction and can help Tony identify or distinguish the physical kidnapper if the matching left-cheek scratches are relevant.",
+      "later_use": "The detail may surface later during Tony and Maya's reconstruction of the abduction and can help Tony identify the Kidnapper if the matching left-cheek scratches are relevant.",
       "writer_rule": "Do not reveal or force the later identification payoff in Scene 5 or Scene 6."
     },
     "future_character_development": {
@@ -142,7 +142,7 @@
   "rules": {
     "tracker": "The tracker remains hidden and inactive until the story naturally establishes its discovery and activation.",
     "unknowns": "The kidnappers' identities, the buyer's identity, the buyer's background, the exact financial arrangement, destination, van details, and detailed planning remain unknown to the characters until established by the story. The buyer's eventual connection to Russia should not be revealed before the story establishes it.",
-    "scene_cast": "Only characters explicitly selected for a scene are physically present and participating in that scene.",
+    "scene_cast": "Only characters explicitly listed for a scene are physically present and participating in that scene. Scene 5 has one established Kidnapper; do not invent a second kidnapper there.",
     "police": "Tony intends to handle the situation himself unless the established story later changes that.",
     "choice": "Maya and Chloe are not required to participate in Tony's search. They may choose to help."
   }
