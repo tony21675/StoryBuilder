@@ -666,13 +666,10 @@ class StoryBuilderApp(tk.Tk):
             for name in self.package.current_state.get("scene_cast", [])
         }
 
-        if self.package.path is not None:
-            recent = ManuscriptManager(self.package.path).recent_text()
-            if recent:
-                # Keep only a useful recent window so context does not grow
-                # without bound as the manuscript gets longer.
-                files.append(("recent_manuscript.txt", recent[-8000:]))
-
+        # Do not place recent manuscript prose into the persistent system
+        # prompt. The local base model may copy it instead of continuing the
+        # current scene. The immediate ending of the previous accepted scene is
+        # supplied in the per-scene user turn instead.
         for module in self.package.story_bible.get("optional_story_modules", []):
             if not isinstance(module, dict):
                 continue
@@ -1056,11 +1053,35 @@ Writing rules:
         self.writer_write_button.configure(state="disabled")
         self.writer_status.configure(text="Writing scene...")
 
-        prompt = (
-            "AUTHOR DIRECTION:\n"
-            + direction
-            + "\n\n"
-            "IMPORTANT SCENE BOUNDARY:\n"
+        previous_ending = ""
+        if self.package.path is not None and scene > 1:
+            manager = ManuscriptManager(self.package.path)
+            previous_scene_path = manager.scene_path(chapter, scene - 1)
+            if previous_scene_path.is_file():
+                try:
+                    previous_text = previous_scene_path.read_text(encoding="utf-8").strip()
+                except OSError:
+                    previous_text = ""
+                if previous_text:
+                    previous_ending = previous_text[-3500:]
+
+        prompt_parts = [
+            "AUTHOR DIRECTION:\n",
+            direction,
+            "\n\n",
+        ]
+        if previous_ending:
+            prompt_parts.extend([
+                "PREVIOUS SCENE ENDING (continuation reference only):\n",
+                previous_ending,
+                "\n\n"
+                "Do not repeat, restart, or paraphrase this quoted ending. "
+                "Begin Scene "
+                + str(scene)
+                + " at the point where the previous scene ends and continue forward.\n\n",
+            ])
+        prompt_parts.extend([
+            "IMPORTANT SCENE BOUNDARY:\n",
             "The HARD STOP in the author direction is mandatory. "
             "The scene is not complete until that exact endpoint is reached. "
             "Do not end the scene early. Do not skip ahead beyond the endpoint. "
@@ -1071,7 +1092,8 @@ Writing rules:
             "continuity-only and should not be mentioned or narrated "
             "unless the author direction explicitly requires it.\n\n"
             "Write the next scene now. Output only the prose."
-        )
+        ])
+        prompt = "".join(prompt_parts)
 
         def work():
             try:
