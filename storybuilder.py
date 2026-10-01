@@ -1138,6 +1138,21 @@ Rules:
         except Exception as exc:
             messagebox.showerror("Writer", str(exc))
 
+    def _scene_plan_cast(self, scene: int) -> list[str]:
+        """Return the explicitly defined cast for a planned scene."""
+        try:
+            guidance = self.package.extra_json.get("writing_guidance.json", {}) if self.package else {}
+            scene_plan = guidance.get("scene_plan", {}) if isinstance(guidance, dict) else {}
+            entry = scene_plan.get(str(scene), {}) if isinstance(scene_plan, dict) else {}
+            if not isinstance(entry, dict):
+                return []
+            cast = entry.get("cast", [])
+            if not isinstance(cast, list):
+                return []
+            return [str(name).strip() for name in cast if str(name).strip()]
+        except Exception:
+            return []
+
     def _scene_end_guidance(self, scene: int) -> str:
         """Return the saved end condition and optional expected ending state."""
         try:
@@ -1247,6 +1262,15 @@ Rules:
                 # If the continuity manager explicitly advanced the state, keep
                 # its chapter/scene decision intact.
                 pass
+
+            # When the next scene has an explicit cast in writing guidance,
+            # load that cast for the newly advanced scene instead of carrying
+            # the completed scene's cast forward.
+            next_scene_cast = self._scene_plan_cast(
+                int(self.package.current_state.get("scene", completed_scene + 1) or completed_scene + 1)
+            )
+            if next_scene_cast:
+                self.package.current_state["scene_cast"] = next_scene_cast
 
             self.package.current_state["scene_completed"] = False
             self.dirty = True
