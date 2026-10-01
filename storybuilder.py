@@ -845,6 +845,7 @@ Rules:
 - Preserve established names, genders, pronouns, relationships, possessions, appearance, and scents.
 - Current-novel signature scents: Tiffany = coconut + strawberry; Maya = vanilla; Chloe = pineapple.
 - Keep character knowledge limited to what they could know.
+- Never give a character knowledge of another character's name, identity, relationship, location, or other personal fact unless that knowledge is established or naturally learned in the story.
 - Natural small talk, ordinary memories, harmless feelings, and minor scene details are welcome.
 - Do not invent consequential canon, motives, identities, hidden plans, or secret knowledge.
 - Fully dramatize important action and emotional scenes instead of summarizing them.
