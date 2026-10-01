@@ -1,50 +1,55 @@
 {
   "status": "in_progress",
   "chapter": 1,
-  "scene": 5,
+  "scene": 6,
   "scene_completed": false,
   "location": {
-    "primary": "Road between the gas station and home",
+    "primary": "Tony and Tiffany's home",
     "Tony": "At home, sleeping.",
-    "Tiffany": "At the confrontation on the road home with Maya and one unfamiliar man.",
-    "Maya": "At the confrontation on the road home with Tiffany and one unfamiliar man.",
+    "Tiffany": "Inside the van with the Kidnapper, being driven away from the road.",
+    "Maya": "Alone on the roadside after witnessing Tiffany's abduction. She is conscious, in shock, and has collapsed after the van disappeared.",
     "Chloe": "At home sick and not participating in the scene."
   },
   "time": {
     "period": "late afternoon",
     "exact_time": "not established"
   },
-  "current_situation": "Tiffany and Maya are already on the road facing an unfamiliar man and a suspicious van. The confrontation from Scene 4 is underway. This scene covers the kidnapping of Tiffany. Maya remains behind and does not reach Tony during this scene. Tony remains at home asleep and is unaware of what is happening.",
+  "current_situation": "The Kidnapper has driven away with Tiffany. Maya has been left alone on the roadside in shock after witnessing the abduction, and she is now going to Tony and Tiffany's home for help. Tony is still asleep at home and does not yet know what happened.",
   "character_knowledge": {
     "Tony": [
       "Knows Tiffany is his daughter.",
       "Knows Maya is Tiffany's best friend and is also a friend of his.",
       "Knows Tiffany's mother died while giving birth to Tiffany.",
-      "Does not know about the confrontation on the road or that Tiffany is being kidnapped."
+      "Does not know about the confrontation on the road or that Tiffany has been kidnapped."
     ],
     "Tiffany": [
-      "Is with Maya on the road home from the gas station.",
-      "Can see an unfamiliar van and one unfamiliar man confronting them.",
+      "Was with Maya on the road home from the gas station before being abducted.",
+      "Knows the unfamiliar man forcibly took her and is driving away with her in the van.",
+      "Knows Maya was left behind on the roadside.",
       "Knows Tony is at home.",
-      "Knows Maya lives next door with her mother.",
-      "Her mother died while giving birth to her."
+      "Knows Maya lives next door with her mother."
     ],
     "Maya": [
-      "Is with Tiffany on the road home from the gas station.",
-      "Can see an unfamiliar van and one unfamiliar man confronting them.",
+      "Witnessed the unfamiliar man forcibly take Tiffany.",
+      "Knows Tiffany was driven away inside the van.",
+      "Knows the man is an unfamiliar kidnapper whose identity is not established.",
+      "Saw Tiffany leave three deep scratches and draw blood from the man's left cheek during the struggle.",
       "Knows Tony is at home.",
-      "Knows she lives with her mother next door.",
-      "Knows Tiffany's mother died while giving birth to Tiffany."
+      "Knows she is now alone on the roadside after the van disappeared."
     ]
   },
-  "completed_events": [],
-  "active_clues": [],
+  "completed_events": [
+    "Tiffany was abducted by the unfamiliar man, who drove away with her inside the van."
+  ],
+  "active_clues": [
+    "Tiffany left three deep scratches on the Kidnapper's left cheek, breaking the skin and drawing blood. Maya witnessed this during the struggle."
+  ],
   "new_clues": [],
   "unresolved_questions": [],
   "active_objectives": {
-    "Tony": "Remain at home and sleep.",
-    "Tiffany": "Respond to the confrontation and resist being taken.",
-    "Maya": "Stay with Tiffany and respond to the confrontation."
+    "Tony": "Remain asleep at home, unaware of the abduction.",
+    "Tiffany": "Endure the immediate aftermath of the abduction and remain conscious.",
+    "Maya": "Recover from the immediate shock of witnessing Tiffany's abduction."
   },
   "continuity_requirements": [
     "Tony and Tiffany live together in the same house.",
@@ -57,25 +62,23 @@
   ],
   "story_format_version": "1.0",
   "continuity_notes": [
-    "Scene 5 begins at the confrontation established at the end of Scene 4, with Tiffany and Maya already on the road facing an unfamiliar man and the van.",
     "Tony and Tiffany live together in the same house.",
-    "Maya lives with her mother in her own separate home next door to Tony and Tiffany.",
-    "Chloe lives next door on the opposite side of Tony and Tiffany.",
+    "Maya lives next door with her mother and has a key to Tony and Tiffany's home.",
     "Maya and Tiffany are best friends with a close, sister-like platonic relationship.",
-    "Tiffany's mother died while giving birth to Tiffany, so Tiffany never knew her mother personally.",
-    "Chloe is home sick and is not participating in Scene 5.",
-    "From his current position, Tony cannot see or hear the front road or Tiffany and Maya.",
-    "Tiffany always wears Tony's dog tags on a chain close to her heart and keeps them with her.",
-    "Tony works the night shift, so it is normal for him to be asleep in his bed during the late afternoon while resting between shifts."
+    "Tony has known Maya since she was a baby and treats her like family.",
+    "Tony works the night shift and is normally asleep during the late afternoon while resting between shifts.",
+    "Tiffany has just been abducted by the unfamiliar Kidnapper.",
+    "Maya witnessed the abduction and was left alone on the roadside after the van disappeared.",
+    "Chloe is home sick and is not participating in Scene 6.",
+    "Maya does not yet report the three scratches on the Kidnapper's left cheek."
   ],
   "scene_cast": [
-    "Tiffany",
     "Maya",
-    "Kidnapper"
+    "Tony"
   ],
   "primary": "Road between the gas station and home",
   "Tony": "At home, sleeping.",
-  "Tiffany": "Walking from school toward the gas station with Maya.",
-  "Maya": "Walking from school toward the gas station with Tiffany.",
+  "Tiffany": "Inside the van with the Kidnapper, being driven away from the road.",
+  "Maya": "Alone on the roadside after witnessing Tiffany's abduction. She is conscious, in shock, and has collapsed after the van disappeared.",
   "Chloe": "At home sick and not participating in the scene."
 }
