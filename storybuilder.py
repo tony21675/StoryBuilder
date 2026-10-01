@@ -638,117 +638,76 @@ class StoryBuilderApp(tk.Tk):
         if self.package is None:
             return []
 
+        state = self.package.current_state
+        scene_cast_names = [
+            str(name).strip()
+            for name in state.get("scene_cast", [])
+            if str(name).strip()
+        ]
+        scene_cast = {name.casefold() for name in scene_cast_names}
+
         files = []
 
-        # Only expose character cards for people explicitly present in the
-        # current scene. Off-scene character cards can cause the local model
-        # to pull excluded characters into the prose even when the scene cast
-        # says they are not participating.
-        scene_cast = {
-            str(name).casefold().strip()
-            for name in self.package.current_state.get("scene_cast", [])
-            if str(name).strip()
+        # Keep the persistent writer context compact. The model only needs
+        # the current scene state, the cards for characters actually present,
+        # and relationships that matter to those characters.
+        location = state.get("location", "")
+        primary_location = (
+            str(location.get("primary", "") or "").strip()
+            if isinstance(location, dict)
+            else str(location or "").strip()
+        )
+        time_data = state.get("time", state.get("time_of_day", ""))
+        scene_state = {
+            "chapter": int(state.get("chapter", 1) or 1),
+            "scene": int(state.get("scene", 1) or 1),
+            "location": primary_location,
+            "time": time_data,
+            "cast": scene_cast_names,
+            "current_situation": str(state.get("current_situation", "") or "").strip(),
+            "continuity_notes": state.get(
+                "continuity_notes",
+                state.get("continuity_requirements", []),
+            ),
         }
+        files.append((
+            "scene_state.json",
+            json.dumps(scene_state, indent=2, ensure_ascii=False),
+        ))
+
+        scene_characters = {}
         for filename in sorted(self.package.characters):
             data = self.package.characters[filename]
-            character_name = str(data.get("name", "") or "").casefold().strip()
-            filename_stem = Path(filename).stem.casefold().strip()
-            if character_name not in scene_cast and filename_stem not in scene_cast:
+            name = str(data.get("name", "") or "").strip()
+            filename_stem = Path(filename).stem.strip()
+            if name.casefold() not in scene_cast and filename_stem.casefold() not in scene_cast:
                 continue
+            scene_characters[name or filename_stem] = data
+
+        if scene_characters:
             files.append((
-                filename,
-                json.dumps(
-                    data,
-                    indent=2,
-                    ensure_ascii=False,
-                ),
+                "scene_characters.json",
+                json.dumps(scene_characters, indent=2, ensure_ascii=False),
             ))
 
-        files.append((
-            "story_bible.json",
-            json.dumps(self.package.story_bible, indent=2, ensure_ascii=False),
-        ))
-        files.append((
-            "current_state.json",
-            json.dumps(self.package.current_state, indent=2, ensure_ascii=False),
-        ))
+        relationships = self.package.story_bible.get("relationships", {})
+        if isinstance(relationships, dict):
+            relevant = {}
+            for key, value in relationships.items():
+                if not isinstance(value, dict):
+                    continue
+                key_text = str(key).casefold()
+                if any(name in key_text for name in scene_cast):
+                    relevant[key] = value
+            if relevant:
+                files.append((
+                    "scene_relationships.json",
+                    json.dumps(relevant, indent=2, ensure_ascii=False),
+                ))
 
-        # Keep recurring planning/module guidance out of the system context.
-        # Build Scene Direction resolves the relevant guidance for this scene.
-        scene = int(self.package.current_state.get("scene", 1) or 1)
-
-        # Do not place recent manuscript prose into the persistent system
-        # prompt. The local base model may copy it instead of continuing the
-        # current scene. The immediate ending of the previous accepted scene is
-        # supplied in the per-scene user turn instead.
-        for module in self.package.story_bible.get("optional_story_modules", []):
-            if not isinstance(module, dict):
-                continue
-
-            filename = str(module.get("file", "")).strip()
-            if not filename:
-                continue
-
-            data = self.package.extra_json.get(filename)
-            status = str(
-                data.get("status", module.get("status", "optional"))
-                if isinstance(data, dict)
-                else module.get("status", "optional")
-            ).casefold()
-
-            if not isinstance(data, dict) or status != "active":
-                continue
-
-            # Only load scene-specific module guidance for the current scene.
-            # Do not expose an entire active module, which can contain future
-            # events, hidden motives, identities, or other information the
-            # current scene must not know.
-            scene_guidance = data.get("scene_guidance", {})
-            current_guidance = None
-            if isinstance(scene_guidance, dict):
-                current_guidance = scene_guidance.get(str(scene))
-                if current_guidance is None:
-                    current_guidance = scene_guidance.get(scene)
-
-            if isinstance(current_guidance, dict):
-                # The current scene's module guidance is already resolved into
-                # the editable Scene Direction. Do not duplicate it in the
-                # persistent system prompt where conflicting sequence wording
-                # can compete with the author's current direction.
-                continue
-
-            # Relationship dynamics has no scene-numbered module guidance.
-            # Only expose the small portion relevant when Tony or Chloe is
-            # actually present in the scene. Scene 1-5 do not need it.
-            relationships = data.get("relationships")
-            writing_guidance = data.get("writing_guidance")
-            if (
-                isinstance(relationships, dict)
-                and (
-                    "tony" in scene_cast
-                    or "chloe" in scene_cast
-                )
-            ):
-                relevant = {}
-                for key, value in relationships.items():
-                    if not isinstance(value, dict):
-                        continue
-                    key_text = str(key).casefold()
-                    if any(person in key_text for person in scene_cast):
-                        relevant[key] = value
-
-                compact = {}
-                if relevant:
-                    compact["relationships"] = relevant
-                if isinstance(writing_guidance, dict):
-                    compact["writing_guidance"] = writing_guidance
-
-                if compact:
-                    files.append((
-                        filename,
-                        json.dumps(compact, indent=2, ensure_ascii=False),
-                    ))
-
+        # Do not place recent manuscript prose or active module plans into the
+        # persistent system prompt. Those belong in the per-scene direction
+        # and short continuation handoff.
         return files
 
     def _build_scene_direction(self):
@@ -760,162 +719,134 @@ class StoryBuilderApp(tk.Tk):
         scene = int(state.get("scene", 1) or 1)
         location = state.get("location", "")
         time_data = state.get("time", state.get("time_of_day", ""))
-        cast = state.get("scene_cast", [])
+        cast = [str(name) for name in state.get("scene_cast", []) if str(name).strip()]
         situation = str(state.get("current_situation", "") or "").strip()
-
-        lines = [
-            f"Continue Chapter {chapter}, Scene {scene} from the exact current story state.",
-            "AUTHORITATIVE STATE RULE: The current scene number, primary location, scene cast, and current situation are authoritative for the present scene. If older continuity text or older scene-plan wording conflicts with them, follow the current state instead.",
-        ]
 
         if isinstance(location, dict):
             primary_location = str(location.get("primary", "") or "").strip()
-            if primary_location:
-                lines.append(f"Current location: {primary_location}.")
-        elif location:
-            lines.append(f"Current location: {location}.")
+        else:
+            primary_location = str(location or "").strip()
+
         if isinstance(time_data, dict):
-            period = str(time_data.get("period", "") or "").strip()
+            time_text = str(time_data.get("period", "") or "").strip()
             exact = str(time_data.get("exact_time", "") or "").strip()
-            if period:
-                lines.append(
-                    f"Time: {period}."
-                    + (f" Exact time: {exact}." if exact and exact != "not established" else "")
-                )
-        elif time_data:
-            lines.append(f"Time: {time_data}.")
-        if cast:
-            lines.append("Scene cast: " + ", ".join(map(str, cast)) + ".")
-        if situation:
-            lines.append(f"Current situation: {situation}")
-            lines.append(
-                "SCENE START CHECKPOINT: The current situation is already true when this scene begins. "
-                "Treat the preceding scene as complete. Do not replay earlier travel, conversation, setup, "
-                "or other events that have already happened. Active module beats are targets for this scene "
-                "after the established starting point, not instructions to reconstruct the previous scene."
-            )
+            if exact and exact != "not established":
+                time_text = f"{time_text} ({exact})"
+        else:
+            time_text = str(time_data or "").strip()
 
+        lines = [
+            f"SCENE {chapter}.{scene}",
+            f"Location: {primary_location or 'not established'}",
+            f"Time: {time_text or 'not established'}",
+            "Cast: " + ", ".join(cast),
+            f"Start here: {situation or 'continue from the exact current state.'}",
+            "Do not replay events already completed before this scene.",
+        ]
+
+        plan = self.package.extra_json.get("writing_guidance.json")
         found_guidance = False
-
-        # Extract only the current scene's recurring writing guidance. The full
-        # writing_guidance.json stays out of the model context to reduce prompt size.
-        writing_guidance = self.package.extra_json.get("writing_guidance.json")
-        if isinstance(writing_guidance, dict):
-            scene_plan = writing_guidance.get("scene_plan", {})
-            if isinstance(scene_plan, dict):
-                guidance = scene_plan.get(str(scene))
-                if guidance is None:
-                    guidance = scene_plan.get(scene)
-                if isinstance(guidance, dict):
-                    found_guidance = True
-                    lines.append(
-                        "Scene plan guidance (secondary to the current state and any author edits in this direction):"
-                    )
-                    direction = str(guidance.get("direction", "") or "").strip()
-                    if direction:
-                        lines.append(f"- Direction: {direction}")
-                    end_condition = str(guidance.get("end_condition", "") or "").strip()
-                    if end_condition:
-                        lines.append(
-                            f"- Planned scene boundary: {end_condition}"
-                        )
-                    pacing = str(guidance.get("pacing", "") or "").strip()
-                    if pacing:
-                        lines.append(f"- Pacing: {pacing}")
+        if isinstance(plan, dict):
+            scene_plan = plan.get("scene_plan", {})
+            guidance = scene_plan.get(str(scene)) if isinstance(scene_plan, dict) else None
+            if guidance is None and isinstance(scene_plan, dict):
+                guidance = scene_plan.get(scene)
+            if isinstance(guidance, dict):
+                found_guidance = True
+                direction = str(guidance.get("direction", "") or "").strip()
+                end_condition = str(guidance.get("end_condition", "") or "").strip()
+                pacing = str(guidance.get("pacing", "") or "").strip()
+                if direction:
+                    lines.append(f"Goal: {direction}")
+                if end_condition:
+                    lines.append(f"End: {end_condition}")
+                if pacing:
+                    lines.append(f"Pacing: {pacing}")
 
         for module in self.package.story_bible.get("optional_story_modules", []):
             if not isinstance(module, dict):
                 continue
-
             filename = str(module.get("file", "")).strip()
             data = self.package.extra_json.get(filename)
             if not isinstance(data, dict):
                 continue
-
             status = str(data.get("status", module.get("status", "optional"))).casefold()
             if status != "active":
                 continue
 
             scene_guidance = data.get("scene_guidance", {})
-            guidance = scene_guidance.get(str(scene))
-            if guidance is None:
+            guidance = scene_guidance.get(str(scene)) if isinstance(scene_guidance, dict) else None
+            if guidance is None and isinstance(scene_guidance, dict):
                 guidance = scene_guidance.get(scene)
             if not isinstance(guidance, dict):
                 continue
 
             found_guidance = True
-            name = str(data.get("name") or module.get("name") or filename)
-            lines.append(f"Active module guidance: {name}")
-            for event in guidance.get("required_events", []):
-                lines.append(f"- Required beat: {event}")
-            end_condition = guidance.get("end_condition")
-            if end_condition:
-                lines.append(f"- End condition: {end_condition}")
-            for item in guidance.get("do_not_advance", []):
-                lines.append(f"- Do not advance: {item}")
+            events = guidance.get("required_events", [])
+            compact_events = []
+            situation_words = {
+                word for word in re.findall(r"[a-z0-9]+", situation.casefold())
+                if len(word) >= 4
+            }
+            for event in events if isinstance(events, list) else []:
+                event_text = str(event).strip()
+                if not event_text:
+                    continue
+                event_words = {
+                    word for word in re.findall(r"[a-z0-9]+", event_text.casefold())
+                    if len(word) >= 4
+                }
+                overlap = (
+                    len(event_words & situation_words) / max(1, len(event_words))
+                )
+                if overlap >= 0.55:
+                    continue
+                compact_events.append(event_text)
+
+            if compact_events:
+                lines.append("Beats: " + " | ".join(compact_events))
+            module_end = str(guidance.get("end_condition", "") or "").strip()
+            if module_end and not any(line.startswith("End:") for line in lines):
+                lines.append(f"End: {module_end}")
+
+            no_advance = guidance.get("do_not_advance", [])
+            compact_no_advance = [
+                str(item).strip()
+                for item in no_advance if str(item).strip()
+            ] if isinstance(no_advance, list) else []
+            if compact_no_advance:
+                lines.append("Do not: " + " | ".join(compact_no_advance))
 
         if not found_guidance:
-            lines.append("No activated scene-specific module guidance was found.")
+            lines.append("No additional scene-specific plan.")
 
-        lines.append(
-            "Write the scene naturally. Use harmless everyday interpersonal details when appropriate, "
-            "but do not invent consequential canon or reveal information the characters do not know."
-        )
+        lines.append("Write natural prose only. Current state and this scene direction are authoritative.")
 
         self.writer_direction_text.delete("1.0", "end")
         self.writer_direction_text.insert("1.0", "\n".join(lines))
-        self.writer_status.configure(text="Scene direction built from the current state and active modules.")
+        self.writer_status.configure(text="Scene direction built from the current state and active plan.")
 
     def _writer_system_prompt(self, files):
-        base = """You are the local story generation engine for an ongoing fictional novel.
+        base = """You write prose for an ongoing fictional novel.
 
-Use the attached files as private reference material. Do not quote or explain the reference files.
-Only character files for the current scene cast are attached. Those files establish the identity and knowledge of characters who are actually present. Off-scene character cards are intentionally withheld to prevent accidental participation. story_bible.json establishes permanent canon. current_state.json establishes the exact current situation. The generated scene direction is the resolved writing guidance for this scene.
+Use attached scene files as private reference. Follow the current scene direction as the resolved plan.
 
-Knowledge rules:
-- Characters know only what they witnessed, experienced, were told, or could reasonably infer.
-- Keep unknown information unknown.
-- Do not reveal hidden module information unless the active module or current scene naturally establishes it.
-- Do not invent major plot facts, identities, motives, locations, evidence, consequential backstory, or secret knowledge.
-- Natural small talk, ordinary memories, harmless feelings, shared experiences, inside jokes, and everyday interpersonal details between established relationships are encouraged.
-- Give established friends and family room to actually talk to one another. Prefer natural back-and-forth dialogue and responsive interaction over summarizing that they talked.
-- Minor scene-level details may be invented freely when they fit the characters, setting, and established relationships.
-- These harmless details do not need to already exist in the reference files.
-- Only treat a detail as a continuity problem when it creates a contradiction, reveals information the characters could not know, changes a consequential fact, or crosses an explicit scene boundary.
-
-Character consistency:
-- Preserve established character gender, names, and pronouns exactly.
-- Before finishing the scene, internally check every character reference and pronoun for consistency.
-- Never refer to Tiffany, Maya, Chloe, or another established female character as "he", "him", "his", "boy", or another incompatible masculine reference. Apply the same rule in reverse for established male characters.
-- Do not accidentally transfer one character's clothing, scent, possessions, actions, thoughts, or physical traits to another character.
-- Preserve established signature scents exactly. In the current novel: Tiffany = coconut and strawberry; Maya = vanilla; Chloe = pineapple. Do not assign one character's established scent to another or invent a conflicting signature scent.
-- Only characters in the current scene cast should contribute actions, dialogue, thoughts, or sensory details unless the author direction explicitly permits otherwise.
-
-Writing rules:
-- Write only the requested story prose.
-- Continue from the exact current state.
-- Do not restart earlier scenes.
-- Treat explicit AUTHOR DIRECTION as the highest-priority instruction for this scene.
-- If the author direction contains a HARD STOP or End condition, obey that boundary exactly. Do not continue past it, even if the scene feels unfinished.
-- Only characters listed in the current scene cast should be physically present or actively participating in the scene unless the author direction explicitly says otherwise.
-- Do not cut away to or narrate characters outside the current scene cast merely because their location is recorded for continuity.
-- Treat off-cast character locations as continuity information only. Do not infer that an off-cast character's home, house, activities, or whereabouts lie along the characters' travel route.
-- Do not mention an off-cast character's home or location unless the current scene direction explicitly calls for it or the scene itself naturally establishes it as relevant.
-- Preserve requested scene order and emotional beats.
-- Treat current_state.current_situation, current_state.scene_cast, and the primary current location as authoritative for the present scene when they conflict with stale continuity wording or older planning text.
-- The editable Scene Direction is the resolved plan for this scene. Follow its explicit start point, cast, progression, and endpoint.
-- Do not replay events that the Scene Direction identifies as already established in the preceding scene.
-- Do not introduce a character solely because that character exists elsewhere in the novel. A character is eligible to participate only when listed in the current scene cast or explicitly introduced by the Scene Direction.
-- When the author direction calls for a detailed action, confrontation, kidnapping, escape, or emotional recovery, fully dramatize the event rather than skipping over it or summarizing it. Give important physical and emotional beats enough room to develop, generally allowing roughly 800–1200 words unless the author direction specifies another length.
-- For a character with established relevant training or experience, let that background affect their instincts, awareness, choices, and resistance without making them unrealistically invincible. Tiffany may struggle, resist, improvise, and use determination shaped by being raised by a Special Forces father, but she can still be overwhelmed or captured when the scene requires it. Keep action grounded and story-focused rather than providing real-world tactical instructions.
-- When a scene is an emotional aftermath or rescue/recovery scene, stay with the characters' interaction long enough for the emotions, reassurance, physical grounding, and relationship dynamics to play out. Do not rush directly to exposition.
-- Do not establish an exact date, exact time, season, or other timeline detail unless the current state or author direction establishes it.
-- Do not summarize the scene or provide notes.
+Rules:
+- Current scene state, cast, and direction are authoritative.
+- Only current-scene characters may participate.
+- Never replay completed earlier scenes or invent off-cast characters.
+- Preserve established names, genders, pronouns, relationships, possessions, appearance, and scents.
+- Keep character knowledge limited to what they could know.
+- Natural small talk, ordinary memories, harmless feelings, and minor scene details are welcome.
+- Do not invent consequential canon, motives, identities, hidden plans, or secret knowledge.
+- Fully dramatize important action and emotional scenes instead of summarizing them.
+- Obey the scene endpoint exactly.
+- Output only the story prose.
 """
-        parts = [base, "\nAUTHORITATIVE STORY FILES START\n"]
+        parts = [base, "\nSCENE REFERENCE\n"]
         for name, content in files:
-            parts.append(f"\n[Attached File: {name}]\n{content}\n")
-        parts.append("\nAUTHORITATIVE STORY FILES END")
+            parts.append(f"\n[{name}]\n{content}\n")
+        parts.append("\nEND SCENE REFERENCE")
         return "\n".join(parts)
 
     def _update_writer_buttons(self):
