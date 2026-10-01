@@ -24,6 +24,10 @@ Rules:
 - Never turn an unknown fact into a known fact.
 - Keep character knowledge limited to what each character could actually know.
 - Record only facts established by the supplied story section.
+- Determine the resulting state from what is true at the ABSOLUTE END of the completed section, using the final actions and final paragraphs as the primary evidence.
+- The current state is the BEFORE-state baseline only. Never copy a before-state location or situation into the update when the completed section clearly changes it.
+- For any character whose location or immediate situation changes during the section, include that changed character under location even if the before-state already listed a different location.
+- Use the supplied scene end guidance only to clarify the intended scene boundary. The actual completed prose is authoritative for what happened.
 - Do not invent motives, identities, locations, evidence, backstory, or other consequential facts.
 - Do not rewrite the complete current_state.json.
 - Do not output markdown, explanations, notes, or code fences.
@@ -96,6 +100,7 @@ class StateManager:
         model_path: str | Path,
         current_state: dict[str, Any],
         story_text: str,
+        scene_end_guidance: str | None = None,
     ) -> dict[str, Any]:
         if not story_text.strip():
             raise ValueError("There is no story text to analyze.")
@@ -109,17 +114,39 @@ class StateManager:
                 f"llama-cli not found: {DEFAULT_LLAMA}"
             )
 
-        prompt = (
-            "CURRENT STATE BEFORE THIS SECTION:\n"
-            + json.dumps(current_state, indent=2, ensure_ascii=False)
-            + "\n\nCOMPLETED STORY SECTION:\n"
-            + story_text.strip()
-            + "\n\nDetermine the smallest state update needed after this completed section. "
-            "In particular, update current_situation when the section ends in a new immediate situation; "
-            "this field becomes the starting situation for the next scene. Keep it concise and factual. "
+        completed_text = story_text.strip()
+        end_guidance = (scene_end_guidance or "").strip()
+        final_excerpt = completed_text[-3000:]
+
+        prompt_parts = [
+            "CURRENT STATE BEFORE THIS SECTION:\n",
+            json.dumps(current_state, indent=2, ensure_ascii=False),
+            "\n\nCOMPLETED STORY SECTION:\n",
+            completed_text,
+        ]
+
+        if end_guidance:
+            prompt_parts.extend([
+                "\n\nSCENE END GUIDANCE (REFERENCE ONLY):\n",
+                end_guidance,
+                "\nUse this only to identify the intended ending boundary. "
+                "Do not copy planned wording or invent anything that did not occur in the completed prose."
+            ])
+
+        prompt_parts.extend([
+            "\n\nFINAL PART OF COMPLETED STORY SECTION:\n",
+            final_excerpt,
+            "\n\nDetermine the smallest state update needed AFTER this completed section. "
+            "Read the entire section, but give special weight to the final actions and final paragraph. "
+            "The current state above describes what was true BEFORE the section and must not override what "
+            "the completed prose establishes at the end. For each character whose final location or immediate "
+            "situation changed, include the changed value under location. Update current_situation to describe "
+            "the actual immediate situation at the absolute end of the completed section, not the starting "
+            "situation and not what should happen in the next scene. Keep it concise and factual. "
             "Do not copy planning instructions or future events into it. "
             "Return ONLY the changed fields as a JSON object. Return {} if nothing changed."
-        )
+        ])
+        prompt = "".join(prompt_parts))
 
         env = os.environ.copy()
         env["LD_LIBRARY_PATH"] = str(
