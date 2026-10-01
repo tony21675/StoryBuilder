@@ -1138,6 +1138,16 @@ Rules:
         except Exception as exc:
             messagebox.showerror("Writer", str(exc))
 
+    def _scene_end_guidance(self, scene: int) -> str:
+        """Return the saved end condition for a scene when available."""
+        try:
+            guidance = self.package.extra_json.get("writing_guidance.json", {}) if self.package else {}
+            scene_plan = guidance.get("scene_plan", {}) if isinstance(guidance, dict) else {}
+            entry = scene_plan.get(str(scene), {}) if isinstance(scene_plan, dict) else {}
+            return str(entry.get("end_condition", "") or "").strip()
+        except Exception:
+            return ""
+
     def _analyze_accepted_scene(self):
         if (
             not self.package
@@ -1148,6 +1158,8 @@ Rules:
 
         current_state = dict(self.package.current_state)
         story_text = self.accepted_scene
+        completed_scene = int(current_state.get("scene", 1) or 1)
+        scene_end_guidance = self._scene_end_guidance(completed_scene)
         model = self.writer_engine.model_path
 
         self.writer_analyze_button.configure(state="disabled")
@@ -1160,6 +1172,7 @@ Rules:
                     model,
                     current_state,
                     story_text,
+                    scene_end_guidance=scene_end_guidance,
                 )
                 error = None
             except Exception as exc:
@@ -1314,6 +1327,7 @@ Rules:
                     json.dumps(self.package.current_state)
                 )
 
+            scene_end_guidance = self._scene_end_guidance(scene)
             model = self._selected_writer_model_for_analysis()
 
             self.manuscript_analyze_button.configure(state="disabled")
@@ -1329,6 +1343,7 @@ Rules:
                         model,
                         baseline,
                         story_text,
+                        scene_end_guidance=scene_end_guidance,
                     )
                     candidate = StateManager.merge_patch(
                         baseline,
