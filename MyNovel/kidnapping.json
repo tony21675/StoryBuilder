@@ -17,9 +17,11 @@
         "Kidnapper Grabber overpowers Tiffany, lifts her completely off the ground while she continues kicking and striking him, and carries her to the van.",
         "The captor throws Tiffany into the van, then slams the door shut.",
         "Kidnapper Driver immediately drives the van away with Tiffany inside.",
-        "Maya watches the van leave, then is left confused, shocked, and emotionally overwhelmed. She may sink or drop to her knees after Tiffany is gone."
+        "Maya watches the van leave, then is left confused, shocked, and emotionally overwhelmed. She may sink or drop to her knees after Tiffany is gone.",
+        "After the van disappears, Maya is left alone and visibly overwhelmed by shock and confusion; she may drop to her knees as the reality of Tiffany being gone hits her.",
+        "Keep the final emotional beat focused on Maya's immediate reaction rather than explaining future plans or moving her to Tony."
       ],
-      "end_condition": "End after the van has driven away with Tiffany inside and Maya is left alone on the road in shock and confusion, with the emotional impact of losing Tiffany hitting her. Do not send Maya to Tony's house in this scene.",
+      "end_condition": "End after the van has driven away with Tiffany inside. Maya remains alone on the road in confusion and shock, and the emotional impact finally hits her. She may drop to her knees after the van disappears. Do not send Maya to Tony's house in this scene.",
       "do_not_advance": [
         "Do not replay the walk from the gas station or earlier conversation.",
         "Do not include Chloe.",
