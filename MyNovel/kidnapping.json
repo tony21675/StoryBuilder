@@ -9,7 +9,7 @@
     "5": {
       "required_events": [
         "Begin immediately at the confrontation already established at the end of Scene 4.",
-        "Kidnapper Driver remains in or directly at the van and does not physically restrain Tiffany.",
+        "Kidnapper Driver remains inside the van throughout the confrontation and does not physically restrain Tiffany.",
         "Kidnapper Grabber is the only kidnapper who physically takes Tiffany.",
         "Tiffany uses the practical self-defense skills Tony taught her and lands a couple of clean, solid strikes on the captor before he overpowers her.",
         "Tiffany continues fighting with hits and kicks, but the captor is significantly larger and stronger and ultimately overpowers her.",
@@ -28,7 +28,7 @@
         "Do not replay the walk from the gas station or earlier conversation.",
         "Do not include Chloe.",
         "Do not have both kidnappers physically restrain Tiffany.",
-        "Do not have Kidnapper Driver leave the van to help physically take Tiffany.",
+        "Do not have Kidnapper Driver leave the van or physically help restrain Tiffany.",
         "Do not make Maya remain motionless throughout the entire abduction.",
         "Do not make Maya capable of overpowering or successfully fighting the captor.",
         "Do not give Maya more than a minor temporary red mark on her cheek from being knocked down.",
