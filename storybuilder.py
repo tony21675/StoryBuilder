@@ -639,11 +639,26 @@ class StoryBuilderApp(tk.Tk):
             return []
 
         files = []
+
+        # Only expose character cards for people explicitly present in the
+        # current scene. Off-scene character cards can cause the local model
+        # to pull excluded characters into the prose even when the scene cast
+        # says they are not participating.
+        scene_cast = {
+            str(name).casefold().strip()
+            for name in self.package.current_state.get("scene_cast", [])
+            if str(name).strip()
+        }
         for filename in sorted(self.package.characters):
+            data = self.package.characters[filename]
+            character_name = str(data.get("name", "") or "").casefold().strip()
+            filename_stem = Path(filename).stem.casefold().strip()
+            if character_name not in scene_cast and filename_stem not in scene_cast:
+                continue
             files.append((
                 filename,
                 json.dumps(
-                    self.package.characters[filename],
+                    data,
                     indent=2,
                     ensure_ascii=False,
                 ),
@@ -658,13 +673,9 @@ class StoryBuilderApp(tk.Tk):
             json.dumps(self.package.current_state, indent=2, ensure_ascii=False),
         ))
 
-        # Keep the recurring guidance out of the model context. The relevant
-        # scene_plan guidance is extracted by Build Scene Direction instead.
+        # Keep recurring planning/module guidance out of the system context.
+        # Build Scene Direction resolves the relevant guidance for this scene.
         scene = int(self.package.current_state.get("scene", 1) or 1)
-        scene_cast = {
-            str(name).casefold()
-            for name in self.package.current_state.get("scene_cast", [])
-        }
 
         # Do not place recent manuscript prose into the persistent system
         # prompt. The local base model may copy it instead of continuing the
@@ -700,17 +711,10 @@ class StoryBuilderApp(tk.Tk):
                     current_guidance = scene_guidance.get(scene)
 
             if isinstance(current_guidance, dict):
-                files.append((
-                    filename,
-                    json.dumps(
-                        {
-                            "name": data.get("name", module.get("name", filename)),
-                            "scene_guidance": {str(scene): current_guidance},
-                        },
-                        indent=2,
-                        ensure_ascii=False,
-                    ),
-                ))
+                # The current scene's module guidance is already resolved into
+                # the editable Scene Direction. Do not duplicate it in the
+                # persistent system prompt where conflicting sequence wording
+                # can compete with the author's current direction.
                 continue
 
             # Relationship dynamics has no scene-numbered module guidance.
@@ -860,7 +864,7 @@ class StoryBuilderApp(tk.Tk):
         base = """You are the local story generation engine for an ongoing fictional novel.
 
 Use the attached files as private reference material. Do not quote or explain the reference files.
-Character files establish character identity and knowledge. story_bible.json establishes permanent canon. current_state.json establishes the exact current situation. The generated scene direction provides the relevant writing guidance for this scene. Active story modules provide scene-specific or optional material that has been activated.
+Only character files for the current scene cast are attached. Those files establish the identity and knowledge of characters who are actually present. Off-scene character cards are intentionally withheld to prevent accidental participation. story_bible.json establishes permanent canon. current_state.json establishes the exact current situation. The generated scene direction is the resolved writing guidance for this scene.
 
 Knowledge rules:
 - Characters know only what they witnessed, experienced, were told, or could reasonably infer.
@@ -893,7 +897,9 @@ Writing rules:
 - Do not mention an off-cast character's home or location unless the current scene direction explicitly calls for it or the scene itself naturally establishes it as relevant.
 - Preserve requested scene order and emotional beats.
 - Treat current_state.current_situation, current_state.scene_cast, and the primary current location as authoritative for the present scene when they conflict with stale continuity wording or older planning text.
-- Scene-plan guidance is useful planning context, but it is secondary to explicit author edits and the authoritative current state.
+- The editable Scene Direction is the resolved plan for this scene. Follow its explicit start point, cast, progression, and endpoint.
+- Do not replay events that the Scene Direction identifies as already established in the preceding scene.
+- Do not introduce a character solely because that character exists elsewhere in the novel. A character is eligible to participate only when listed in the current scene cast or explicitly introduced by the Scene Direction.
 - When the author direction calls for a detailed action, confrontation, kidnapping, escape, or emotional recovery, fully dramatize the event rather than skipping over it or summarizing it. Give important physical and emotional beats enough room to develop, generally allowing roughly 800–1200 words unless the author direction specifies another length.
 - For a character with established relevant training or experience, let that background affect their instincts, awareness, choices, and resistance without making them unrealistically invincible. Tiffany may struggle, resist, improvise, and use determination shaped by being raised by a Special Forces father, but she can still be overwhelmed or captured when the scene requires it. Keep action grounded and story-focused rather than providing real-world tactical instructions.
 - When a scene is an emotional aftermath or rescue/recovery scene, stay with the characters' interaction long enough for the emotions, reassurance, physical grounding, and relationship dynamics to play out. Do not rush directly to exposition.
