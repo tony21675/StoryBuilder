@@ -6,8 +6,8 @@
   "location": {
     "primary": "Road between the gas station and home",
     "Tony": "At home, sleeping.",
-    "Tiffany": "Walking from school toward the gas station with Maya.",
-    "Maya": "Walking from school toward the gas station with Tiffany.",
+    "Tiffany": "At the confrontation on the road home with Maya and two unfamiliar men.",
+    "Maya": "At the confrontation on the road home with Tiffany and two unfamiliar men.",
     "Chloe": "At home sick and not participating in the scene."
   },
   "time": {
@@ -19,16 +19,19 @@
     "Tony": [
       "Knows Tiffany is his daughter.",
       "Knows Maya is Tiffany's best friend and is also a friend of his.",
-      "Tiffany's mother died while giving birth to Tiffany."
+      "Knows Tiffany's mother died while giving birth to Tiffany.",
+      "Does not know about the confrontation on the road or that Tiffany is being kidnapped."
     ],
     "Tiffany": [
-      "Is walking home from school with Maya.",
+      "Is with Maya on the road home from the gas station.",
+      "Can see an unfamiliar van and two unfamiliar men confronting them.",
       "Knows Tony is at home.",
       "Knows Maya lives next door with her mother.",
       "Her mother died while giving birth to her."
     ],
     "Maya": [
-      "Is walking home from school with Tiffany.",
+      "Is with Tiffany on the road home from the gas station.",
+      "Can see an unfamiliar van and two unfamiliar men confronting them.",
       "Knows Tony is at home.",
       "Knows she lives with her mother next door.",
       "Knows Tiffany's mother died while giving birth to Tiffany."
@@ -40,15 +43,13 @@
   "unresolved_questions": [],
   "active_objectives": {
     "Tony": "Remain at home and sleep.",
-    "Tiffany": "Walk to the nearby gas station with Maya to get a drink and spend some time talking.",
-    "Maya": "Walk to the nearby gas station with Tiffany to get a drink and spend some time talking."
+    "Tiffany": "Respond to the confrontation and resist being taken.",
+    "Maya": "Stay with Tiffany and respond to the confrontation."
   },
   "continuity_requirements": [
-    "Chapter 1 begins here.",
     "Tony and Tiffany live together in the same house.",
     "Maya lives with her mother in her own separate home next door to Tony and Tiffany.",
-    "Maya and Tiffany are best friends with a close, sister-like platonic relationship.",
-    "Tiffany's mother died while giving birth to Tiffany, so Tiffany never knew her mother personally.",
+    "Chloe lives next door on the opposite side of Tony and Tiffany.",
     "Only characters explicitly listed for a scene are physically present and participating in that scene.",
     "From his current position, Tony cannot see or hear the front road or Tiffany and Maya.",
     "Tiffany always wears Tony's dog tags on a chain close to her heart and keeps them with her.",
@@ -70,8 +71,8 @@
   "scene_cast": [
     "Tiffany",
     "Maya",
-    "Kidnapper 1 - Driver",
-    "Kidnapper 2 - Captor"
+    "Kidnapper Driver",
+    "Kidnapper Grabber"
   ],
   "primary": "Road between the gas station and home",
   "Tony": "At home, sleeping.",
