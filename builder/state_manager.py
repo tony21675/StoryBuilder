@@ -62,6 +62,21 @@ def extract_json_object(text: str) -> dict[str, Any]:
     raise ValueError("The continuity manager did not return a JSON object.")
 
 
+def extract_expected_end_state(scene_end_guidance: str) -> dict[str, Any] | None:
+    """Extract the structured expected end-state hint from scene guidance."""
+    marker = "EXPECTED END STATE HINT:"
+    if marker not in scene_end_guidance:
+        return None
+
+    payload = scene_end_guidance.split(marker, 1)[1].strip()
+    try:
+        value = json.loads(payload)
+    except json.JSONDecodeError:
+        return None
+
+    return value if isinstance(value, dict) else None
+
+
 def remove_unchanged(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
     """Remove values that are identical to the baseline."""
     result: dict[str, Any] = {}
@@ -218,4 +233,15 @@ class StateManager:
 
         # Models sometimes repeat unchanged state. Normalize that away so a
         # proposal contains only actual changes.
-        return remove_unchanged(current_state, patch)
+        patch = remove_unchanged(current_state, patch)
+
+        # An explicit scene ending may already define a structured end state.
+        # If the model returns no changes at all, use that authored hint as a
+        # deterministic fallback. The normal model result remains authoritative
+        # whenever it contains a non-empty change set.
+        if not patch and end_guidance:
+            expected_end_state = extract_expected_end_state(end_guidance)
+            if expected_end_state:
+                patch = remove_unchanged(current_state, expected_end_state)
+
+        return patch
