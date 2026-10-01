@@ -414,6 +414,12 @@ class StoryBuilderApp(tk.Tk):
             command=self._stop_writer,
         )
         self.writer_stop_button.pack(side="left", padx=3)
+        self.writer_clear_context_button = ttk.Button(
+            model_row,
+            text="Clear Writer Context",
+            command=self._clear_writer_context,
+        )
+        self.writer_clear_context_button.pack(side="left", padx=(8, 3))
 
         self.writer_status = ttk.Label(content_frame, text="Writer stopped.")
         self.writer_status.pack(anchor="w", pady=(0, 8))
@@ -457,6 +463,12 @@ class StoryBuilderApp(tk.Tk):
             command=self._accept_generated_scene,
         )
         self.writer_accept_button.pack(side="left", padx=(8, 0))
+        self.writer_reject_button = ttk.Button(
+            button_row,
+            text="Reject Scene",
+            command=self._reject_generated_scene,
+        )
+        self.writer_reject_button.pack(side="left", padx=(8, 0))
 
         ttk.Label(
             content_frame,
@@ -901,8 +913,15 @@ Writing rules:
             state="normal" if has_scene and self.package else "disabled"
         )
         self.writer_accept_button.configure(
-            state="normal" if has_scene and self.package else "disabled"
+            state="normal" if has_scene and not has_accepted and self.package else "disabled"
         )
+        self.writer_reject_button.configure(
+            state="normal" if has_scene and not has_accepted and self.package else "disabled"
+        )
+        if hasattr(self, "writer_clear_context_button"):
+            self.writer_clear_context_button.configure(
+                state="normal" if running and self.package else "disabled"
+            )
         self.writer_analyze_button.configure(
             state="normal" if has_accepted and self.package else "disabled"
         )
@@ -958,6 +977,52 @@ Writing rules:
         finally:
             self._update_writer_buttons()
 
+    def _clear_writer_context(self):
+        if self.package is None:
+            return
+
+        if self.writer_engine.child is None or not self.writer_engine.child.isalive():
+            self.writer_status.configure(text="Writer is not running. Start it before clearing context.")
+            self._update_writer_buttons()
+            return
+
+        self._save()
+        if self.dirty:
+            return
+
+        model = self.writer_engine.model_path
+        if model is None:
+            messagebox.showerror("Writer", "No active writer model is available.")
+            return
+
+        files = self._writer_package_files()
+        system_prompt = self._writer_system_prompt(files)
+
+        self.writer_clear_context_button.configure(state="disabled")
+        self.writer_status.configure(text="Clearing writer context...")
+
+        def work():
+            try:
+                self.writer_engine.reset_context(model, system_prompt)
+                error = None
+            except Exception as exc:
+                error = str(exc)
+            self.after(0, lambda: self._finish_writer_context_reset(error))
+
+        self.writer_thread = threading.Thread(target=work, daemon=True)
+        self.writer_thread.start()
+
+    def _finish_writer_context_reset(self, error):
+        if error:
+            messagebox.showerror("Writer", error)
+            self._update_writer_buttons()
+            return
+
+        self.writer_status.configure(
+            text="Writer context cleared and rebuilt from the current story state."
+        )
+        self._update_writer_buttons()
+
     def _write_next_scene(self):
         direction = self.writer_direction_text.get("1.0", "end-1c").strip()
         if not direction:
@@ -1007,7 +1072,24 @@ Writing rules:
         self.writer_output_text.delete("1.0", "end")
         self.writer_output_text.insert("1.0", self.generated_scene)
         self.writer_status.configure(
-            text="Scene generated. Review it before accepting."
+            text="Scene generated. Review it, save a draft if desired, then accept or reject it."
+        )
+        self._update_writer_buttons()
+
+    def _reject_generated_scene(self):
+        if not self.generated_scene.strip():
+            return
+
+        if not messagebox.askyesno(
+            "Reject Scene",
+            "Discard this generated scene? It will not be accepted into the manuscript.",
+        ):
+            return
+
+        self.generated_scene = ""
+        self.writer_output_text.delete("1.0", "end")
+        self.writer_status.configure(
+            text="Scene rejected. The current story state and manuscript were not changed."
         )
         self._update_writer_buttons()
 
