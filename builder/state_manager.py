@@ -235,13 +235,17 @@ class StateManager:
         # proposal contains only actual changes.
         patch = remove_unchanged(current_state, patch)
 
-        # An explicit scene ending may already define a structured end state.
-        # If the model returns no changes at all, use that authored hint as a
-        # deterministic fallback. The normal model result remains authoritative
-        # whenever it contains a non-empty change set.
-        if not patch and end_guidance:
+        # A structured state_after is an authored scene outcome. When it is
+        # present, use it to anchor the proposed ending state rather than
+        # allowing the language model to veto or overwrite the known scene
+        # transition. Any other model-derived changes are preserved.
+        if end_guidance:
             expected_end_state = extract_expected_end_state(end_guidance)
             if expected_end_state:
-                patch = remove_unchanged(current_state, expected_end_state)
+                authored_patch = remove_unchanged(
+                    current_state,
+                    expected_end_state,
+                )
+                patch = merge_patch(patch, authored_patch)
 
         return patch
