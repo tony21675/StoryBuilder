@@ -12,16 +12,15 @@
         "Kidnapper Driver remains in or directly at the van and does not physically restrain Tiffany.",
         "Kidnapper Grabber is the only kidnapper who physically takes Tiffany.",
         "Tiffany realizes she is being abducted and fights hard, hitting and kicking the captor as he tries to take her.",
-        "Maya initially freezes in shock, then makes a brief attempt to step in and help Tiffany.",
-        "Maya quickly realizes that because of her smaller size she cannot physically stop the captor and is unable to free Tiffany.",
-        "Kidnapper Grabber overpowers Tiffany, lifts her completely off the ground while she continues kicking and striking him, and carries her to the van.",
-        "The captor throws Tiffany into the van, then slams the door shut.",
+        "Kidnapper Grabber overpowers Tiffany, lifts her completely off the ground while she continues kicking and striking him, and carries her toward the van.",
         "While Tiffany is being carried toward the van, she digs her fingernails into the captor's left cheek, leaving three deep scratches that break the skin and draw blood.",
-        "Maya sees Tiffany's nails catch the captor's left cheek and notices the three bleeding scratches, but she is too overwhelmed in the moment to process or report the detail.",
+        "Maya initially freezes in shock while watching Tiffany fight.",
+        "As the captor carries Tiffany toward the van, Maya suddenly runs after them and tries to hit him in the back to make him let Tiffany go.",
+        "The captor knocks Maya to the ground with a single backhand, leaving only a temporary red mark on her cheek.",
+        "Maya realizes immediately that she does not know how to fight and cannot physically stop the captor.",
+        "The captor throws Tiffany into the van, then slams the door shut.",
         "Kidnapper Driver immediately drives the van away with Tiffany inside.",
-        "Maya watches the van leave, then is left confused, shocked, and emotionally overwhelmed. She may sink or drop to her knees after Tiffany is gone.",
-        "After the van disappears, Maya is left alone and visibly overwhelmed by shock and confusion; she may drop to her knees as the reality of Tiffany being gone hits her.",
-        "Keep the final emotional beat focused on Maya's immediate reaction rather than explaining future plans or moving her to Tony."
+        "Maya watches the van leave, then is left alone in confusion and shock as the reality of Tiffany being gone finally hits her. She may drop to her knees."
       ],
       "end_condition": "End after the van has driven away with Tiffany inside. Maya remains alone on the road in confusion and shock, and the emotional impact finally hits her. She may drop to her knees after the van disappears. Do not send Maya to Tony's house in this scene.",
       "do_not_advance": [
@@ -29,8 +28,9 @@
         "Do not include Chloe.",
         "Do not have both kidnappers physically restrain Tiffany.",
         "Do not have Kidnapper Driver leave the van to help physically take Tiffany.",
-        "Do not make Maya remain completely motionless throughout the entire abduction; she should make a brief attempt to help before realizing she cannot stop it.",
-        "Do not make Maya unrealistically capable of overpowering or fighting the captor.",
+        "Do not make Maya remain motionless throughout the entire abduction.",
+        "Do not make Maya capable of overpowering or successfully fighting the captor.",
+        "Do not give Maya more than a minor temporary red mark from being knocked down.",
         "Do not send Maya to Tony's house in this scene.",
         "Do not reveal the kidnappers' motive, identities, destination, or hidden planning beyond what is directly seen or experienced.",
         "Do not activate or explain the tracker unless the scene itself naturally establishes that happening.",
@@ -99,6 +99,14 @@
       "immediate_use": "Maya is too shocked and focused on Tiffany being taken to consciously report the detail when she first reaches Tony.",
       "later_use": "The detail may surface later during Tony and Maya's reconstruction of the abduction and can help Tony identify or distinguish the physical kidnapper if the matching left-cheek scratches are relevant.",
       "writer_rule": "Do not reveal or force the later identification payoff in Scene 5 or Scene 6."
+    },
+    "future_character_development": {
+      "maya": {
+        "realization": "After the kidnapping, Maya privately recognizes that she did not know how to fight or protect Tiffany when it mattered.",
+        "later_direction": "Later, after she has had time to process what happened, Maya may ask Tony to teach her practical self-defense.",
+        "story_function": "This gives Maya a believable reason to spend more time with Tony, build confidence and useful skills, and contribute more effectively when she helps search for and eventually rescue Tiffany.",
+        "timing_rule": "Do not introduce Maya's decision to train in Scene 5 or Scene 6. Let the realization develop naturally after the immediate crisis."
+      }
     }
   },
   "tracker": {
