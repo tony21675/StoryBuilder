@@ -253,4 +253,19 @@ class StateManager:
                 )
                 patch = merge_patch(patch, authored_patch)
 
+                # Keep legacy top-level location fields synchronized with the
+                # authoritative nested location object when those fields still
+                # exist in older story packages.
+                expected_location = expected_end_state.get("location")
+                if isinstance(expected_location, dict):
+                    legacy_location_patch = {}
+                    if "primary" in current_state and "primary" in expected_location:
+                        legacy_location_patch["primary"] = expected_location["primary"]
+                    for name, value in expected_location.items():
+                        if name == "primary":
+                            continue
+                        if name in current_state:
+                            legacy_location_patch[name] = value
+                    patch = merge_patch(patch, legacy_location_patch)
+
         return patch
