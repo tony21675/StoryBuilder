@@ -534,20 +534,9 @@ class StoryBuilderApp(tk.Tk):
 
         left = ttk.Frame(row)
         left.pack(side="left", fill="y", padx=(0, 12))
-        self.manuscript_list = tk.Listbox(
-            left,
-            width=34,
-            height=28,
-            exportselection=False,
-        )
-        self.manuscript_list.pack(fill="y", expand=True)
-        self.manuscript_list.bind(
-            "<<ListboxSelect>>",
-            self._select_manuscript_scene,
-        )
 
         manuscript_button_row = ttk.Frame(left)
-        manuscript_button_row.pack(fill="x", pady=(8, 0))
+        manuscript_button_row.pack(fill="x", pady=(0, 8))
 
         ttk.Button(
             manuscript_button_row,
@@ -572,6 +561,18 @@ class StoryBuilderApp(tk.Tk):
             text="Assemble Entire Novel",
             command=self._assemble_entire_novel,
         ).pack(fill="x", pady=(6, 0))
+
+        self.manuscript_list = tk.Listbox(
+            left,
+            width=34,
+            height=22,
+            exportselection=False,
+        )
+        self.manuscript_list.pack(fill="both", expand=True)
+        self.manuscript_list.bind(
+            "<<ListboxSelect>>",
+            self._select_manuscript_scene,
+        )
 
         # Recovery actions are placed beside the reconstructed-state panel so
         # they remain visible on smaller displays.
