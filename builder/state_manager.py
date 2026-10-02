@@ -23,6 +23,9 @@ Rules:
 - Never invent future events.
 - Never turn an unknown fact into a known fact.
 - Keep character knowledge limited to what each character could actually know.
+- Treat physical_state as a first-class continuity field. It records each character's physical location, position, posture, contact with other characters, and movement state at the absolute end of the supplied section.
+- When the completed prose clearly establishes or changes a character's final physical state, include those changed fields under physical_state for that character.
+- Physical continuity must follow the actual final prose. Do not move or reposition a character in physical_state merely because a new scene could logically use a different arrangement.
 - Record only facts established by the supplied story section.
 - Determine the resulting state from what is true at the ABSOLUTE END of the completed section, using the final actions and final paragraphs as the primary evidence.
 - The current state is the BEFORE-state baseline only. Never copy a before-state location or situation into the update when the completed section clearly changes it.
@@ -164,8 +167,8 @@ class StateManager:
             "If the expected ending-state hint agrees with the completed prose, the returned patch should "
             "reflect that ending rather than the initial state. "
             "The current state above describes what was true BEFORE the section and must not override what "
-            "the completed prose establishes at the end. For each character whose final location or immediate "
-            "situation changed, include the changed value under location. Update current_situation to describe "
+            "the completed prose establishes at the end. For each character whose final location, physical position, contact, or immediate "
+            "situation changed, include the changed value under physical_state and/or location as appropriate. Update current_situation to describe "
             "the actual immediate situation at the absolute end of the completed section, not the starting "
             "situation and not what should happen in the next scene. Keep it concise and factual. "
             "Do not copy planning instructions or future events into it. "
