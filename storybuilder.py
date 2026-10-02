@@ -58,7 +58,8 @@ class StoryBuilderApp(tk.Tk):
             ("Validate", self._validate),
         ]:
             ttk.Button(toolbar, text=label, command=command).pack(side="left", padx=3)
-        ttk.Button(toolbar, text="Close & Sync", command=self._close_and_sync).pack(side="left", padx=(10, 3))
+        ttk.Button(toolbar, text="Close", command=self._close_without_sync).pack(side="left", padx=(10, 3))
+        ttk.Button(toolbar, text="Close & Sync", command=self._close_and_sync).pack(side="left", padx=3)
         self.path_label = ttk.Label(toolbar, text="Unsaved novel")
         self.path_label.pack(side="right", padx=8)
 
@@ -1557,6 +1558,32 @@ Rules:
 
         self.manuscript_output.delete("1.0", "end")
         self.manuscript_output.insert("1.0", text)
+
+    def _close_without_sync(self):
+        if self._closing:
+            return
+        self._closing = True
+
+        try:
+            try:
+                self.writer_engine.stop()
+            except Exception:
+                pass
+
+            # Save all current editor contents locally, but never run the GitHub sync.
+            self._save()
+            if self.dirty:
+                # Save was cancelled or failed, so do not close and risk losing work.
+                self._closing = False
+                return
+
+            self.destroy()
+        except Exception as exc:
+            messagebox.showerror(
+                "Close",
+                f"The novel was saved locally, but the app could not close cleanly.\n\n{exc}\n\nThe app will remain open."
+            )
+            self._closing = False
 
     def _close_and_sync(self):
         if self._closing:
