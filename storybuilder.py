@@ -691,6 +691,27 @@ class StoryBuilderApp(tk.Tk):
             json.dumps(scene_state, indent=2, ensure_ascii=False),
         ))
 
+        # Physical state is persisted separately from the prose so the writer
+        # can preserve exact starting positions, posture, contact, and movement
+        # across scene boundaries without requiring the author to restate them
+        # in every scene direction.
+        physical_state = state.get("physical_state", {})
+        scene_physical_state = {}
+        if isinstance(physical_state, dict):
+            for name in scene_cast_names:
+                values = physical_state.get(name)
+                if values is None:
+                    for key, candidate in physical_state.items():
+                        if str(key).casefold() == name.casefold():
+                            values = candidate
+                            break
+                if isinstance(values, dict):
+                    scene_physical_state[name] = values
+        files.append((
+            "scene_physical_state.json",
+            json.dumps(scene_physical_state, indent=2, ensure_ascii=False),
+        ))
+
         # Character knowledge is separate from the shared world state. This
         # prevents one character from inheriting facts that only another
         # character has learned.
@@ -784,6 +805,33 @@ class StoryBuilderApp(tk.Tk):
             "Cast: " + ", ".join(cast),
             f"Current state: {situation or 'continue from the exact current state.'}",
         ]
+
+        # Physical state is the automatic handoff from the previous accepted
+        # scene. Show only current-scene characters so unrelated positions do
+        # not leak into the direction.
+        physical_state = state.get("physical_state", {})
+        if isinstance(physical_state, dict):
+            physical_lines = []
+            for name in cast:
+                values = physical_state.get(name)
+                if values is None:
+                    for key, candidate in physical_state.items():
+                        if str(key).casefold() == name.casefold():
+                            values = candidate
+                            break
+                if not isinstance(values, dict):
+                    continue
+
+                details = []
+                for key in ("location", "position", "posture", "contact", "movement"):
+                    value = str(values.get(key, "") or "").strip()
+                    if value:
+                        details.append(f"{key}: {value}")
+                if details:
+                    physical_lines.append(f"{name}: " + "; ".join(details))
+
+            if physical_lines:
+                lines.append("Physical continuity:\n" + "\n".join(physical_lines))
 
         # Current situation defines where the scene starts. The current scene
         # plan defines what should happen from that starting point. Keep both:
@@ -887,6 +935,8 @@ Rules:
 - Current-novel signature scents: Tiffany = coconut + strawberry; Maya = vanilla; Chloe = pineapple.
 - Treat the shared current_situation as world/story context, not as knowledge automatically possessed by every character.
 - Use scene_character_knowledge.json as the authority for what each current-scene character personally knows.
+- Use scene_physical_state.json as the authority for each current-scene character's physical starting position, posture, contact, and movement at the start of this scene.
+- Preserve that physical starting state at the opening of the scene. Do not move, separate, stand, sit, or reposition characters merely to create a new blocking arrangement. Physical changes should happen only when the prose itself causes the movement.
 - A character may act on a fact only if that character's knowledge file establishes it or the character naturally learns it during the current scene.
 - Never transfer one character's knowledge to another character automatically.
 - Never give a character knowledge of another character's name, identity, relationship, location, or other personal fact unless that knowledge is established or naturally learned in the story.
@@ -1269,6 +1319,7 @@ Rules:
 
         current_state = dict(self.package.current_state)
         story_text = self.accepted_scene
+        completed_chapter = int(current_state.get("chapter", 1) or 1)
         completed_scene = int(current_state.get("scene", 1) or 1)
         scene_end_guidance = self._scene_end_guidance(completed_chapter, completed_scene)
         model = self.writer_engine.model_path
@@ -1339,16 +1390,11 @@ Rules:
 
             # If this is the final planned scene in the current writing
             # guidance, close the chapter instead of inventing a Scene N+1.
-            guidance = self.package.extra_json.get("writing_guidance.json", {})
-            scene_plan = guidance.get("scene_plan", {}) if isinstance(guidance, dict) else {}
-            planned_scenes = []
-            if isinstance(scene_plan, dict):
-                for key in scene_plan:
-                    try:
-                        planned_scenes.append(int(key))
-                    except (TypeError, ValueError):
-                        continue
-            final_planned_scene = max(planned_scenes) if planned_scenes else completed_scene
+            final_planned_scene = self._final_planned_scene_for_chapter(
+                current_chapter
+            )
+            if final_planned_scene is None:
+                final_planned_scene = completed_scene
 
             if current_chapter == completed_chapter and current_scene == completed_scene:
                 if completed_scene >= final_planned_scene:
