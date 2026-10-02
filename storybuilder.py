@@ -1257,23 +1257,41 @@ Rules:
             current_chapter = int(self.package.current_state.get("chapter", completed_chapter) or completed_chapter)
             current_scene = int(self.package.current_state.get("scene", completed_scene) or completed_scene)
 
+            # If this is the final planned scene in the current writing
+            # guidance, close the chapter instead of inventing a Scene N+1.
+            guidance = self.package.extra_json.get("writing_guidance.json", {})
+            scene_plan = guidance.get("scene_plan", {}) if isinstance(guidance, dict) else {}
+            planned_scenes = []
+            if isinstance(scene_plan, dict):
+                for key in scene_plan:
+                    try:
+                        planned_scenes.append(int(key))
+                    except (TypeError, ValueError):
+                        continue
+            final_planned_scene = max(planned_scenes) if planned_scenes else completed_scene
+
             if current_chapter == completed_chapter and current_scene == completed_scene:
-                self.package.current_state["scene"] = completed_scene + 1
+                if completed_scene >= final_planned_scene:
+                    self.package.current_state["scene_completed"] = True
+                    self.package.current_state["chapter_completed"] = True
+                else:
+                    self.package.current_state["scene"] = completed_scene + 1
+                    self.package.current_state["scene_completed"] = False
             else:
                 # If the continuity manager explicitly advanced the state, keep
                 # its chapter/scene decision intact.
-                pass
+                self.package.current_state["scene_completed"] = False
 
             # When the next scene has an explicit cast in writing guidance,
             # load that cast for the newly advanced scene instead of carrying
             # the completed scene's cast forward.
-            next_scene_cast = self._scene_plan_cast(
-                int(self.package.current_state.get("scene", completed_scene + 1) or completed_scene + 1)
-            )
-            if next_scene_cast:
-                self.package.current_state["scene_cast"] = next_scene_cast
+            if not self.package.current_state.get("chapter_completed"):
+                next_scene_cast = self._scene_plan_cast(
+                    int(self.package.current_state.get("scene", completed_scene + 1) or completed_scene + 1)
+                )
+                if next_scene_cast:
+                    self.package.current_state["scene_cast"] = next_scene_cast
 
-            self.package.current_state["scene_completed"] = False
             self.dirty = True
             self.pending_state_patch = None
             self.generated_scene = ""
@@ -1282,15 +1300,25 @@ Rules:
             self.writer_state_preview.delete("1.0", "end")
             self._refresh_all()
             self._save()
-            self._chat(
-                "Builder",
-                f"Scene {completed_scene} is complete. Current scene advanced to "
-                f"Chapter {self.package.current_state.get('chapter', current_chapter)}, "
-                f"Scene {self.package.current_state.get('scene')} and saved.",
-            )
-            self.writer_status.configure(
-                text="Previous scene saved. Build Scene Direction to begin the next scene."
-            )
+            if self.package.current_state.get("chapter_completed"):
+                self._chat(
+                    "Builder",
+                    f"Chapter {completed_chapter} is complete. Scene {completed_scene} "
+                    "was saved as the final scene of the chapter.",
+                )
+                self.writer_status.configure(
+                    text="Chapter complete. Set the next chapter and scene when you are ready to continue."
+                )
+            else:
+                self._chat(
+                    "Builder",
+                    f"Scene {completed_scene} is complete. Current scene advanced to "
+                    f"Chapter {self.package.current_state.get('chapter', current_chapter)}, "
+                    f"Scene {self.package.current_state.get('scene')} and saved.",
+                )
+                self.writer_status.configure(
+                    text="Previous scene saved. Build Scene Direction to begin the next scene."
+                )
             self._update_writer_buttons()
         except Exception as exc:
             messagebox.showerror("State Update", str(exc))
