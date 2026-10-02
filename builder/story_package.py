@@ -45,7 +45,8 @@ class StoryPackage:
             "location": "",
             "scene_cast": [],
             "events": [],
-            "continuity_notes": []
+            "continuity_notes": [],
+            "physical_state": {}
         }
         return package
 
@@ -63,6 +64,9 @@ class StoryPackage:
                 package.current_state = json.load(f)
         else:
             package.current_state = cls.new().current_state
+
+        if not isinstance(package.current_state.get("physical_state"), dict):
+            package.current_state["physical_state"] = {}
 
         package.characters = {}
         listed_cards = package.story_bible.get("character_cards", [])
