@@ -27,8 +27,8 @@
   ],
   "relationships": {
     "Tony-Tiffany": "father/daughter; Tony has known Tiffany since birth",
-    "Tony-Maya": "friends; Tony has known Maya since Maya was a baby",
-    "Tony-Chloe": "friends; Chloe lives next door on the opposite side of Tony and Tiffany.",
+    "Tony-Maya": "family-like; Tony has known Maya since she was a baby and considers her like another daughter, caring for and protecting her as he would a daughter",
+    "Tony-Chloe": "family-like; Tony sees Chloe as another daughter in the emotional and protective sense, while remaining her longtime friend and neighbor",
     "Tiffany-Maya": "best friends with a close, sister-like platonic relationship; they have known each other since they were babies",
     "Tiffany-Chloe": "close friends",
     "Maya-Chloe": "close friends",
