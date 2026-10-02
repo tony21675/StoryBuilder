@@ -148,7 +148,16 @@
           "Tony": "Help Maya and determine what happened to Tiffany now that he knows she is gone.",
           "Tiffany": "Endure the immediate aftermath and remain conscious.",
           "Maya": "Stay with Tony and cope with the immediate shock after telling him that Tiffany is gone."
-        }
+        },
+        "continuity_requirements": [
+          "Tony and Tiffany live together in the same house.",
+          "Maya lives with her mother in her own separate home next door to Tony and Tiffany.",
+          "Chloe lives next door on the opposite side of Tony and Tiffany.",
+          "Only characters explicitly listed for a scene are physically present and participating in that scene.",
+          "From his current position, Tony cannot see or hear the front road or Tiffany. Maya is physically present with Tony in his bedroom.",
+          "Tiffany always wears Tony's dog tags on a chain close to her heart and keeps them with her.",
+          "Tony works the night shift, so it is normal for him to be asleep in his bed during the late afternoon while resting between shifts."
+        ]
       }
     }
   }
