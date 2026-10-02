@@ -691,6 +691,32 @@ class StoryBuilderApp(tk.Tk):
             json.dumps(scene_state, indent=2, ensure_ascii=False),
         ))
 
+        # Character knowledge is separate from the shared world state. This
+        # prevents one character from inheriting facts that only another
+        # character has learned.
+        character_knowledge = state.get("character_knowledge", {})
+        scene_knowledge = {}
+        if isinstance(character_knowledge, dict):
+            for name in scene_cast_names:
+                values = character_knowledge.get(name)
+                if values is None:
+                    for key, candidate in character_knowledge.items():
+                        if str(key).casefold() == name.casefold():
+                            values = candidate
+                            break
+                if isinstance(values, list):
+                    scene_knowledge[name] = [
+                        str(item).strip()
+                        for item in values
+                        if str(item).strip()
+                    ]
+                elif isinstance(values, str) and values.strip():
+                    scene_knowledge[name] = [values.strip()]
+        files.append((
+            "scene_character_knowledge.json",
+            json.dumps(scene_knowledge, indent=2, ensure_ascii=False),
+        ))
+
         scene_characters = {}
         for filename in sorted(self.package.characters):
             data = self.package.characters[filename]
@@ -859,7 +885,10 @@ Rules:
 - Never replay completed earlier scenes or invent off-cast characters.
 - Preserve established names, genders, pronouns, relationships, possessions, appearance, and scents.
 - Current-novel signature scents: Tiffany = coconut + strawberry; Maya = vanilla; Chloe = pineapple.
-- Keep character knowledge limited to what they could know.
+- Treat the shared current_situation as world/story context, not as knowledge automatically possessed by every character.
+- Use scene_character_knowledge.json as the authority for what each current-scene character personally knows.
+- A character may act on a fact only if that character's knowledge file establishes it or the character naturally learns it during the current scene.
+- Never transfer one character's knowledge to another character automatically.
 - Never give a character knowledge of another character's name, identity, relationship, location, or other personal fact unless that knowledge is established or naturally learned in the story.
 - Natural small talk, ordinary memories, harmless feelings, and minor scene details are welcome.
 - Do not invent consequential canon, motives, identities, hidden plans, or secret knowledge.
