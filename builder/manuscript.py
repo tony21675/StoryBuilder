@@ -99,18 +99,106 @@ class ManuscriptManager:
         )
         return draft
 
+    @property
+    def compiled_dir(self) -> Path:
+        return self.novel_path / "Manuscript" / "Compiled"
+
+    def chapter_scene_paths(self, chapter: int) -> list[Path]:
+        chapter_dir = self.chapters_dir / f"Chapter_{int(chapter):02d}"
+        if not chapter_dir.exists():
+            return []
+
+        paths = []
+        for path in chapter_dir.glob("*.txt"):
+            if path.name.endswith("_draft.txt"):
+                continue
+            if self.scene_numbers(path) is None:
+                continue
+            paths.append(path)
+
+        return sorted(
+            paths,
+            key=lambda path: (
+                self.scene_numbers(path)[1] if self.scene_numbers(path) else 999999,
+                path.name.casefold(),
+            ),
+        )
+
+    @staticmethod
+    def _output_filename(name: str) -> str:
+        cleaned = re.sub(r"[^A-Za-z0-9 _-]+", "", str(name or "")).strip()
+        cleaned = re.sub(r"\s+", "_", cleaned)
+        return cleaned or "Complete_Novel"
+
+    def _chapter_text(self, chapter: int) -> str:
+        paths = self.chapter_scene_paths(chapter)
+        if not paths:
+            raise ValueError(f"No accepted manuscript sections were found for Chapter {int(chapter)}.")
+
+        chunks = [f"CHAPTER {int(chapter)}"]
+        for path in paths:
+            try:
+                text = path.read_text(encoding="utf-8").strip()
+            except OSError as exc:
+                raise OSError(f"Could not read {path.name}: {exc}") from exc
+            if text:
+                chunks.append(text)
+
+        if len(chunks) == 1:
+            raise ValueError(f"Chapter {int(chapter)} has no manuscript prose to assemble.")
+
+        return "\n\n".join(chunks).rstrip() + "\n"
+
+    def compile_chapter(self, chapter: int) -> Path:
+        self.compiled_dir.mkdir(parents=True, exist_ok=True)
+        target = self.compiled_dir / f"Chapter_{int(chapter):02d}.txt"
+        target.write_text(
+            self._chapter_text(chapter),
+            encoding="utf-8",
+        )
+        return target
+
+    def compile_novel(self, title: str = "Complete_Novel") -> Path:
+        chapter_numbers = sorted({
+            self.scene_numbers(path)[0]
+            for path in self.list_scenes()
+            if self.scene_numbers(path) is not None
+        })
+        if not chapter_numbers:
+            raise ValueError("No accepted manuscript sections were found to assemble.")
+
+        self.compiled_dir.mkdir(parents=True, exist_ok=True)
+        chapter_texts = []
+        for chapter in chapter_numbers:
+            chapter_texts.append(self._chapter_text(chapter))
+
+        target = self.compiled_dir / f"{self._output_filename(title)}_Complete_Novel.txt"
+        target.write_text(
+            "\n\n".join(text.rstrip() for text in chapter_texts).rstrip() + "\n",
+            encoding="utf-8",
+        )
+        return target
+
     def list_scenes(self) -> list[Path]:
         if not self.chapters_dir.exists():
             return []
 
+        paths = []
+        for path in self.chapters_dir.rglob("*.txt"):
+            if path.name.endswith("_draft.txt"):
+                continue
+            relative_parts = path.relative_to(self.chapters_dir).parts
+            if "Compiled" in relative_parts:
+                continue
+            if self.scene_numbers(path) is None:
+                continue
+            paths.append(path)
+
         return sorted(
-            (
-                path
-                for path in self.chapters_dir.rglob("*.txt")
-                if not path.name.endswith("_draft.txt")
-            ),
+            paths,
             key=lambda path: (
-                str(path.parent).casefold(),
+                self.scene_numbers(path)[0] if self.scene_numbers(path) else 999999,
+                self.scene_numbers(path)[1] if self.scene_numbers(path) else 999999,
                 path.name.casefold(),
             ),
         )
