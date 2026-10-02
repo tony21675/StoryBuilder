@@ -157,7 +157,9 @@
           "From his current position, Tony cannot see or hear the front road or Tiffany. Maya is physically present with Tony in his bedroom.",
           "Tiffany always wears Tony's dog tags on a chain close to her heart and keeps them with her.",
           "Tony works the night shift, so it is normal for him to be asleep in his bed during the late afternoon while resting between shifts."
-        ]
+        ],
+        "scene_completed": true,
+        "chapter_completed": true
       }
     }
   }
