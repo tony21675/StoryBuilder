@@ -23,8 +23,8 @@
   ],
   "relationships": {
     "Tiffany": "daughter; Tony has known her since birth",
-    "Maya": "friend; Tony has known her since she was a baby; considers Maya family and cares for her like a daughter",
-    "Chloe": "friend"
+    "Maya": "family-like; Tony has known her since she was a baby and considers her another daughter, caring for her with warm, protective, parental affection while respecting that she is a young adult",
+    "Chloe": "family-like; Tony sees Chloe as another daughter in the emotional and protective sense, caring for her with the same warm, protective concern he gives Maya and Tiffany"
   },
   "goals": [
     "Protect Tiffany"
@@ -43,7 +43,8 @@
     "Notices when someone needs help before they ask.",
     "Protective without needing to make every protective instinct obvious.",
     "Considers Maya like another daughter and responds to her distress with the same warm, protective care he would give Tiffany, while still treating Maya as the young adult she is.",
-    "Shows Maya the same protective, affectionate care he would give to a daughter when she is frightened or in distress."
+    "Shows Maya the same protective, affectionate care he would give to a daughter when she is frightened or in distress.",
+    "Treats Maya and Chloe as family and responds with the same warm, protective, parental care he gives Tiffany when either is frightened, hurt, or overwhelmed."
   ],
   "work_schedule": "Works the night shift.",
   "sleepwear": "Boxers when sleeping at home."
