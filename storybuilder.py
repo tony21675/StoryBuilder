@@ -766,10 +766,7 @@ class StoryBuilderApp(tk.Tk):
         current_plan_end = None
         plan = self.package.extra_json.get("writing_guidance.json")
         if isinstance(plan, dict):
-            scene_plan = plan.get("scene_plan", {})
-            guidance = scene_plan.get(str(scene)) if isinstance(scene_plan, dict) else None
-            if guidance is None and isinstance(scene_plan, dict):
-                guidance = scene_plan.get(scene)
+            guidance = self._chapter_scene_guidance(plan, chapter, scene)
             if isinstance(guidance, dict):
                 current_plan_end = str(
                     guidance.get("end_condition", "") or ""
@@ -1158,12 +1155,48 @@ Rules:
         except Exception as exc:
             messagebox.showerror("Writer", str(exc))
 
-    def _scene_plan_cast(self, scene: int) -> list[str]:
+    @staticmethod
+    def _chapter_scene_guidance(
+        plan: dict,
+        chapter: int,
+        scene: int,
+    ) -> dict | None:
+        """Return guidance for a specific chapter and scene."""
+        if not isinstance(plan, dict):
+            return None
+
+        chapter_plans = plan.get("chapter_plans", {})
+        if isinstance(chapter_plans, dict):
+            chapter_entry = chapter_plans.get(str(chapter))
+            if chapter_entry is None:
+                chapter_entry = chapter_plans.get(chapter)
+            if isinstance(chapter_entry, dict):
+                scene_plan = chapter_entry.get("scene_plan", {})
+                if isinstance(scene_plan, dict):
+                    entry = scene_plan.get(str(scene))
+                    if entry is None:
+                        entry = scene_plan.get(scene)
+                    if isinstance(entry, dict):
+                        return entry
+
+        # Backward-compatible support for the original Chapter 1 guidance
+        # stored directly under scene_plan.
+        if chapter == 1:
+            scene_plan = plan.get("scene_plan", {})
+            if isinstance(scene_plan, dict):
+                entry = scene_plan.get(str(scene))
+                if entry is None:
+                    entry = scene_plan.get(scene)
+                if isinstance(entry, dict):
+                    return entry
+
+        return None
+
+    def _scene_plan_cast(self, chapter: int, scene: int) -> list[str]:
         """Return the explicitly defined cast for a planned scene."""
         try:
             guidance = self.package.extra_json.get("writing_guidance.json", {}) if self.package else {}
-            scene_plan = guidance.get("scene_plan", {}) if isinstance(guidance, dict) else {}
-            entry = scene_plan.get(str(scene), {}) if isinstance(scene_plan, dict) else {}
+            entry = self._chapter_scene_guidance(guidance, chapter, scene) or {}
             if not isinstance(entry, dict):
                 return []
             cast = entry.get("cast", [])
@@ -1173,12 +1206,11 @@ Rules:
         except Exception:
             return []
 
-    def _scene_end_guidance(self, scene: int) -> str:
+    def _scene_end_guidance(self, chapter: int, scene: int) -> str:
         """Return the saved end condition and optional expected ending state."""
         try:
             guidance = self.package.extra_json.get("writing_guidance.json", {}) if self.package else {}
-            scene_plan = guidance.get("scene_plan", {}) if isinstance(guidance, dict) else {}
-            entry = scene_plan.get(str(scene), {}) if isinstance(scene_plan, dict) else {}
+            entry = self._chapter_scene_guidance(guidance, chapter, scene) or {}
             if not isinstance(entry, dict):
                 return ""
 
@@ -1209,7 +1241,7 @@ Rules:
         current_state = dict(self.package.current_state)
         story_text = self.accepted_scene
         completed_scene = int(current_state.get("scene", 1) or 1)
-        scene_end_guidance = self._scene_end_guidance(completed_scene)
+        scene_end_guidance = self._scene_end_guidance(completed_chapter, completed_scene)
         model = self.writer_engine.model_path
 
         self.writer_analyze_button.configure(state="disabled")
@@ -1306,7 +1338,8 @@ Rules:
             # the completed scene's cast forward.
             if not self.package.current_state.get("chapter_completed"):
                 next_scene_cast = self._scene_plan_cast(
-                    int(self.package.current_state.get("scene", completed_scene + 1) or completed_scene + 1)
+                    int(self.package.current_state.get("chapter", completed_chapter) or completed_chapter),
+                    int(self.package.current_state.get("scene", completed_scene + 1) or completed_scene + 1),
                 )
                 if next_scene_cast:
                     self.package.current_state["scene_cast"] = next_scene_cast
@@ -1414,7 +1447,8 @@ Rules:
                     json.dumps(self.package.current_state)
                 )
 
-            scene_end_guidance = self._scene_end_guidance(scene)
+            chapter = int(self.package.current_state.get("chapter", chapter) or chapter)
+            scene_end_guidance = self._scene_end_guidance(chapter, scene)
             model = self._selected_writer_model_for_analysis()
 
             self.manuscript_analyze_button.configure(state="disabled")
@@ -1580,18 +1614,36 @@ Rules:
         if not isinstance(guidance, dict):
             return None
 
-        scene_plan = guidance.get("scene_plan", {})
-        if not isinstance(scene_plan, dict):
-            return None
+        chapter_plans = guidance.get("chapter_plans", {})
+        if isinstance(chapter_plans, dict):
+            chapter_entry = chapter_plans.get(str(chapter))
+            if chapter_entry is None:
+                chapter_entry = chapter_plans.get(chapter)
+            if isinstance(chapter_entry, dict):
+                scene_plan = chapter_entry.get("scene_plan", {})
+                if isinstance(scene_plan, dict):
+                    planned = []
+                    for key in scene_plan:
+                        try:
+                            planned.append(int(key))
+                        except (TypeError, ValueError):
+                            continue
+                    if planned:
+                        return max(planned)
 
-        planned = []
-        for key in scene_plan:
-            try:
-                planned.append(int(key))
-            except (TypeError, ValueError):
-                continue
+        if chapter == 1:
+            scene_plan = guidance.get("scene_plan", {})
+            if isinstance(scene_plan, dict):
+                planned = []
+                for key in scene_plan:
+                    try:
+                        planned.append(int(key))
+                    except (TypeError, ValueError):
+                        continue
+                if planned:
+                    return max(planned)
 
-        return max(planned) if planned else None
+        return None
 
     def _finalize_current_chapter(self):
         if self.package is None or self.package.path is None:
