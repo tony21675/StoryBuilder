@@ -1,8 +1,8 @@
 {
   "status": "in_progress",
-  "chapter": 1,
-  "scene": 6,
-  "scene_completed": true,
+  "chapter": 2,
+  "scene": 1,
+  "scene_completed": false,
   "location": {
     "primary": "Tony and Tiffany's home",
     "Tony": "At home, awake in his bedroom with Maya after she arrives in distress.",
@@ -14,7 +14,7 @@
     "period": "late afternoon",
     "exact_time": "not established"
   },
-  "current_situation": "Maya has reached Tony after witnessing Tiffany's abduction. She is in Tony's bedroom with him, and after struggling to speak through her panic, she has finally told him that Tiffany is gone.",
+  "current_situation": "Chapter 2 begins immediately after Maya has told Tony that Tiffany is gone. Tony and Maya are together in Tony's bedroom. Tiffany's last known location was inside the van, but her current whereabouts are unknown. Chloe remains home sick until tomorrow morning.",
   "character_knowledge": {
     "Tony": [
       "Knows Tiffany is his daughter.",
@@ -67,11 +67,13 @@
     "Maya lives next door with her mother and has a key to Tony and Tiffany's home.",
     "Maya and Tiffany are best friends with a close, sister-like platonic relationship.",
     "Tony has known Maya since she was a baby and treats her like family.",
-    "Tony works the night shift and is normally asleep during the late afternoon while resting between shifts.",
-    "Tiffany has just been abducted by the unfamiliar Kidnapper.",
-    "Maya witnessed the abduction and was left alone on the roadside after the van disappeared.",
-    "Chloe is home sick and is not participating in Scene 6.",
-    "Maya does not yet report the three scratches on the Kidnapper's left cheek."
+    "Tony works the night shift, so sleeping during the late afternoon is normal for him when resting between shifts.",
+    "Tiffany was last known to be inside the suspicious van after the abduction; her current whereabouts are unknown.",
+    "Maya witnessed Tiffany's abduction and is now with Tony in his bedroom.",
+    "Maya has a temporary red mark on the side of her cheek from the Kidnapper's backhand during the abduction.",
+    "Tony knows only that Tiffany is gone and does not yet know who took her, where she is, or the details of the abduction.",
+    "Tony can notice the mark on Maya's cheek and naturally ask what happened to her face.",
+    "Chloe is home sick and will remain there until tomorrow morning."
   ],
   "scene_cast": [
     "Maya",
@@ -82,5 +84,5 @@
   "Tiffany": "Inside the van with the Kidnapper, being driven away.",
   "Maya": "In Tony's bedroom, clinging to Tony after running to him for help.",
   "Chloe": "At home sick and not participating in the scene.",
-  "chapter_completed": true
+  "chapter_completed": false
 }
