@@ -38,6 +38,8 @@ class StoryPackage:
             "story_format_version": FORMAT_VERSION,
             "chapter": 1,
             "scene": 1,
+            "scene_completed": False,
+            "chapter_completed": False,
             "status": "story_start",
             "time_of_day": "",
             "location": "",
