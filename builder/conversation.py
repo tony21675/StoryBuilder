@@ -53,6 +53,8 @@ def apply_command(package, command: str) -> ChangeResult:
     )
     if match:
         package.current_state["chapter"] = int(match.group(1))
+        package.current_state["scene_completed"] = False
+        package.current_state["chapter_completed"] = False
         return ChangeResult(True, f"Current chapter set to {match.group(1)}.")
 
     match = re.fullmatch(
@@ -62,6 +64,8 @@ def apply_command(package, command: str) -> ChangeResult:
     )
     if match:
         package.current_state["scene"] = int(match.group(1))
+        package.current_state["scene_completed"] = False
+        package.current_state["chapter_completed"] = False
         return ChangeResult(True, f"Current scene set to {match.group(1)}.")
 
     match = re.fullmatch(
