@@ -4,3 +4,6 @@ __pycache__/
 
 # Generated state-analysis recovery artifacts are local-only and can be regenerated from the manuscript.
 MyNovel/Manuscript/Chapters/**/*_after_state.json
+
+# Generated compiled manuscript outputs; source sections remain authoritative.
+MyNovel/Manuscript/Compiled/
