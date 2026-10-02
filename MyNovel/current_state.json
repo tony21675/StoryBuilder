@@ -2,7 +2,7 @@
   "status": "in_progress",
   "chapter": 2,
   "scene": 1,
-  "scene_completed": false,
+  "scene_completed": true,
   "location": {
     "primary": "Tony and Tiffany's home",
     "Tony": "At home, awake in his bedroom with Maya after she arrives in distress.",
@@ -82,7 +82,7 @@
   "Tiffany": "Inside the van with the Kidnapper, being driven away.",
   "Maya": "In Tony's bedroom, clinging to Tony after running to him for help.",
   "Chloe": "At home sick and not participating in the scene.",
-  "chapter_completed": false,
+  "chapter_completed": true,
   "physical_state": {
     "Tony": {
       "location": "Tony's bedroom",
