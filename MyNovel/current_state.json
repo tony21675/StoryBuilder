@@ -82,5 +82,21 @@
   "Tiffany": "Inside the van with the Kidnapper, being driven away.",
   "Maya": "In Tony's bedroom, clinging to Tony after running to him for help.",
   "Chloe": "At home sick and not participating in the scene.",
-  "chapter_completed": false
+  "chapter_completed": false,
+  "physical_state": {
+    "Tony": {
+      "location": "Tony's bedroom",
+      "position": "sitting upright on the bed",
+      "posture": "upright against the headboard",
+      "contact": "holding Maya in his arms",
+      "movement": "stationary since the previous scene ended"
+    },
+    "Maya": {
+      "location": "Tony's bedroom",
+      "position": "lying against Tony's chest",
+      "posture": "curled against him",
+      "contact": "held in Tony's arms",
+      "movement": "stationary since the previous scene ended"
+    }
+  }
 }
