@@ -162,5 +162,20 @@
         "chapter_completed": true
       }
     }
+  },
+  "chapter_plans": {
+    "2": {
+      "scene_plan": {
+        "1": {
+          "cast": [
+            "Maya",
+            "Tony"
+          ],
+          "direction": "Begin immediately after Chapter 1 ends, with Maya and Tony together in Tony's bedroom after Maya says that Tiffany is gone. Continue from that exact moment without a time jump or replay of the previous scene. Tiffany's current whereabouts are unknown. Chloe remains home sick and does not participate.",
+          "end_condition": "",
+          "pacing": "Keep the opening grounded and immediate. Focus on Tony and Maya's reactions and their natural conversation as they process the news and decide what to do next. Do not invent information they do not know at the start of the scene."
+        }
+      }
+    }
   }
 }
