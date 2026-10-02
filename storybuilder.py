@@ -555,6 +555,24 @@ class StoryBuilderApp(tk.Tk):
             command=self._refresh_manuscript,
         ).pack(fill="x")
 
+        ttk.Button(
+            manuscript_button_row,
+            text="Finalize Chapter",
+            command=self._finalize_current_chapter,
+        ).pack(fill="x", pady=(6, 0))
+
+        ttk.Button(
+            manuscript_button_row,
+            text="Assemble Chapter",
+            command=self._assemble_current_chapter,
+        ).pack(fill="x", pady=(6, 0))
+
+        ttk.Button(
+            manuscript_button_row,
+            text="Assemble Entire Novel",
+            command=self._assemble_entire_novel,
+        ).pack(fill="x", pady=(6, 0))
+
         # Recovery actions are placed beside the reconstructed-state panel so
         # they remain visible on smaller displays.
         right = ttk.Frame(row)
@@ -1542,6 +1560,139 @@ Rules:
             )
         except tk.TclError:
             pass
+
+    def _manuscript_target_chapter(self) -> int:
+        selected = self._selected_manuscript_scene()
+        if selected is not None:
+            numbers = ManuscriptManager.scene_numbers(selected)
+            if numbers is not None:
+                return numbers[0]
+        if self.package is None:
+            return 1
+        return int(self.package.current_state.get("chapter", 1) or 1)
+
+    def _final_planned_scene_for_chapter(self, chapter: int) -> int | None:
+        if self.package is None:
+            return None
+
+        guidance = self.package.extra_json.get("writing_guidance.json", {})
+        if not isinstance(guidance, dict):
+            return None
+
+        scene_plan = guidance.get("scene_plan", {})
+        if not isinstance(scene_plan, dict):
+            return None
+
+        planned = []
+        for key in scene_plan:
+            try:
+                planned.append(int(key))
+            except (TypeError, ValueError):
+                continue
+
+        return max(planned) if planned else None
+
+    def _finalize_current_chapter(self):
+        if self.package is None or self.package.path is None:
+            return
+
+        chapter = int(self.package.current_state.get("chapter", 1) or 1)
+        scene = int(self.package.current_state.get("scene", 1) or 1)
+        manager = ManuscriptManager(self.package.path)
+        scene_paths = manager.chapter_scene_paths(chapter)
+
+        if not scene_paths:
+            messagebox.showwarning(
+                "Finalize Chapter",
+                f"No accepted manuscript sections were found for Chapter {chapter}.",
+            )
+            return
+
+        latest_scene = max(
+            numbers[1]
+            for path in scene_paths
+            if (numbers := ManuscriptManager.scene_numbers(path)) is not None
+        )
+        planned_final = self._final_planned_scene_for_chapter(chapter)
+
+        if scene < latest_scene:
+            messagebox.showwarning(
+                "Finalize Chapter",
+                f"Current state is on Scene {scene}, but Chapter {chapter} already contains "
+                f"accepted material through Scene {latest_scene}. Finalize from the latest scene "
+                "after restoring the correct current state.",
+            )
+            return
+
+        if planned_final is not None and scene < planned_final:
+            messagebox.showwarning(
+                "Finalize Chapter",
+                f"Scene {scene} is not the final planned scene for the current guidance. "
+                f"Scene {planned_final} is the final planned scene.",
+            )
+            return
+
+        if self.package.current_state.get("chapter_completed"):
+            messagebox.showinfo(
+                "Finalize Chapter",
+                f"Chapter {chapter} is already marked complete.",
+            )
+            return
+
+        if not messagebox.askyesno(
+            "Finalize Chapter",
+            f"Mark Chapter {chapter}, Scene {scene}, as complete?\n\n"
+            "This will not create a new scene or advance to the next chapter.",
+        ):
+            return
+
+        self.package.current_state["scene_completed"] = True
+        self.package.current_state["chapter_completed"] = True
+        self.dirty = True
+        self._save()
+        self._refresh_all()
+        self._chat(
+            "Builder",
+            f"Chapter {chapter} is finalized. Scene {scene} remains the final scene "
+            "and the story is ready for the next chapter when you choose to continue.",
+        )
+        self.manuscript_recovery_status.configure(
+            text=f"Chapter {chapter} finalized. It remains at Scene {scene} until the next chapter is started."
+        )
+
+    def _assemble_current_chapter(self):
+        if self.package is None or self.package.path is None:
+            return
+
+        chapter = self._manuscript_target_chapter()
+        manager = ManuscriptManager(self.package.path)
+        try:
+            target = manager.compile_chapter(chapter)
+        except (OSError, ValueError) as exc:
+            messagebox.showerror("Assemble Chapter", str(exc))
+            return
+
+        self.manuscript_recovery_status.configure(
+            text=f"Chapter {chapter} assembled to {target.name}.",
+        )
+        self._chat("Builder", f"Chapter {chapter} assembled to {target.relative_to(self.package.path)}.")
+
+    def _assemble_entire_novel(self):
+        if self.package is None or self.package.path is None:
+            return
+
+        manager = ManuscriptManager(self.package.path)
+        title = str(self.package.story_bible.get("title", "Complete_Novel") or "Complete_Novel").strip()
+        try:
+            target = manager.compile_novel(title)
+        except (OSError, ValueError) as exc:
+            messagebox.showerror("Assemble Entire Novel", str(exc))
+            return
+
+        self.manuscript_recovery_status.configure(
+            text=f"Entire novel assembled to {target.name}.",
+        )
+        self._chat("Builder", f"Entire novel assembled to {target.relative_to(self.package.path)}.")
 
     def _refresh_manuscript(self):
         if not hasattr(self, "manuscript_list"):
