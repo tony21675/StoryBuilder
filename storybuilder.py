@@ -964,7 +964,7 @@ Rules:
 - Treat the shared current_situation as world/story context, not as knowledge automatically possessed by every character.
 - Use scene_character_knowledge.json as the authority for what each current-scene character personally knows.
 - Use scene_physical_state.json as the authority for each current-scene character's physical starting position, posture, contact, and movement at the start of this scene.
-- Use recent_continuity.json for concise facts from earlier scenes. Do not replay earlier scenes, and never let those facts override the current state or direction.
+- Use recent_continuity.json as the authoritative record of established events from earlier scenes. Those facts already happened and must not be changed, reassigned to another character, or replaced with invented versions. Use them when characters recount or remember earlier events. The current scene direction controls what happens next; it does not override established past events.
 - Preserve that physical starting state at the opening of the scene. Do not move, separate, stand, sit, or reposition characters merely to create a new blocking arrangement. Physical changes should happen only when the prose itself causes the movement.
 - A character may act on a fact only if that character's knowledge file establishes it or the character naturally learns it during the current scene.
 - Never transfer one character's knowledge to another character automatically.
