@@ -954,6 +954,7 @@ Rules:
 - Treat recent_continuity.json as established past events. Keep the underlying events and action ownership correct.
 - Characters may remember or describe past events imperfectly when distressed, but emotional or fragmented recollection must not change the established facts.
 - When past events are retold, preserve their established action order unless a character is explicitly shown remembering it out of order.
+- Do not write dialogue that implies another character witnessed a past event unless that character's knowledge establishes it.
 - Keep each character's dialogue and knowledge consistent with scene_character_knowledge.json.
 - Preserve that physical starting state at the opening of the scene. Do not move, separate, stand, sit, or reposition characters merely to create a new blocking arrangement. Physical changes should happen only when the prose itself causes the movement.
 - A character may act on a fact only if that character's knowledge file establishes it or the character naturally learns it during the current scene.
