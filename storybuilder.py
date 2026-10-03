@@ -820,7 +820,21 @@ class StoryBuilderApp(tk.Tk):
                             values = candidate
                             break
                 if not isinstance(values, dict):
-                    continue
+                    values = {}
+
+                # If clothing is not yet recorded in physical_state, use the
+                # character card's established sleepwear/clothing rule as the
+                # automatic fallback for the starting scene.
+                if not str(values.get("clothing", "") or "").strip():
+                    character_match = self.package.character_by_name(name) if self.package else None
+                    if character_match:
+                        _, character_data = character_match
+                        established_clothing = str(
+                            character_data.get("sleepwear", "") or ""
+                        ).strip()
+                        if established_clothing:
+                            values = dict(values)
+                            values["clothing"] = established_clothing
 
                 details = []
                 for key in ("location", "position", "posture", "contact", "movement", "clothing"):
