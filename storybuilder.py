@@ -823,7 +823,7 @@ class StoryBuilderApp(tk.Tk):
                     continue
 
                 details = []
-                for key in ("location", "position", "posture", "contact", "movement"):
+                for key in ("location", "position", "posture", "contact", "movement", "clothing"):
                     value = str(values.get(key, "") or "").strip()
                     if value:
                         details.append(f"{key}: {value}")
