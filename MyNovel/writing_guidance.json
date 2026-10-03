@@ -179,10 +179,10 @@
             "Maya",
             "Tony"
           ],
-          "direction": "Continue directly from Scene 1 with Maya still in Tony's arms in his bedroom. Tony has just asked about the red mark on Maya's cheek. Let Maya explain what happened naturally and in chronological order: the unfamiliar man attacked Tiffany, Maya froze briefly, tried to help, Tiffany fought back and scratched the man, he struck Maya, and then he forced Tiffany into the van and drove away. Maya can become emotional, pause, or struggle with the memory. Tony learns the details from her, comforts her, and reassures her that she did not fail Tiffany. The conversation may naturally lead to Tony offering to teach Maya practical self-defense. Tiffany remains missing and Chloe does not participate.",
+          "direction": "Continue directly from Scene 1. Maya is still in Tony's arms. Tony has just asked about the mark on her cheek. Let Maya explain what happened naturally and in order. Tony comforts her, reassures her, and may offer to teach her self-defense. Tiffany is still missing. Chloe does not participate.",
           "end_condition": "",
-          "pacing": "Let the conversation breathe. Do not rush through Maya's account or force every detail into a single speech. Keep the focus on Maya telling Tony what happened and Tony responding with warm, protective, parental concern.",
-          "revision_note": "Preserve the basic story order and knowledge boundary, but otherwise favor natural prose and dialogue over added rules."
+          "pacing": "Let the conversation breathe. Focus on Maya telling Tony what happened and Tony responding with warm, protective care.",
+          "revision_note": "Keep the story order and character knowledge clear, but favor natural prose and dialogue over detailed rules."
         }
       }
     }
