@@ -964,8 +964,8 @@ Rules:
 - Treat the shared current_situation as world/story context, not as knowledge automatically possessed by every character.
 - Use scene_character_knowledge.json as the authority for what each current-scene character personally knows.
 - Use scene_physical_state.json as the authority for each current-scene character's physical starting position, posture, contact, and movement at the start of this scene.
-- Use recent_continuity.json as the authoritative record of established events from earlier scenes. Those facts already happened and must not be changed, reassigned to another character, or replaced with invented versions. Use them when characters recount or remember earlier events. The current scene direction controls what happens next; it does not override established past events.
-- Preserve the original participant for each established past action. Do not transfer an action from one character to another or invent a different version of an established event.
+- Treat recent_continuity.json as established past events. Do not change those events, transfer actions between characters, or invent alternate versions.
+- Do not invent missing details to connect past events. Keep each character's dialogue and knowledge consistent with scene_character_knowledge.json.
 - Preserve that physical starting state at the opening of the scene. Do not move, separate, stand, sit, or reposition characters merely to create a new blocking arrangement. Physical changes should happen only when the prose itself causes the movement.
 - A character may act on a fact only if that character's knowledge file establishes it or the character naturally learns it during the current scene.
 - Never transfer one character's knowledge to another character automatically.
@@ -1141,6 +1141,26 @@ Rules:
             direction,
             "\n\n",
         ]
+
+        # Put compact established-event facts directly beside the author
+        # direction so the writer can use them while generating the scene.
+        recent_events = self.package.current_state.get("recent_events", [])
+        if isinstance(recent_events, list):
+            recent_event_items = [
+                str(item).strip()
+                for item in recent_events
+                if str(item).strip()
+            ]
+            if recent_event_items:
+                prompt_parts.extend([
+                    "ESTABLISHED PAST EVENTS:\n",
+                    "\n".join(f"- {item}" for item in recent_event_items),
+                    "\n\n",
+                    "These events already happened exactly as stated. "
+                    "Do not change who performed an action, invent a different version, "
+                    "or have Tony speak as though he witnessed events he did not witness.\n\n",
+                ])
+
         prompt_parts.extend([
             "IMPORTANT SCENE BOUNDARY:\n",
             "The HARD STOP in the author direction is mandatory. "
