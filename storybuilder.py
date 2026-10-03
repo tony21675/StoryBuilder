@@ -693,7 +693,7 @@ class StoryBuilderApp(tk.Tk):
 
         # Carry forward concise established facts from accepted scenes.
         continuity_handoff = {}
-        for key in ("completed_events", "active_clues", "new_clues", "continuity_notes"):
+        for key in ("recent_events", "completed_events", "active_clues", "new_clues", "continuity_notes"):
             value = state.get(key)
             if isinstance(value, list):
                 items = [str(item).strip() for item in value if str(item).strip()]
@@ -704,43 +704,6 @@ class StoryBuilderApp(tk.Tk):
                 "recent_continuity.json",
                 json.dumps(continuity_handoff, indent=2, ensure_ascii=False),
             ))
-
-        # Also provide the most recent accepted scenes as historical reference.
-        # This preserves concrete events that may not fit into structured state,
-        # especially when a new chapter begins. Current state and direction still
-        # take priority if the historical prose conflicts with them.
-        if self.package.path:
-            try:
-                manager = ManuscriptManager(self.package.path)
-                current_ref = (int(state.get("chapter", 1) or 1), int(state.get("scene", 1) or 1))
-                prior_paths = []
-                for path in reversed(manager.list_scenes()):
-                    numbers = manager.scene_numbers(path)
-                    if numbers is None or numbers == current_ref:
-                        continue
-                    prior_paths.append(path)
-                    if len(prior_paths) >= 3:
-                        break
-
-                historical_parts = []
-                for path in reversed(prior_paths):
-                    try:
-                        historical_text = path.read_text(encoding="utf-8").strip()
-                    except OSError:
-                        continue
-                    if not historical_text:
-                        continue
-                    historical_parts.append(
-                        f"[{path.relative_to(self.package.path)}]\n{historical_text}"
-                    )
-
-                if historical_parts:
-                    files.append((
-                        "recent_accepted_scenes.txt",
-                        "\n\n".join(historical_parts),
-                    ))
-            except OSError:
-                pass
 
         # Physical state is persisted separately from the prose so the writer
         # can preserve exact starting positions, posture, contact, and movement
@@ -1001,7 +964,7 @@ Rules:
 - Treat the shared current_situation as world/story context, not as knowledge automatically possessed by every character.
 - Use scene_character_knowledge.json as the authority for what each current-scene character personally knows.
 - Use scene_physical_state.json as the authority for each current-scene character's physical starting position, posture, contact, and movement at the start of this scene.
-- Use recent_accepted_scenes.txt only as historical story reference for events that already happened. Do not replay those scenes, and never let historical prose override the current state or direction.
+- Use recent_continuity.json for concise facts from earlier scenes. Do not replay earlier scenes, and never let those facts override the current state or direction.
 - Preserve that physical starting state at the opening of the scene. Do not move, separate, stand, sit, or reposition characters merely to create a new blocking arrangement. Physical changes should happen only when the prose itself causes the movement.
 - A character may act on a fact only if that character's knowledge file establishes it or the character naturally learns it during the current scene.
 - Never transfer one character's knowledge to another character automatically.
