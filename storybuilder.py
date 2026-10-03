@@ -944,6 +944,7 @@ Use attached scene files as private reference. Follow the current scene directio
 Rules:
 - Current scene state, cast, and direction are authoritative.
 - Only current-scene characters may participate.
+- The abductor is one man. Refer to him as he or the man; do not use plural references.
 - Never replay completed earlier scenes or invent off-cast characters.
 - Preserve established names, genders, pronouns, relationships, possessions, appearance, and scents.
 - Current-novel signature scents: Tiffany = coconut + strawberry; Maya = vanilla; Chloe = pineapple.
