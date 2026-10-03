@@ -179,10 +179,10 @@
             "Maya",
             "Tony"
           ],
-          "direction": "Continue directly from Scene 1. Maya is still in Tony's arms, and Tony has just asked about the mark on her cheek. Let Maya tell Tony what happened naturally. Tony listens, comforts her with warm, protective care, and reacts as he learns what happened. Tiffany is still missing and Chloe does not participate.",
+          "direction": "Continue directly from Scene 1. Maya is still in Tony's arms, and Tony has just asked about the mark on her cheek. Let Maya tell Tony what happened naturally. Tony listens, comforts her with warm, protective care, and reacts as he learns what happened. Let Maya's fear make her vulnerable and childlike at moments when it fits the trauma, while Tony responds with quiet, father-like care. Tiffany is still missing and Chloe does not participate.",
           "end_condition": "",
-          "pacing": "Let the conversation unfold naturally. Focus on Maya telling Tony what happened and Tony caring for her as she struggles with the memory.",
-          "revision_note": "Keep the scene grounded in the current story state and character knowledge. Favor natural prose and dialogue over detailed instructions."
+          "pacing": "Let the conversation unfold naturally. Keep the emotional focus on Maya, Tony, and Tiffany, with Maya's fragmented memory and Tony's compassion carrying the scene.",
+          "revision_note": "Keep the established event order and character knowledge, but preserve a warm, intimate, emotionally vulnerable tone."
         }
       }
     }
