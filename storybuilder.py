@@ -691,6 +691,22 @@ class StoryBuilderApp(tk.Tk):
             json.dumps(scene_state, indent=2, ensure_ascii=False),
         ))
 
+        # Carry forward concise established facts from accepted scenes without
+        # sending old manuscript prose or future scene instructions. This keeps
+        # important events and clues available across chapter boundaries.
+        continuity_handoff = {}
+        for key in ("completed_events", "active_clues", "new_clues", "continuity_notes"):
+            value = state.get(key)
+            if isinstance(value, list):
+                items = [str(item).strip() for item in value if str(item).strip()]
+                if items:
+                    continuity_handoff[key] = items[-12:]
+        if continuity_handoff:
+            files.append((
+                "recent_continuity.json",
+                json.dumps(continuity_handoff, indent=2, ensure_ascii=False),
+            ))
+
         # Physical state is persisted separately from the prose so the writer
         # can preserve exact starting positions, posture, contact, and movement
         # across scene boundaries without requiring the author to restate them
