@@ -179,10 +179,10 @@
             "Maya",
             "Tony"
           ],
-          "direction": "Continue directly from Scene 1. Maya is still in Tony's arms. Tony has just asked about the mark on her cheek. Let Maya explain what happened naturally and in order. Tony comforts her, reassures her, and may offer to teach her self-defense. Tiffany is still missing. Chloe does not participate.",
+          "direction": "Continue directly from Scene 1. Maya is still in Tony's arms, and Tony has just asked about the mark on her cheek. Let Maya tell Tony what happened naturally. Tony listens, comforts her, and reacts as he learns what happened. Tiffany is still missing and Chloe does not participate.",
           "end_condition": "",
-          "pacing": "Let the conversation breathe. Focus on Maya telling Tony what happened and Tony responding with warm, protective care.",
-          "revision_note": "Keep the story order and character knowledge clear, but favor natural prose and dialogue over detailed rules."
+          "pacing": "Let the conversation unfold naturally. Do not rush it or force a particular speech pattern.",
+          "revision_note": "Keep the scene grounded in the current story state and character knowledge. Favor natural prose and dialogue over detailed instructions."
         }
       }
     }
