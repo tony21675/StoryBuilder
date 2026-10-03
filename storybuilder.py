@@ -964,8 +964,9 @@ Rules:
 - Treat the shared current_situation as world/story context, not as knowledge automatically possessed by every character.
 - Use scene_character_knowledge.json as the authority for what each current-scene character personally knows.
 - Use scene_physical_state.json as the authority for each current-scene character's physical starting position, posture, contact, and movement at the start of this scene.
-- Treat recent_continuity.json as established past events. Do not change those events, transfer actions between characters, or invent alternate versions.
-- Do not invent missing details to connect past events. Keep each character's dialogue and knowledge consistent with scene_character_knowledge.json.
+- Treat recent_continuity.json as established past events. Keep the underlying events and action ownership correct.
+- Characters may remember or describe past events imperfectly when distressed, but emotional or fragmented recollection must not change the established facts.
+- Keep each character's dialogue and knowledge consistent with scene_character_knowledge.json.
 - Preserve that physical starting state at the opening of the scene. Do not move, separate, stand, sit, or reposition characters merely to create a new blocking arrangement. Physical changes should happen only when the prose itself causes the movement.
 - A character may act on a fact only if that character's knowledge file establishes it or the character naturally learns it during the current scene.
 - Never transfer one character's knowledge to another character automatically.
@@ -1156,9 +1157,10 @@ Rules:
                     "ESTABLISHED PAST EVENTS:\n",
                     "\n".join(f"- {item}" for item in recent_event_items),
                     "\n\n",
-                    "These events already happened exactly as stated. "
-                    "Do not change who performed an action, invent a different version, "
-                    "or have Tony speak as though he witnessed events he did not witness.\n\n",
+                    "These are established past facts. Keep the underlying events and who performed them "
+                    "correct, but allow Maya to remember or describe them imperfectly because she is distressed. "
+                    "Her emotional recollection may pause, skip, or arrive out of order; do not turn that into a different event. "
+                    "Tony was not present during the abduction and must not speak as though he witnessed it.\n\n",
                 ])
 
         prompt_parts.extend([
