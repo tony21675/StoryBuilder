@@ -837,7 +837,7 @@ class StoryBuilderApp(tk.Tk):
                             values["clothing"] = established_clothing
 
                 details = []
-                for key in ("location", "position", "posture", "contact", "movement", "clothing"):
+                for key in ("location", "position", "posture", "contact", "movement"):
                     value = str(values.get(key, "") or "").strip()
                     if value:
                         details.append(f"{key}: {value}")
