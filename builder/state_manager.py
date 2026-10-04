@@ -138,6 +138,165 @@ class StateManager:
         return override or None
 
     @staticmethod
+    def _propose_knowledge_delta(
+        model: Path,
+        current_state: dict[str, Any],
+        story_text: str,
+    ) -> dict[str, list[str]]:
+        """Run a focused pass that extracts only newly learned character facts."""
+        cast = [
+            str(name).strip()
+            for name in current_state.get("scene_cast", [])
+            if str(name).strip()
+        ]
+        if not cast:
+            return {}
+
+        existing = current_state.get("character_knowledge", {})
+        knowledge_before = {}
+        if isinstance(existing, dict):
+            for name in cast:
+                values = existing.get(name)
+                if values is None:
+                    for key, candidate in existing.items():
+                        if str(key).casefold() == name.casefold():
+                            values = candidate
+                            break
+                if isinstance(values, list):
+                    knowledge_before[name] = [
+                        str(item).strip() for item in values if str(item).strip()
+                    ]
+                elif isinstance(values, str) and values.strip():
+                    knowledge_before[name] = [values.strip()]
+
+        audit_prompt = (
+            "You are auditing character knowledge after a completed section of an ongoing fictional novel.\n\n"
+            "Return ONLY one JSON object mapping character names to lists of NEW facts that character learned "
+            "during this section. Return {} when nobody learned anything new.\n\n"
+            "Rules:\n"
+            "- Audit only characters in the supplied scene cast.\n"
+            "- Compare the BEFORE knowledge with the completed prose.\n"
+            "- Treat dialogue, direct observation, reading, and personal experience as valid ways to learn facts.\n"
+            "- A listener learns consequential facts that another character actually tells them.\n"
+            "- Do not give facts to characters who were not present, did not hear them, and did not witness them.\n"
+            "- Return only genuinely NEW facts. Do not repeat facts already known before the section.\n"
+            "- Preserve specific consequential details. Do not collapse several learned facts into a vague summary.\n"
+            "- Use only facts explicitly established by the completed prose. Do not infer future events, motives, "
+            "hidden knowledge, or unstated conclusions.\n"
+            "- Output valid JSON only.\n\n"
+            "SCENE CAST:\n"
+            + json.dumps(cast, indent=2, ensure_ascii=False)
+            + "\n\nCHARACTER KNOWLEDGE BEFORE THIS SECTION:\n"
+            + json.dumps(knowledge_before, indent=2, ensure_ascii=False)
+            + "\n\nCOMPLETED STORY SECTION:\n"
+            + story_text
+        )
+
+        env = os.environ.copy()
+        env["LD_LIBRARY_PATH"] = str(DEFAULT_LLAMA.parent) + (
+            ":" + env["LD_LIBRARY_PATH"] if env.get("LD_LIBRARY_PATH") else ""
+        )
+
+        device = StateManager._detect_accelerator()
+        args = [str(DEFAULT_LLAMA), "-m", str(model)]
+        if device:
+            args.extend(["--device", device, "-ngl", "all"])
+        else:
+            args.extend(["-ngl", "0", "--device", "none"])
+
+        args.extend([
+            "-c", "8192",
+            "--reasoning", "off",
+            "--temp", "0.10",
+            "--top-k", "20",
+            "--top-p", "0.80",
+            "--repeat-last-n", "256",
+            "--repeat-penalty", "1.08",
+            "--n-predict", "700",
+            "--prompt", audit_prompt,
+            "--color", "off",
+            "--no-display-prompt",
+            "--simple-io",
+            "--single-turn",
+        ])
+
+        proc = subprocess.Popen(
+            args,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            env=env,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+        try:
+            output, _ = proc.communicate(timeout=600)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            output, _ = proc.communicate()
+            return {}
+        if proc.returncode not in (0, None):
+            return {}
+
+        raw = extract_json_object(output)
+        result: dict[str, list[str]] = {}
+        for name in cast:
+            values = raw.get(name)
+            if not isinstance(values, list):
+                continue
+            cleaned = [str(item).strip() for item in values if str(item).strip()]
+            if cleaned:
+                result[name] = cleaned
+        return result
+
+    @staticmethod
+    def _merge_knowledge_delta(
+        current_state: dict[str, Any],
+        patch: dict[str, Any],
+        delta: dict[str, list[str]],
+    ) -> None:
+        """Append newly learned facts without replacing existing knowledge."""
+        base_knowledge = current_state.get("character_knowledge", {})
+        if not isinstance(base_knowledge, dict):
+            base_knowledge = {}
+
+        proposed = patch.get("character_knowledge", {})
+        if not isinstance(proposed, dict):
+            proposed = {}
+
+        combined: dict[str, list[str]] = {}
+        for source in (base_knowledge, proposed):
+            for name, values in source.items():
+                if isinstance(values, list):
+                    bucket = combined.setdefault(str(name), [])
+                    for value in values:
+                        text_value = str(value).strip()
+                        if text_value and text_value not in bucket:
+                            bucket.append(text_value)
+                elif isinstance(values, str) and values.strip():
+                    combined.setdefault(str(name), []).append(values.strip())
+
+        for name, values in delta.items():
+            bucket = combined.setdefault(name, [])
+            for value in values:
+                if value not in bucket:
+                    bucket.append(value)
+
+        changed: dict[str, list[str]] = {}
+        for name, values in combined.items():
+            before_values = base_knowledge.get(name, []) if isinstance(base_knowledge, dict) else []
+            if isinstance(before_values, str):
+                before_values = [before_values]
+            if not isinstance(before_values, list):
+                before_values = []
+            before_clean = [str(v).strip() for v in before_values if str(v).strip()]
+            if values != before_clean:
+                changed[name] = values
+
+        if changed:
+            patch["character_knowledge"] = changed
+
+    @staticmethod
     def propose(
         model_path: str | Path,
         current_state: dict[str, Any],
@@ -296,6 +455,25 @@ class StateManager:
         # Models sometimes repeat unchanged state. Normalize that away so a
         # proposal contains only actual changes.
         patch = remove_unchanged(current_state, patch)
+
+        # Knowledge changes are audited separately because a broad continuity
+        # pass can miss facts learned through dialogue when physical state does
+        # not change. The focused pass returns only new facts and never replaces
+        # the existing knowledge list.
+        try:
+            knowledge_delta = StateManager._propose_knowledge_delta(
+                model,
+                current_state,
+                completed_text,
+            )
+            if knowledge_delta:
+                StateManager._merge_knowledge_delta(
+                    current_state,
+                    patch,
+                    knowledge_delta,
+                )
+        except Exception:
+            pass
 
         # A structured state_after is an authored scene outcome. When it is
         # present, use it to anchor the proposed ending state rather than
