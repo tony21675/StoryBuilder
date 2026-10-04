@@ -84,7 +84,16 @@ def extract_expected_end_state(scene_end_guidance: str) -> dict[str, Any] | None
     except json.JSONDecodeError:
         return None
 
-    return value if isinstance(value, dict) else None
+    if not isinstance(value, dict):
+        return None
+
+    # Scene guidance may carry temporary writing notes alongside the intended
+    # ending state. Those notes must never be promoted into permanent story
+    # continuity or handed to the writer as established facts.
+    value.pop("continuity_notes", None)
+    value.pop("scene_constraints", None)
+    value.pop("scene_guidance", None)
+    return value
 
 
 def remove_unchanged(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
