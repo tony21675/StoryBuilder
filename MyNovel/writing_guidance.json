@@ -183,6 +183,16 @@
           "end_condition": "",
           "pacing": "Let the conversation unfold naturally. Keep the emotional focus on Maya, Tony, and Tiffany.",
           "revision_note": "Preserve established continuity while allowing Maya's recollection to remain emotional and fragmented."
+        },
+        "3": {
+          "cast": [
+            "Maya",
+            "Tony"
+          ],
+          "direction": "Continue directly from Scene 2. Tony notices how exhausted and shaken Maya is and gently offers her a bath or shower so she can clean up and settle herself. While Maya is bathing, Tony calls Maya's mother to let her know Maya is safe at his house. He then goes to Tiffany's room, gets Maya a change of clothes, and leaves them on the bathroom counter for her. After Maya finishes bathing and changes, Tony and Maya sit together at the kitchen table and begin to talk.",
+          "end_condition": "HARD STOP once Tony and Maya are seated together at the kitchen table and are ready to talk. Do not begin the deeper discussion about training, finding Tiffany, contacting military connections, or the decision about reporting the abduction.",
+          "pacing": "Keep this scene quiet, caring, and grounded. Focus on Maya recovering from the immediate shock and Tony taking practical care of her. Let the bath or shower, phone call, clothing change, and move to the kitchen unfold naturally without rushing.",
+          "revision_note": "Preserve the warm father-like care between Tony and Maya. Keep the scene focused on recovery and practical care. Do not introduce the next scene's decisions or tactical planning."
         }
       }
     }
