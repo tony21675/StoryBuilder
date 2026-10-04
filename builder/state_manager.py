@@ -24,9 +24,12 @@ Rules:
 - Never turn an unknown fact into a known fact.
 - Keep character knowledge limited to what each character could actually know.
 - Update character_knowledge when a character actually learns a new consequential fact during the completed section, including facts learned through another character's dialogue, a direct observation, or an event that character personally experiences.
-- Character knowledge is cumulative. Compare the completed section against the BEFORE-state knowledge and add only genuinely new facts learned by that character. Do not require a physical-state change before updating knowledge.
-- When one character tells another character something important, record the information the listener now knows, but do not give that information to characters who did not hear or witness it.
-- Do not replace specific newly learned facts with a vague summary such as "learned what happened" when the completed prose clearly establishes the details.
+- Perform an explicit knowledge audit for every current-scene character. Compare the BEFORE-state knowledge with the entire completed prose and add only facts that became known during this section.
+- For dialogue, treat information as learned by the characters who actually hear it. A speaker does not gain new knowledge merely by saying something they already know. Do not give information to characters who were not present, did not hear it, and did not witness it.
+- Knowledge updates do not depend on a location or physical-state change. A character can learn important facts while remaining physically stationary.
+- Preserve specific newly learned facts rather than replacing them with a vague summary such as "learned what happened." If several distinct facts are communicated, retain the distinct facts.
+- Read the entire completed section for knowledge changes. Do not rely only on the final paragraph or final excerpt.
+- Never infer that a character learned a fact merely because the narrator states it. The character must reasonably perceive, hear, read, or experience the information in the scene.
 - Treat continuity_notes as editorial reminders only. They are not authoritative story facts, scene instructions, or character knowledge. Never use them as evidence for what happened, never promote them into permanent facts, and never copy them into a new state update unless the completed prose independently establishes the same fact.
 - Treat physical_state as a first-class continuity field. It records each character's physical location, position, posture, contact with other characters, and movement state at the absolute end of the supplied section.
 - When the completed prose clearly establishes or changes a character's final physical state, include those changed fields under physical_state for that character.
@@ -160,9 +163,44 @@ class StateManager:
         prompt_parts = [
             "CURRENT STATE BEFORE THIS SECTION:\n",
             json.dumps(current_state, indent=2, ensure_ascii=False),
+        ]
+
+        # Give the continuity model an explicit before-state knowledge audit so
+        # dialogue-based learning is evaluated separately from physical state.
+        cast = [
+            str(name).strip()
+            for name in current_state.get("scene_cast", [])
+            if str(name).strip()
+        ]
+        knowledge_before = {}
+        existing_knowledge = current_state.get("character_knowledge", {})
+        if isinstance(existing_knowledge, dict):
+            for name in cast:
+                values = existing_knowledge.get(name)
+                if values is None:
+                    for key, candidate in existing_knowledge.items():
+                        if str(key).casefold() == name.casefold():
+                            values = candidate
+                            break
+                if isinstance(values, list):
+                    knowledge_before[name] = [
+                        str(item).strip()
+                        for item in values
+                        if str(item).strip()
+                    ]
+                elif isinstance(values, str) and values.strip():
+                    knowledge_before[name] = [values.strip()]
+
+        if knowledge_before:
+            prompt_parts.extend([
+                "\n\nCHARACTER KNOWLEDGE BEFORE THIS SECTION:\n",
+                json.dumps(knowledge_before, indent=2, ensure_ascii=False),
+            ])
+
+        prompt_parts.extend([
             "\n\nCOMPLETED STORY SECTION:\n",
             completed_text,
-        ]
+        ])
 
         if end_guidance:
             prompt_parts.extend([
