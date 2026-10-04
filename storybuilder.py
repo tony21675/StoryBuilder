@@ -954,6 +954,7 @@ Rules:
 - Treat recent_continuity.json as established past events. Preserve the underlying facts and action ownership exactly.
 - When a character retells an established event, memory and wording may be fragmented or emotional, but do not add, alter, omit, exaggerate, or reorder established actions, injuries, objects, locations, witnesses, motives, or outcomes. If a detail is not established, leave it out rather than inventing one.
 - Do not introduce future plot information, foreshadowing, or ominous implications unless the current scene direction explicitly establishes them.
+- Do not resolve future actions, decisions, plans, discoveries, or outcomes before they occur in the story. Do not state what a character will do later or assume another character's unspoken feelings or conclusions unless established by the current scene or character knowledge.
 - Do not write dialogue that implies another character witnessed a past event unless that character's knowledge establishes it.
 - Keep each character's dialogue and knowledge consistent with scene_character_knowledge.json.
 - Preserve that physical starting state at the opening of the scene. Do not move, separate, stand, sit, or reposition characters merely to create a new blocking arrangement. Physical changes should happen only when the prose itself causes the movement.
