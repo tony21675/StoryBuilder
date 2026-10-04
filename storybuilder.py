@@ -951,9 +951,9 @@ Rules:
 - Treat the shared current_situation as world/story context, not as knowledge automatically possessed by every character.
 - Use scene_character_knowledge.json as the authority for what each current-scene character personally knows.
 - Use scene_physical_state.json as the authority for each current-scene character's physical starting position, posture, contact, and movement at the start of this scene.
-- Treat recent_continuity.json as established past events. Keep the underlying events and action ownership correct.
-- Characters may remember or describe past events imperfectly when distressed, but emotional or fragmented recollection must not change the established facts.
-- When past events are retold, preserve their established action order unless a character is explicitly shown remembering it out of order.
+- Treat recent_continuity.json as established past events. Preserve the underlying facts and action ownership exactly.
+- When a character retells an established event, memory and wording may be fragmented or emotional, but do not add, alter, omit, exaggerate, or reorder established actions, injuries, objects, locations, witnesses, motives, or outcomes. If a detail is not established, leave it out rather than inventing one.
+- Do not introduce future plot information, foreshadowing, or ominous implications unless the current scene direction explicitly establishes them.
 - Do not write dialogue that implies another character witnessed a past event unless that character's knowledge establishes it.
 - Keep each character's dialogue and knowledge consistent with scene_character_knowledge.json.
 - Preserve that physical starting state at the opening of the scene. Do not move, separate, stand, sit, or reposition characters merely to create a new blocking arrangement. Physical changes should happen only when the prose itself causes the movement.
