@@ -23,6 +23,7 @@ Rules:
 - Never invent future events.
 - Never turn an unknown fact into a known fact.
 - Keep character knowledge limited to what each character could actually know.
+- Treat continuity_notes as editorial reminders only. They are not authoritative story facts, scene instructions, or character knowledge. Never use them as evidence for what happened, never promote them into permanent facts, and never copy them into a new state update unless the completed prose independently establishes the same fact.
 - Treat physical_state as a first-class continuity field. It records each character's physical location, position, posture, contact with other characters, and movement state at the absolute end of the supplied section.
 - When the completed prose clearly establishes or changes a character's final physical state, include those changed fields under physical_state for that character.
 - Physical continuity must follow the actual final prose. Do not move or reposition a character in physical_state merely because a new scene could logically use a different arrangement.
