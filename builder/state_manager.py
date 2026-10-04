@@ -23,6 +23,10 @@ Rules:
 - Never invent future events.
 - Never turn an unknown fact into a known fact.
 - Keep character knowledge limited to what each character could actually know.
+- Update character_knowledge when a character actually learns a new consequential fact during the completed section, including facts learned through another character's dialogue, a direct observation, or an event that character personally experiences.
+- Character knowledge is cumulative. Compare the completed section against the BEFORE-state knowledge and add only genuinely new facts learned by that character. Do not require a physical-state change before updating knowledge.
+- When one character tells another character something important, record the information the listener now knows, but do not give that information to characters who did not hear or witness it.
+- Do not replace specific newly learned facts with a vague summary such as "learned what happened" when the completed prose clearly establishes the details.
 - Treat continuity_notes as editorial reminders only. They are not authoritative story facts, scene instructions, or character knowledge. Never use them as evidence for what happened, never promote them into permanent facts, and never copy them into a new state update unless the completed prose independently establishes the same fact.
 - Treat physical_state as a first-class continuity field. It records each character's physical location, position, posture, contact with other characters, and movement state at the absolute end of the supplied section.
 - When the completed prose clearly establishes or changes a character's final physical state, include those changed fields under physical_state for that character.
