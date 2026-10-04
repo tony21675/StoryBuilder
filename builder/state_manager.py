@@ -8,6 +8,25 @@ from typing import Any
 
 from builder.workspace import LLAMA as DEFAULT_LLAMA
 
+KNOWLEDGE_AUDIT_SYSTEM_PROMPT = """You are a character-knowledge auditor for an ongoing fictional novel.
+
+Return ONLY valid JSON in this exact shape:
+{"CharacterName": ["new fact learned", "another new fact learned"]}
+
+Rules:
+- Audit only the supplied scene cast.
+- Compare what each character knew BEFORE the completed section with what they actually learn DURING the completed section.
+- A character learns information they hear from another character's dialogue, directly observe, read, or personally experience.
+- When one character tells another a consequential fact, the listener now knows that fact after the conversation.
+- Do not give information to characters who did not hear, observe, read, or experience it.
+- Return only NEW facts not already present in that character's before-state knowledge.
+- Preserve specific consequential facts rather than vague summaries.
+- Read the entire completed section, not only its ending.
+- Never infer future events, motives, hidden information, or unstated conclusions.
+- If no new facts were learned, return {}.
+- Output JSON only. No markdown, commentary, or explanations.
+"""
+
 STATE_SYSTEM_PROMPT = """You are the continuity manager for an ongoing fictional story.
 
 Return ONLY one valid JSON object containing a PARTIAL UPDATE to the current story state.
@@ -170,20 +189,10 @@ class StateManager:
                     knowledge_before[name] = [values.strip()]
 
         audit_prompt = (
-            "You are auditing character knowledge after a completed section of an ongoing fictional novel.\n\n"
-            "Return ONLY one JSON object mapping character names to lists of NEW facts that character learned "
-            "during this section. Return {} when nobody learned anything new.\n\n"
-            "Rules:\n"
-            "- Audit only characters in the supplied scene cast.\n"
-            "- Compare the BEFORE knowledge with the completed prose.\n"
-            "- Treat dialogue, direct observation, reading, and personal experience as valid ways to learn facts.\n"
-            "- A listener learns consequential facts that another character actually tells them.\n"
-            "- Do not give facts to characters who were not present, did not hear them, and did not witness them.\n"
-            "- Return only genuinely NEW facts. Do not repeat facts already known before the section.\n"
-            "- Preserve specific consequential details. Do not collapse several learned facts into a vague summary.\n"
-            "- Use only facts explicitly established by the completed prose. Do not infer future events, motives, "
-            "hidden knowledge, or unstated conclusions.\n"
-            "- Output valid JSON only.\n\n"
+            "Analyze the completed story section using the supplied before-state knowledge. "
+            "For each character in the scene cast, list only facts that became newly known during this section. "
+            "A listener learns consequential information another character tells them.\n\n"
+            "Do not repeat facts already known before the section. Preserve specific details.\n\n"
             "SCENE CAST:\n"
             + json.dumps(cast, indent=2, ensure_ascii=False)
             + "\n\nCHARACTER KNOWLEDGE BEFORE THIS SECTION:\n"
@@ -212,7 +221,8 @@ class StateManager:
             "--top-p", "0.80",
             "--repeat-last-n", "256",
             "--repeat-penalty", "1.08",
-            "--n-predict", "700",
+            "--n-predict", "600",
+            "--system-prompt", KNOWLEDGE_AUDIT_SYSTEM_PROMPT,
             "--prompt", audit_prompt,
             "--color", "off",
             "--no-display-prompt",
@@ -472,7 +482,9 @@ class StateManager:
                     patch,
                     knowledge_delta,
                 )
-        except Exception:
+        except (ValueError, RuntimeError):
+            # The main state proposal remains usable if the optional knowledge
+            # audit cannot be parsed or completed. Do not fabricate knowledge.
             pass
 
         # A structured state_after is an authored scene outcome. When it is
