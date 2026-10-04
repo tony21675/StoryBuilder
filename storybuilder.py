@@ -963,6 +963,12 @@ Rules:
 - Never transfer one character's knowledge to another character automatically.
 - Never give a character knowledge of another character's name, identity, relationship, location, or other personal fact unless that knowledge is established or naturally learned in the story.
 - Natural small talk, ordinary memories, harmless feelings, and minor scene details are welcome.
+- Keep ordinary caregiving practical and human. When one character offers help, let the other character's needs and choices determine how much help or company is wanted; do not automatically decide for them.
+- In caring or family-like situations, physical comfort is nonsexual and should be written as ordinary care, support, reassurance, or assistance. Respect privacy and dignity, especially during bathing, changing clothes, medical care, or other vulnerable moments.
+- When a character is overwhelmed and cannot immediately choose between options, do not turn uncertainty into an invented yes or no. Let the other character ease the pressure, remain available, and allow the choice to emerge naturally in the scene.
+- Show emotions primarily through concrete behavior, dialogue, physical reactions, and small actions. Avoid repeatedly explaining what characters are feeling when the scene already demonstrates it.
+- Keep prose grounded and natural. Prefer specific, observable details and believable dialogue over generic emotional summaries, stock dramatic phrases, or decorative metaphors.
+- Minor sensory and environmental details are welcome when they support the scene, but do not add unnecessary objects, products, scents, atmosphere, or backstory that imply facts the story has not established.
 - Do not invent consequential canon, motives, identities, hidden plans, or secret knowledge.
 - Fully dramatize important action and emotional scenes instead of summarizing them.
 - Obey the scene endpoint exactly.
