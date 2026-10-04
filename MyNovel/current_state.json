@@ -21,8 +21,11 @@
       "Knows Maya is Tiffany's best friend and is also a friend of his.",
       "Knows Tiffany's mother died while giving birth to Tiffany.",
       "Now knows Maya has told him that Tiffany is gone.",
-      "Does not know the details of the abduction until Maya tells him.",
-      "Was not present during the abduction and did not witness the road events."
+      "Was not present during the abduction and did not witness the road events.",
+      "Learned from Maya that an unfamiliar man approached them, grabbed Tiffany, and she fought back, scratching him three times and drawing blood.",
+      "Learned from Maya that after she struck the man, his attention turned toward her.",
+      "Learned from Maya that the man hit her across the cheek, leaving a temporary red mark.",
+      "Learned from Maya that the man threw Tiffany into the van and drove away with her inside."
     ],
     "Tiffany": [
       "Was with Maya on the road home from the gas station before being abducted.",
@@ -40,7 +43,8 @@
       "Was struck across the cheek by the man, leaving a temporary red mark.",
       "Saw the man forcefully throw Tiffany through the open side door of the van.",
       "Saw the man drive away with Tiffany inside the van.",
-      "Was left alone on the roadside, watched the van disappear, and then went to Tony for help."
+      "Was left alone on the roadside, watched the van disappear, and then went to Tony for help.",
+      "Told Tony that Tiffany is gone."
     ]
   },
   "completed_events": [
