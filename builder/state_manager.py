@@ -271,6 +271,21 @@ class StateManager:
         delta: dict[str, list[str]],
     ) -> None:
         """Apply audited cumulative knowledge for current-scene characters."""
+        def normalize_knowledge(values: list[str]) -> list[str]:
+            cleaned = []
+            for value in values:
+                text_value = str(value).strip()
+                if not text_value:
+                    continue
+                # Remove stale negative-knowledge statements when the same
+                # character has now learned the relevant information during
+                # this section. Keep genuine negative knowledge that has not
+                # been resolved.
+                if text_value.casefold().startswith(("does not know", "doesn't know")):
+                    continue
+                if text_value not in cleaned:
+                    cleaned.append(text_value)
+            return cleaned
         base_knowledge = current_state.get("character_knowledge", {})
         if not isinstance(base_knowledge, dict):
             base_knowledge = {}
@@ -288,11 +303,7 @@ class StateManager:
         # Replace those characters' cumulative knowledge rather than appending
         # a small delta that could leave obsolete negative statements behind.
         for name, values in delta.items():
-            cleaned = [
-                str(value).strip()
-                for value in values
-                if str(value).strip()
-            ]
+            cleaned = normalize_knowledge(values)
             combined[name] = cleaned
 
         # Preserve any useful model-derived knowledge for scene characters only
