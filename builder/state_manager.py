@@ -11,22 +11,23 @@ from builder.workspace import LLAMA as DEFAULT_LLAMA
 KNOWLEDGE_AUDIT_SYSTEM_PROMPT = """You are a character-knowledge auditor for an ongoing fictional novel.
 
 Return ONLY valid JSON in this exact shape:
-{"CharacterName": ["new fact learned", "another new fact learned"]}
+{"CharacterName": ["complete fact known after the section", "another complete fact known after the section"]}
 
 Rules:
 - Audit only the supplied scene cast.
-- Compare what each character knew BEFORE the completed section with what they actually learn DURING the completed section.
+- Return each current-scene character's COMPLETE cumulative knowledge after the completed section.
+- Preserve every valid fact already known before the section, then add every fact newly learned during the completed prose.
 - A character learns information they hear from another character's dialogue, directly observe, read, or personally experience.
-- When one character tells another a consequential fact, the listener now knows that fact after the conversation.
+- When one character tells another a consequential fact, the listener knows that fact after the conversation.
 - Do not give information to characters who did not hear, observe, read, or experience it.
-- Return only NEW facts not already present in that character's before-state knowledge.
-- Preserve specific consequential facts rather than vague summaries.
+- Preserve specific consequential facts. Do not replace several distinct facts with a vague summary.
+- If a before-state item says a character does not know a fact, and the completed prose shows that character now learns it, remove the obsolete negative statement and record the actual knowledge instead.
+- Do not keep contradictory positive and negative knowledge statements when the completed prose resolves the contradiction.
 - Read the entire completed section, not only its ending.
 - Never infer future events, motives, hidden information, or unstated conclusions.
-- If no new facts were learned, return {}.
+- If a character learned nothing, return that character's before-state knowledge unchanged.
 - Output JSON only. No markdown, commentary, or explanations.
 """
-
 STATE_SYSTEM_PROMPT = """You are the continuity manager for an ongoing fictional story.
 
 Return ONLY one valid JSON object containing a PARTIAL UPDATE to the current story state.
@@ -162,7 +163,7 @@ class StateManager:
         current_state: dict[str, Any],
         story_text: str,
     ) -> dict[str, list[str]]:
-        """Run a focused pass that extracts only newly learned character facts."""
+        """Run a focused pass that returns cumulative post-scene knowledge."""
         cast = [
             str(name).strip()
             for name in current_state.get("scene_cast", [])
@@ -189,10 +190,10 @@ class StateManager:
                     knowledge_before[name] = [values.strip()]
 
         audit_prompt = (
-            "Analyze the completed story section using the supplied before-state knowledge. "
-            "For each character in the scene cast, list only facts that became newly known during this section. "
-            "A listener learns consequential information another character tells them.\n\n"
-            "Do not repeat facts already known before the section. Preserve specific details.\n\n"
+            "Audit the entire completed story section and produce the complete cumulative knowledge "
+            "for every current-scene character after the section. Preserve all valid before-state facts, "
+            "add all facts learned during the section, and remove obsolete negative statements when the "
+            "character now knows the corresponding fact.\n\n"
             "SCENE CAST:\n"
             + json.dumps(cast, indent=2, ensure_ascii=False)
             + "\n\nCHARACTER KNOWLEDGE BEFORE THIS SECTION:\n"
@@ -221,7 +222,7 @@ class StateManager:
             "--top-p", "0.80",
             "--repeat-last-n", "256",
             "--repeat-penalty", "1.08",
-            "--n-predict", "600",
+            "--n-predict", "900",
             "--system-prompt", KNOWLEDGE_AUDIT_SYSTEM_PROMPT,
             "--prompt", audit_prompt,
             "--color", "off",
@@ -241,12 +242,14 @@ class StateManager:
         )
         try:
             output, _ = proc.communicate(timeout=600)
-        except subprocess.TimeoutExpired:
+        except subprocess.TimeoutExpired as exc:
             proc.kill()
             output, _ = proc.communicate()
-            return {}
+            raise RuntimeError("Character knowledge audit timed out.") from exc
         if proc.returncode not in (0, None):
-            return {}
+            raise RuntimeError(
+                "Character knowledge audit failed.\n" + (output or "")[-2000:]
+            )
 
         raw = extract_json_object(output)
         result: dict[str, list[str]] = {}
@@ -257,6 +260,8 @@ class StateManager:
             cleaned = [str(item).strip() for item in values if str(item).strip()]
             if cleaned:
                 result[name] = cleaned
+            elif name in raw:
+                result[name] = []
         return result
 
     @staticmethod
@@ -265,7 +270,7 @@ class StateManager:
         patch: dict[str, Any],
         delta: dict[str, list[str]],
     ) -> None:
-        """Append newly learned facts without replacing existing knowledge."""
+        """Apply audited cumulative knowledge for current-scene characters."""
         base_knowledge = current_state.get("character_knowledge", {})
         if not isinstance(base_knowledge, dict):
             base_knowledge = {}
@@ -274,27 +279,36 @@ class StateManager:
         if not isinstance(proposed, dict):
             proposed = {}
 
-        combined: dict[str, list[str]] = {}
-        for source in (base_knowledge, proposed):
-            for name, values in source.items():
-                if isinstance(values, list):
-                    bucket = combined.setdefault(str(name), [])
-                    for value in values:
-                        text_value = str(value).strip()
-                        if text_value and text_value not in bucket:
-                            bucket.append(text_value)
-                elif isinstance(values, str) and values.strip():
-                    combined.setdefault(str(name), []).append(values.strip())
-
-        for name, values in delta.items():
-            bucket = combined.setdefault(name, [])
-            for value in values:
-                if value not in bucket:
-                    bucket.append(value)
-
         changed: dict[str, list[str]] = {}
+
+        # Preserve non-scene character knowledge exactly as it was.
+        combined = dict(base_knowledge)
+
+        # The focused audit is authoritative for current-scene characters.
+        # Replace those characters' cumulative knowledge rather than appending
+        # a small delta that could leave obsolete negative statements behind.
+        for name, values in delta.items():
+            cleaned = [
+                str(value).strip()
+                for value in values
+                if str(value).strip()
+            ]
+            combined[name] = cleaned
+
+        # Preserve any useful model-derived knowledge for scene characters only
+        # when the focused audit did not return that character.
+        for name, values in proposed.items():
+            if name in delta:
+                continue
+            if isinstance(values, list):
+                combined[name] = [
+                    str(value).strip()
+                    for value in values
+                    if str(value).strip()
+                ]
+
         for name, values in combined.items():
-            before_values = base_knowledge.get(name, []) if isinstance(base_knowledge, dict) else []
+            before_values = base_knowledge.get(name, [])
             if isinstance(before_values, str):
                 before_values = [before_values]
             if not isinstance(before_values, list):
