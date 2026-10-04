@@ -693,7 +693,7 @@ class StoryBuilderApp(tk.Tk):
 
         # Carry forward concise established facts from accepted scenes.
         continuity_handoff = {}
-        for key in ("recent_events", "completed_events", "active_clues", "new_clues", "continuity_notes"):
+        for key in ("recent_events", "completed_events", "active_clues", "new_clues"):
             value = state.get(key)
             if isinstance(value, list):
                 items = [str(item).strip() for item in value if str(item).strip()]
@@ -1148,10 +1148,9 @@ Rules:
                     "ESTABLISHED PAST EVENTS:\n",
                     "\n".join(f"- {item}" for item in recent_event_items),
                     "\n\n",
-                    "These are established past facts. Keep the underlying events and who performed them "
-                    "correct, but allow Maya to remember or describe them imperfectly because she is distressed. "
-                    "Her emotional recollection may pause, skip, or arrive out of order; do not turn that into a different event. "
-                    "Tony was not present during the abduction and must not speak as though he witnessed it.\n\n",
+                    "These are established past facts. Preserve the underlying events, action ownership, and consequential clues. "
+                    "A character may remember or describe them imperfectly, emotionally, or out of order, but the established facts must remain correct. "
+                    "Do not invent missing details or silently drop a consequential event.\n\n",
                 ])
 
         prompt_parts.extend([
