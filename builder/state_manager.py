@@ -273,15 +273,30 @@ class StateManager:
         """Apply audited cumulative knowledge for current-scene characters."""
         def normalize_knowledge(values: list[str]) -> list[str]:
             cleaned = []
+            learned_facts = [
+                str(value).strip()
+                for value in values
+                if str(value).strip().casefold().startswith(("learned ", "now knows ", "knows "))
+            ]
+            has_new_detail_knowledge = any(
+                "learned " in fact.casefold()
+                or "now knows " in fact.casefold()
+                for fact in learned_facts
+            )
             for value in values:
                 text_value = str(value).strip()
                 if not text_value:
                     continue
-                # Remove stale negative-knowledge statements when the same
-                # character has now learned the relevant information during
-                # this section. Keep genuine negative knowledge that has not
-                # been resolved.
-                if text_value.casefold().startswith(("does not know", "doesn't know")):
+                # A broad negative such as "does not know the details" becomes
+                # stale when this audit has also established newly learned
+                # details. Preserve other negative knowledge statements because
+                # they may still be true.
+                lowered = text_value.casefold()
+                if (
+                    has_new_detail_knowledge
+                    and lowered.startswith(("does not know", "doesn't know"))
+                    and "detail" in lowered
+                ):
                     continue
                 if text_value not in cleaned:
                     cleaned.append(text_value)
