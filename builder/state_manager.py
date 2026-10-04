@@ -27,6 +27,8 @@ Rules:
 - When the completed prose clearly establishes or changes a character's final physical state, include those changed fields under physical_state for that character.
 - Physical continuity must follow the actual final prose. Do not move or reposition a character in physical_state merely because a new scene could logically use a different arrangement.
 - Record only facts established by the supplied story section.
+- Preserve consequential action ownership and causal links. When a completed section establishes multiple important actions in sequence, keep them as separate ordered events in recent_events rather than collapsing them into vague summaries. Do not replace a specific action such as a character striking, grabbing, turning, throwing, or being injured with a generic description such as "tried to help" or "a struggle occurred."
+- Preserve the established order of consequential events when updating recent_events. Do not reorder, merge, or omit a consequential action merely to make the summary shorter.
 - Determine the resulting state from what is true at the ABSOLUTE END of the completed section, using the final actions and final paragraphs as the primary evidence.
 - The current state is the BEFORE-state baseline only. Never copy a before-state location or situation into the update when the completed section clearly changes it.
 - For any character whose location or immediate situation changes during the section, include that changed character under location even if the before-state already listed a different location.
