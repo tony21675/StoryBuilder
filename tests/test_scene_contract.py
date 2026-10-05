@@ -39,14 +39,14 @@ class SceneContractTests(unittest.TestCase):
             "local_hard_checks": {
                 "forbidden_terms": ["blood", "bleeding", "bruise", "scrape", "cut"],
                 "forbidden_patterns": [
-                    r"\\bTony\\b[^\\n\"“”]{0,220}\\b(?:stranger|unfamiliar man|kidnapper)\\b[^\\n\"“”]{0,180}\\b(?:took|taken|kidnapped|abducted)\\b[^\\n\"“”]{0,100}\\bTiffany\\b"
+                    r"\bTony\b[^\n\"“”]{0,220}\b(?:stranger|unfamiliar man|kidnapper)\b[^\n\"“”]{0,180}\b(?:took|taken|kidnapped|abducted)\b[^\n\"“”]{0,100}\bTiffany\b"
                 ],
                 # These used to be hard requirements. They are intentionally
                 # left here to prove that wording regexes no longer gate prose.
                 "required_patterns": [
                     {
                         "label": "Old wording gate",
-                        "pattern": r"\\b(?:Tony|he)\\b[^\\n]{0,20}\\bred mark\\b"
+                        "pattern": r"\b(?:Tony|he)\b[^\n]{0,20}\bred mark\b"
                     }
                 ],
             },
