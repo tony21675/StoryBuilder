@@ -223,7 +223,38 @@
               "Do not replace the required question about what happened to Tiffany with a different question that never asks about Tiffany.",
               "Do not replay Maya's Scene 6 line that Tiffany is gone as though Tony is hearing it for the first time."
             ],
-            "hard_stop": "The final story movement is Tony asking Maya to tell him what happened to Tiffany, followed only by Maya being ready to answer or preparing herself to answer. No detailed abduction events are narrated after that point."
+            "hard_stop": "The final story movement is Tony asking Maya to tell him what happened to Tiffany, followed only by Maya being ready to answer or preparing herself to answer. No detailed abduction events are narrated after that point.",
+            "local_hard_checks": {
+              "forbidden_terms": [
+                "bruise",
+                "bruised",
+                "bruise-like",
+                "scrape",
+                "scraped",
+                "cut",
+                "bleeding",
+                "blood",
+                "handprint"
+              ],
+              "forbidden_patterns": [
+                "\\bTony\\b[^\\n\"“”]{0,220}\\b(?:stranger|unfamiliar man|kidnapper)\\b[^\\n\"“”]{0,180}\\b(?:took|taken|kidnapped|abducted)\\b[^\\n\"“”]{0,100}\\bTiffany\\b",
+                "\\bTony['’]s\\s+(?:mind|thoughts?|memory|memories?|image|picture)[^\\n]{0,220}\\b(?:stranger|unfamiliar man|kidnapper)\\b[^\\n]{0,180}\\b(?:took|taken|kidnapped|abducted)\\b[^\\n]{0,100}\\bTiffany\\b"
+              ],
+              "required_patterns": [
+                {
+                  "label": "Tony notices Maya's cheek mark and asks what happened.",
+                  "pattern": "\\b(?:Tony|he)\\b[^\\n]{0,220}\\b(?:red mark|redness|mark)\\b[^\\n]{0,120}\\b(?:cheek|face)\\b[^\\n]{0,160}\\b(?:what happened|what is that|what's this|what happened here)\\b"
+                },
+                {
+                  "label": "Maya explicitly says the unfamiliar man struck or hit her across the cheek during the struggle with Tiffany.",
+                  "pattern": "\\b(?:unfamiliar man|the man)\\b[^\\n]{0,180}\\b(?:hit|struck|slapped|backhanded)\\b[^\\n]{0,120}\\b(?:cheek|face)\\b[^\\n]{0,180}\\b(?:struggle|Tiffany)\\b"
+                },
+                {
+                  "label": "Tony explicitly asks Maya what happened to Tiffany.",
+                  "pattern": "\\b(?:Tony|he)\\b[^\\n]{0,180}\\b(?:tell me|what happened)\\b[^\\n]{0,80}\\bTiffany\\b"
+                }
+              ]
+            }
           }
         },
         "2": {
