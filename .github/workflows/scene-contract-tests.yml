@@ -1,0 +1,24 @@
+name: Scene contract tests
+
+on:
+  push:
+    branches:
+      - scene-contract-test-run
+  pull_request:
+    branches:
+      - scene-contract-experiment
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run scene contract tests
+        run: python -m unittest discover -s tests -p "test_*.py" -v
