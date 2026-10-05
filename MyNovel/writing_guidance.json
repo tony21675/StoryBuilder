@@ -1,5 +1,5 @@
 {
-  "purpose": "Recurring writing guidance for the current stretch of the story. This is creative direction, not permanent canon.",
+  "purpose": "Clean Chapter 1 writing guidance rebuilt from the current canon. This is creative direction, not permanent canon.",
   "scene_goal": "",
   "recurring_instructions": [
     "Write natural, grounded, character-driven prose.",
@@ -8,9 +8,12 @@
     "The story may invent harmless small talk, past shared stories, inside jokes, ordinary feelings, and everyday interpersonal details when they do not contradict hard canon, timeline, character knowledge, or explicit scene constraints.",
     "Treat harmless invented relationship details as scene-level creative material, not permanent canon.",
     "Use personality cues to shape behavior, dialogue, humor, reactions, and what characters notice. Show personality instead of explaining it.",
+    "Use signature scents only as occasional, natural sensory details. Do not mention a scent simply because it is available in the character data.",
     "Keep the scene grounded in the user's direction and the established present situation.",
     "Show relationships through behavior, dialogue, shared routines, and natural interaction instead of explaining relationship labels to the reader.",
-    "Do not add ominous narration or imply that an unseen event is coming when the current scene gives no reason for it."
+    "Do not add ominous narration or imply that an unseen event is coming when the current scene gives no reason for it.",
+    "Do not import details from discarded drafts, deleted scenes, or previous versions of the manuscript.",
+    "Treat the current story state, current character cards, and current scene guidance as the only starting continuity."
   ],
   "relationship_freedom": [
     "Characters may casually refer to plausible shared experiences from their established relationship.",
@@ -20,13 +23,18 @@
   "avoid": [
     "Do not turn harmless relationship details into major biography or consequential backstory.",
     "Do not force every scene to accomplish a major plot development.",
-    "Do not manufacture a major plot development merely to add drama."
+    "Do not manufacture a major plot development merely to add drama.",
+    "Do not reuse wording, actions, clues, injuries, knowledge, or event summaries from discarded Chapter 1 drafts."
   ],
   "scene_plan": {
     "1": {
-      "direction": "Start from Tiffany and Maya leaving school and walking along the front road toward the nearby gas station. Keep this section focused on the beginning of their walk and their natural conversation.",
-      "end_condition": "HARD STOP while they are still on the road between the school and the gas station, before they reach the entrance. Do not enter or arrive at the gas station yet, and do not begin the soda stop or walk home.",
-      "pacing": "Keep this a small opening section. Let Tiffany and Maya settle into their walk and conversation with ordinary observations, humor, memories, and everyday life details.",
+      "cast": [
+        "Tiffany",
+        "Maya"
+      ],
+      "direction": "Start fresh with Tiffany and Maya leaving school and walking along the front road toward the nearby gas station. Focus on the beginning of their walk and their natural conversation.",
+      "end_condition": "HARD STOP while they are still on the road between the school and the gas station, before they reach the entrance. Do not enter or arrive at the gas station yet.",
+      "pacing": "Keep this a small opening section. Let Tiffany and Maya settle into their walk with ordinary observations, humor, memories, and everyday life details.",
       "state_after": {
         "location": {
           "primary": "Road between the school and the nearby gas station",
@@ -37,92 +45,57 @@
       }
     },
     "2": {
-      "direction": "Continue directly from Scene 1 with Tiffany and Maya still walking toward the nearby gas station. Let the walk and conversation continue naturally until they reach the gas station entrance.",
+      "cast": [
+        "Tiffany",
+        "Maya"
+      ],
+      "direction": "Continue directly from Scene 1 with Tiffany and Maya still walking toward the nearby gas station. Let their conversation and ordinary interaction continue naturally until they reach the gas station entrance.",
       "end_condition": "HARD STOP when Tiffany and Maya arrive at and clearly stand at the gas station entrance. Do not enter the store, choose drinks, approach the counter, speak with the cashier, buy anything, leave the gas station, or begin walking home.",
-      "pacing": "Use this section to complete the physical trip to the gas station. Keep the focus on the two friends and their natural interaction. The endpoint should be unmistakable: they have arrived at the entrance.",
-      "state_after": {
-        "location": {
-          "Tiffany": "At the gas station entrance.",
-          "Maya": "At the gas station entrance."
-        },
-        "current_situation": "Tiffany and Maya have walked from school and arrived together at the gas station entrance. Tony remains at home asleep and Chloe is home sick and not participating."
-      }
+      "pacing": "Use this section to complete the physical trip to the gas station. Keep the focus on the two friends and their natural interaction."
     },
     "3": {
+      "cast": [
+        "Tiffany",
+        "Maya"
+      ],
       "direction": "Begin exactly with Tiffany and Maya at the gas station entrance where Scene 2 ended. They enter the convenience store, choose sodas, talk naturally with each other and the attendant, pay, receive their drinks and change, then leave the store and step outside.",
       "end_condition": "HARD STOP after they have finished the purchase, stepped outside with their drinks, and put on their sunglasses because of the bright afternoon sunlight. Do not begin walking home.",
       "pacing": "Spend most of the section on the simple soda stop, natural conversation, and the small actions of choosing and buying the drinks. End immediately after they are outside with sunglasses on."
     },
     "4": {
-      "direction": "Continue from Scene 3 with Tiffany and Maya outside the gas station. They begin walking home and continue a normal conversation as they leave the busy area and move farther along their route.",
-      "end_condition": "HARD STOP before the kidnapping. End while Tiffany and Maya are still walking home, after they have left the immediate gas-station area and reached the quieter stretch where the next scene can begin.",
-      "pacing": "Keep this section ordinary and relaxed. Do not force suspense, foreshadow the kidnapping, or partially begin the abduction."
+      "cast": [
+        "Tiffany",
+        "Maya"
+      ],
+      "direction": "Continue from Scene 3 with Tiffany and Maya outside the gas station. They begin walking home and continue a normal conversation as they leave the busy area and move farther along their route. During the walk, a suspicious van becomes noticeable and remains a background concern, but nothing dangerous happens yet.",
+      "end_condition": "HARD STOP before the kidnapping. End while Tiffany and Maya are still walking home on the quieter stretch, with the suspicious van having been noticed but before anyone approaches, grabs, strikes, threatens, or otherwise harms them.",
+      "pacing": "Keep the section ordinary and relaxed. The van can create mild uncertainty, but do not force suspense, foreshadow the kidnapping, or partially begin the abduction."
     },
     "5": {
-      "direction": "1. Begin at the exact end of Scene 4. The unfamiliar Kidnapper is approaching Tiffany and Maya on the road, moving directly into their path; he has not been trailing them for an extended time and has not touched Tiffany yet. 2. Show a brief confrontation or exchange before the Kidnapper grabs Tiffany. 3. The Kidnapper grabs Tiffany. Tiffany immediately uses the practical self-defense skills Tony taught her and lands multiple meaningful, clean strikes during the struggle. The strikes should hurt him and produce brief human reactions, but he remains in control. Do not describe Tiffany as having years of training or extensive formal combat experience; Tony taught her basic practical self-defense. 4. The Kidnapper is significantly larger and stronger than Tiffany, allowing him to overpower her and lift her completely off the ground. The lift is physically demanding and should show believable effort and strain rather than seeming effortless or superhuman. Tiffany has normal adult weight. Show believable changes in his breathing, grip, balance, posture, or footwork as he lifts and carries her. She keeps fighting while he carries her toward the van. 5. Maya freezes briefly, then runs after them and tries to hit the Kidnapper from behind. Her attack should make physical contact, even if it has little effect on him. 6. The Kidnapper turns toward Maya. As he turns, Tiffany reaches his exposed left cheek and digs her fingernails into it, leaving three deep scratches that break the skin and draw blood. At the same moment, the Kidnapper strikes Maya directly across the side of her cheek with a forceful backhand, leaving only a temporary red mark and knocking her down. 7. The Kidnapper forcefully throws Tiffany through the open side door of the van, then slams that side door, gets behind the wheel, and drives away. Maya remains outside, watches the van disappear, and then collapses on the roadside in shock and confusion.",
-      "end_condition": "HARD STOP after the van has driven away with Tiffany inside. Maya remains alone on the road, confused and shocked, and the emotional impact finally hits her. Her knees give way and she collapses on the roadside. Do not send Maya to Tony's house in this scene.",
-      "pacing": "Follow the seven action steps in order. The scene must begin before the Kidnapper touches Tiffany and must include a short confrontation before the grab. Give Tiffany enough room to put up a strong, believable fight and land meaningful strikes that make the Kidnapper react like a human being before his greater size and strength overwhelm her. Do not imply that Tiffany has years of combat training. Keep Tiffany actively fighting after being lifted. Make the lift and carry physically realistic: he is strong enough to overpower an average 18-year-old woman, but she has real adult weight and the effort of lifting and carrying her should remain visible. Do not describe Tiffany as light, weightless, effortless to lift, or as though she weighs almost nothing. Do not portray the Kidnapper as superhuman, massively muscular, or unusually powerful beyond what the scene requires. Make Maya's rear attack actually contact him, while showing that her lack of training and smaller size prevent it from stopping him. Make the Kidnapper turn toward Maya before Tiffany scratches his visible left cheek three times; the scratches break the skin and draw blood. Make the Kidnapper's backhand strike directly across the side of Maya's cheek and leave only a temporary red mark before knocking her down. Finish with Tiffany being forcefully thrown through the open side door of the van, that door slamming shut, the Kidnapper driving away, and Maya remaining conscious long enough to watch the van disappear before her knees give way and she collapses in shock. Avoid repetitive scent references and narrator explanations about the Kidnapper's training or intentions. Avoid decorative comparisons that make the physical struggle feel exaggerated or theatrical. Do not replay the walk from the gas station. Avoid repeated scent references. Do not use unnecessary phrases that make the confrontation feel grandiose or theatrical.",
-      "revision_note": "For revision, preserve any strong prose that already works, but enforce the exact seven-step order. The scene must begin with the Kidnapper approaching directly into their path rather than already touching Tiffany or having previously followed them for an extended time. Keep the two meaningful strikes, the lift and continued resistance, Maya's brief intervention with actual contact, the turn that exposes the Kidnapper's left cheek, the three deep bleeding scratches, Maya's minor cheek mark, the forceful throw through the open side door of the van, and Maya's final collapse. Keep the Kidnapper's strength human and grounded. Do not use phrases or comparisons suggesting Tiffany is feather-light, weightless, effortless to lift, or nearly without weight. Do not describe the Kidnapper as superhuman or as a power lifter. Do not add years of combat training to Tiffany's history. Do not soften the van entry into depositing, placing, or gently putting Tiffany inside. He must physically throw her through the open side door. Do not introduce a second kidnapper or any Driver/Grabber roles.",
-      "state_after": {
-        "location": {
-          "primary": "Road between the gas station and home",
-          "Tony": "At home, sleeping.",
-          "Tiffany": "Inside the van with the Kidnapper, being driven away from the road.",
-          "Maya": "Alone on the roadside after witnessing Tiffany's abduction. She is conscious, in shock, and has collapsed after the van disappeared.",
-          "Chloe": "At home sick and not participating in the scene."
-        },
-        "current_situation": "The Kidnapper has driven away with Tiffany inside the van. Maya is left alone on the roadside in shock after witnessing the abduction. Tony remains at home asleep and unaware.",
-        "character_knowledge": {
-          "Tony": [
-            "Knows Tiffany is his daughter.",
-            "Knows Maya is Tiffany's best friend and is also a friend of his.",
-            "Knows Tiffany's mother died while giving birth to Tiffany.",
-            "Does not know about the confrontation on the road or that Tiffany has been kidnapped."
-          ],
-          "Tiffany": [
-            "Was with Maya on the road home from the gas station before being abducted.",
-            "Knows the unfamiliar man forcibly took her and is driving away with her in the van.",
-            "Knows Maya was left behind on the roadside.",
-            "Knows Tony is at home.",
-            "Knows Maya lives next door with her mother."
-          ],
-          "Maya": [
-            "Witnessed the unfamiliar man forcibly take Tiffany.",
-            "Knows Tiffany was driven away inside the van.",
-            "Knows the man is an unfamiliar kidnapper whose identity is not established.",
-            "Saw Tiffany leave three deep scratches and draw blood from the man's left cheek during the struggle.",
-            "Knows Tony is at home.",
-            "Knows she is now alone on the roadside after the van disappeared."
-          ]
-        },
-        "completed_events": [
-          "Tiffany was abducted by the unfamiliar man, who drove away with her inside the van."
-        ],
-        "active_clues": [
-          "Tiffany left three deep scratches on the Kidnapper's left cheek, breaking the skin and drawing blood. Maya witnessed this during the struggle."
-        ],
-        "active_objectives": {
-          "Tony": "Remain asleep at home, unaware of the abduction.",
-          "Tiffany": "Endure the immediate aftermath of the abduction and remain conscious.",
-          "Maya": "Recover from the immediate shock of witnessing Tiffany's abduction."
-        }
-      }
+      "cast": [
+        "Tiffany",
+        "Maya",
+        "Unnamed kidnapper 1",
+        "Unnamed kidnapper 2"
+      ],
+      "direction": "Continue directly from Scene 4 on the quieter road. Two male kidnappers intercept Tiffany and Maya. One remains the driver of the van while the other physically grabs Tiffany and forces her into the van. Tiffany fights back using the practical self-defense Tony taught her. Maya witnesses the abduction and is not taken. Keep the event grounded in what the girls can actually see and experience. Do not reveal the kidnappers' identities, motive, destination, or hidden planning.",
+      "end_condition": "HARD STOP after Tiffany has been taken and Maya is left alone on the roadside, conscious, shocked, and extremely distressed. Do not send Maya to Tony's house in this scene.",
+      "pacing": "Let the scene begin as a believable continuation of the ordinary walk before the abduction changes everything. Fully dramatize the abduction without jumping ahead into Tony's response."
     },
     "6": {
       "cast": [
         "Maya",
         "Tony"
       ],
-      "direction": "Maya runs from the place where Tiffany was taken to Tony and Tiffany's home, uses her key, and rushes into Tony's bedroom. She is crying, trembling, and overwhelmed. She jumps onto Tony in panic and clings to him while he wakes and spends the scene calming and reassuring her. Maya is too overwhelmed by shock to explain the abduction during this scene. Before the final line, she must not verbally explain what happened, identify the Kidnapper, describe the struggle, say that someone took Tiffany, or give Tony a usable account of the van or the abduction. She may cry, gasp, tremble, struggle to speak, stammer incomplete fragments, or fail to get words out, but she should remain unable to give the actual explanation until the final line. Tony should focus on calming her rather than extracting the story from her. Tony may use an affectionate, familiar term such as \\\"sweetie\\\" or \\\"sweetheart\\\" when comforting Maya, but he must not call her \\\"kid\\\", \\\"kiddo\\\", or anything similar. If the van is mentioned at all before the final line, Maya must not provide a description or explanation of it, and any reference must remain consistent with the same suspicious van established in Scene 5. Do not call it a car, sedan, or any other type of vehicle.",
-      "end_condition": "HARD STOP immediately after Maya finally says exactly: \\\"Tiffany is gone\\\". That must be the final spoken dialogue. Do not have Maya explain anything else before or after that line. Do not have Tony respond after it.",
-      "pacing": "Spend most of the scene on Maya's panic and Tony's patient physical and emotional reassurance. Maya should remain effectively unable to talk about the abduction for almost the entire scene. Let her struggle repeatedly to speak, cry, shake, cling to Tony, and make incomplete attempts at words without providing the actual explanation. Do not let her identify the Kidnapper, describe the attack, explain the van, or say that someone took Tiffany before the final line. Tony should comfort her without forcing a detailed account. Let the house and Maya's trip to Tony's bedroom breathe naturally, but keep the emotional focus on Maya and Tony together. Build toward the final moment when Maya finally manages to say exactly: \\\"Tiffany is gone\\\" and then stop immediately.",
-      "revision_note": "Maya must remain largely unable to speak about what happened until the very end of Scene 6. Do not let her explain the kidnapping, identify the Kidnapper, describe the struggle, say that the man took Tiffany, or give Tony a usable account of the van before the final line. She may cry, gasp, tremble, stammer, repeat partial sounds, or begin sentences and fail to finish them. Tony should respond with patient, familiar, affectionate reassurance rather than drawing the story out of her. Do not call Maya \\\"kid\\\", \\\"kiddo\\\", or similar terms; affectionate terms such as \\\"sweetie\\\" or \\\"sweetheart\\\" are appropriate. Do not make her report the facial-scratch clue yet, and do not introduce her later decision to train with Tony. Keep any vehicle reference consistent with the suspicious van from Scene 5. The only complete explanatory statement Maya is allowed to make about Tiffany before the scene ends is the final line: \\\"Tiffany is gone\\\". That line must be the final spoken dialogue, with no response afterward.",
+      "direction": "Maya runs from the place where Tiffany was taken to Tony and Tiffany's home, uses her key, and rushes into Tony's bedroom. She is crying, trembling, and overwhelmed. Tony wakes and spends the scene calming and reassuring her. Maya is too overwhelmed by shock to explain the abduction for almost the entire scene. She struggles to speak, clings to Tony, and makes incomplete attempts at words. Only at the very end does she finally manage to say that Tiffany is gone.",
+      "end_condition": "HARD STOP immediately after Maya says exactly: \"Tiffany is gone\". That must be the final spoken dialogue. Do not have Maya explain the kidnapping, identify the kidnappers, describe the struggle, or give Tony a usable account before the final line. Do not have Tony respond after that line.",
+      "pacing": "Spend most of the scene on Maya's panic and Tony's patient physical and emotional reassurance. Build naturally toward the final statement and then stop.",
       "state_after": {
         "location": {
           "primary": "Tony and Tiffany's home",
           "Tony": "At home, awake in his bedroom with Maya after she arrives in distress.",
           "Maya": "In Tony's bedroom, clinging to Tony after running to him for help.",
-          "Tiffany": "Inside the van with the Kidnapper, being driven away.",
+          "Tiffany": "Inside the van with the kidnappers, being driven away.",
           "Chloe": "At home sick and not participating in the scene."
         },
         "current_situation": "Maya has reached Tony after witnessing Tiffany's abduction. She is in Tony's bedroom with him, and after struggling to speak through her panic, she has finally told him that Tiffany is gone.",
@@ -131,151 +104,16 @@
             "Knows Tiffany is his daughter.",
             "Knows Maya is Tiffany's best friend and is also a friend of his.",
             "Knows Tiffany's mother died while giving birth to Tiffany.",
-            "Now knows Maya has told him that Tiffany is gone.",
-            "Does not yet know who took Tiffany, where she is, or the details of what happened on the road."
+            "Now knows from Maya that Tiffany is gone.",
+            "Does not yet know the identities of the kidnappers, their motive, destination, or the detailed events of the abduction."
           ],
           "Maya": [
-            "Witnessed an unfamiliar man forcibly take Tiffany.",
-            "Knows Tiffany was driven away inside the van.",
-            "Knows the man is an unfamiliar kidnapper whose identity is not established.",
-            "Saw Tiffany leave three deep scratches and draw blood from the man's left cheek during the struggle.",
+            "Witnessed Tiffany being taken.",
+            "Knows two male kidnappers were involved.",
+            "Knows one kidnapper drove the van and the other physically grabbed Tiffany.",
             "Knows Tony is awake and with her in his bedroom.",
-            "Has finally told Tony that Tiffany is gone."
+            "Has told Tony that Tiffany is gone."
           ]
-        },
-        "active_objectives": {
-          "Tony": "Help Maya and determine what happened to Tiffany now that he knows she is gone.",
-          "Tiffany": "Endure the immediate aftermath and remain conscious.",
-          "Maya": "Stay with Tony and cope with the immediate shock after telling him that Tiffany is gone."
-        },
-        "continuity_requirements": [
-          "Tony and Tiffany live together in the same house.",
-          "Maya lives with her mother in her own separate home next door to Tony and Tiffany.",
-          "Chloe lives next door on the opposite side of Tony and Tiffany.",
-          "Only characters explicitly listed for a scene are physically present and participating in that scene.",
-          "From his current position, Tony cannot see or hear the front road or Tiffany. Maya is physically present with Tony in his bedroom.",
-          "Tiffany always wears Tony's dog tags on a chain close to her heart and keeps them with her.",
-          "Tony works the night shift, so it is normal for him to be asleep in his bed during the late afternoon while resting between shifts."
-        ],
-        "scene_completed": true,
-        "chapter_completed": true
-      }
-    }
-  },
-  "chapter_plans": {
-    "2": {
-      "scene_plan": {
-        "1": {
-          "cast": [
-            "Maya",
-            "Tony"
-          ],
-          "direction": "Continue immediately from the final moment of Chapter 1 Scene 6, with Maya and Tony already together in Tony's bedroom. Do not repeat or restate Maya's final words from Scene 6. Tony notices the temporary red mark on Maya's cheek and asks what happened. Maya explains that the unfamiliar man struck her across the cheek during the struggle with Tiffany. Tony reacts to that information and asks Maya to tell him what happened to Tiffany. End there, with Maya ready to begin the fuller account. Do not replay Scene 6 and do not move into the later detailed recounting of the abduction yet.",
-          "end_condition": "HARD STOP after Maya has explained that the unfamiliar man struck her across the cheek during the struggle and Tony has asked her to tell him what happened to Tiffany. Do not have Maya give the full abduction account yet. Do not repeat or restate the line \"Tiffany is gone.\" Do not move ahead to the later recovery or planning scenes.",
-          "pacing": "Keep this as a short, grounded continuation. Start exactly where Scene 6 ended, focus first on Tony noticing Maya's cheek, then let Maya explain the injury and Tony ask for the fuller account. Allow natural dialogue and emotion, but do not add new plot events or rush into the full abduction recounting.",
-          "scene_contract": {
-            "required_beats": [
-              "Begin with Tony and Maya in the exact physical situation established at the end of Chapter 1 Scene 6, moving forward without replaying that scene.",
-              "Tony notices the temporary red mark on Maya's cheek and asks what happened.",
-              "Maya tells Tony that the unfamiliar man struck her across the cheek during the struggle with Tiffany.",
-              "Tony reacts naturally to learning Maya was struck and asks her to tell him what happened to Tiffany.",
-              "End with Maya ready to give the fuller account, without entering the later detailed recounting of the abduction."
-            ],
-            "forbidden": [
-              "Do not have Tony repeat or say \"Tiffany is gone\" as though he is learning it for the first time.",
-              "Do not have Maya claim that she hurt herself or caused the cheek mark.",
-              "Do not give Tony knowledge of the van, the Kidnapper, or the detailed road events before Maya tells him.",
-              "Do not have Maya complete the full abduction account in this scene.",
-              "Do not introduce a second kidnapper, a different vehicle, or a new location."
-            ],
-            "state_after": {
-              "current_situation": "Tony has learned that the unfamiliar man struck Maya across the cheek during the struggle with Tiffany. Tony has not yet learned the full details of the abduction. Maya is ready to explain what happened to Tiffany.",
-              "character_knowledge": {
-                "Tony": [
-                  "Knows Tiffany is his daughter.",
-                  "Knows Maya is Tiffany's best friend and is also a friend of his.",
-                  "Knows Tiffany's mother died while giving birth to Tiffany.",
-                  "Now knows Maya has told him that Tiffany is gone.",
-                  "Knows the unfamiliar man struck Maya across the cheek during the struggle with Tiffany.",
-                  "Does not yet know who took Tiffany, where she is, or the detailed events of what happened on the road."
-                ]
-              }
-            },
-            "required_facts": [
-              "Maya's cheek injury was caused by the unfamiliar man striking her across the cheek during the struggle with Tiffany.",
-              "The scene must not contradict the established fact that Maya tried to help Tiffany by striking the attacker from behind during the struggle. This underlying action does not need to be narrated yet.",
-              "Maya's injury is only a temporary red mark. Do not add bleeding, an open wound, a cut, a scrape, a handprint, or a lasting injury.",
-              "Tony already knows from Scene 6 that Maya has told him Tiffany is gone. He must not treat that fact as new information in this scene.",
-              "Tony asks Maya to tell him what happened to Tiffany before the scene ends.",
-              "Maya is ready to give the fuller account, but she does not begin the detailed abduction recounting in this scene."
-            ],
-            "required_sequence": [
-              "Begin with Tony and Maya already in the exact bedroom position established at the end of Chapter 1 Scene 6, and move forward without replaying Scene 6.",
-              "Tony notices the temporary red mark on Maya's cheek and asks what happened.",
-              "Maya explicitly explains that the unfamiliar man struck her across the cheek during the struggle with Tiffany.",
-              "Tony reacts naturally to learning Maya was struck, then asks Maya to tell him what happened to Tiffany.",
-              "End immediately after Maya is ready to give the fuller account. Do not enter the detailed abduction recounting."
-            ],
-            "forbidden_details": [
-              "Do not introduce bleeding, a scrape, cut, open wound, handprint, or lasting injury on Maya's cheek.",
-              "Do not state or imply that Maya's action during the struggle was grabbing or pulling Tiffany, or another action that contradicts the established rear strike on the attacker.",
-              "Do not have Tony call Maya 'kid', 'kiddo', or another child-directed nickname; use Maya's established name/address style.",
-              "Do not replace the required question about what happened to Tiffany with a different question that never asks about Tiffany.",
-              "Do not replay Maya's Scene 6 line that Tiffany is gone as though Tony is hearing it for the first time."
-            ],
-            "hard_stop": "The final story movement is Tony asking Maya to tell him what happened to Tiffany, followed only by Maya being ready to answer or preparing herself to answer. No detailed abduction events are narrated after that point.",
-            "local_hard_checks": {
-              "forbidden_terms": [
-                "bruise",
-                "bruised",
-                "bruise-like",
-                "scrape",
-                "scraped",
-                "cut",
-                "bleeding",
-                "blood",
-                "handprint"
-              ],
-              "forbidden_patterns": [
-                "\\bTony\\b[^\\n\"“”]{0,220}\\b(?:stranger|unfamiliar man|kidnapper)\\b[^\\n\"“”]{0,180}\\b(?:took|taken|kidnapped|abducted)\\b[^\\n\"“”]{0,100}\\bTiffany\\b",
-                "\\bTony['’]s\\s+(?:mind|thoughts?|memory|memories?|image|picture)[^\\n]{0,220}\\b(?:stranger|unfamiliar man|kidnapper)\\b[^\\n]{0,180}\\b(?:took|taken|kidnapped|abducted)\\b[^\\n]{0,100}\\bTiffany\\b"
-              ],
-              "required_patterns": [
-                {
-                  "label": "Tony notices Maya's cheek mark and asks what happened.",
-                  "pattern": "\\b(?:Tony|he)\\b[^\\n]{0,220}\\b(?:red mark|redness|mark)\\b[^\\n]{0,120}\\b(?:cheek|face)\\b[^\\n]{0,160}\\b(?:what happened|what is that|what's this|what happened here)\\b"
-                },
-                {
-                  "label": "Maya explicitly says the unfamiliar man struck or hit her across the cheek during the struggle with Tiffany.",
-                  "pattern": "\\b(?:unfamiliar man|the man)\\b[^\\n]{0,180}\\b(?:hit|struck|slapped|backhanded)\\b[^\\n]{0,120}\\b(?:cheek|face)\\b[^\\n]{0,180}\\b(?:struggle|Tiffany)\\b"
-                },
-                {
-                  "label": "Tony explicitly asks Maya what happened to Tiffany.",
-                  "pattern": "\\b(?:Tony|he)\\b[^\\n]{0,180}\\b(?:tell me|what happened)\\b[^\\n]{0,80}\\bTiffany\\b"
-                }
-              ]
-            }
-          }
-        },
-        "2": {
-          "cast": [
-            "Maya",
-            "Tony"
-          ],
-          "direction": "Continue directly from Scene 1. Maya tells Tony what happened during Tiffany's abduction. Let her remember it naturally and emotionally while preserving established continuity. Tony stays calm, gentle, and protective, with his anger controlled beneath the surface. Keep the focus on Maya, Tony, and Tiffany.",
-          "end_condition": "",
-          "pacing": "Let the conversation unfold naturally. Keep the emotional focus on Maya, Tony, and Tiffany.",
-          "revision_note": "Preserve established continuity while allowing Maya's recollection to remain emotional and fragmented."
-        },
-        "3": {
-          "cast": [
-            "Maya",
-            "Tony"
-          ],
-          "direction": "Continue directly from Scene 2. Tony notices how exhausted and shaken Maya is and offers her a warm bubble bath to help her clean up and settle herself. He prepares the bath and asks whether she wants him to stay nearby or give her privacy, leaving the choice to Maya and offering help if she wants it. If she wants privacy, Tony stays close by in the house so he is available without hovering. While Maya bathes, Tony calls Beth and tells her only that Maya is safe at his house. He then goes to Tiffany's room, picks out clean clothes from Tiffany's closet for Maya to wear after the bath, and leaves those clean clothes on the bathroom counter. Separately, he puts the dirty clothes Maya arrived in into the washer. While he is in Tiffany's room, he has a quiet emotional moment with one of Tiffany's favorite things and privately promises himself that he will bring his daughter home safe. After Maya finishes bathing and changes into Tiffany's clothes, Tony makes tea and sits with her at the kitchen table ready to talk.",
-          "end_condition": "HARD STOP once Tony and Maya are seated together at the kitchen table and ready to talk. Do not begin the deeper discussion yet.",
-          "pacing": "Keep this scene quiet, caring, grounded, and natural. Let the actions unfold in the order described without rushing or adding unnecessary drama. Do not begin the deeper discussion about training, finding Tiffany, contacting military connections, or reporting the abduction.",
-          "revision_note": "Keep the scene focused on recovery and practical care. Preserve the warm, family-like relationship between Tony and Maya without over-explaining it."
         }
       }
     }
