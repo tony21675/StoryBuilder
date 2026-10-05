@@ -1,112 +1,99 @@
 {
-  "status": "in_progress",
-  "chapter": 2,
+  "status": "story_start",
+  "chapter": 1,
   "scene": 1,
   "scene_completed": false,
+  "chapter_completed": false,
   "location": {
-    "primary": "Tony and Tiffany's home",
-    "Tony": "At home, awake in his bedroom with Maya after she arrives in distress.",
-    "Tiffany": "Inside the van with the Kidnapper, being driven away.",
-    "Maya": "In Tony's bedroom, clinging to Tony after running to him for help.",
+    "primary": "Road between the school and the nearby gas station",
+    "Tony": "At home, asleep in his bedroom.",
+    "Tiffany": "Walking from school toward the nearby gas station with Maya.",
+    "Maya": "Walking from school toward the nearby gas station with Tiffany.",
     "Chloe": "At home sick and not participating in the scene."
   },
   "time": {
     "period": "late afternoon",
     "exact_time": "not established"
   },
-  "current_situation": "Maya has reached Tony after witnessing Tiffany's abduction. She is in Tony's bedroom with him, and after struggling to speak through her panic, she has finally told him that Tiffany is gone.",
+  "current_situation": "Chapter 1 begins with Tiffany and Maya leaving school and walking together toward the nearby gas station to get a drink. Tony is at home asleep. Chloe stayed home sick and is not participating in the scene.",
   "character_knowledge": {
     "Tony": [
       "Knows Tiffany is his daughter.",
-      "Knows Maya is Tiffany's best friend and is also a friend of his.",
+      "Knows Maya is Tiffany's best friend and has known Maya since she was a baby.",
+      "Knows Maya lives next door with her mother Beth.",
+      "Knows Chloe is a close family-like friend who lives next door on the opposite side of his house.",
       "Knows Tiffany's mother died while giving birth to Tiffany.",
-      "Now knows Maya has told him that Tiffany is gone.",
-      "Does not yet know who took Tiffany, where she is, or the details of what happened on the road."
+      "Knows he works the night shift and is normally asleep during the late afternoon while resting between shifts."
     ],
     "Tiffany": [
-      "Was with Maya on the road home from the gas station before being abducted.",
-      "Knows the unfamiliar man forcibly took her and is driving away with her in the van.",
-      "Knows Maya was left behind on the roadside.",
-      "Knows Tony is at home.",
-      "Knows Maya lives next door with her mother."
+      "Knows Tony is her father and that they live together.",
+      "Knows Maya is her best friend and they have known each other since they were babies.",
+      "Knows Maya lives next door with her mother Beth.",
+      "Knows Chloe is a close friend.",
+      "Knows her mother died while giving birth to her.",
+      "Knows Tony works the night shift and is normally resting during the late afternoon."
     ],
     "Maya": [
-      "Witnessed the unfamiliar man forcibly take Tiffany.",
-      "Knows Tiffany was driven away inside the van.",
-      "Knows the man is an unfamiliar kidnapper whose identity is not established.",
-      "Saw Tiffany leave three deep scratches and draw blood from the man's left cheek during the struggle.",
-      "Knows Tony is awake and with her in his bedroom.",
-      "Has finally told Tony that Tiffany is gone."
+      "Knows Tony is Tiffany's father and has known Tony since she was a baby.",
+      "Knows Tony considers her family and cares for her like another daughter while respecting that she is a young adult.",
+      "Knows Tiffany is her best friend and that they have known each other since they were babies.",
+      "Knows Chloe is a close friend.",
+      "Knows she lives with her mother Beth in the house next door.",
+      "Knows her father left when she was young and is not part of her household.",
+      "Knows Tony is at home during the late afternoon."
     ]
   },
-  "completed_events": [
-    "Tiffany was abducted by the unfamiliar man, who drove away with her inside the van."
-  ],
-  "active_clues": [
-    "Tiffany left three deep scratches on the Kidnapper's left cheek, breaking the skin and drawing blood. The exact severity of the scratches is not fixed; this may be described naturally."
-  ],
+  "completed_events": [],
+  "recent_events": [],
+  "active_clues": [],
   "new_clues": [],
   "unresolved_questions": [],
   "active_objectives": {
-    "Tony": "Help Maya and determine what happened to Tiffany now that he knows she is gone.",
-    "Tiffany": "Endure the immediate aftermath and remain conscious.",
-    "Maya": "Stay with Tony and cope with the immediate shock after telling him that Tiffany is gone."
+    "Tony": "Remain at home and sleep while resting between night shifts.",
+    "Tiffany": "Walk to the nearby gas station with Maya to get a drink and spend some time talking.",
+    "Maya": "Walk to the nearby gas station with Tiffany to get a drink and spend some time talking.",
+    "Chloe": "Remain home sick and not participate in the scene."
   },
   "continuity_requirements": [
+    "Chapter 1 begins here.",
     "Tony and Tiffany live together in the same house.",
-    "Maya lives with her mother in her own separate home next door to Tony and Tiffany.",
+    "Maya lives with her mother Beth in her own separate home next door to Tony and Tiffany.",
     "Chloe lives next door on the opposite side of Tony and Tiffany.",
+    "Maya and Tiffany are best friends with a close, sister-like platonic relationship.",
+    "Tiffany's mother died while giving birth to Tiffany, so Tiffany never knew her mother personally.",
     "Only characters explicitly listed for a scene are physically present and participating in that scene.",
-    "From his current position, Tony cannot see or hear the front road or Tiffany. Maya is physically present with Tony in his bedroom.",
+    "From his current position in his bedroom, Tony cannot see or hear the front road or Tiffany and Maya.",
     "Tiffany always wears Tony's dog tags on a chain close to her heart and keeps them with her.",
-    "Tony works the night shift, so it is normal for him to be asleep in his bed during the late afternoon while resting between shifts."
+    "Tony works the night shift, so sleeping in his bed during the late afternoon is normal.",
+    "Maya does not keep clothing at Tony and Tiffany's house."
   ],
   "story_format_version": "1.0",
-  "continuity_notes": [
-    "Tony and Tiffany live together in the same house.",
-    "Maya lives next door with her mother and has a key to Tony and Tiffany's home.",
-    "Maya and Tiffany are best friends with a close, sister-like platonic relationship.",
-    "Tony has known Maya since she was a baby and treats her like family.",
-    "Tony works the night shift and is normally asleep during the late afternoon while resting between shifts.",
-    "Tiffany has been abducted by the unfamiliar Kidnapper.",
-    "Maya witnessed the abduction and reached Tony for help.",
-    "Chloe is home sick and is not participating."
-  ],
+  "continuity_notes": [],
   "scene_cast": [
-    "Maya",
-    "Tony"
+    "Tiffany",
+    "Maya"
   ],
-  "primary": "Tony and Tiffany's home",
-  "Tony": "At home, awake in his bedroom with Maya after she arrives in distress.",
-  "Tiffany": "Inside the van with the Kidnapper, being driven away.",
-  "Maya": "In Tony's bedroom, clinging to Tony after running to him for help.",
-  "Chloe": "At home sick and not participating in the scene.",
-  "chapter_completed": false,
   "physical_state": {
     "Tony": {
       "location": "Tony's bedroom",
-      "position": "sitting upright on the bed",
-      "posture": "upright against the headboard",
-      "contact": "holding Maya in his arms",
-      "movement": "stationary since the previous scene ended"
+      "position": "lying in bed",
+      "posture": "asleep and resting",
+      "contact": "none",
+      "movement": "stationary"
+    },
+    "Tiffany": {
+      "location": "road between the school and the nearby gas station",
+      "position": "walking beside Maya",
+      "posture": "upright and walking",
+      "contact": "walking beside Maya",
+      "movement": "walking toward the gas station"
     },
     "Maya": {
-      "location": "Tony's bedroom",
-      "position": "lying against Tony's chest",
-      "posture": "curled against him",
-      "contact": "held in Tony's arms",
-      "movement": "stationary since the previous scene ended"
+      "location": "road between the school and the nearby gas station",
+      "position": "walking beside Tiffany",
+      "posture": "upright and walking",
+      "contact": "walking beside Tiffany",
+      "movement": "walking toward the gas station"
     }
-  },
-  "recent_events": [
-    "The unfamiliar man approached Tiffany and Maya directly in their path and grabbed Tiffany.",
-    "Tiffany fought back using the basic self-defense Tony taught her.",
-    "Maya froze briefly, then struck the man from behind to try to help Tiffany.",
-    "The man's attention turned toward Maya because of Maya's strike.",
-    "Tiffany scratched the man's left cheek three times, breaking the skin and drawing blood.",
-    "The man struck Maya across the cheek, leaving a temporary red mark.",
-    "The man forcefully threw Tiffany through the open side door of the van.",
-    "The man drove away with Tiffany inside the van.",
-    "Maya remained on the roadside, watched the van disappear, and then went to Tony for help."
-  ]
+  }
 }
