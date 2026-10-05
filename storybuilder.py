@@ -16,6 +16,7 @@ from builder.validator import validate_package
 from builder.writer_engine import WriterEngine
 from builder.manuscript import ManuscriptManager
 from builder.state_manager import StateManager
+from builder.scene_contract import SceneContract
 from builder.workspace import NOVEL_ROOT, WORKSPACE_ROOT
 
 
@@ -691,19 +692,10 @@ class StoryBuilderApp(tk.Tk):
             json.dumps(scene_state, indent=2, ensure_ascii=False),
         ))
 
-        # Carry forward concise established facts from accepted scenes.
-        continuity_handoff = {}
-        for key in ("recent_events", "completed_events", "active_clues", "new_clues"):
-            value = state.get(key)
-            if isinstance(value, list):
-                items = [str(item).strip() for item in value if str(item).strip()]
-                if items:
-                    continuity_handoff[key] = items[-12:]
-        if continuity_handoff:
-            files.append((
-                "recent_continuity.json",
-                json.dumps(continuity_handoff, indent=2, ensure_ascii=False),
-            ))
+        # Do not send shared recent-event or clue lists into the writer context.
+        # Those records may describe events witnessed by one character but not known
+        # by another character in the current scene. Character knowledge is supplied
+        # separately and is the authoritative information boundary.
 
         # Physical state is persisted separately from the prose so the writer
         # can preserve exact starting positions, posture, contact, and movement
@@ -865,6 +857,18 @@ class StoryBuilderApp(tk.Tk):
                     lines.append(f"Scene direction: {direction}")
                 if pacing:
                     lines.append(f"Pacing: {pacing}")
+                scene_contract = guidance.get("scene_contract", {})
+                if isinstance(scene_contract, dict) and scene_contract:
+                    required = scene_contract.get("required_beats", [])
+                    forbidden = scene_contract.get("forbidden", [])
+                    if isinstance(required, list) and required:
+                        lines.append("Required story beats: " + " | ".join(
+                            str(item).strip() for item in required if str(item).strip()
+                        ))
+                    if isinstance(forbidden, list) and forbidden:
+                        lines.append("Do not: " + " | ".join(
+                            str(item).strip() for item in forbidden if str(item).strip()
+                        ))
 
         module_endings = []
         module_beats = []
@@ -1108,35 +1112,81 @@ Rules:
 
         chapter = int(self.package.current_state.get("chapter", 1) or 1)
         scene = int(self.package.current_state.get("scene", 1) or 1)
+        contract = self._scene_contract(chapter, scene)
+        current_state = json.loads(
+            json.dumps(self.package.current_state, ensure_ascii=False)
+        )
 
-        # The current story state and resolved scene direction already define
-        # the exact starting point. Do not send previous manuscript prose to the
-        # writer, because it can pull completed scenes, old characters, or stale
-        # details back into the new scene.
+        # Rebuild the writer context before every scene attempt. The writer
+        # should never carry a previous scene's conversational memory into a
+        # new scene.
+        files = self._writer_package_files()
+        system_prompt = self._writer_system_prompt(files)
+        model = self.writer_engine.model_path
+
         prompt_parts = [
             "AUTHOR DIRECTION:\n",
             direction,
             "\n\n",
         ]
 
+        if contract:
+            prompt_parts.extend([
+                "AUTHORITATIVE SCENE CONTRACT:\n",
+                json.dumps(contract, indent=2, ensure_ascii=False),
+                "\n\n",
+            ])
+
         prompt_parts.extend([
             "IMPORTANT SCENE BOUNDARY:\n",
-            "The HARD STOP in the author direction is mandatory. "
-            "The scene is not complete until that exact endpoint is reached. "
-            "Do not end the scene early. Do not skip ahead beyond the endpoint. "
-            "Use enough prose to fully dramatize the requested movement and arrive at the endpoint. "
-            "Do not treat a generic word count as a hard limit. Ordinary scenes can be concise, while detailed "
-            "action or emotional scenes should be substantially longer when needed, generally around 800 to 1200 "
-            "words unless the scene direction specifies another length. Characters outside the scene cast are "
-            "continuity-only and should not be mentioned or narrated "
-            "unless the author direction explicitly requires it.\n\n"
-            "Write the next scene now. Output only the prose."
+            "The scene contract and current story state are authoritative. "
+            "Do not replay the previous scene. Do not reveal information to a character before that "
+            "character naturally learns it in this scene. Do not invent consequential facts. "
+            "Complete the required beats and reach the contract's ending without adding a different plot. "
+            "Creative variation is allowed in dialogue, wording, gestures, emotions, ordinary interaction, "
+            "and other harmless details.\n\n"
+            "Write the scene now. Output only the prose."
         ])
-        prompt = "".join(prompt_parts)
+        base_prompt = "".join(prompt_parts)
 
         def work():
             try:
-                answer = self.writer_engine.generate(prompt)
+                if model is None:
+                    raise RuntimeError("The Writer model is not available.")
+
+                max_attempts = 3 if contract else 1
+                feedback = ""
+                answer = ""
+
+                for attempt in range(1, max_attempts + 1):
+                    # Fresh model context for every attempt prevents rejected
+                    # drafts and previous scenes from contaminating the next draft.
+                    self.writer_engine.reset_context(model, system_prompt)
+
+                    attempt_prompt = base_prompt
+                    if feedback:
+                        attempt_prompt += "\n\n" + feedback + "\n"
+                    answer = self.writer_engine.generate(attempt_prompt)
+
+                    if not contract:
+                        break
+
+                    result = SceneContract.validate(
+                        model,
+                        contract,
+                        current_state,
+                        answer,
+                    )
+                    if result.get("pass"):
+                        break
+
+                    feedback = SceneContract.feedback(result)
+                    if attempt == max_attempts:
+                        raise RuntimeError(
+                            "The writer could not produce a scene that satisfies the scene contract "
+                            f"after {max_attempts} attempts.\n\n{feedback}"
+                        )
+
                 error = None
             except Exception as exc:
                 answer = ""
@@ -1145,6 +1195,7 @@ Rules:
 
         self.writer_thread = threading.Thread(target=work, daemon=True)
         self.writer_thread.start()
+
 
     def _finish_generated_scene(self, answer, error):
         if error:
@@ -1317,18 +1368,48 @@ Rules:
         except Exception:
             return ""
 
+    def _scene_contract(self, chapter: int, scene: int) -> dict:
+        """Return the authored scene contract for a specific scene, when present."""
+        try:
+            guidance = self.package.extra_json.get("writing_guidance.json", {}) if self.package else {}
+            entry = self._chapter_scene_guidance(guidance, chapter, scene) or {}
+            if not isinstance(entry, dict):
+                return {}
+            contract = entry.get("scene_contract", {})
+            return contract if isinstance(contract, dict) else {}
+        except Exception:
+            return {}
+
+
     def _analyze_accepted_scene(self):
-        if (
-            not self.package
-            or not self.accepted_scene.strip()
-            or not self.writer_engine.model_path
-        ):
+        if not self.package or not self.accepted_scene.strip():
             return
 
         current_state = dict(self.package.current_state)
         story_text = self.accepted_scene
         completed_chapter = int(current_state.get("chapter", 1) or 1)
         completed_scene = int(current_state.get("scene", 1) or 1)
+        contract = self._scene_contract(completed_chapter, completed_scene)
+        fixed_state_after = contract.get("state_after") if isinstance(contract, dict) else None
+
+        if isinstance(fixed_state_after, dict):
+            self.pending_state_patch = json.loads(
+                json.dumps(fixed_state_after, ensure_ascii=False)
+            )
+            self.writer_state_preview.delete("1.0", "end")
+            self.writer_state_preview.insert(
+                "1.0",
+                json.dumps(self.pending_state_patch, indent=2, ensure_ascii=False),
+            )
+            self.writer_status.configure(
+                text="Scene contract state loaded. No AI state reconstruction is needed."
+            )
+            self._update_writer_buttons()
+            return
+
+        if not self.writer_engine.model_path:
+            return
+
         scene_end_guidance = self._scene_end_guidance(completed_chapter, completed_scene)
         model = self.writer_engine.model_path
 
@@ -1359,6 +1440,7 @@ Rules:
             daemon=True,
         )
         self.writer_thread.start()
+
 
     def _finish_state_analysis(self, patch, error):
         if error:
