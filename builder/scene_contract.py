@@ -121,20 +121,20 @@ class SceneContract:
 
     @staticmethod
     def _local_hard_checks(contract: dict[str, Any], prose: str) -> dict[str, Any]:
-        """Catch explicit contract violations without another model call.
+        """Run only narrow deterministic checks.
 
-        These checks are intentionally narrow and deterministic. They are a
-        first-pass safety rail; the LLM validator still handles semantic and
-        contextual judgments.
+        Deterministic checks are limited to explicit forbidden details. Required
+        story beats remain semantic requirements so the writer keeps creative
+        freedom in how those beats are expressed.
         """
         rules = contract.get("local_hard_checks", {})
         if not isinstance(rules, dict):
             return {"pass": True, "missed_beats": [], "violations": [], "notes": ""}
 
         violations: list[str] = []
-        text_cf = prose.casefold()
 
         forbidden_terms = rules.get("forbidden_terms", [])
+        text_cf = prose.casefold()
         if isinstance(forbidden_terms, list):
             for term in forbidden_terms:
                 term = str(term).strip()
@@ -143,6 +143,11 @@ class SceneContract:
                         f"Forbidden detail appears in prose: {term!r}."
                     )
 
+        # Normalize whitespace only for optional forbidden regex checks. This
+        # lets a pattern span paragraph/dialogue breaks without imposing exact
+        # wording on required story beats.
+        normalized_prose = re.sub(r"\s+", " ", prose).strip()
+
         forbidden_patterns = rules.get("forbidden_patterns", [])
         if isinstance(forbidden_patterns, list):
             for pattern in forbidden_patterns:
@@ -150,7 +155,7 @@ class SceneContract:
                 if not pattern:
                     continue
                 try:
-                    if re.search(pattern, prose, flags=re.IGNORECASE | re.DOTALL):
+                    if re.search(pattern, normalized_prose, flags=re.IGNORECASE):
                         violations.append(
                             f"Forbidden contract pattern matched: {pattern!r}."
                         )
@@ -159,36 +164,16 @@ class SceneContract:
                         f"Invalid scene contract regex: {pattern!r}"
                     ) from exc
 
-        required_patterns = rules.get("required_patterns", [])
-        missed: list[str] = []
-        if isinstance(required_patterns, list):
-            for item in required_patterns:
-                if not isinstance(item, dict):
-                    continue
-                pattern = str(item.get("pattern", "") or "").strip()
-                label = str(item.get("label", pattern) or pattern).strip()
-                if not pattern:
-                    continue
-                try:
-                    matched = re.search(
-                        pattern, prose, flags=re.IGNORECASE | re.DOTALL
-                    ) is not None
-                except re.error as exc:
-                    raise ValueError(
-                        f"Invalid scene contract regex: {pattern!r}"
-                    ) from exc
-                if not matched:
-                    missed.append(label)
-
-        if violations or missed:
+        if violations:
             return {
                 "pass": False,
-                "missed_beats": missed,
+                "missed_beats": [],
                 "violations": violations,
-                "notes": "Deterministic contract checks failed before semantic validation.",
+                "notes": "Deterministic forbidden-detail checks failed before semantic validation.",
             }
 
         return {"pass": True, "missed_beats": [], "violations": [], "notes": ""}
+
 
     @staticmethod
     def validate_with_engine(
@@ -197,11 +182,7 @@ class SceneContract:
         current_state: dict[str, Any],
         prose: str,
     ) -> dict[str, Any]:
-        """Validate using the writer process that is already loaded in memory.
-
-        This avoids launching a second llama-cli process and reloading the full
-        model just to perform the contract check.
-        """
+        """Validate scene semantics with a dedicated validator process."""
         if not isinstance(contract, dict) or not contract:
             return {"pass": True, "missed_beats": [], "violations": [], "notes": ""}
 
@@ -209,44 +190,53 @@ class SceneContract:
         if not local_result.get("pass"):
             return local_result
 
+        # Only semantic requirements belong in the validator prompt. The
+        # local_hard_checks section is implementation detail, not prose
+        # wording that the model should be forced to reproduce.
+        semantic_contract = {
+            key: contract[key]
+            for key in (
+                "required_beats",
+                "required_facts",
+                "required_sequence",
+                "forbidden",
+                "forbidden_details",
+                "hard_stop",
+                "state_after",
+            )
+            if key in contract
+        }
+
         prompt = (
-            "VALIDATION MODE. Ignore the creative-writing task from the previous "
-            "turn and act only as a strict scene-contract validator.\n\n"
+            "VALIDATION MODE. Judge the completed prose against the authored "
+            "scene contract. Do not rewrite the scene.\n\n"
             "Return ONLY valid JSON in this exact shape:\n"
             '{"pass": true, "missed_beats": [], "violations": [], "notes": ""}\n\n'
+            "IMPORTANT VALIDATION PRINCIPLES:\n"
+            "- The writer has creative freedom over wording, dialogue phrasing, "
+            "gestures, sensory detail, pacing, and ordinary interaction.\n"
+            "- Accept clear paraphrases and natural variations when they preserve "
+            "the required story fact or event.\n"
+            "- Do NOT require exact wording or a particular sentence structure.\n"
+            "- Do NOT treat deterministic regex hints as required wording.\n"
+            "- Reject only genuine missing requirements, contradictions, knowledge "
+            "leaks, sequence errors, or an incorrect hard stop.\n\n"
             "SCENE CONTRACT:\n"
-            + json.dumps(contract, indent=2, ensure_ascii=False)
+            + json.dumps(semantic_contract, indent=2, ensure_ascii=False)
             + "\n\nCURRENT STORY STATE AT SCENE START:\n"
             + json.dumps(current_state, indent=2, ensure_ascii=False)
             + "\n\nCOMPLETED STORY PROSE TO VALIDATE:\n"
             + prose.strip()
             + "\n\n"
-            "Check every required beat, every required fact, required sequence, "
-            "forbidden detail, character knowledge boundary, and the hard-stop "
-            "condition. A vague substitute does NOT satisfy a specific required "
-            "fact or event. Pass ONLY if every requirement is explicitly satisfied "
-            "and the final ending is correct. Output JSON only."
+            "Validate the prose now. Output JSON only."
         )
 
-        output = engine.generate(prompt)
-        result = extract_json_object(output)
-        if not isinstance(result, dict):
-            raise ValueError(
-                "The scene contract validator did not return valid JSON."
-            )
+        model = getattr(engine, "model_path", None)
+        if model is None:
+            raise RuntimeError("The active writer model is unavailable for scene validation.")
 
-        missed = result.get("missed_beats", [])
-        violations = result.get("violations", [])
-        return {
-            "pass": bool(result.get("pass", False)),
-            "missed_beats": [
-                str(x).strip() for x in missed
-            ] if isinstance(missed, list) else [],
-            "violations": [
-                str(x).strip() for x in violations
-            ] if isinstance(violations, list) else [],
-            "notes": str(result.get("notes", "") or "").strip(),
-        }
+        return _run_validator(Path(model), prompt)
+
 
     @staticmethod
     def validate(
