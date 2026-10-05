@@ -170,9 +170,38 @@
             "Maya",
             "Tony"
           ],
-          "direction": "Continue immediately from the final moment of Chapter 1 Scene 6, with Maya and Tony already together in Tony's bedroom. Do not repeat or restate Maya's final words from Scene 6 and do not replay the previous scene. Tony knows only that Tiffany is gone. He does not yet know that she was abducted, who took her, that a van was involved, or where she may be. Tony notices the temporary red mark on the side of Maya's cheek and asks what happened. Maya explains that the unfamiliar man struck her across the cheek during the struggle with Tiffany, then continues telling Tony what happened. Let Maya reveal the abduction details naturally as Tony listens. Chloe remains home sick and does not participate.",
-          "end_condition": "",
-          "pacing": "Keep the opening grounded and immediate. Begin exactly where Scene 6 ended and move forward without repeating the final line. Focus first on Tony noticing Maya's cheek, then let Maya explain that the Kidnapper struck her and naturally tell Tony what happened to Tiffany. Keep each character's knowledge limited to what they have actually learned."
+          "direction": "Continue immediately from the final moment of Chapter 1 Scene 6, with Maya and Tony already together in Tony's bedroom. Do not repeat or restate Maya's final words from Scene 6. Tony notices the temporary red mark on Maya's cheek and asks what happened. Maya explains that the unfamiliar man struck her across the cheek during the struggle with Tiffany. Tony reacts to that information and asks Maya to tell him what happened to Tiffany. End there, with Maya ready to begin the fuller account. Do not replay Scene 6 and do not move into the later detailed recounting of the abduction yet.",
+          "end_condition": "HARD STOP after Maya has explained that the unfamiliar man struck her across the cheek during the struggle and Tony has asked her to tell him what happened to Tiffany. Do not have Maya give the full abduction account yet. Do not repeat or restate the line \"Tiffany is gone.\" Do not move ahead to the later recovery or planning scenes.",
+          "pacing": "Keep this as a short, grounded continuation. Start exactly where Scene 6 ended, focus first on Tony noticing Maya's cheek, then let Maya explain the injury and Tony ask for the fuller account. Allow natural dialogue and emotion, but do not add new plot events or rush into the full abduction recounting.",
+          "scene_contract": {
+            "required_beats": [
+              "Begin with Tony and Maya in the exact physical situation established at the end of Chapter 1 Scene 6, moving forward without replaying that scene.",
+              "Tony notices the temporary red mark on Maya's cheek and asks what happened.",
+              "Maya tells Tony that the unfamiliar man struck her across the cheek during the struggle with Tiffany.",
+              "Tony reacts naturally to learning Maya was struck and asks her to tell him what happened to Tiffany.",
+              "End with Maya ready to give the fuller account, without entering the later detailed recounting of the abduction."
+            ],
+            "forbidden": [
+              "Do not have Tony repeat or say \"Tiffany is gone\" as though he is learning it for the first time.",
+              "Do not have Maya claim that she hurt herself or caused the cheek mark.",
+              "Do not give Tony knowledge of the van, the Kidnapper, or the detailed road events before Maya tells him.",
+              "Do not have Maya complete the full abduction account in this scene.",
+              "Do not introduce a second kidnapper, a different vehicle, or a new location."
+            ],
+            "state_after": {
+              "current_situation": "Tony has learned that the unfamiliar man struck Maya across the cheek during the struggle with Tiffany. Tony has not yet learned the full details of the abduction. Maya is ready to explain what happened to Tiffany.",
+              "character_knowledge": {
+                "Tony": [
+                  "Knows Tiffany is his daughter.",
+                  "Knows Maya is Tiffany's best friend and is also a friend of his.",
+                  "Knows Tiffany's mother died while giving birth to Tiffany.",
+                  "Now knows Maya has told him that Tiffany is gone.",
+                  "Knows the unfamiliar man struck Maya across the cheek during the struggle with Tiffany.",
+                  "Does not yet know who took Tiffany, where she is, or the detailed events of what happened on the road."
+                ]
+              }
+            }
+          }
         },
         "2": {
           "cast": [
