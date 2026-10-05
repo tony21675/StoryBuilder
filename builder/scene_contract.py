@@ -119,6 +119,77 @@ class SceneContract:
     """Validate a generated scene against an authored scene contract."""
 
     @staticmethod
+    def _local_hard_checks(contract: dict[str, Any], prose: str) -> dict[str, Any]:
+        """Catch explicit contract violations without another model call.
+
+        These checks are intentionally narrow and deterministic. They are a
+        first-pass safety rail; the LLM validator still handles semantic and
+        contextual judgments.
+        """
+        rules = contract.get("local_hard_checks", {})
+        if not isinstance(rules, dict):
+            return {"pass": True, "missed_beats": [], "violations": [], "notes": ""}
+
+        violations: list[str] = []
+        text_cf = prose.casefold()
+
+        forbidden_terms = rules.get("forbidden_terms", [])
+        if isinstance(forbidden_terms, list):
+            for term in forbidden_terms:
+                term = str(term).strip()
+                if term and term.casefold() in text_cf:
+                    violations.append(
+                        f"Forbidden detail appears in prose: {term!r}."
+                    )
+
+        forbidden_patterns = rules.get("forbidden_patterns", [])
+        if isinstance(forbidden_patterns, list):
+            for pattern in forbidden_patterns:
+                pattern = str(pattern).strip()
+                if not pattern:
+                    continue
+                try:
+                    if re.search(pattern, prose, flags=re.IGNORECASE | re.DOTALL):
+                        violations.append(
+                            f"Forbidden contract pattern matched: {pattern!r}."
+                        )
+                except re.error as exc:
+                    raise ValueError(
+                        f"Invalid scene contract regex: {pattern!r}"
+                    ) from exc
+
+        required_patterns = rules.get("required_patterns", [])
+        missed: list[str] = []
+        if isinstance(required_patterns, list):
+            for item in required_patterns:
+                if not isinstance(item, dict):
+                    continue
+                pattern = str(item.get("pattern", "") or "").strip()
+                label = str(item.get("label", pattern) or pattern).strip()
+                if not pattern:
+                    continue
+                try:
+                    matched = re.search(
+                        pattern, prose, flags=re.IGNORECASE | re.DOTALL
+                    ) is not None
+                except re.error as exc:
+                    raise ValueError(
+                        f"Invalid scene contract regex: {pattern!r}"
+                    ) from exc
+                if not matched:
+                    missed.append(label)
+
+        if violations or missed:
+            return {
+                "pass": False,
+                "missed_beats": missed,
+                "violations": violations,
+                "notes": "Deterministic contract checks failed before semantic validation.",
+            }
+
+        return {"pass": True, "missed_beats": [], "violations": [], "notes": ""}
+
+    @staticmethod
     def validate_with_engine(
         engine: Any,
         contract: dict[str, Any],
@@ -132,6 +203,10 @@ class SceneContract:
         """
         if not isinstance(contract, dict) or not contract:
             return {"pass": True, "missed_beats": [], "violations": [], "notes": ""}
+
+        local_result = SceneContract._local_hard_checks(contract, prose)
+        if not local_result.get("pass"):
+            return local_result
 
         prompt = (
             "VALIDATION MODE. Ignore the creative-writing task from the previous "
