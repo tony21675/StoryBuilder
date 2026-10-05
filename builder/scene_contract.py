@@ -119,12 +119,67 @@ class SceneContract:
     """Validate a generated scene against an authored scene contract."""
 
     @staticmethod
+    def validate_with_engine(
+        engine: Any,
+        contract: dict[str, Any],
+        current_state: dict[str, Any],
+        prose: str,
+    ) -> dict[str, Any]:
+        """Validate using the writer process that is already loaded in memory.
+
+        This avoids launching a second llama-cli process and reloading the full
+        model just to perform the contract check.
+        """
+        if not isinstance(contract, dict) or not contract:
+            return {"pass": True, "missed_beats": [], "violations": [], "notes": ""}
+
+        prompt = (
+            "VALIDATION MODE. Ignore the creative-writing task from the previous "
+            "turn and act only as a strict scene-contract validator.\n\n"
+            "Return ONLY valid JSON in this exact shape:\n"
+            '{"pass": true, "missed_beats": [], "violations": [], "notes": ""}\n\n'
+            "SCENE CONTRACT:\n"
+            + json.dumps(contract, indent=2, ensure_ascii=False)
+            + "\n\nCURRENT STORY STATE AT SCENE START:\n"
+            + json.dumps(current_state, indent=2, ensure_ascii=False)
+            + "\n\nCOMPLETED STORY PROSE TO VALIDATE:\n"
+            + prose.strip()
+            + "\n\n"
+            "Check every required beat, every required fact, required sequence, "
+            "forbidden detail, character knowledge boundary, and the hard-stop "
+            "condition. A vague substitute does NOT satisfy a specific required "
+            "fact or event. Pass ONLY if every requirement is explicitly satisfied "
+            "and the final ending is correct. Output JSON only."
+        )
+
+        output = engine.generate(prompt)
+        result = extract_json_object(output)
+        if not isinstance(result, dict):
+            raise ValueError(
+                "The scene contract validator did not return valid JSON."
+            )
+
+        missed = result.get("missed_beats", [])
+        violations = result.get("violations", [])
+        return {
+            "pass": bool(result.get("pass", False)),
+            "missed_beats": [
+                str(x).strip() for x in missed
+            ] if isinstance(missed, list) else [],
+            "violations": [
+                str(x).strip() for x in violations
+            ] if isinstance(violations, list) else [],
+            "notes": str(result.get("notes", "") or "").strip(),
+        }
+
+    @staticmethod
     def validate(
         model_path: str | Path,
         contract: dict[str, Any],
         current_state: dict[str, Any],
         prose: str,
     ) -> dict[str, Any]:
+        """Legacy standalone validator kept for compatibility."""
         if not isinstance(contract, dict) or not contract:
             return {"pass": True, "missed_beats": [], "violations": [], "notes": ""}
 
