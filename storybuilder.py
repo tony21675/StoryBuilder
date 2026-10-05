@@ -1154,15 +1154,16 @@ Rules:
                 if model is None:
                     raise RuntimeError("The Writer model is not available.")
 
-                max_attempts = 3 if contract else 1
+                max_attempts = 2 if contract else 1
                 feedback = ""
                 answer = ""
 
-                for attempt in range(1, max_attempts + 1):
-                    # Fresh model context for every attempt prevents rejected
-                    # drafts and previous scenes from contaminating the next draft.
-                    self.writer_engine.reset_context(model, system_prompt)
+                # Start one fresh writer session for the scene. A retry only
+                # restarts the writer after a failed validation, avoiding an
+                # unnecessary model reload before the first attempt.
+                self.writer_engine.reset_context(model, system_prompt)
 
+                for attempt in range(1, max_attempts + 1):
                     attempt_prompt = base_prompt
                     if feedback:
                         attempt_prompt += "\n\n" + feedback + "\n"
@@ -1186,6 +1187,10 @@ Rules:
                             "The writer could not produce a scene that satisfies the scene contract "
                             f"after {max_attempts} attempts.\n\n{feedback}"
                         )
+
+                    # Only rejected drafts need a brand-new writer context.
+                    # This keeps retry feedback from accumulating prior prose.
+                    self.writer_engine.reset_context(model, system_prompt)
 
                 error = None
             except Exception as exc:
