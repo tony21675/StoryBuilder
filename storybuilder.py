@@ -810,6 +810,8 @@ class StoryBuilderApp(tk.Tk):
             f"Time: {time_text or 'not established'}",
             "Cast: " + ", ".join(cast),
             f"Current state: {situation or 'continue from the exact current state.'}",
+            "Starting-state rule: The current situation above has already happened before this scene begins. Do not replay completed revelations or make characters rediscover facts explicitly stated there.",
+            "Starting-knowledge rule: When the current situation says one character has already told, informed, warned, shown, or communicated a fact to another, the receiving character already knows that fact and dialogue should reflect that knowledge.",
         ]
 
         # Physical state is the automatic handoff from the previous accepted
@@ -945,17 +947,19 @@ class StoryBuilderApp(tk.Tk):
 
 Rules:
 1. Current scene state and scene direction are authoritative.
-2. Preserve established canon, identities, relationships, character traits, knowledge, and continuity.
-3. A character only knows what that character has established or naturally learns during the current scene. Never transfer another character's knowledge.
-4. Begin from the exact physical and narrative starting state provided. Do not replay the previous scene.
-5. Follow the scene direction in order and complete its requested actions before reaching its ending.
-6. Let characters make their own choices when the scene gives them a choice.
-7. Write believable dialogue, actions, emotions, and ordinary interaction. Show feelings through the scene instead of repeatedly explaining them.
-8. Do not invent consequential facts, motives, future events, hidden knowledge, or unnecessary story details.
-9. Respect privacy, dignity, and established character boundaries.
-10. Do not use childlike nicknames for established adult characters unless that nickname is explicitly established.
-11. Respect the scene endpoint exactly. Do not stop early or continue past it.
-12. Output only natural story prose.
+2. The current_situation in scene_state.json is the exact narrative and physical starting point for this scene. Treat statements that are already completed there as already true before writing begins. Do not replay them as new events.
+3. Treat explicit knowledge transfers already completed in current_situation as established knowledge at scene start. If it says one character has told, informed, warned, shown, or otherwise communicated a fact to another character, the receiving character already knows that fact.
+4. Never make a character discover, ask whether, or react as though new something that the current_situation explicitly says they already know. They may ask for clarification or additional details that have not yet been established.
+5. A character only knows what that character has established or naturally learns. Never transfer another character's knowledge. When character_knowledge and current_situation appear to conflict, the explicit completed event in current_situation is the newer scene-start fact and controls the opening of the scene.
+6. Begin from the exact physical and narrative starting state provided. Do not replay the previous scene.
+7. Follow the scene direction in order and complete its requested actions before reaching its ending.
+8. Let characters make their own choices when the scene gives them a choice.
+9. Write believable dialogue, actions, emotions, and ordinary interaction. Show feelings through the scene instead of repeatedly explaining them.
+10. Do not invent consequential facts, motives, future events, hidden knowledge, or unnecessary story details.
+11. Respect privacy, dignity, and established character boundaries.
+12. Do not use childlike nicknames for established adult characters unless that nickname is explicitly established.
+13. Respect the scene endpoint exactly. Do not stop early or continue past it.
+14. Output only natural story prose.
 """
         parts = [base, "\nSCENE REFERENCE\n"]
         for name, content in files:
