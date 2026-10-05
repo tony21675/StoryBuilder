@@ -1172,8 +1172,8 @@ Rules:
                     if not contract:
                         break
 
-                    result = SceneContract.validate(
-                        model,
+                    result = SceneContract.validate_with_engine(
+                        self.writer_engine,
                         contract,
                         current_state,
                         answer,
