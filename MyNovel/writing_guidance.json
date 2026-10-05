@@ -12,8 +12,10 @@
     "Keep the scene grounded in the user's direction and the established present situation.",
     "Show relationships through behavior, dialogue, shared routines, and natural interaction instead of explaining relationship labels to the reader.",
     "Do not add ominous narration or imply that an unseen event is coming when the current scene gives no reason for it.",
-    "Do not import details from discarded drafts, deleted scenes, or previous versions of the manuscript.",
-    "Treat the current story state, current character cards, and current scene guidance as the only starting continuity."
+    "Do not import details from discarded drafts, deleted scenes, blind tests, or previous versions of the manuscript.",
+    "Treat the current story state, current character cards, and current scene guidance as the only starting continuity.",
+    "Only characters explicitly listed in the scene cast are physically present and participating in that scene.",
+    "Supporting family members such as Beth, Jessica, and Rick exist in the story background but are not automatically present, mentioned, or made important unless the current scene calls for them."
   ],
   "relationship_freedom": [
     "Characters may casually refer to plausible shared experiences from their established relationship.",
@@ -24,7 +26,8 @@
     "Do not turn harmless relationship details into major biography or consequential backstory.",
     "Do not force every scene to accomplish a major plot development.",
     "Do not manufacture a major plot development merely to add drama.",
-    "Do not reuse wording, actions, clues, injuries, knowledge, or event summaries from discarded Chapter 1 drafts."
+    "Do not reuse wording, actions, clues, injuries, knowledge, or event summaries from discarded drafts.",
+    "Do not introduce a second kidnapper in the opening arc."
   ],
   "scene_plan": {
     "1": {
@@ -67,7 +70,7 @@
         "Tiffany",
         "Maya"
       ],
-      "direction": "Continue from Scene 3 with Tiffany and Maya outside the gas station. They begin walking home and continue a normal conversation as they leave the busy area and move farther along their route. During the walk, a suspicious van becomes noticeable and remains a background concern, but nothing dangerous happens yet.",
+      "direction": "Continue from Scene 3 with Tiffany and Maya outside the gas station. They begin walking home and continue a normal conversation as they leave the busy area and move farther along their route. A suspicious van may become noticeable and remain a background concern, but nothing dangerous happens yet.",
       "end_condition": "HARD STOP before the kidnapping. End while Tiffany and Maya are still walking home on the quieter stretch, with the suspicious van having been noticed but before anyone approaches, grabs, strikes, threatens, or otherwise harms them.",
       "pacing": "Keep the section ordinary and relaxed. The van can create mild uncertainty, but do not force suspense, foreshadow the kidnapping, or partially begin the abduction."
     },
@@ -75,10 +78,9 @@
       "cast": [
         "Tiffany",
         "Maya",
-        "Unnamed kidnapper 1",
-        "Unnamed kidnapper 2"
+        "Kidnapper"
       ],
-      "direction": "Continue directly from Scene 4 on the quieter road. Two male kidnappers intercept Tiffany and Maya. One remains the driver of the van while the other physically grabs Tiffany and forces her into the van. Tiffany fights back using the practical self-defense Tony taught her. Maya witnesses the abduction and is not taken. Keep the event grounded in what the girls can actually see and experience. Do not reveal the kidnappers' identities, motive, destination, or hidden planning.",
+      "direction": "Continue directly from Scene 4 on the quieter road. One unidentified male kidnapper intercepts Tiffany and Maya. He is the only kidnapper physically present in the scene. He grabs Tiffany and forces her into the van while Tiffany fights back using the practical self-defense Tony taught her. Maya witnesses the abduction and is not taken. Keep the event grounded in what the girls can actually see and experience. Do not reveal the kidnapper's identity, motive, destination, or hidden planning.",
       "end_condition": "HARD STOP after Tiffany has been taken and Maya is left alone on the roadside, conscious, shocked, and extremely distressed. Do not send Maya to Tony's house in this scene.",
       "pacing": "Let the scene begin as a believable continuation of the ordinary walk before the abduction changes everything. Fully dramatize the abduction without jumping ahead into Tony's response."
     },
@@ -88,14 +90,14 @@
         "Tony"
       ],
       "direction": "Maya runs from the place where Tiffany was taken to Tony and Tiffany's home, uses her key, and rushes into Tony's bedroom. She is crying, trembling, and overwhelmed. Tony wakes and spends the scene calming and reassuring her. Maya is too overwhelmed by shock to explain the abduction for almost the entire scene. She struggles to speak, clings to Tony, and makes incomplete attempts at words. Only at the very end does she finally manage to say that Tiffany is gone.",
-      "end_condition": "HARD STOP immediately after Maya says exactly: \"Tiffany is gone\". That must be the final spoken dialogue. Do not have Maya explain the kidnapping, identify the kidnappers, describe the struggle, or give Tony a usable account before the final line. Do not have Tony respond after that line.",
+      "end_condition": "HARD STOP immediately after Maya says exactly: \"Tiffany is gone\". That must be the final spoken dialogue. Do not have Maya explain the kidnapping, identify the kidnapper, describe the struggle, or give Tony a usable account before the final line. Do not have Tony respond after that line.",
       "pacing": "Spend most of the scene on Maya's panic and Tony's patient physical and emotional reassurance. Build naturally toward the final statement and then stop.",
       "state_after": {
         "location": {
           "primary": "Tony and Tiffany's home",
           "Tony": "At home, awake in his bedroom with Maya after she arrives in distress.",
           "Maya": "In Tony's bedroom, clinging to Tony after running to him for help.",
-          "Tiffany": "Inside the van with the kidnappers, being driven away.",
+          "Tiffany": "Inside the van with the kidnapper, being driven away.",
           "Chloe": "At home sick and not participating in the scene."
         },
         "current_situation": "Maya has reached Tony after witnessing Tiffany's abduction. She is in Tony's bedroom with him, and after struggling to speak through her panic, she has finally told him that Tiffany is gone.",
@@ -105,12 +107,11 @@
             "Knows Maya is Tiffany's best friend and is also a friend of his.",
             "Knows Tiffany's mother died while giving birth to Tiffany.",
             "Now knows from Maya that Tiffany is gone.",
-            "Does not yet know the identities of the kidnappers, their motive, destination, or the detailed events of the abduction."
+            "Does not yet know the identity of the kidnapper, his motive, destination, or the detailed events of the abduction."
           ],
           "Maya": [
             "Witnessed Tiffany being taken.",
-            "Knows two male kidnappers were involved.",
-            "Knows one kidnapper drove the van and the other physically grabbed Tiffany.",
+            "Knows one unidentified male kidnapper was involved.",
             "Knows Tony is awake and with her in his bedroom.",
             "Has told Tony that Tiffany is gone."
           ]
