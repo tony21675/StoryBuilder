@@ -1,6 +1,6 @@
 {
   "title": "Taken at Dusk",
-  "version": "1.6",
+  "version": "1.7",
   "status": "active",
   "character_cards": [
     "Chloe.json",
@@ -13,7 +13,8 @@
       "id": "relationship_dynamics",
       "name": "Relationship Dynamics",
       "file": "relationship_dynamics.json",
-      "character_files": []
+      "character_files": [],
+      "status": "optional"
     },
     {
       "id": "kidnapping",
@@ -27,39 +28,46 @@
   ],
   "relationships": {
     "Tony-Tiffany": "father/daughter; Tony has known Tiffany since birth",
-    "Tony-Maya": "family-like; Tony has known Maya since she was a baby and considers her like another daughter, caring for and protecting her as he would a daughter",
-    "Tony-Chloe": "family-like; Tony sees Chloe as another daughter in the emotional and protective sense, while remaining her longtime friend and neighbor",
+    "Tony-Maya": "family-like; Tony has known Maya since she was a baby and considers her another daughter, caring for and protecting her while respecting that she is a young adult",
+    "Tony-Chloe": "family-like; Tony sees Chloe as another daughter in the emotional and protective sense while remaining her longtime friend and neighbor",
     "Tiffany-Maya": "best friends with a close, sister-like platonic relationship; they have known each other since they were babies",
     "Tiffany-Chloe": "close friends",
     "Maya-Chloe": "close friends",
     "Tiffany-mother": "Tiffany's mother died while giving birth to Tiffany.",
-    "Maya-mother": "Maya lives with her mother next door to Tony and Tiffany."
+    "Maya-mother": "Beth; Maya lives with her mother next door to Tony and Tiffany.",
+    "Chloe-mother": "Jessica; Chloe lives with her parents next door on the opposite side of Tony and Tiffany.",
+    "Chloe-father": "Rick; Chloe lives with her parents next door on the opposite side of Tony and Tiffany."
+  },
+  "supporting_people": {
+    "Beth": "Maya's mother. She is part of Maya's home life and may appear naturally when the story reaches her, but she is not a core story character.",
+    "Jessica": "Chloe's mother. She is part of Chloe's home life and may appear naturally when the story reaches her, but she is not a core story character.",
+    "Rick": "Chloe's father. He is part of Chloe's home life and may appear naturally when the story reaches him, but he is not a core story character."
   },
   "locations": {
     "tony_tiffany_home": "Tony and Tiffany live together in the same house.",
     "garage": "The garage is part of Tony and Tiffany's home.",
-    "maya_home": "Maya lives with her mother next door to Tony and Tiffany."
+    "maya_home": "Maya lives with her mother Beth next door to Tony and Tiffany.",
+    "chloe_home": "Chloe lives with her parents Jessica and Rick next door on the opposite side of Tony and Tiffany."
   },
   "premise": "",
   "story_format_version": "1.0",
   "story_planning": {
     "genre": "Thriller / Suspense / Character Drama",
     "tone": "Grounded, tense, emotional, suspenseful, character-focused",
-    "core_conflict": "Tiffany is kidnapped, forcing Tony to protect and rescue his daughter while uncovering who took her, why she was targeted, and what they want. The kidnapping also puts Maya and Chloe in danger as they become involved in the effort to find Tiffany.",
-    "opposition": "An unidentified kidnapper who targets Tiffany and becomes the primary immediate threat. Additional participants are not established yet and should not be invented unless the story later introduces them.",
-    "setting": "A contemporary small-town or suburban American community where Tony and Tiffany live together in their home. Maya and her mother live next door, and Chloe lives on the opposite side of Tony and Tiffany, making all three households neighbors. The story begins in ordinary, familiar surroundings including their homes, garage, school, nearby roads, and local businesses such as the gas station. The setting is grounded and realistic.",
-    "important_elements": "Tony's 2010 Chevrolet Silverado, Tony's former U.S. Army Special Forces background, Tiffany's dog tags that belonged to Tony and that she always wears, the close lifelong relationships between Tony, Tiffany, Maya, and Chloe, the kidnapping of Tiffany, the kidnappers and their operation, and Tracker.",
+    "core_conflict": "Tiffany is kidnapped, forcing Tony to protect and rescue his daughter while uncovering who took her, why she was targeted, and what they want. The kidnapping also affects Maya and Chloe as they become involved in the effort to find Tiffany.",
+    "opposition": "An unidentified male kidnapper who becomes the immediate threat to Tiffany. Do not invent additional kidnappers or other participants unless the story later establishes them.",
+    "setting": "A contemporary small-town or suburban American community where Tony and Tiffany live together in their home. Maya and her mother live next door, and Chloe and her parents live on the opposite side, making the three households neighbors. The story begins in ordinary, familiar surroundings including their homes, garage, school, nearby roads, and local businesses such as the gas station. The setting is grounded and realistic.",
+    "important_elements": "Tony's 2010 Chevrolet Silverado, Tony's former U.S. Army Special Forces background, Tiffany's dog tags that belonged to Tony and that she always wears, the close lifelong relationships between Tony, Tiffany, Maya, and Chloe, the kidnapping of Tiffany, and the hidden tracker inside Tiffany's dog tags.",
     "themes": [
       "Family, loyalty, friendship, trust, sacrifice, resilience, and the lengths people will go to protect the people they love."
     ],
     "open_questions": [
-      "Who are the kidnappers and who is their leader?",
-      "Are any additional people involved in the kidnapping operation beyond the Kidnapper seen in Scene 5?",
-      "What does the Kidnapper know about Tony and his background?",
-      "How does the Kidnapper locate and approach Tiffany?",
-      "What is Tracker, and how does Tracker fit into the story?",
-      "Where does the Kidnapper take Tiffany after the abduction?",
-      "Is anyone else involved in the kidnapping operation?",
+      "Who is the unidentified kidnapper?",
+      "What does the kidnapper know about Tony and his background?",
+      "How does the kidnapper locate and approach Tiffany?",
+      "Who hired the kidnapper and why?",
+      "What is the hidden tracker inside Tiffany's dog tags and when will it become relevant?",
+      "Where does the kidnapper take Tiffany after the abduction?",
       "What happens immediately after Tiffany is taken?",
       "How will Tony, Maya, and Chloe begin trying to find her?"
     ]
