@@ -68,7 +68,7 @@ def _run_validator(model: Path, prompt: str) -> dict[str, Any]:
         "--top-p", "0.70",
         "--repeat-last-n", "256",
         "--repeat-penalty", "1.08",
-        "--n-predict", "700",
+        "--n-predict", "350",
         "--system-prompt", VALIDATOR_SYSTEM_PROMPT,
         "--prompt", prompt,
         "--color", "off",
