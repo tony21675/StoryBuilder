@@ -200,7 +200,30 @@
                   "Does not yet know who took Tiffany, where she is, or the detailed events of what happened on the road."
                 ]
               }
-            }
+            },
+            "required_facts": [
+              "Maya's cheek injury was caused by the unfamiliar man striking her across the cheek during the struggle with Tiffany.",
+              "During that struggle, Maya tried to help Tiffany by striking the attacker from behind. Do not substitute grabbing Tiffany, pulling Tiffany, or another different physical action.",
+              "Maya's injury is only a temporary red mark. Do not add bleeding, an open wound, a cut, a scrape, a handprint, or a lasting injury.",
+              "Tony already knows from Scene 6 that Maya has told him Tiffany is gone. He must not treat that fact as new information in this scene.",
+              "Tony asks Maya to tell him what happened to Tiffany before the scene ends.",
+              "Maya is ready to give the fuller account, but she does not begin the detailed abduction recounting in this scene."
+            ],
+            "required_sequence": [
+              "Begin with Tony and Maya already in the exact bedroom position established at the end of Chapter 1 Scene 6, and move forward without replaying Scene 6.",
+              "Tony notices the temporary red mark on Maya's cheek and asks what happened.",
+              "Maya explicitly explains that the unfamiliar man struck her across the cheek during the struggle with Tiffany and that she had been trying to help Tiffany by striking the attacker from behind.",
+              "Tony reacts naturally to learning Maya was struck, then asks Maya to tell him what happened to Tiffany.",
+              "End immediately after Maya is ready to give the fuller account. Do not enter the detailed abduction recounting."
+            ],
+            "forbidden_details": [
+              "Do not introduce bleeding, a scrape, cut, open wound, handprint, or lasting injury on Maya's cheek.",
+              "Do not replace Maya's established rear strike on the attacker with grabbing or pulling Tiffany or another different action.",
+              "Do not have Tony call Maya 'kid', 'kiddo', or another child-directed nickname; use Maya's established name/address style.",
+              "Do not have Tony ask a generic substitute such as 'What happened after that?' in place of the required question about what happened to Tiffany.",
+              "Do not replay Maya's Scene 6 line that Tiffany is gone as though Tony is hearing it for the first time."
+            ],
+            "hard_stop": "The final story movement is Tony asking Maya to tell him what happened to Tiffany, followed only by Maya being ready or beginning to prepare herself to answer. No detailed abduction events are narrated after that point."
           }
         },
         "2": {
@@ -226,4 +249,4 @@
       }
     }
   }
-}
+}\n
