@@ -20,19 +20,24 @@ Return ONLY valid JSON in this exact shape:
   "notes": ""
 }
 
-Rules:
-- Validate the completed prose against the supplied scene contract.
-- Every required beat must be clearly present in the prose.
-- Every forbidden event or contradiction must be absent.
-- The prose must begin from the supplied starting situation and respect the current character knowledge.
-- The prose may use different wording, dialogue, pacing, and harmless details. Do not require exact wording.
-- Do not penalize harmless creative variation.
-- Do not invent problems that are not stated in the contract.
-- If a required beat is only implied weakly, treat it as missed.
-- If the prose reveals information to a character before the contract allows it, treat that as a violation.
-- If the prose changes an established fact, physical state, relationship, or event sequence covered by the contract, treat that as a violation.
-- Pass only when all required beats are satisfied and no contract violation is present.
-- Keep missed_beats and violations concise and specific.
+Validation standard:
+- Treat the authored scene contract as a hard specification for the scene's story facts, event order, character knowledge, and stopping point.
+- Treat the supplied current story state as authoritative for the scene's starting situation.
+- Creative variation is allowed ONLY in wording, dialogue phrasing, gestures, harmless sensory detail, ordinary emotion, and other details that do not change or weaken a required fact or event.
+- Do not require exact wording when the same required fact or event is clearly and explicitly established.
+- Do not accept a required fact merely because it is vaguely implied, suggested, or replaced by a broader statement.
+- When a required fact names a specific action, cause, object, injury, person, location, or sequence, that specific element must be explicitly established.
+- Do not silently substitute a different action that feels similar. For example, "tried to stop him" does not automatically satisfy a requirement that a character struck the attacker from behind.
+- When a contract gives a specific physical result, do not treat a materially different physical result as an equivalent. For example, a temporary red mark is not equivalent to bleeding, a scrape, a cut, a handprint, or a lasting wound unless the contract explicitly allows those variations.
+- Required sequence matters. A scene can fail even when all individual events appear somewhere in the prose if they happen in the wrong order.
+- The hard stop matters. The scene must stop at the authored ending state. Do not pass a scene that jumps beyond the stopping point, even if the required ending state also appears earlier.
+- Character knowledge matters. Do not allow a character to know a fact before the character learns it in the scene.
+- If a forbidden detail or contradiction occurs, mark a violation even when the rest of the scene is good.
+- If a required beat, required fact, sequence step, or hard-stop condition is missing or only weakly implied, mark it as missed.
+- If the contract specifies a character's established wording or address preferences, treat violations as contract violations when they materially contradict the supplied character guidance.
+- Do not penalize harmless creative detail that is not constrained by the contract.
+- Pass ONLY when every required beat and required fact is explicitly satisfied, the required sequence is preserved, the hard stop is satisfied, and no forbidden or contradictory detail appears.
+- Keep missed_beats and violations concise and specific. Name the missing fact or wrong event rather than giving generic criticism.
 - Output JSON only. No markdown or explanation outside the JSON.
 """
 
@@ -134,7 +139,16 @@ class SceneContract:
             + json.dumps(current_state, indent=2, ensure_ascii=False)
             + "\n\nCOMPLETED STORY PROSE:\n"
             + prose.strip()
-            + "\n\nValidate the prose now."
+            + "\n\nValidation instructions:\n"
+            "1. Check every required beat.\n"
+            "2. Check every required fact explicitly, including its named action/cause/result.\n"
+            "3. Check any required sequence in order.\n"
+            "4. Check every forbidden detail or contradictory fact.\n"
+            "5. Check character knowledge and prevent premature knowledge leaks.\n"
+            "6. Check the hard-stop condition against the actual end of the prose.\n"
+            "7. Do not replace missing specifics with vague wording merely because the scene feels similar.\n"
+            "8. Pass only if ALL of those checks succeed.\n\n"
+            "Validate the prose now."
         )
         return _run_validator(model, prompt)
 
@@ -146,10 +160,11 @@ class SceneContract:
 
         lines = [
             "The previous draft did not satisfy the scene contract.",
-            "Rewrite the scene from the beginning. Keep the same creative freedom in wording and dialogue, but correct the contract problems.",
+            "Rewrite the scene from the beginning. Keep the same creative freedom in wording and dialogue, but correct every missing or incorrect contract item.",
+            "Required facts must be explicit. Do not replace a specific required action, cause, injury, or ending event with a vague substitute.",
         ]
         if missed:
-            lines.append("Missed required beats:")
+            lines.append("Missed required beats or facts:")
             lines.extend(f"- {item}" for item in missed)
         if violations:
             lines.append("Contract violations:")
