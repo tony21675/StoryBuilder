@@ -23,11 +23,12 @@
   ],
   "weaknesses": [
     "second-guesses herself when uncertain",
-    "hesitates when unsure"
+    "hesitates when unsure",
+    "Strong discomfort with being left alone when frightened, distressed, or emotionally overwhelmed; seeks the presence and reassurance of trusted people during severe stress."
   ],
   "family": {
-    "mother": "Maya lives with her mother in Maya's own home next door to Tony and Tiffany.",
-    "father": "not present in Maya's household; no further history established"
+    "mother": "Beth. Maya lives with her mother in Maya's own home next door to Tony and Tiffany. Tony has known Beth for years because he has known Maya since she was a baby, so he addresses Beth by her first name.",
+    "father": "Maya's father left when she was young. She grew up living with her mother and has no father present in her household."
   },
   "relationships": {
     "Tony": "friend; Tony has known her since she was a baby",
@@ -41,10 +42,12 @@
     "Often pauses to think before speaking when something matters.",
     "Checks on people through simple questions rather than dramatic displays.",
     "Uses quiet, understated humor with close friends.",
-    "Shows loyalty through consistency and being there when people need her."
+    "Shows loyalty through consistency and being there when people need her.",
+    "When frightened or emotionally overwhelmed, she may prefer not to be alone and may seek the presence and reassurance of someone she trusts."
   ],
   "access": {
     "keys": "Maya has a key to Tony and Tiffany's house.",
-    "purpose": "Her longstanding friendship with Tony and Tiffany allows her to enter the house when she needs them."
+    "purpose": "Her longstanding friendship with Tony and Tiffany allows her to enter the house when she needs them.",
+    "clothing": "Maya does not keep clothes at Tony and Tiffany's house. If she needs clean clothes while staying there, Tony gets her clothes belonging to Tiffany for Maya to wear."
   }
 }

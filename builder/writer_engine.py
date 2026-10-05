@@ -114,7 +114,7 @@ class WriterEngine:
                 "--reasoning", "off",
                 "--repeat-last-n", "256",
                 "--repeat-penalty", "1.08",
-                "--n-predict", "1400",
+                "--n-predict", "2000",
                 "--system-prompt", system_prompt,
                 "--color", "off",
                 "--no-display-prompt",

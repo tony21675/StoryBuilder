@@ -937,42 +937,21 @@ class StoryBuilderApp(tk.Tk):
         self.writer_status.configure(text="Scene direction built from the current state and active plan.")
 
     def _writer_system_prompt(self, files):
-        base = """You write prose for an ongoing fictional novel.
-
-Use attached scene files as private reference. Follow the current scene direction as the resolved plan.
+        base = """You write natural prose for an ongoing fictional novel.
 
 Rules:
-- Current scene state, cast, and direction are authoritative.
-- Only current-scene characters may participate.
-- The abductor is one man. Refer to him as he or the man; do not use plural references.
-- Never replay completed earlier scenes or invent off-cast characters.
-- Preserve established names, genders, pronouns, relationships, possessions, appearance, and scents.
-- Current-novel signature scents: Tiffany = coconut + strawberry; Maya = vanilla; Chloe = pineapple.
-- Treat the shared current_situation as world/story context, not as knowledge automatically possessed by every character.
-- Use scene_character_knowledge.json as the authority for what each current-scene character personally knows.
-- Use scene_physical_state.json as the authority for each current-scene character's physical starting position, posture, contact, and movement at the start of this scene.
-- Treat recent_continuity.json as established past events. Preserve the underlying facts and action ownership exactly.
-- When a character retells an established event, memory and wording may be fragmented or emotional, but do not add, alter, omit, exaggerate, or reorder established actions, injuries, objects, locations, witnesses, motives, or outcomes. Preserve every consequential action and distinctive clue relevant to the event, even when the character recounts it emotionally or in fragments. Do not silently drop an established clue for brevity or smoother prose. If a detail is not established, leave it out rather than inventing one.
-- When an established injury or clue has a fixed identity, location, count, or consequence, preserve those facts while allowing natural variation in descriptive intensity unless the state explicitly fixes the severity.
-- Do not introduce future plot information, foreshadowing, or ominous implications unless the current scene direction explicitly establishes them.
-- Do not resolve future actions, decisions, plans, discoveries, or outcomes before they occur in the story. Do not state what a character will do later or assume another character's unspoken feelings or conclusions unless established by the current scene or character knowledge.
-- Do not write dialogue that implies another character witnessed a past event unless that character's knowledge establishes it.
-- Keep each character's dialogue and knowledge consistent with scene_character_knowledge.json.
-- Preserve that physical starting state at the opening of the scene. Do not move, separate, stand, sit, or reposition characters merely to create a new blocking arrangement. Physical changes should happen only when the prose itself causes the movement.
-- A character may act on a fact only if that character's knowledge file establishes it or the character naturally learns it during the current scene.
-- Never transfer one character's knowledge to another character automatically.
-- Never give a character knowledge of another character's name, identity, relationship, location, or other personal fact unless that knowledge is established or naturally learned in the story.
-- Natural small talk, ordinary memories, harmless feelings, and minor scene details are welcome.
-- Keep ordinary caregiving practical and human. When one character offers help, let the other character's needs and choices determine how much help or company is wanted; do not automatically decide for them.
-- In caring or family-like situations, physical comfort is nonsexual and should be written as ordinary care, support, reassurance, or assistance. Respect privacy and dignity, especially during bathing, changing clothes, medical care, or other vulnerable moments.
-- When a character is overwhelmed and cannot immediately choose between options, do not turn uncertainty into an invented yes or no. Let the other character ease the pressure, remain available, and allow the choice to emerge naturally in the scene.
-- Show emotions primarily through concrete behavior, dialogue, physical reactions, and small actions. Avoid repeatedly explaining what characters are feeling when the scene already demonstrates it.
-- Keep prose grounded and natural. Prefer specific, observable details and believable dialogue over generic emotional summaries, stock dramatic phrases, or decorative metaphors.
-- Minor sensory and environmental details are welcome when they support the scene, but do not add unnecessary objects, products, scents, atmosphere, or backstory that imply facts the story has not established.
-- Do not invent consequential canon, motives, identities, hidden plans, or secret knowledge.
-- Fully dramatize important action and emotional scenes instead of summarizing them.
-- Obey the scene endpoint exactly.
-- Output only the story prose.
+1. Current scene state and scene direction are authoritative.
+2. Preserve established canon, identities, relationships, character traits, knowledge, and continuity.
+3. A character only knows what that character has established or naturally learns during the current scene. Never transfer another character's knowledge.
+4. Begin from the exact physical and narrative starting state provided. Do not replay the previous scene.
+5. Follow the scene direction in order and complete its requested actions before reaching its ending.
+6. Let characters make their own choices when the scene gives them a choice.
+7. Write believable dialogue, actions, emotions, and ordinary interaction. Show feelings through the scene instead of repeatedly explaining them.
+8. Do not invent consequential facts, motives, future events, hidden knowledge, or unnecessary story details.
+9. Respect privacy, dignity, and established character boundaries.
+10. Do not use childlike nicknames for established adult characters unless that nickname is explicitly established.
+11. Respect the scene endpoint exactly. Do not stop early or continue past it.
+12. Output only natural story prose.
 """
         parts = [base, "\nSCENE REFERENCE\n"]
         for name, content in files:
@@ -1139,25 +1118,6 @@ Rules:
             direction,
             "\n\n",
         ]
-
-        # Put compact established-event facts directly beside the author
-        # direction so the writer can use them while generating the scene.
-        recent_events = self.package.current_state.get("recent_events", [])
-        if isinstance(recent_events, list):
-            recent_event_items = [
-                str(item).strip()
-                for item in recent_events
-                if str(item).strip()
-            ]
-            if recent_event_items:
-                prompt_parts.extend([
-                    "ESTABLISHED PAST EVENTS:\n",
-                    "\n".join(f"- {item}" for item in recent_event_items),
-                    "\n\n",
-                    "These are established past facts. Preserve the underlying events, action ownership, and consequential clues. "
-                    "A character may remember or describe them imperfectly, emotionally, or out of order, but the established facts must remain correct. "
-                    "Do not invent missing details or silently drop a consequential event.\n\n",
-                ])
 
         prompt_parts.extend([
             "IMPORTANT SCENE BOUNDARY:\n",

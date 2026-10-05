@@ -1,7 +1,7 @@
 {
   "status": "in_progress",
   "chapter": 2,
-  "scene": 3,
+  "scene": 1,
   "scene_completed": false,
   "location": {
     "primary": "Tony and Tiffany's home",
@@ -21,11 +21,7 @@
       "Knows Maya is Tiffany's best friend and is also a friend of his.",
       "Knows Tiffany's mother died while giving birth to Tiffany.",
       "Now knows Maya has told him that Tiffany is gone.",
-      "Was not present during the abduction and did not witness the road events.",
-      "Learned from Maya that an unfamiliar man approached them, grabbed Tiffany, and she fought back, scratching him three times and drawing blood.",
-      "Learned from Maya that after she struck the man, his attention turned toward her.",
-      "Learned from Maya that the man hit her across the cheek, leaving a temporary red mark.",
-      "Learned from Maya that the man threw Tiffany into the van and drove away with her inside."
+      "Does not yet know who took Tiffany, where she is, or the details of what happened on the road."
     ],
     "Tiffany": [
       "Was with Maya on the road home from the gas station before being abducted.",
@@ -35,23 +31,19 @@
       "Knows Maya lives next door with her mother."
     ],
     "Maya": [
-      "Witnessed the unfamiliar man approach Tiffany and Maya directly in their path and grab Tiffany.",
-      "Saw Tiffany fight back using the basic self-defense Tony taught her.",
-      "Froze briefly, then struck the man from behind to try to help Tiffany.",
-      "Saw the man's attention turn toward her because of Maya's strike.",
-      "Saw Tiffany scratch the man's left cheek three times, breaking the skin and drawing blood.",
-      "Was struck across the cheek by the man, leaving a temporary red mark.",
-      "Saw the man forcefully throw Tiffany through the open side door of the van.",
-      "Saw the man drive away with Tiffany inside the van.",
-      "Was left alone on the roadside, watched the van disappear, and then went to Tony for help.",
-      "Told Tony that Tiffany is gone."
+      "Witnessed the unfamiliar man forcibly take Tiffany.",
+      "Knows Tiffany was driven away inside the van.",
+      "Knows the man is an unfamiliar kidnapper whose identity is not established.",
+      "Saw Tiffany leave three deep scratches and draw blood from the man's left cheek during the struggle.",
+      "Knows Tony is awake and with her in his bedroom.",
+      "Has finally told Tony that Tiffany is gone."
     ]
   },
   "completed_events": [
     "Tiffany was abducted by the unfamiliar man, who drove away with her inside the van."
   ],
   "active_clues": [
-    "Tiffany left three scratches on the Kidnapper's left cheek that broke the skin and drew blood. The exact severity of the scratches is not fixed; this may be described naturally."
+    "Tiffany left three deep scratches on the Kidnapper's left cheek, breaking the skin and drawing blood. The exact severity of the scratches is not fixed; this may be described naturally."
   ],
   "new_clues": [],
   "unresolved_questions": [],
@@ -76,10 +68,9 @@
     "Maya and Tiffany are best friends with a close, sister-like platonic relationship.",
     "Tony has known Maya since she was a baby and treats her like family.",
     "Tony works the night shift and is normally asleep during the late afternoon while resting between shifts.",
-    "Tiffany has just been abducted by the unfamiliar Kidnapper.",
-    "Maya witnessed the abduction and was left alone on the roadside after the van disappeared.",
-    "Chloe is home sick and is not participating in Scene 6.",
-    "Maya does not yet report the three scratches on the Kidnapper's left cheek."
+    "Tiffany has been abducted by the unfamiliar Kidnapper.",
+    "Maya witnessed the abduction and reached Tony for help.",
+    "Chloe is home sick and is not participating."
   ],
   "scene_cast": [
     "Maya",
