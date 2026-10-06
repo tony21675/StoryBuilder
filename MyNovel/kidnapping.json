@@ -122,7 +122,9 @@
   "tracker": {
     "location": "inside Tiffany's dog tags",
     "origin": "The tracker was originally part of Tony's U.S. Army Special Forces gear.",
-    "known_by": ["Tony"],
+    "known_by": [
+      "Tony"
+    ],
     "secrecy": "Tiffany does not know there is a tracker inside the dog tags. She holds the dog tags dear because they belonged to Tony.",
     "connection": "Tony has adapted the tracker to link to his phone instead of the military tracking system or database it was originally associated with.",
     "activation": "The exact event that causes activation has not yet been decided. At some point, something makes Tiffany genuinely fearful, and she instinctively grabs and tightly squeezes the dog tags she holds dear because they belonged to Tony. That action activates the hidden tracker.",
