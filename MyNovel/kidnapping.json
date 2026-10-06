@@ -8,18 +8,18 @@
   "scene_guidance": {
     "5": {
       "required_events": [
-        "Begin at the exact end of Scene 4: the unfamiliar Kidnapper is approaching Tiffany and Maya on the road, and he has not touched Tiffany yet.",
+        "Begin at the exact end of Scene 4: two unfamiliar male kidnappers are approaching Tiffany and Maya on the road, and neither has touched Tiffany yet.",
         "Show a brief verbal confrontation or exchange before the Kidnapper physically grabs Tiffany.",
-        "The Kidnapper grabs Tiffany. Tiffany immediately uses the practical self-defense skills Tony taught her and lands two clean, solid strikes. The strikes hurt him and cause brief human reactions, but he remains in control.",
-        "The Kidnapper's greater size and strength allow him to lift Tiffany completely off the ground.",
-        "Tiffany keeps fighting while being carried, continuing to kick and strike him.",
+        "One Kidnapper grabs Tiffany. Tiffany immediately uses the practical self-defense skills Tony taught her and lands two clean, solid strikes. The strikes hurt him and cause brief human reactions, but he remains in control.",
+        "The Kidnapper who grabs Tiffany is larger and stronger than her, allowing him to lift her completely off the ground.",
+        "Tiffany keeps fighting while being carried, continuing to kick and strike the Kidnapper holding her.",
         "Maya freezes for a brief moment, then runs after them and tries to hit the Kidnapper from behind.",
-        "The Kidnapper turns toward Maya to knock her away.",
-        "During that turn, Tiffany reaches the exposed left side of his face and digs her fingernails into his left cheek, leaving three deep scratches that break the skin and draw blood.",
+        "The Kidnapper holding Tiffany turns toward Maya to knock her away while the second Kidnapper remains with the van.",
+        "During that turn, Tiffany reaches the exposed left side of the Kidnapper's face and digs her fingernails into his left cheek, leaving three deep scratches that break the skin and draw blood.",
         "At the same moment, the Kidnapper knocks Maya down with a single forceful backhand that catches the side of her cheek, leaving only a temporary red mark.",
         "Maya realizes immediately that she cannot physically stop the Kidnapper.",
-        "The Kidnapper throws Tiffany into the van and slams the door.",
-        "The Kidnapper gets behind the wheel and drives the van away with Tiffany inside.",
+        "The two kidnappers force Tiffany into the van and slam the door.",
+        "The second Kidnapper gets behind the wheel and drives the van away with Tiffany inside.",
         "Maya watches the van disappear. The immediate shock and confusion overwhelm her, her knees give way, and she collapses onto the roadside."
       ],
       "end_condition": "HARD STOP after the van has driven away with Tiffany inside and Maya has collapsed on the roadside in shock and confusion. Do not send Maya to Tony's house in this scene.",
@@ -28,7 +28,7 @@
         "Do not skip the brief confrontation before the Kidnapper grabs Tiffany.",
         "Do not replay the walk from the gas station or earlier conversation.",
         "Do not include Chloe.",
-        "Do not introduce a second kidnapper.",
+        "Do not introduce a third kidnapper.",
         "Do not make the Kidnapper unaffected by Tiffany's strikes.",
         "Do not make Tiffany's strikes cause the Kidnapper to release her or lose the overall struggle.",
         "Do not make Maya capable of overpowering the Kidnapper.",
@@ -68,7 +68,7 @@
   "plot": {
     "victim": "Tiffany",
     "method": "Tiffany is forcibly taken and placed into a van.",
-    "kidnappers": "One unidentified male kidnapper is present during the abduction.",
+    "kidnappers": "Two unidentified male kidnappers are involved in the abduction. One physically takes Tiffany and the other drives the van.",
     "motive": "The kidnappers were hired to find a young woman who matches a general physical description requested by a wealthy overseas buyer. Tiffany is not targeted because of her identity or anything she personally did. She is selected because her age, appearance, and body type fit the requested description. The larger plan is to traffic her to the overseas buyer for sexual exploitation.",
     "van": "unknown",
     "destination": "unknown",
@@ -80,9 +80,9 @@
       "They decide to take Tiffany because she appears to fit the buyer's request.",
       "Tiffany and Maya leave the gas station and walk home.",
       "The kidnappers follow or intercept them farther along the route, after they reach a quieter stretch away from the gas station.",
-      "One unidentified male kidnapper is involved in the abduction seen in Scene 5.",
-      "The Kidnapper drives the van.",
-      "The Kidnapper physically grabs Tiffany and forces her into the van.",
+      "Two unidentified male kidnappers are involved in the abduction seen in Scene 5.",
+      "One Kidnapper physically takes Tiffany while the second Kidnapper drives the van.",
+      "One Kidnapper physically grabs Tiffany and forces her into the van while the second remains with the van.",
       "Maya witnesses what happens and is not taken.",
       "Maya is left alone, shocked and extremely distressed.",
       "Maya later runs to Tony after Tiffany is taken.",
@@ -108,8 +108,8 @@
     "future_character_development": {
       "maya": {
         "realization": "After the kidnapping, Maya privately recognizes that she did not know how to fight or protect Tiffany when it mattered.",
-        "later_direction": "Later, after she has had time to process what happened, Maya may ask Tony to teach her practical self-defense.",
-        "story_function": "This gives Maya a believable reason to spend more time with Tony, build confidence and useful skills, and contribute more effectively when she helps search for and eventually rescue Tiffany.",
+        "later_direction": "Later, after they have had time to process what happened, Tony trains both Maya and Chloe in practical self-defense.",
+        "story_function": "The training helps Maya build confidence and useful skills. Both Maya and Chloe later help rescue Tiffany and become significant help in the fighting later in the story.",
         "timing_rule": "Do not introduce Maya's decision to train in Scene 5 or Scene 6. Let the realization develop naturally after the immediate crisis."
       }
     },
