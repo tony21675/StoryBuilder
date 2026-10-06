@@ -1884,14 +1884,18 @@ Rules:
 6. Begin from the exact physical and narrative starting state provided. Do not replay the previous scene.
 7. Follow the scene direction in order and complete its requested actions before reaching its ending.
 8. Let characters make their own choices when the scene gives them a choice.
-9. Write believable dialogue, actions, emotions, and ordinary interaction. Show feelings through the scene instead of repeatedly explaining them.
-10. Prefer dramatization over summary. Let characters reveal personality, relationships, emotions, shared history, and decisions through dialogue, actions, reactions, and interaction whenever practical. Use narration to support the scene rather than repeatedly summarizing what the characters said, did, or felt. Do not force dialogue into moments that naturally call for quiet observation, internal thought, or description.
-11. When an off-scene character is mentioned or referenced, use the supplied off-scene canon reference and current scene state to preserve established routines, family roles, schedules, and other known facts. Do not invent a different routine or explanation for why that person is where they are. Do not pull an off-scene character into the scene unless the current state or scene direction explicitly does so.
-12. Do not invent consequential facts, motives, future events, hidden knowledge, or unnecessary story details.
-11. Respect privacy, dignity, and established character boundaries.
-12. Do not use childlike nicknames for established adult characters unless that nickname is explicitly established.
-13. Respect the scene endpoint exactly. Do not stop early or continue past it.
-14. Output only natural story prose.
+9. Write believable dialogue, actions, emotions, reactions, interruptions, and ordinary interaction. Show feelings through what characters say, do, notice, avoid, and react to instead of repeatedly explaining those feelings in narration.
+10. Prefer dramatization over summary. In scenes with two or more established characters, strongly prefer frequent back-and-forth conversation, concrete actions, reactions, interruptions, and small exchanges over paragraphs that summarize what the characters talked about or how their relationship works. Use narration to support the scene rather than repeatedly replacing the scene with a report of what happened.
+11. When established characters share a history, look for natural opportunities to show that history through brief conversational callbacks and specific little memories. Examples include a character saying, "Remember when we..." or "You still do that thing you did at..." or teasing the other about an old mistake, favorite place, embarrassing moment, family habit, school memory, running joke, or something they have done together before. These memories should feel relevant to the moment, reveal personality or closeness, and then let the scene move on. Harmless shared memories and ordinary anecdotes may be invented when they do not conflict with canon, timeline, character knowledge, or other explicit constraints.
+12. Do not turn shared history into a narrator summary such as "They had been friends for years" or "They talked about their childhood." Whenever practical, let the characters actually talk about one small remembered moment instead.
+13. Do not insert dialogue merely to satisfy a rule. Quiet observation, internal thought, description, or a silent reaction is appropriate when the moment naturally calls for it.
+14. When an off-scene character is mentioned or referenced, use the supplied off-scene canon reference and current scene state to preserve established routines, family roles, schedules, and other known facts. Do not invent a different routine or explanation for why that person is where they are. Do not pull an off-scene character into the scene unless the current state or scene direction explicitly does so.
+15. Do not invent consequential facts, motives, future events, hidden knowledge, or unnecessary story details.
+16. Do not add unprompted ominous narration, hindsight, thematic warnings, or hints that something bad is about to happen when the current scene gives no reason for them. An ordinary scene should be allowed to remain ordinary. Do not contrast the characters' present happiness with a future event unless that contrast is explicitly part of the current scene direction or established context.
+17. Respect privacy, dignity, and established character boundaries. Do not expose a character's private feelings, secrets, or limited knowledge without a valid in-story reason.
+18. Do not use childlike nicknames for established adult characters unless that nickname is explicitly established.
+19. Respect the scene endpoint exactly. Do not stop early or continue past it.
+20. Output only natural story prose.
 """
         parts = [base, "\nSCENE REFERENCE\n"]
         for name, content in files:
