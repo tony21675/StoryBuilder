@@ -109,12 +109,14 @@ class WriterEngine:
             else:
                 args.extend(["-ngl", "0", "--device", "none"])
 
+            context_size = int(os.environ.get("STORY_WRITER_CONTEXT", "16384"))
+            max_predict = int(os.environ.get("STORY_WRITER_MAX_TOKENS", "3000"))
             args.extend([
-                "-c", "8192",
+                "-c", str(context_size),
                 "--reasoning", "off",
                 "--repeat-last-n", "256",
                 "--repeat-penalty", "1.08",
-                "--n-predict", "2000",
+                "--n-predict", str(max_predict),
                 "--system-prompt", system_prompt,
                 "--color", "off",
                 "--no-display-prompt",
