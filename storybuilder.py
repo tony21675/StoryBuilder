@@ -1158,7 +1158,7 @@ Rules:
                 if model is None:
                     raise RuntimeError("The Writer model is not available.")
 
-                max_attempts = 2 if contract else 1
+                max_attempts = SceneContract.max_attempts(contract) if contract else 1
                 feedback = ""
                 answer = ""
 
@@ -1378,16 +1378,44 @@ Rules:
             return ""
 
     def _scene_contract(self, chapter: int, scene: int) -> dict:
-        """Return the authored scene contract for a specific scene, when present."""
-        try:
-            guidance = self.package.extra_json.get("writing_guidance.json", {}) if self.package else {}
-            entry = self._chapter_scene_guidance(guidance, chapter, scene) or {}
-            if not isinstance(entry, dict):
-                return {}
-            contract = entry.get("scene_contract", {})
-            return contract if isinstance(contract, dict) else {}
-        except Exception:
+        """Build the reusable contract for the current scene.
+
+        Explicit scene_contract data remains authoritative, while legacy
+        end_condition/required_events/do_not_advance fields and active module
+        guidance are folded in automatically.
+        """
+        if not self.package:
             return {}
+
+        guidance = self.package.extra_json.get("writing_guidance.json", {})
+        entry = self._chapter_scene_guidance(guidance, chapter, scene) or {}
+        if not isinstance(entry, dict):
+            entry = {}
+
+        module_guidance = []
+        modules = self.package.story_bible.get("optional_story_modules", [])
+        if isinstance(modules, list):
+            for module in modules:
+                if not isinstance(module, dict):
+                    continue
+                if str(module.get("status", "")).casefold() != "active":
+                    continue
+                filename = str(module.get("file", "") or "").strip()
+                if not filename:
+                    continue
+                data = self.package.extra_json.get(filename, {})
+                if not isinstance(data, dict):
+                    continue
+                scene_guidance = data.get("scene_guidance", {})
+                if not isinstance(scene_guidance, dict):
+                    continue
+                module_entry = scene_guidance.get(str(scene))
+                if module_entry is None:
+                    module_entry = scene_guidance.get(scene)
+                if isinstance(module_entry, dict):
+                    module_guidance.append(module_entry)
+
+        return SceneContract.from_guidance(entry, module_guidance)
 
 
     def _analyze_accepted_scene(self):
