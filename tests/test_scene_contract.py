@@ -117,6 +117,55 @@ class SceneContractTests(unittest.TestCase):
         self.assertNotIn('"local_hard_checks"', captured["prompt"])
         self.assertNotIn("Old wording gate", captured["prompt"])
 
+
+    def test_validator_string_false_is_treated_as_false(self):
+        prose = "A valid creative scene."
+        validator_result = {
+            "pass": "false",
+            "missed_beats": ["The required ending is missing."],
+            "violations": [],
+            "notes": "",
+        }
+
+        with patch.object(scene_contract, "_run_validator", return_value=validator_result):
+            result = scene_contract.SceneContract.validate_with_engine(
+                FakeEngine(),
+                self.contract,
+                {"chapter": 2, "scene": 1},
+                prose,
+            )
+
+        self.assertFalse(result["pass"])
+
+    def test_guidance_builds_contract_from_legacy_fields_and_active_modules(self):
+        guidance = {
+            "direction": "Let the characters talk naturally.",
+            "end_condition": "Stop when they reach the house.",
+            "required_events": ["They leave the store."],
+            "do_not_advance": ["Do not enter the next scene."],
+        }
+        modules = [{
+            "required_events": ["A dog barks."],
+            "do_not_advance": ["Do not introduce a second dog."],
+        }]
+
+        contract = scene_contract.SceneContract.from_guidance(guidance, modules)
+
+        self.assertEqual(
+            contract["required_beats"],
+            ["They leave the store.", "A dog barks."],
+        )
+        self.assertEqual(
+            contract["forbidden"],
+            ["Do not enter the next scene.", "Do not introduce a second dog."],
+        )
+        self.assertEqual(contract["hard_stop"], "Stop when they reach the house.")
+
+    def test_max_attempts_is_safe_and_configurable(self):
+        self.assertEqual(scene_contract.SceneContract.max_attempts({}), 3)
+        self.assertEqual(scene_contract.SceneContract.max_attempts({"max_attempts": 99}), 5)
+        self.assertEqual(scene_contract.SceneContract.max_attempts({"max_attempts": 0}), 1)
+
     def test_empty_contract_still_passes(self):
         result = scene_contract.SceneContract.validate_with_engine(
             FakeEngine(),
