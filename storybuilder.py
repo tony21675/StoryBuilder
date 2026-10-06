@@ -1598,7 +1598,7 @@ Rules:
             contract = {}
             contract_error = str(exc)
 
-                self.scene_contract_direction_text.delete("1.0", "end")
+        self.scene_contract_direction_text.delete("1.0", "end")
         self.scene_contract_direction_text.insert(
             "1.0",
             str(entry.get("direction", "") or ""),
