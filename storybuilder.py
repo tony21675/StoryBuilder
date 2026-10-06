@@ -431,7 +431,7 @@ class StoryBuilderApp(tk.Tk):
         ttk.Button(
             action_row,
             text="Apply Contract",
-            command=self._apply_scene_contract_edits,
+            command=self._apply_scene_contract_from_button,
         ).pack(side="left")
         ttk.Button(
             action_row,
@@ -1694,6 +1694,13 @@ Rules:
                 f"Automatic attempts: {SceneContract.max_attempts(contract)}"
             ),
         )
+
+    def _apply_scene_contract_from_button(self):
+        try:
+            self._apply_scene_contract_edits()
+        except (TypeError, ValueError) as exc:
+            self.scene_contract_status.configure(text="Contract not saved.")
+            messagebox.showerror("Scene Contract", str(exc))
 
     def _apply_scene_contract_edits(self):
         if self.package is None or not hasattr(self, "scene_contract_direction_text"):
