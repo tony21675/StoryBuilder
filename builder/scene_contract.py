@@ -190,13 +190,20 @@ class SceneContract:
         contract = dict(explicit) if isinstance(explicit, dict) else {}
 
         def add_list(target_key: str, *candidate_keys: str) -> None:
-            if contract.get(target_key):
-                return
+            existing = contract.get(target_key)
+            merged = [str(item).strip() for item in existing if str(item).strip()] if isinstance(existing, list) else []
+            seen = {item.casefold() for item in merged}
             for candidate in candidate_keys:
                 value = source.get(candidate)
-                if isinstance(value, list) and value:
-                    contract[target_key] = [str(item).strip() for item in value if str(item).strip()]
-                    return
+                if not isinstance(value, list):
+                    continue
+                for item in value:
+                    item_text = str(item).strip()
+                    if item_text and item_text.casefold() not in seen:
+                        merged.append(item_text)
+                        seen.add(item_text.casefold())
+            if merged:
+                contract[target_key] = merged
 
         add_list("required_beats", "required_beats", "required_events")
         add_list("required_facts", "required_facts")
@@ -221,24 +228,46 @@ class SceneContract:
             nested = module.get("scene_contract")
             if isinstance(nested, dict):
                 for key in ("required_beats", "required_facts", "required_sequence", "forbidden"):
-                    if not contract.get(key) and isinstance(nested.get(key), list) and nested[key]:
-                        contract[key] = nested[key]
+                    value = nested.get(key)
+                    if isinstance(value, list) and value:
+                        existing = contract.get(key, [])
+                        if not isinstance(existing, list):
+                            existing = []
+                        seen = {str(item).strip().casefold() for item in existing if str(item).strip()}
+                        for item in value:
+                            item_text = str(item).strip()
+                            if item_text and item_text.casefold() not in seen:
+                                existing.append(item_text)
+                                seen.add(item_text.casefold())
+                        contract[key] = existing
                 if not contract.get("hard_stop") and nested.get("hard_stop"):
                     contract["hard_stop"] = str(nested["hard_stop"]).strip()
 
-            if not contract.get("required_beats"):
-                events = module.get("required_events")
-                if isinstance(events, list) and events:
-                    contract["required_beats"] = [
-                        str(item).strip() for item in events if str(item).strip()
-                    ]
+            events = module.get("required_events")
+            if isinstance(events, list) and events:
+                existing = contract.get("required_beats", [])
+                if not isinstance(existing, list):
+                    existing = []
+                seen = {str(item).strip().casefold() for item in existing if str(item).strip()}
+                for item in events:
+                    item_text = str(item).strip()
+                    if item_text and item_text.casefold() not in seen:
+                        existing.append(item_text)
+                        seen.add(item_text.casefold())
+                contract["required_beats"] = existing
 
-            if not contract.get("forbidden"):
-                forbidden = module.get("forbidden") or module.get("do_not_advance")
-                if isinstance(forbidden, list) and forbidden:
-                    contract["forbidden"] = [
-                        str(item).strip() for item in forbidden if str(item).strip()
-                    ]
+            forbidden = module.get("forbidden") or module.get("do_not_advance")
+            if isinstance(forbidden, list) and forbidden:
+                existing = contract.get("forbidden", [])
+                if not isinstance(existing, list):
+                    existing = []
+                seen = {str(item).strip().casefold() for item in existing if str(item).strip()}
+                for item in forbidden:
+                    item_text = str(item).strip()
+                    if item_text and item_text.casefold() not in seen:
+                        existing.append(item_text)
+                        seen.add(item_text.casefold())
+                contract["forbidden"] = existing
 
             if not contract.get("hard_stop"):
                 end_condition = module.get("hard_stop") or module.get("end_condition")
