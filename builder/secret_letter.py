@@ -1,11 +1,10 @@
-from pathlib import Path
+from __future__ import annotations
+
 import base64
-import json
+import os
 import subprocess
 import zlib
-
-_PASSPHRASE = "9bc89b6e6180ac8e537bdd44ccb80072b5fe68521303ce8d8b28fa33f279a38c"
-_SECRET_RELATIVE_PATH = Path("secrets") / "sarah_letter.enc.b64"
+from pathlib import Path
 
 
 class SarahLetterSealed(Exception):
@@ -20,12 +19,17 @@ def is_sarah_letter_revealed(current_state: dict) -> bool:
 def load_sarah_letter(novel_root: Path, current_state: dict) -> str:
     """Return Sarah's letter only after the story explicitly unlocks it.
 
-    The plaintext is decrypted in memory and is never written to disk.
+    The plaintext is decrypted only in memory and is never written to disk.
+    The decryption passphrase is supplied externally through the environment.
     """
     if not is_sarah_letter_revealed(current_state):
         raise SarahLetterSealed("Sarah's letter is still sealed.")
 
-    sealed_path = Path(novel_root) / _SECRET_RELATIVE_PATH
+    passphrase = os.environ.get("SARAH_LETTER_PASSPHRASE")
+    if not passphrase:
+        raise RuntimeError("Sarah's letter passphrase is not configured.")
+
+    sealed_path = Path(novel_root) / "secrets" / "sarah_letter.enc.b64"
     if not sealed_path.exists():
         raise FileNotFoundError(f"Sealed letter asset not found: {sealed_path}")
 
@@ -33,7 +37,7 @@ def load_sarah_letter(novel_root: Path, current_state: dict) -> str:
     encrypted = base64.b64decode(encoded)
 
     try:
-        decrypted = subprocess.run(
+        return subprocess.run(
             [
                 "openssl",
                 "enc",
@@ -43,21 +47,16 @@ def load_sarah_letter(novel_root: Path, current_state: dict) -> str:
                 "-iter",
                 "200000",
                 "-pass",
-                f"pass:{_PASSPHRASE}",
+                f"pass:{passphrase}",
             ],
             input=encrypted,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             check=True,
             timeout=10,
-        ).stdout
-    except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired) as exc:
+        ).stdout.decode("utf-8")
+    except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired, UnicodeDecodeError) as exc:
         raise RuntimeError("Unable to open the sealed Sarah letter.") from exc
-
-    try:
-        return zlib.decompress(decrypted).decode("utf-8")
-    except (zlib.error, UnicodeDecodeError) as exc:
-        raise RuntimeError("The sealed Sarah letter is corrupted or invalid.") from exc
 
 
 def sealed_letter_status() -> dict:
@@ -65,4 +64,5 @@ def sealed_letter_status() -> dict:
         "id": "sarah_letter",
         "status": "sealed",
         "reveal_condition": "current_state.secret_reveals.sarah_letter == 'revealed'",
+        "passphrase_source": "environment variable SARAH_LETTER_PASSPHRASE",
     }
