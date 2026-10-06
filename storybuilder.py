@@ -74,6 +74,7 @@ class StoryBuilderApp(tk.Tk):
         self._build_locations_tab()
         self._build_modules_tab()
         self._build_planning_tab()
+        self._build_scene_contract_tab()
         self._build_state_tab()
         self._build_writer_tab()
         self._build_manuscript_tab()
@@ -298,6 +299,141 @@ class StoryBuilderApp(tk.Tk):
         self.open_questions_text.pack(fill="both", expand=True)
 
         ttk.Button(tab, text="Apply Story Planning", command=self._apply_planning_edits).pack(anchor="e", pady=(8, 0))
+
+
+    def _build_scene_contract_tab(self):
+        tab = ttk.Frame(self.notebook, padding=12)
+        self.notebook.add(tab, text="Scene Contract")
+
+        ttk.Label(
+            tab,
+            text="Author-Controlled Scene Contract",
+            font=("", 14, "bold"),
+        ).pack(anchor="w")
+        ttk.Label(
+            tab,
+            text=(
+                "Define the rails, not every sentence. The writer may vary the middle, "
+                "dialogue, gestures, and harmless details while the contract protects the "
+                "required story beats and ending."
+            ),
+        ).pack(anchor="w", pady=(4, 8))
+
+        header = ttk.Frame(tab)
+        header.pack(fill="x", pady=(0, 8))
+        self.scene_contract_scene_label = ttk.Label(
+            header,
+            text="Chapter 1, Scene 1",
+            font=("", 11, "bold"),
+        )
+        self.scene_contract_scene_label.pack(side="left")
+
+        ttk.Button(
+            header,
+            text="Load Current Scene",
+            command=self._refresh_scene_contract_editor,
+        ).pack(side="right")
+
+        start_frame = ttk.LabelFrame(tab, text="Beginning / Current State")
+        start_frame.pack(fill="x", pady=(0, 8))
+        ttk.Label(
+            start_frame,
+            text=(
+                "The scene begins from Current State. Change that state on the Current State tab "
+                "instead of duplicating it here."
+            ),
+            justify="left",
+        ).pack(anchor="w", padx=8, pady=(6, 4))
+        self.scene_contract_start_text = tk.Text(
+            start_frame,
+            height=6,
+            wrap="word",
+            state="disabled",
+        )
+        self.scene_contract_start_text.pack(fill="x", padx=8, pady=(0, 8))
+
+        form = ttk.Frame(tab)
+        form.pack(fill="both", expand=True)
+
+        self.scene_contract_direction_text = tk.Text(form, height=5, wrap="word", undo=True)
+        self.scene_contract_end_text = tk.Text(form, height=5, wrap="word", undo=True)
+        self.scene_contract_texts = {
+            "required_beats": tk.Text(form, height=6, wrap="word", undo=True),
+            "required_facts": tk.Text(form, height=5, wrap="word", undo=True),
+            "required_sequence": tk.Text(form, height=5, wrap="word", undo=True),
+            "forbidden": tk.Text(form, height=5, wrap="word", undo=True),
+            "forbidden_details": tk.Text(form, height=5, wrap="word", undo=True),
+        }
+
+        fields = [
+            ("direction", "Middle / Scene Direction", self.scene_contract_direction_text),
+            ("end", "Ending / Hard Stop", self.scene_contract_end_text),
+            ("required_beats", "Required Beats (one per line)", self.scene_contract_texts["required_beats"]),
+            ("required_facts", "Required Facts (one per line)", self.scene_contract_texts["required_facts"]),
+            ("required_sequence", "Required Sequence (one per line, in order)", self.scene_contract_texts["required_sequence"]),
+            ("forbidden", "Forbidden / Do Not Advance (one per line)", self.scene_contract_texts["forbidden"]),
+            ("forbidden_details", "Forbidden Details (one per line)", self.scene_contract_texts["forbidden_details"]),
+        ]
+
+        for row, (_key, label, widget) in enumerate(fields):
+            ttk.Label(
+                form,
+                text=label,
+            ).grid(
+                row=row,
+                column=0,
+                sticky="nw",
+                padx=(0, 10),
+                pady=4,
+            )
+            widget.grid(row=row, column=1, sticky="nsew", pady=4)
+
+        for row in range(len(fields)):
+            form.rowconfigure(row, weight=1 if row in (0, 1, 2) else 0)
+        form.columnconfigure(1, weight=1)
+
+        attempts_row = ttk.Frame(tab)
+        attempts_row.pack(fill="x", pady=(8, 0))
+        ttk.Label(
+            attempts_row,
+            text="Automatic attempts",
+        ).pack(side="left")
+        self.scene_contract_attempts_var = tk.StringVar(value="3")
+        ttk.Spinbox(
+            attempts_row,
+            from_=1,
+            to=5,
+            textvariable=self.scene_contract_attempts_var,
+            width=6,
+        ).pack(side="left", padx=(8, 12))
+        ttk.Label(
+            attempts_row,
+            text="The validator rejects failed drafts and automatically retries up to this limit.",
+        ).pack(side="left")
+
+        action_row = ttk.Frame(tab)
+        action_row.pack(fill="x", pady=(10, 0))
+        ttk.Button(
+            action_row,
+            text="Apply Contract",
+            command=self._apply_scene_contract_edits,
+        ).pack(side="left")
+        ttk.Button(
+            action_row,
+            text="Validate Contract",
+            command=self._validate_scene_contract,
+        ).pack(side="left", padx=(8, 0))
+        ttk.Button(
+            action_row,
+            text="Build Writer Direction",
+            command=self._build_writer_direction_from_contract,
+        ).pack(side="left", padx=(8, 0))
+        self.scene_contract_status = ttk.Label(
+            action_row,
+            text="",
+            anchor="w",
+        )
+        self.scene_contract_status.pack(side="left", fill="x", expand=True, padx=(12, 0))
 
     def _build_state_tab(self):
         tab = ttk.Frame(self.notebook, padding=12)
@@ -1116,7 +1252,19 @@ Rules:
 
         chapter = int(self.package.current_state.get("chapter", 1) or 1)
         scene = int(self.package.current_state.get("scene", 1) or 1)
-        contract = self._scene_contract(chapter, scene)
+        try:
+            contract = self._scene_contract(chapter, scene)
+            if contract:
+                lint_errors = SceneContract.lint(contract)
+                if lint_errors:
+                    raise ValueError(
+                        "Invalid scene contract:\n- " + "\n- ".join(lint_errors)
+                    )
+        except (TypeError, ValueError) as exc:
+            messagebox.showerror("Scene Contract", str(exc))
+            self._update_writer_buttons()
+            return
+
         current_state = json.loads(
             json.dumps(self.package.current_state, ensure_ascii=False)
         )
@@ -1301,6 +1449,263 @@ Rules:
             self._update_writer_buttons()
         except Exception as exc:
             messagebox.showerror("Writer", str(exc))
+
+
+    def _editable_scene_guidance_entry(
+        self,
+        chapter: int,
+        scene: int,
+        create: bool = False,
+    ) -> dict | None:
+        """Return the author-owned guidance entry without merging active modules."""
+        if not self.package:
+            return None
+
+        plan = self.package.extra_json.get("writing_guidance.json")
+        if not isinstance(plan, dict):
+            if not create:
+                return None
+            plan = {
+                "purpose": "Author-defined scene direction and reusable scene contracts."
+            }
+            self.package.extra_json["writing_guidance.json"] = plan
+
+        chapter_plans = plan.get("chapter_plans")
+        if isinstance(chapter_plans, dict):
+            chapter_entry = chapter_plans.get(str(chapter))
+            if chapter_entry is None:
+                chapter_entry = chapter_plans.get(chapter)
+            if isinstance(chapter_entry, dict):
+                scene_plan = chapter_entry.get("scene_plan")
+                if not isinstance(scene_plan, dict):
+                    if not create:
+                        return None
+                    scene_plan = {}
+                    chapter_entry["scene_plan"] = scene_plan
+                entry = scene_plan.get(str(scene))
+                if entry is None:
+                    entry = scene_plan.get(scene)
+                if isinstance(entry, dict):
+                    return entry
+                if create:
+                    entry = {}
+                    scene_plan[str(scene)] = entry
+                    return entry
+                return None
+
+        # Preserve the legacy Chapter 1 layout already used by current novels.
+        if chapter == 1 and isinstance(plan.get("scene_plan"), dict):
+            scene_plan = plan["scene_plan"]
+            entry = scene_plan.get(str(scene))
+            if entry is None:
+                entry = scene_plan.get(scene)
+            if isinstance(entry, dict):
+                return entry
+            if create:
+                entry = {}
+                scene_plan[str(scene)] = entry
+                return entry
+            return None
+
+        if not create:
+            return None
+
+        chapter_plans = plan.setdefault("chapter_plans", {})
+        chapter_entry = chapter_plans.setdefault(str(chapter), {})
+        scene_plan = chapter_entry.setdefault("scene_plan", {})
+        return scene_plan.setdefault(str(scene), {})
+
+    def _scene_contract_start_summary(self) -> str:
+        if not self.package:
+            return ""
+
+        state = self.package.current_state
+        location = state.get("location", "")
+        if isinstance(location, dict):
+            location_text = str(location.get("primary", "") or "").strip()
+        else:
+            location_text = str(location or "").strip()
+
+        time_data = state.get("time", state.get("time_of_day", ""))
+        if isinstance(time_data, dict):
+            time_text = str(time_data.get("period", "") or "").strip()
+            exact = str(time_data.get("exact_time", "") or "").strip()
+            if exact and exact != "not established":
+                time_text = f"{time_text} ({exact})"
+        else:
+            time_text = str(time_data or "").strip()
+
+        cast = [
+            str(name).strip()
+            for name in state.get("scene_cast", [])
+            if str(name).strip()
+        ]
+        situation = str(state.get("current_situation", "") or "").strip()
+
+        lines = [
+            f"Chapter: {int(state.get('chapter', 1) or 1)}",
+            f"Scene: {int(state.get('scene', 1) or 1)}",
+            f"Location: {location_text or 'not established'}",
+            f"Time: {time_text or 'not established'}",
+            "Cast: " + (", ".join(cast) if cast else "not established"),
+            f"Current situation: {situation or 'not established'}",
+        ]
+        return "\n".join(lines)
+
+    @staticmethod
+    def _contract_list(contract: dict, key: str) -> list[str]:
+        value = contract.get(key, [])
+        if not isinstance(value, list):
+            return []
+        return [str(item).strip() for item in value if str(item).strip()]
+
+    def _refresh_scene_contract_editor(self):
+        if not hasattr(self, "scene_contract_start_text") or self.package is None:
+            return
+
+        chapter = int(self.package.current_state.get("chapter", 1) or 1)
+        scene = int(self.package.current_state.get("scene", 1) or 1)
+        self.scene_contract_scene_label.configure(
+            text=f"Chapter {chapter}, Scene {scene}"
+        )
+
+        start = self._scene_contract_start_summary()
+        self.scene_contract_start_text.configure(state="normal")
+        self.scene_contract_start_text.delete("1.0", "end")
+        self.scene_contract_start_text.insert("1.0", start)
+        self.scene_contract_start_text.configure(state="disabled")
+
+        entry = self._editable_scene_guidance_entry(chapter, scene, create=False) or {}
+        try:
+            contract = SceneContract.from_guidance(entry, [])
+        except ValueError as exc:
+            contract = {}
+            self.scene_contract_status.configure(
+                text=f"Contract needs attention: {exc}",
+            )
+
+        self.scene_contract_direction_text.delete("1.0", "end")
+        self.scene_contract_direction_text.insert(
+            "1.0",
+            str(entry.get("direction", "") or ""),
+        )
+
+        self.scene_contract_end_text.delete("1.0", "end")
+        self.scene_contract_end_text.insert(
+            "1.0",
+            str(contract.get("hard_stop") or entry.get("end_condition") or ""),
+        )
+
+        for key, widget in self.scene_contract_texts.items():
+            widget.delete("1.0", "end")
+            widget.insert(
+                "1.0",
+                "\n".join(self._contract_list(contract, key)),
+            )
+
+        attempts = contract.get("max_attempts", 3)
+        self.scene_contract_attempts_var.set(str(attempts))
+        self.scene_contract_status.configure(
+            text="Loaded author contract for the current scene.",
+        )
+
+    def _validate_scene_contract(self):
+        if self.package is None:
+            return
+
+        chapter = int(self.package.current_state.get("chapter", 1) or 1)
+        scene = int(self.package.current_state.get("scene", 1) or 1)
+        entry = self._editable_scene_guidance_entry(chapter, scene, create=False) or {}
+
+        try:
+            contract = SceneContract.from_guidance(entry, [])
+            errors = SceneContract.lint(contract) if contract else []
+            if errors:
+                raise ValueError("Invalid scene contract:\n- " + "\n- ".join(errors))
+        except (TypeError, ValueError) as exc:
+            self.scene_contract_status.configure(text="Contract invalid.")
+            messagebox.showerror("Scene Contract", str(exc))
+            return
+
+        self.scene_contract_status.configure(
+            text="Contract is structurally valid and ready for generation.",
+        )
+        messagebox.showinfo(
+            "Scene Contract",
+            (
+                f"Chapter {chapter}, Scene {scene} contract is valid.\n\n"
+                f"Required beats: {len(contract.get('required_beats', [])) if contract else 0}\n"
+                f"Required facts: {len(contract.get('required_facts', [])) if contract else 0}\n"
+                f"Sequence steps: {len(contract.get('required_sequence', [])) if contract else 0}\n"
+                f"Forbidden rules: {len(contract.get('forbidden', [])) if contract else 0}\n"
+                f"Automatic attempts: {SceneContract.max_attempts(contract) if contract else 1}"
+            ),
+        )
+
+    def _apply_scene_contract_edits(self):
+        if self.package is None or not hasattr(self, "scene_contract_direction_text"):
+            return
+
+        chapter = int(self.package.current_state.get("chapter", 1) or 1)
+        scene = int(self.package.current_state.get("scene", 1) or 1)
+
+        direction = self.scene_contract_direction_text.get("1.0", "end-1c").strip()
+        end_text = self.scene_contract_end_text.get("1.0", "end-1c").strip()
+
+        contract = {}
+        for key, widget in self.scene_contract_texts.items():
+            values = self._lines(widget)
+            if values:
+                contract[key] = values
+
+        raw_attempts = self.scene_contract_attempts_var.get().strip()
+        if raw_attempts:
+            try:
+                attempts = int(raw_attempts)
+            except ValueError as exc:
+                raise ValueError("Automatic attempts must be an integer from 1 to 5.") from exc
+            contract["max_attempts"] = attempts
+        else:
+            contract["max_attempts"] = 3
+
+        if end_text:
+            contract["hard_stop"] = end_text
+
+        SceneContract.validate_shape(contract)
+        lint_errors = SceneContract.lint(contract)
+        if lint_errors:
+            raise ValueError("Invalid scene contract:\n- " + "\n- ".join(lint_errors))
+
+        entry = self._editable_scene_guidance_entry(chapter, scene, create=True)
+        if entry is None:
+            raise ValueError("Could not create scene guidance for this scene.")
+
+        if direction:
+            entry["direction"] = direction
+        else:
+            entry.pop("direction", None)
+
+        if end_text:
+            entry["end_condition"] = end_text
+        else:
+            entry.pop("end_condition", None)
+
+        # Store the authored contract only. Active story modules stay outside it
+        # and are merged by _scene_contract at generation time.
+        entry["scene_contract"] = contract
+
+        self.dirty = True
+        self._update_path_label()
+        self.scene_contract_status.configure(
+            text=f"Saved author contract for Chapter {chapter}, Scene {scene}.",
+        )
+
+    def _build_writer_direction_from_contract(self):
+        try:
+            self._apply_scene_contract_edits()
+            self._build_scene_direction()
+        except Exception as exc:
+            messagebox.showerror("Scene Contract", str(exc))
 
     @staticmethod
     def _chapter_scene_guidance(
@@ -2441,6 +2846,7 @@ Rules:
     def _apply_all_edits(self):
         self._apply_story_edits()
         self._apply_planning_edits()
+        self._apply_scene_contract_edits()
         self._apply_character_edits()
         self._apply_relationship_edits()
         self._apply_location_edits()
@@ -2606,6 +3012,8 @@ Rules:
         self.notes_text.insert("1.0", "\n".join(map(str, continuity)))
         self.situation_text.delete("1.0", "end")
         self.situation_text.insert("1.0", str(state.get("current_situation", "")))
+        if hasattr(self, "scene_contract_start_text"):
+            self._refresh_scene_contract_editor()
         self._update_path_label()
 
     @staticmethod
