@@ -1,20 +1,12 @@
 {
   "id": "kidnappers",
-  "name": "Kidnappers",
+  "name": "Kidnapper",
   "type": "module_character_file",
   "status": "optional",
   "characters": [
     {
-      "name": "Kidnapper 1",
-      "role": "male kidnapper; physically grabs and takes Tiffany toward the van",
-      "identity": "unknown until established",
-      "appearance": "not established",
-      "personality": "not established",
-      "knowledge_rule": "Only knows what he personally experienced, was told, or reasonably knows."
-    },
-    {
-      "name": "Kidnapper 2",
-      "role": "male kidnapper; drives the van and assists as needed during the abduction",
+      "name": "Kidnapper",
+      "role": "male kidnapper; physically takes Tiffany and drives the van",
       "identity": "unknown until established",
       "appearance": "not established",
       "personality": "not established",
