@@ -145,11 +145,24 @@ class StoryBuilderApp(tk.Tk):
 
         left = ttk.Frame(tab)
         left.pack(side="left", fill="y", padx=(0, 12))
-        self.character_list = tk.Listbox(left, width=28, height=28)
-        self.character_list.pack(fill="y", expand=True)
+
+        ttk.Label(left, text="Core Characters", font=("", 11, "bold")).pack(anchor="w")
+        self.character_list = tk.Listbox(left, width=28, height=16, exportselection=False)
+        self.character_list.pack(fill="y", expand=True, pady=(4, 6))
         self.character_list.bind("<<ListboxSelect>>", self._select_character)
-        ttk.Button(left, text="Add Character", command=self._add_character).pack(fill="x", pady=(8, 3))
+        ttk.Button(left, text="Add Character", command=self._add_character).pack(fill="x", pady=(0, 3))
         ttk.Button(left, text="Remove Character", command=self._remove_character).pack(fill="x")
+
+        ttk.Label(left, text="Supporting People", font=("", 11, "bold")).pack(anchor="w", pady=(14, 2))
+        ttk.Label(
+            left,
+            text="Stored in story_bible.json as supporting people rather than full character cards.",
+            wraplength=190,
+            justify="left",
+        ).pack(anchor="w", pady=(0, 4))
+        self.supporting_people_list = tk.Listbox(left, width=28, height=8, exportselection=False)
+        self.supporting_people_list.pack(fill="y")
+        self.supporting_people_list.bind("<<ListboxSelect>>", self._select_supporting_person)
 
         right = ttk.Frame(tab)
         right.pack(side="left", fill="both", expand=True)
@@ -185,7 +198,31 @@ class StoryBuilderApp(tk.Tk):
         ttk.Button(right, text="Apply Character Edits", command=self._apply_character_edits).grid(
             row=len(fields), column=1, sticky="e", pady=8
         )
+
+        ttk.Separator(right, orient="horizontal").grid(
+            row=len(fields) + 1, column=0, columnspan=2, sticky="ew", pady=(8, 8)
+        )
+        ttk.Label(
+            right,
+            text="Supporting Person Details",
+            font=("", 11, "bold"),
+        ).grid(row=len(fields) + 2, column=0, columnspan=2, sticky="w")
+        self.supporting_person_text = tk.Text(right, height=7, wrap="word", undo=True)
+        self.supporting_person_text.grid(
+            row=len(fields) + 3,
+            column=0,
+            columnspan=2,
+            sticky="nsew",
+            pady=(4, 0),
+        )
+        ttk.Button(
+            right,
+            text="Apply Supporting Person Edit",
+            command=self._apply_supporting_person_edit,
+        ).grid(row=len(fields) + 4, column=1, sticky="e", pady=8)
+
         right.columnconfigure(1, weight=1)
+        right.rowconfigure(len(fields) + 3, weight=1)
 
     def _build_relationships_tab(self):
         tab = ttk.Frame(self.notebook, padding=12)
@@ -3460,6 +3497,7 @@ Rules:
         self._apply_planning_edits()
         self._apply_scene_contract_edits()
         self._apply_character_edits()
+        self._apply_supporting_person_edit()
         self._apply_relationship_edits()
         self._apply_location_edits()
         self._apply_state_edits()
@@ -3499,6 +3537,8 @@ Rules:
         selection = self.character_list.curselection()
         if not selection:
             return
+        self.supporting_people_list.selection_clear(0, "end")
+        self.supporting_person_text.delete("1.0", "end")
         filenames = sorted(self.package.characters)
         self.character_filename = filenames[selection[0]]
         char = self.package.characters[self.character_filename]
@@ -3703,14 +3743,103 @@ Rules:
         filenames = sorted(self.package.characters) if self.package else []
         selected_index = None
         for index, filename in enumerate(filenames):
-            self.character_list.insert("end", self.package.characters[filename].get("name", filename.removesuffix(".json")))
+            self.character_list.insert(
+                "end",
+                self.package.characters[filename].get("name", filename.removesuffix(".json")),
+            )
             if filename == select_filename:
                 selected_index = index
 
         if selected_index is not None:
+            self.character_list.selection_clear(0, "end")
             self.character_list.selection_set(selected_index)
             self.character_list.see(selected_index)
             self._select_character()
+
+        self._refresh_supporting_people()
+
+
+    def _refresh_supporting_people(self, select_name=None):
+        if not hasattr(self, "supporting_people_list"):
+            return
+
+        self.supporting_people_list.delete(0, "end")
+        people = self.package.story_bible.get("supporting_people", {}) if self.package else {}
+        if not isinstance(people, dict):
+            people = {}
+
+        selected_index = None
+        for index, name in enumerate(sorted(people, key=str.casefold)):
+            self.supporting_people_list.insert("end", name)
+            if name == select_name:
+                selected_index = index
+
+        if selected_index is not None:
+            self.supporting_people_list.selection_clear(0, "end")
+            self.supporting_people_list.selection_set(selected_index)
+            self.supporting_people_list.see(selected_index)
+            self._select_supporting_person()
+        elif not selected_index and self.supporting_people_list.size() == 0:
+            self.supporting_person_text.delete("1.0", "end")
+
+
+    def _select_supporting_person(self, _event=None):
+        if self.package is None:
+            return
+
+        selection = self.supporting_people_list.curselection()
+        if not selection:
+            return
+
+        people = self.package.story_bible.get("supporting_people", {})
+        if not isinstance(people, dict):
+            return
+
+        names = sorted(people, key=str.casefold)
+        index = selection[0]
+        if index < 0 or index >= len(names):
+            return
+
+        name = names[index]
+        self.character_list.selection_clear(0, "end")
+        self.character_filename = None
+
+        for var in self.character_vars.values():
+            var.set("")
+        for widget in self.character_texts.values():
+            widget.delete("1.0", "end")
+
+        self.supporting_person_text.delete("1.0", "end")
+        self.supporting_person_text.insert("1.0", str(people.get(name, "") or ""))
+
+
+    def _apply_supporting_person_edit(self):
+        if self.package is None or not hasattr(self, "supporting_people_list"):
+            return
+
+        selection = self.supporting_people_list.curselection()
+        if not selection:
+            return
+
+        people = self.package.story_bible.setdefault("supporting_people", {})
+        if not isinstance(people, dict):
+            people = {}
+            self.package.story_bible["supporting_people"] = people
+
+        names = sorted(people, key=str.casefold)
+        index = selection[0]
+        if index < 0 or index >= len(names):
+            return
+
+        name = names[index]
+        value = self.supporting_person_text.get("1.0", "end-1c").strip()
+        if value:
+            people[name] = value
+        else:
+            people.pop(name, None)
+
+        self.dirty = True
+        self._update_path_label()
 
 
     def _toggle_guided_setup(self):
@@ -3774,6 +3903,7 @@ Rules:
             self.themes_text,
             self.open_questions_text,
             self.interview_answer_text,
+            self.supporting_person_text,
             self.writer_direction_text,
             self.writer_output_text,
             self.writer_state_preview,
