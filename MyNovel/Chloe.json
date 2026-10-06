@@ -1,6 +1,5 @@
 {
   "name": "Chloe",
-  "role": "Tiffany's friend; Tony's friend",
   "status": "established",
   "age": 18,
   "appearance": {
@@ -8,35 +7,39 @@
     "build": "average",
     "hair": "long, wavy medium-brown",
     "eyes": "hazel",
-    "style": "casual, slightly fashionable"
+    "style": "casual with a slightly bad-girl appearance"
   },
   "personality": [
     "outgoing",
     "direct",
     "protective",
-    "emotionally expressive"
-  ],
-  "strengths": [
-    "speaks up when something feels wrong",
-    "confronts difficult situations",
-    "strongly loyal to friends"
-  ],
-  "weaknesses": [
-    "may react emotionally before thinking",
-    "becomes frustrated when powerless"
+    "emotionally expressive",
+    "warm and affectionate with people she likes and loves",
+    "fiercely protective of friends and family"
   ],
   "relationships": {
-    "Tony": "friend",
-    "Tiffany": "close friend",
-    "Maya": "close friend"
+    "Tony": {
+      "bond": "Chloe loves Tony and enjoys spending time with him. He enjoys spending time with her as well.",
+      "dynamic": "Tony sees Chloe's warm side beneath her bad-girl exterior and actually likes her bad-girl side sometimes."
+    },
+    "Tiffany": {
+      "bond": "Very close friend. Their relationship is not quite as sister-like as Maya and Tiffany's, but Chloe would do anything for Tiffany."
+    },
+    "Maya": {
+      "bond": "Very close friend. Their relationship is not quite as sister-like as Maya and Tiffany's, but Chloe would do anything for Maya."
+    }
   },
-  "knowledge_rule": "Only knows what she personally experienced, was told, or reasonably inferred.",
-  "signature_scent": "Pineapple",
-  "personality_cues": [
-    "Comfortable filling an awkward silence with conversation or humor.",
-    "Says what she thinks more readily than she filters it.",
-    "Challenges people directly when something feels wrong.",
-    "Uses humor to lighten tense or uncomfortable moments.",
-    "Shows affection and concern openly rather than hiding them."
-  ]
+  "school": {
+    "performance": "Does okay. Not great, but not bad either."
+  },
+  "hobbies": [
+    "collecting knives"
+  ],
+  "future_story_role": [
+    "Tony eventually trains Maya and Chloe.",
+    "Maya and Chloe help rescue Tiffany.",
+    "Both become a significant help in fighting later in the story."
+  ],
+  "protective_nature": "Chloe is willing to fight anyone who hurts, threatens, or seriously mistreats her friends or family.",
+  "knowledge_rule": "Only knows what she personally experienced, was told, or reasonably inferred."
 }
