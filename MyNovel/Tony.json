@@ -10,8 +10,8 @@
     "eyes": "hazel",
     "facial_hair": "goatee"
   },
-  "background": "Retired U.S. Army Special Forces. During his military career, Tony was the man they called when a mission had to be completed no matter what. He was exceptionally skilled in hand-to-hand combat, weapons, stealth, and covert operations, and he was ruthless in pursuit of his objective. He was willing to hurt, shoot, or kill anyone necessary to complete the mission or stop someone who directly threatened it. Tony and his wife were high school sweethearts. She was loyal, sweet in every way, and loved Tony more than anything. After they married and started a family, Tony promised her that he would never live the ruthless military life again. She died one week after giving birth to Tiffany due to complications. After her death, Tony kept his promise and deliberately left that part of himself buried.",
-  "wife": "Tony's wife was his high school sweetheart. She was loyal, sweet in every way, and loved Tony more than anything. She died one week after giving birth to Tiffany due to complications.",
+  "background": "Retired U.S. Army Special Forces. During his military career, Tony was the man they called when a mission had to be completed no matter what. He was exceptionally skilled in hand-to-hand combat, weapons, stealth, and covert operations, and he was ruthless in pursuit of his objective. He was willing to hurt, shoot, or kill anyone necessary to complete the mission or stop someone who directly threatened it. Tony and his wife Sarah were high school sweethearts. Sarah was loyal, sweet in every way, and loved Tony more than anything. After they married and started a family, Tony promised her that he would never live the ruthless military life again. Sarah died one week after giving birth to Tiffany due to complications. After her death, Tony kept his promise and deliberately left that part of himself buried. Tiffany is the only piece of Sarah that Tony has left besides his memories of her.",
+  "wife": "Sarah was Tony's high school sweetheart. She was loyal, sweet in every way, and loved Tony more than anything. She died one week after giving birth to Tiffany due to complications. Tiffany is the only piece of Sarah that Tony has left besides his memories of her.",
   "skills": [
     "Master-level hand-to-hand combat",
     "Highly skilled with weapons",
@@ -26,8 +26,8 @@
     "determined"
   ],
   "relationships": {
-    "Wife": "deceased; Tony's high school sweetheart, deeply loyal and sweet, who loved him more than anything; she died one week after giving birth to Tiffany due to complications",
-    "Tiffany": "daughter; Tony has known her since birth",
+    "Sarah": "deceased wife; Tony's high school sweetheart, deeply loyal and sweet, who loved him more than anything; she died one week after giving birth to Tiffany due to complications",
+    "Tiffany": "daughter; Tony has known her since birth; the only piece of Sarah he has left besides his memories of Sarah",
     "Maya": "family-like; Tony has known her since she was a baby and considers her another daughter, caring for her with warm, protective, parental affection while respecting that she is a young adult",
     "Chloe": "family-like; Tony sees Chloe as another daughter in the emotional and protective sense, caring for her with the same warm, protective concern he gives Maya and Tiffany"
   },
@@ -53,5 +53,5 @@
     "Protective and affectionate, especially when Maya, Chloe, or Tiffany is frightened, hurt, or overwhelmed, while respecting that Maya and Chloe are young adults."
   ],
   "work_schedule": "Works the night shift.",
-  "internal_conflict": "Tony believes he failed to protect Tiffany and feels he also failed all three girls by never teaching them how to protect themselves. Now that Tiffany has been taken and may be in serious or even mortal danger, he is torn between keeping the promise he made to his wife and allowing the ruthless part of himself he buried to return in order to protect the people he loves. He does not know whether his wife would understand if he broke that promise to save them."
+  "internal_conflict": "Tony believes he failed to protect Tiffany and feels he also failed all three girls by never teaching them how to protect themselves. Now that Tiffany has been taken and may be in serious or even mortal danger, he is torn between keeping the promise he made to his dying wife and allowing the ruthless part of himself he buried to return in order to protect the people he loves. He does not know whether Sarah would understand if he broke that promise to save them."
 }
