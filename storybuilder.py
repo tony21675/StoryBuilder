@@ -4323,7 +4323,11 @@ Rules:
 
         try:
             widget = self.winfo_containing(event.x_root, event.y_root)
-        except tk.TclError:
+        except (tk.TclError, KeyError):
+            # ttk.Combobox creates a temporary Tk "popdown" window for its
+            # dropdown list. While that window is open, winfo_containing() can
+            # return a path that is no longer present in the widget tree.
+            # Ignore that wheel event instead of printing a callback traceback.
             widget = None
 
         if widget is None:
