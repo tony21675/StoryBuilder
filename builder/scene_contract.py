@@ -103,21 +103,155 @@ def _run_validator(model: Path, prompt: str) -> dict[str, Any]:
     if not isinstance(result, dict):
         raise ValueError("Scene contract validator did not return an object.")
 
-    passed = bool(result.get("pass", False))
+    raw_pass = result.get("pass", None)
+    if isinstance(raw_pass, bool):
+        passed = raw_pass
+    elif isinstance(raw_pass, str) and raw_pass.strip().casefold() in {"true", "false"}:
+        passed = raw_pass.strip().casefold() == "true"
+    else:
+        raise ValueError("Scene contract validator returned an invalid 'pass' value.")
+
     missed = result.get("missed_beats", [])
     violations = result.get("violations", [])
+    if not isinstance(missed, list):
+        raise ValueError("Scene contract validator returned invalid missed_beats data.")
+    if not isinstance(violations, list):
+        raise ValueError("Scene contract validator returned invalid violations data.")
+
     notes = str(result.get("notes", "") or "").strip()
 
     return {
         "pass": passed,
-        "missed_beats": [str(x).strip() for x in missed] if isinstance(missed, list) else [],
-        "violations": [str(x).strip() for x in violations] if isinstance(violations, list) else [],
+        "missed_beats": [str(x).strip() for x in missed if str(x).strip()],
+        "violations": [str(x).strip() for x in violations if str(x).strip()],
         "notes": notes,
     }
 
 
 class SceneContract:
-    """Validate a generated scene against an authored scene contract."""
+    """Validate generated prose against a reusable author-defined scene contract."""
+
+    @staticmethod
+    def max_attempts(contract: dict[str, Any]) -> int:
+        """Return a safe retry count for automatic scene generation."""
+        raw = contract.get(
+            "max_attempts",
+            os.environ.get("STORY_SCENE_MAX_ATTEMPTS", "3"),
+        )
+        try:
+            value = int(raw)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Scene contract max_attempts must be an integer.") from exc
+        return max(1, min(5, value))
+
+    @staticmethod
+    def validate_shape(contract: dict[str, Any]) -> dict[str, Any]:
+        """Validate contract structure before spending model time on it."""
+        if not isinstance(contract, dict):
+            raise ValueError("Scene contract must be a JSON object.")
+
+        for key in (
+            "required_beats",
+            "required_facts",
+            "required_sequence",
+            "forbidden",
+            "forbidden_details",
+        ):
+            if key in contract and contract[key] is not None and not isinstance(contract[key], list):
+                raise ValueError(f"Scene contract '{key}' must be a list.")
+
+        if "hard_stop" in contract and contract["hard_stop"] is not None:
+            if not isinstance(contract["hard_stop"], str):
+                raise ValueError("Scene contract 'hard_stop' must be a string.")
+
+        if "state_after" in contract and contract["state_after"] is not None:
+            if not isinstance(contract["state_after"], dict):
+                raise ValueError("Scene contract 'state_after' must be an object.")
+
+        local = contract.get("local_hard_checks")
+        if local is not None:
+            if not isinstance(local, dict):
+                raise ValueError("Scene contract 'local_hard_checks' must be an object.")
+            for key in ("forbidden_terms", "forbidden_patterns"):
+                if key in local and local[key] is not None and not isinstance(local[key], list):
+                    raise ValueError(f"Scene contract local hard check '{key}' must be a list.")
+
+        SceneContract.max_attempts(contract)
+        return contract
+
+    @staticmethod
+    def from_guidance(
+        guidance: dict[str, Any] | None,
+        module_guidance: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        """Build a contract from scene guidance and active story modules."""
+        source = guidance if isinstance(guidance, dict) else {}
+        explicit = source.get("scene_contract")
+        contract = dict(explicit) if isinstance(explicit, dict) else {}
+
+        def add_list(target_key: str, *candidate_keys: str) -> None:
+            if contract.get(target_key):
+                return
+            for candidate in candidate_keys:
+                value = source.get(candidate)
+                if isinstance(value, list) and value:
+                    contract[target_key] = [str(item).strip() for item in value if str(item).strip()]
+                    return
+
+        add_list("required_beats", "required_beats", "required_events")
+        add_list("required_facts", "required_facts")
+        add_list("required_sequence", "required_sequence")
+        add_list("forbidden", "forbidden", "do_not_advance")
+        add_list("forbidden_details", "forbidden_details")
+
+        if not contract.get("hard_stop"):
+            end_condition = source.get("hard_stop") or source.get("end_condition")
+            if end_condition:
+                contract["hard_stop"] = str(end_condition).strip()
+
+        if "state_after" not in contract and isinstance(source.get("state_after"), dict):
+            contract["state_after"] = source["state_after"]
+
+        if "max_attempts" not in contract and "max_attempts" in source:
+            contract["max_attempts"] = source["max_attempts"]
+
+        for module in module_guidance or []:
+            if not isinstance(module, dict):
+                continue
+            nested = module.get("scene_contract")
+            if isinstance(nested, dict):
+                for key in ("required_beats", "required_facts", "required_sequence", "forbidden"):
+                    if not contract.get(key) and isinstance(nested.get(key), list) and nested[key]:
+                        contract[key] = nested[key]
+                if not contract.get("hard_stop") and nested.get("hard_stop"):
+                    contract["hard_stop"] = str(nested["hard_stop"]).strip()
+
+            if not contract.get("required_beats"):
+                events = module.get("required_events")
+                if isinstance(events, list) and events:
+                    contract["required_beats"] = [
+                        str(item).strip() for item in events if str(item).strip()
+                    ]
+
+            if not contract.get("forbidden"):
+                forbidden = module.get("forbidden") or module.get("do_not_advance")
+                if isinstance(forbidden, list) and forbidden:
+                    contract["forbidden"] = [
+                        str(item).strip() for item in forbidden if str(item).strip()
+                    ]
+
+            if not contract.get("hard_stop"):
+                end_condition = module.get("hard_stop") or module.get("end_condition")
+                if end_condition:
+                    contract["hard_stop"] = str(end_condition).strip()
+
+            if "state_after" not in contract and isinstance(module.get("state_after"), dict):
+                contract["state_after"] = module["state_after"]
+
+        return SceneContract.validate_shape(contract) if contract else {}
+
+    @staticmethod
+    def _local_hard_checks(contract: dict[str, Any], prose: str) -> dict[str, Any]:
 
     @staticmethod
     def _local_hard_checks(contract: dict[str, Any], prose: str) -> dict[str, Any]:
@@ -138,7 +272,10 @@ class SceneContract:
         if isinstance(forbidden_terms, list):
             for term in forbidden_terms:
                 term = str(term).strip()
-                if term and term.casefold() in text_cf:
+                if not term:
+                    continue
+                pattern = r"(?<!\w)" + re.escape(term) + r"(?!\w)"
+                if re.search(pattern, text_cf, flags=re.IGNORECASE):
                     violations.append(
                         f"Forbidden detail appears in prose: {term!r}."
                     )
@@ -185,6 +322,16 @@ class SceneContract:
         """Validate scene semantics with a dedicated validator process."""
         if not isinstance(contract, dict) or not contract:
             return {"pass": True, "missed_beats": [], "violations": [], "notes": ""}
+
+        SceneContract.validate_shape(contract)
+
+        if not prose.strip():
+            return {
+                "pass": False,
+                "missed_beats": ["The writer returned no prose."],
+                "violations": [],
+                "notes": "Generation returned an empty scene.",
+            }
 
         local_result = SceneContract._local_hard_checks(contract, prose)
         if not local_result.get("pass"):
