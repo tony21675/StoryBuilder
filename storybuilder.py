@@ -17,6 +17,13 @@ from builder.writer_engine import WriterEngine
 from builder.manuscript import ManuscriptManager
 from builder.state_manager import StateManager
 from builder.scene_contract import SceneContract
+from builder.story_interview import (
+    CHARACTER_QUESTIONS,
+    RELATIONSHIP_QUESTIONS,
+    LOCATION_QUESTIONS,
+    apply_interview_patch,
+    structure_answer,
+)
 from builder.workspace import NOVEL_ROOT, WORKSPACE_ROOT
 
 
@@ -42,6 +49,10 @@ class StoryBuilderApp(tk.Tk):
         self.pending_state_patch = None
         self.selected_manuscript_path = None
         self.saved_state_candidate = None
+        self.interview_active = False
+        self.interview_index = 0
+        self.interview_pending_patch = None
+        self.interview_pending_answer = ""
         self.selected_manuscript_path = None
         self.saved_state_candidate = None
 
@@ -75,6 +86,7 @@ class StoryBuilderApp(tk.Tk):
         self._build_locations_tab()
         self._build_modules_tab()
         self._build_planning_tab()
+        self._build_story_interview_tab()
         self._build_scene_contract_tab()
         self._build_state_tab()
         self._build_writer_tab()
@@ -302,6 +314,176 @@ class StoryBuilderApp(tk.Tk):
 
         ttk.Button(tab, text="Apply Story Planning", command=self._apply_planning_edits).pack(anchor="e", pady=(8, 0))
 
+
+    def _build_story_interview_tab(self):
+        tab = ttk.Frame(self.notebook)
+        self.notebook.add(tab, text="Story Interview")
+
+        scroll_frame = ttk.Frame(tab)
+        scroll_frame.pack(fill="both", expand=True)
+
+        canvas = tk.Canvas(scroll_frame, highlightthickness=0, borderwidth=0)
+        scrollbar = ttk.Scrollbar(scroll_frame, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=scrollbar.set)
+        scrollbar.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+        self._scroll_canvases.append(canvas)
+
+        content = ttk.Frame(canvas, padding=12)
+        window_id = canvas.create_window((0, 0), window=content, anchor="nw")
+
+        def update_scroll_region(_event=None):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        def fit_content_width(event):
+            canvas.itemconfigure(window_id, width=event.width)
+
+        content.bind("<Configure>", update_scroll_region)
+        canvas.bind("<Configure>", fit_content_width)
+
+        ttk.Label(
+            content,
+            text="Guided Story Interview",
+            font=("", 14, "bold"),
+        ).pack(anchor="w")
+        ttk.Label(
+            content,
+            text=(
+                "Answer naturally, the way you would explain the story to a person. "
+                "Simple answers are handled directly. For richer answers, the local LLM "
+                "turns your answer into a proposed JSON change that you approve before it becomes canon."
+            ),
+            wraplength=900,
+            justify="left",
+        ).pack(anchor="w", pady=(4, 10))
+
+        target_row = ttk.Frame(content)
+        target_row.pack(fill="x", pady=(0, 10))
+
+        ttk.Label(target_row, text="Interview").pack(side="left")
+        self.interview_mode_var = tk.StringVar(value="Character")
+        self.interview_mode_combo = ttk.Combobox(
+            target_row,
+            textvariable=self.interview_mode_var,
+            values=("Character", "Relationship", "Location"),
+            state="readonly",
+            width=16,
+        )
+        self.interview_mode_combo.pack(side="left", padx=(8, 14))
+        self.interview_mode_combo.bind(
+            "<<ComboboxSelected>>",
+            lambda _event: self._refresh_interview_targets(reset=True),
+        )
+
+        ttk.Label(target_row, text="Target").pack(side="left")
+        self.interview_target_var = tk.StringVar()
+        self.interview_target_combo = ttk.Combobox(
+            target_row,
+            textvariable=self.interview_target_var,
+            state="readonly",
+            width=48,
+        )
+        self.interview_target_combo.pack(side="left", fill="x", expand=True, padx=(8, 8))
+        self.interview_target_combo.bind(
+            "<<ComboboxSelected>>",
+            lambda _event: self._start_story_interview(),
+        )
+
+        ttk.Button(
+            target_row,
+            text="Refresh",
+            command=lambda: self._refresh_interview_targets(reset=False),
+        ).pack(side="left")
+
+        self.interview_question_label = ttk.Label(
+            content,
+            text="Select a target to begin.",
+            font=("", 12, "bold"),
+            wraplength=900,
+            justify="left",
+        )
+        self.interview_question_label.pack(anchor="w", pady=(2, 4))
+
+        self.interview_prompt_label = ttk.Label(
+            content,
+            text="",
+            wraplength=900,
+            justify="left",
+        )
+        self.interview_prompt_label.pack(anchor="w", pady=(0, 10))
+
+        ttk.Label(
+            content,
+            text="Your Answer",
+            font=("", 11, "bold"),
+        ).pack(anchor="w")
+        self.interview_answer_text = tk.Text(
+            content,
+            height=9,
+            wrap="word",
+            undo=True,
+        )
+        self.interview_answer_text.pack(fill="x", pady=(4, 8))
+
+        answer_row = ttk.Frame(content)
+        answer_row.pack(fill="x")
+        self.interview_process_button = ttk.Button(
+            answer_row,
+            text="Process Answer",
+            command=self._process_story_interview_answer,
+        )
+        self.interview_process_button.pack(side="left")
+        self.interview_skip_button = ttk.Button(
+            answer_row,
+            text="Skip",
+            command=self._skip_story_interview_question,
+        )
+        self.interview_skip_button.pack(side="left", padx=(8, 0))
+        self.interview_stop_button = ttk.Button(
+            answer_row,
+            text="Stop Interview",
+            command=self._stop_story_interview,
+        )
+        self.interview_stop_button.pack(side="left", padx=(8, 0))
+
+        ttk.Label(
+            content,
+            text="AI Proposed Changes",
+            font=("", 11, "bold"),
+        ).pack(anchor="w", pady=(14, 0))
+        self.interview_proposed_text = tk.Text(
+            content,
+            height=12,
+            wrap="none",
+            state="disabled",
+        )
+        self.interview_proposed_text.pack(fill="both", expand=True, pady=(4, 8))
+
+        proposal_row = ttk.Frame(content)
+        proposal_row.pack(fill="x")
+        self.interview_approve_button = ttk.Button(
+            proposal_row,
+            text="Approve Changes",
+            command=self._approve_story_interview_patch,
+        )
+        self.interview_approve_button.pack(side="left")
+        self.interview_reject_button = ttk.Button(
+            proposal_row,
+            text="Reject Changes",
+            command=self._reject_story_interview_patch,
+        )
+        self.interview_reject_button.pack(side="left", padx=(8, 0))
+        self.interview_status = ttk.Label(
+            content,
+            text="",
+            wraplength=900,
+            justify="left",
+        )
+        self.interview_status.pack(anchor="w", fill="x", pady=(8, 0))
+
+        self.interview_mode_combo.set("Character")
+        self._refresh_interview_targets(reset=True)
+        self._update_story_interview_buttons()
 
     def _build_scene_contract_tab(self):
         tab = ttk.Frame(self.notebook)
@@ -922,6 +1104,386 @@ class StoryBuilderApp(tk.Tk):
         # persistent system prompt. Those belong in the per-scene direction
         # and short continuation handoff.
         return files
+
+    def _story_interview_questions(self):
+        mode = self.interview_mode_var.get().strip()
+        if mode == "Relationship":
+            return RELATIONSHIP_QUESTIONS
+        if mode == "Location":
+            return LOCATION_QUESTIONS
+        return CHARACTER_QUESTIONS
+
+    def _interview_targets(self, mode):
+        if self.package is None:
+            return []
+
+        if mode == "Character":
+            return sorted(self.package.characters)
+
+        if mode == "Location":
+            locations = self.package.story_bible.get("locations", {})
+            if not isinstance(locations, dict):
+                return []
+            return sorted(
+                str(key)
+                for key in locations
+                if str(key).strip()
+            )
+
+        relationships = self.package.story_bible.get("relationships", {})
+        targets = []
+        if isinstance(relationships, dict):
+            targets.extend(
+                str(key)
+                for key in relationships
+                if str(key).strip()
+            )
+
+        names = []
+        for filename, data in self.package.characters.items():
+            name = str(data.get("name", "") or "").strip()
+            if name:
+                names.append((name, filename))
+
+        existing = {"-".join(part.strip() for part in str(pair).split("-", 2)) for pair in targets}
+        for index, (left_name, _left_file) in enumerate(names):
+            for right_name, _right_file in names[index + 1:]:
+                pair = f"{left_name}-{right_name}"
+                if pair not in existing:
+                    targets.append(pair)
+        return sorted(set(targets), key=str.casefold)
+
+    def _refresh_interview_targets(self, reset=True):
+        if not hasattr(self, "interview_target_combo"):
+            return
+
+        mode = self.interview_mode_var.get().strip() or "Character"
+        values = self._interview_targets(mode)
+        current = self.interview_target_var.get().strip()
+
+        self.interview_target_combo["values"] = values
+        if values:
+            if not reset and current in values:
+                self.interview_target_var.set(current)
+            else:
+                self.interview_target_var.set(values[0])
+            self._start_story_interview(reset=reset)
+        else:
+            self.interview_target_var.set("")
+            self.interview_active = False
+            self.interview_index = 0
+            self.interview_pending_patch = None
+            self.interview_question_label.configure(text="No targets exist for this interview type yet.")
+            self.interview_prompt_label.configure(text="Create the first item in the appropriate tab, then return here.")
+            self._clear_interview_proposal()
+            self._update_story_interview_buttons()
+
+    def _start_story_interview(self, reset=True):
+        if self.package is None or not hasattr(self, "interview_question_label"):
+            return
+
+        if reset or not getattr(self, "interview_active", False):
+            self.interview_index = 0
+
+        target = self.interview_target_var.get().strip()
+        if not target:
+            self.interview_active = False
+            self._update_story_interview_buttons()
+            return
+
+        self.interview_active = True
+        self.interview_pending_patch = None
+        self.interview_pending_answer = ""
+        self._clear_interview_proposal()
+        self._show_story_interview_question()
+
+    def _show_story_interview_question(self):
+        questions = self._story_interview_questions()
+        if not questions:
+            return
+
+        if self.interview_index >= len(questions):
+            self.interview_active = False
+            self.interview_question_label.configure(text="Interview complete.")
+            self.interview_prompt_label.configure(
+                text="All questions in this interview have been covered. Save the novel to write the approved changes to disk."
+            )
+            self._update_story_interview_buttons()
+            return
+
+        title, prompt, _kind = questions[self.interview_index]
+        target = self.interview_target_var.get().strip()
+        display_target = target
+
+        if self.interview_mode_var.get() == "Character" and self.package:
+            data = self.package.characters.get(target, {})
+            display_target = str(data.get("name", "") or target)
+
+        self.interview_question_label.configure(
+            text=(
+                f"{display_target}  •  {title}  "
+                f"({self.interview_index + 1} of {len(questions)})"
+            )
+        )
+        self.interview_prompt_label.configure(text=prompt)
+        self.interview_answer_text.delete("1.0", "end")
+        self._update_story_interview_buttons()
+
+    def _current_story_interview_data(self):
+        if self.package is None:
+            return {}
+
+        mode = self.interview_mode_var.get().strip()
+        target = self.interview_target_var.get().strip()
+
+        if mode == "Character":
+            return {
+                "character_file": target,
+                "character": self.package.characters.get(target, {}),
+            }
+
+        if mode == "Location":
+            locations = self.package.story_bible.get("locations", {})
+            return {
+                "location_id": target,
+                "location": locations.get(target, ""),
+            }
+
+        relationships = self.package.story_bible.get("relationships", {})
+        pair_value = relationships.get(target, "") if isinstance(relationships, dict) else ""
+
+        names = [part.strip() for part in target.split("-", 1)]
+        characters = {}
+        if len(names) == 2:
+            wanted = {name.casefold() for name in names}
+            for filename, data in self.package.characters.items():
+                name = str(data.get("name", "") or "").strip()
+                if name.casefold() in wanted:
+                    characters[filename] = data
+
+        return {
+            "relationship_key": target,
+            "relationship": pair_value,
+            "characters": characters,
+        }
+
+    def _process_story_interview_answer(self):
+        if not self.interview_active or self.interview_pending_patch is not None:
+            return
+
+        questions = self._story_interview_questions()
+        if self.interview_index >= len(questions):
+            return
+
+        title, prompt, kind = questions[self.interview_index]
+        answer = self.interview_answer_text.get("1.0", "end-1c").strip()
+        if not answer:
+            messagebox.showwarning("Story Interview", "Give an answer, or click Skip.")
+            return
+
+        if kind == "age":
+            try:
+                age = int(answer)
+            except ValueError:
+                messagebox.showerror("Story Interview", "Age must be a whole number, or click Skip.")
+                return
+            if age < 0:
+                messagebox.showerror("Story Interview", "Age cannot be negative.")
+                return
+
+            target = self.interview_target_var.get().strip()
+            character = self.package.characters.get(target) if self.package else None
+            if character is None:
+                return
+            character["age"] = age
+            self.dirty = True
+            self._chat("Builder", f"Interview updated {character.get('name', target)}'s age to {age}.")
+            self._advance_story_interview()
+            return
+
+        model = self.writer_engine.model_path
+        if model is None:
+            selected = self.writer_model_var.get().strip()
+            if not selected:
+                messagebox.showerror(
+                    "Story Interview",
+                    "Select a GGUF model in the Writer tab first.",
+                )
+                return
+            try:
+                model = WriterEngine.validate_model(selected)
+            except Exception as exc:
+                messagebox.showerror("Story Interview", str(exc))
+                return
+
+        self.interview_process_button.configure(state="disabled")
+        self.interview_status.configure(text="The local LLM is structuring your answer. It will not change canon yet.")
+
+        mode_map = {
+            "Character": "character",
+            "Relationship": "relationship",
+            "Location": "location",
+        }
+        target_kind = mode_map.get(self.interview_mode_var.get().strip(), "character")
+        target = self.interview_target_var.get().strip()
+        existing = self._current_story_interview_data()
+
+        def work():
+            try:
+                patch = structure_answer(
+                    model,
+                    target_kind=target_kind,
+                    target_name=target,
+                    question=prompt,
+                    answer=answer,
+                    existing_data=existing,
+                )
+                error = None
+            except Exception as exc:
+                patch = None
+                error = str(exc)
+
+            self.after(
+                0,
+                lambda patch=patch, error=error: self._finish_story_interview_structure(
+                    patch, error, answer
+                ),
+            )
+
+        self.writer_thread = threading.Thread(target=work, daemon=True)
+        self.writer_thread.start()
+
+    def _finish_story_interview_structure(self, patch, error, answer):
+        if error:
+            messagebox.showerror("Story Interview", error)
+            self.interview_status.configure(text="The answer was not applied.")
+            self._update_story_interview_buttons()
+            return
+
+        if not isinstance(patch, dict) or not patch:
+            messagebox.showinfo(
+                "Story Interview",
+                "The local LLM could not find a safe structured change in that answer. Nothing was changed.",
+            )
+            self.interview_status.configure(
+                text="No change proposed. You can reword the answer or skip the question."
+            )
+            self._update_story_interview_buttons()
+            return
+
+        self.interview_pending_patch = patch
+        self.interview_pending_answer = answer
+        self._set_interview_proposal(patch)
+        self.interview_status.configure(
+            text="Review the proposed JSON changes. Nothing is canon until you approve them."
+        )
+        self._update_story_interview_buttons()
+
+    def _approve_story_interview_patch(self):
+        patch = self.interview_pending_patch
+        if not isinstance(patch, dict) or self.package is None:
+            return
+
+        mode_map = {
+            "Character": "character",
+            "Relationship": "relationship",
+            "Location": "location",
+        }
+        target_kind = mode_map.get(self.interview_mode_var.get().strip(), "character")
+        target = self.interview_target_var.get().strip()
+
+        try:
+            apply_interview_patch(
+                self.package,
+                patch,
+                target_kind=target_kind,
+                target_name=target,
+            )
+        except Exception as exc:
+            messagebox.showerror("Story Interview", str(exc))
+            return
+
+        self.dirty = True
+        self._chat("Builder", f"Approved interview changes for {target}.")
+        self.interview_pending_patch = None
+        self.interview_pending_answer = ""
+        self._clear_interview_proposal()
+        self._advance_story_interview()
+
+    def _reject_story_interview_patch(self):
+        if self.interview_pending_patch is None:
+            return
+        self.interview_pending_patch = None
+        self.interview_pending_answer = ""
+        self._clear_interview_proposal()
+        self.interview_status.configure(
+            text="Proposed changes rejected. Your answer was not applied."
+        )
+        self.interview_answer_text.delete("1.0", "end")
+        self._update_story_interview_buttons()
+
+    def _skip_story_interview_question(self):
+        if not self.interview_active or self.interview_pending_patch is not None:
+            return
+        self.interview_answer_text.delete("1.0", "end")
+        self._advance_story_interview()
+
+    def _advance_story_interview(self):
+        self.interview_index += 1
+        self._clear_interview_proposal()
+        self.interview_status.configure(text="Answer accepted into the working novel. Continue when ready.")
+        self._show_story_interview_question()
+
+    def _stop_story_interview(self):
+        self.interview_active = False
+        self.interview_pending_patch = None
+        self.interview_pending_answer = ""
+        self._clear_interview_proposal()
+        self.interview_question_label.configure(text="Interview stopped.")
+        self.interview_prompt_label.configure(
+            text="Your approved changes remain in the working novel. Save when ready."
+        )
+        self._update_story_interview_buttons()
+
+    def _set_interview_proposal(self, patch):
+        self.interview_proposed_text.configure(state="normal")
+        self.interview_proposed_text.delete("1.0", "end")
+        self.interview_proposed_text.insert(
+            "1.0",
+            json.dumps(patch, indent=2, ensure_ascii=False),
+        )
+        self.interview_proposed_text.configure(state="disabled")
+
+    def _clear_interview_proposal(self):
+        if not hasattr(self, "interview_proposed_text"):
+            return
+        self.interview_proposed_text.configure(state="normal")
+        self.interview_proposed_text.delete("1.0", "end")
+        self.interview_proposed_text.configure(state="disabled")
+
+    def _update_story_interview_buttons(self):
+        if not hasattr(self, "interview_process_button"):
+            return
+
+        active = bool(getattr(self, "interview_active", False))
+        pending = isinstance(getattr(self, "interview_pending_patch", None), dict)
+        has_package = self.package is not None
+
+        self.interview_process_button.configure(
+            state="normal" if active and not pending and has_package else "disabled"
+        )
+        self.interview_skip_button.configure(
+            state="normal" if active and not pending else "disabled"
+        )
+        self.interview_stop_button.configure(
+            state="normal" if active else "disabled"
+        )
+        self.interview_approve_button.configure(
+            state="normal" if pending and has_package else "disabled"
+        )
+        self.interview_reject_button.configure(
+            state="normal" if pending else "disabled"
+        )
 
     def _build_scene_direction(self):
         if self.package is None:
@@ -2518,6 +3080,10 @@ Rules:
         self.generated_scene = ""
         self.accepted_scene = ""
         self.pending_state_patch = None
+        self.interview_active = False
+        self.interview_index = 0
+        self.interview_pending_patch = None
+        self.interview_pending_answer = ""
         self.package = StoryPackage.new()
         self.character_filename = None
         self.dirty = True
@@ -2550,6 +3116,10 @@ Rules:
         self.generated_scene = ""
         self.accepted_scene = ""
         self.pending_state_patch = None
+        self.interview_active = False
+        self.interview_index = 0
+        self.interview_pending_patch = None
+        self.interview_pending_answer = ""
         self.dirty = False
         if hasattr(self, "writer_output_text"):
             self.writer_output_text.delete("1.0", "end")
@@ -3042,6 +3612,8 @@ Rules:
         self.situation_text.insert("1.0", str(state.get("current_situation", "")))
         if hasattr(self, "scene_contract_start_text"):
             self._refresh_scene_contract_editor()
+        if hasattr(self, "interview_target_combo"):
+            self._refresh_interview_targets(reset=False)
         self._update_path_label()
 
     @staticmethod
@@ -3187,6 +3759,7 @@ Rules:
             self.situation_text,
             self.themes_text,
             self.open_questions_text,
+            self.interview_answer_text,
             self.writer_direction_text,
             self.writer_output_text,
             self.writer_state_preview,
