@@ -1674,7 +1674,8 @@ Rules:
 7. Follow the scene direction in order and complete its requested actions before reaching its ending.
 8. Let characters make their own choices when the scene gives them a choice.
 9. Write believable dialogue, actions, emotions, and ordinary interaction. Show feelings through the scene instead of repeatedly explaining them.
-10. Do not invent consequential facts, motives, future events, hidden knowledge, or unnecessary story details.
+10. Prefer dramatization over summary. Let characters reveal personality, relationships, emotions, shared history, and decisions through dialogue, actions, reactions, and interaction whenever practical. Use narration to support the scene rather than repeatedly summarizing what the characters said, did, or felt. Do not force dialogue into moments that naturally call for quiet observation, internal thought, or description.
+11. Do not invent consequential facts, motives, future events, hidden knowledge, or unnecessary story details.
 11. Respect privacy, dignity, and established character boundaries.
 12. Do not use childlike nicknames for established adult characters unless that nickname is explicitly established.
 13. Respect the scene endpoint exactly. Do not stop early or continue past it.
