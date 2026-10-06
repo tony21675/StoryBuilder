@@ -1297,8 +1297,20 @@ class StoryBuilderApp(tk.Tk):
                 return
             character["age"] = age
             self.dirty = True
+            self._refresh_all()
             self._chat("Builder", f"Interview updated {character.get('name', target)}'s age to {age}.")
             self._advance_story_interview()
+            return
+
+        writer_running = (
+            self.writer_engine.child is not None
+            and self.writer_engine.child.isalive()
+        )
+        if writer_running:
+            messagebox.showwarning(
+                "Story Interview",
+                "Stop the Writer before using the LLM interview so the laptop does not load two copies of the model at once.",
+            )
             return
 
         model = self.writer_engine.model_path
@@ -1404,6 +1416,7 @@ class StoryBuilderApp(tk.Tk):
             return
 
         self.dirty = True
+        self._refresh_all()
         self._chat("Builder", f"Approved interview changes for {target}.")
         self.interview_pending_patch = None
         self.interview_pending_answer = ""
