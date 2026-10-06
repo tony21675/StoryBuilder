@@ -187,6 +187,8 @@ class SceneContract:
         """Build a contract from scene guidance and active story modules."""
         source = guidance if isinstance(guidance, dict) else {}
         explicit = source.get("scene_contract")
+        if "scene_contract" in source and explicit is not None and not isinstance(explicit, dict):
+            raise ValueError("Scene guidance 'scene_contract' must be an object.")
         contract = dict(explicit) if isinstance(explicit, dict) else {}
 
         def add_list(target_key: str, *candidate_keys: str) -> None:
@@ -277,10 +279,83 @@ class SceneContract:
             if "state_after" not in contract and isinstance(module.get("state_after"), dict):
                 contract["state_after"] = module["state_after"]
 
-        return SceneContract.validate_shape(contract) if contract else {}
+        if not contract:
+            return {}
+
+        errors = SceneContract.lint(contract)
+        if errors:
+            raise ValueError(
+                "Invalid scene contract:\n- " + "\n- ".join(errors)
+            )
+        return contract
 
     @staticmethod
-    def _local_hard_checks(contract: dict[str, Any], prose: str) -> dict[str, Any]:
+    def lint(contract: dict[str, Any]) -> list[str]:
+        """Return deterministic authoring errors without judging prose."""
+        SceneContract.validate_shape(contract)
+
+        errors: list[str] = []
+        list_keys = (
+            "required_beats",
+            "required_facts",
+            "required_sequence",
+            "forbidden",
+            "forbidden_details",
+        )
+
+        normalized: dict[str, set[str]] = {}
+        for key in list_keys:
+            values = contract.get(key, [])
+            if not isinstance(values, list):
+                continue
+            seen: set[str] = set()
+            duplicates: list[str] = []
+            for item in values:
+                item_text = str(item).strip()
+                if not item_text:
+                    errors.append(f"Scene contract '{key}' contains an empty item.")
+                    continue
+                item_key = item_text.casefold()
+                if item_key in seen:
+                    duplicates.append(item_text)
+                seen.add(item_key)
+            if duplicates:
+                errors.append(
+                    f"Scene contract '{key}' contains duplicate items: "
+                    + ", ".join(repr(item) for item in duplicates)
+                )
+            normalized[key] = seen
+
+        forbidden = normalized.get("forbidden", set()) | normalized.get("forbidden_details", set())
+        required = (
+            normalized.get("required_beats", set())
+            | normalized.get("required_facts", set())
+            | normalized.get("required_sequence", set())
+        )
+        overlap = sorted(required & forbidden)
+        for item in overlap:
+            errors.append(
+                f"Scene contract contains a requirement and prohibition for the same item: {item!r}."
+            )
+
+        local = contract.get("local_hard_checks", {})
+        if isinstance(local, dict):
+            for key in ("forbidden_patterns", "required_patterns"):
+                patterns = local.get(key, [])
+                if not isinstance(patterns, list):
+                    continue
+                for pattern in patterns:
+                    pattern_text = str(pattern).strip()
+                    if not pattern_text:
+                        continue
+                    try:
+                        re.compile(pattern_text)
+                    except re.error as exc:
+                        errors.append(
+                            f"Invalid scene contract regex in {key}: {pattern_text!r} ({exc})."
+                        )
+
+        return errors
 
     @staticmethod
     def _local_hard_checks(contract: dict[str, Any], prose: str) -> dict[str, Any]:
@@ -353,6 +428,11 @@ class SceneContract:
             return {"pass": True, "missed_beats": [], "violations": [], "notes": ""}
 
         SceneContract.validate_shape(contract)
+        lint_errors = SceneContract.lint(contract)
+        if lint_errors:
+            raise ValueError(
+                "Invalid scene contract:\n- " + "\n- ".join(lint_errors)
+            )
 
         if not prose.strip():
             return {
