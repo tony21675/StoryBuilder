@@ -34,6 +34,10 @@ class StoryPackage:
             "locations": {},
             "story_planning": {}
         }
+        package.extra_json["writing_guidance.json"] = {
+            "purpose": "Author-defined scene direction and reusable scene contracts.",
+            "scene_plan": {},
+        }
         package.current_state = {
             "story_format_version": FORMAT_VERSION,
             "chapter": 1,
