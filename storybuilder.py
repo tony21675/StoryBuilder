@@ -32,6 +32,7 @@ class StoryBuilderApp(tk.Tk):
         self.dirty = False
         self.guided_setup = GuidedSetupSession()
         self._closing = False
+        self._scroll_canvases = []
         self.spellcheck_available = shutil.which("aspell") is not None
         self._spellcheck_jobs = {}
         self.writer_engine = WriterEngine()
@@ -79,6 +80,7 @@ class StoryBuilderApp(tk.Tk):
         self._build_writer_tab()
         self._build_manuscript_tab()
         self._install_context_menus()
+        self._install_mousewheel_scrolling()
         self._install_spellchecking()
 
     def _build_chat_tab(self):
@@ -314,6 +316,7 @@ class StoryBuilderApp(tk.Tk):
         scrollbar.pack(side="right", fill="y")
         canvas.pack(side="left", fill="both", expand=True)
 
+        self._scroll_canvases.append(canvas)
         content = ttk.Frame(canvas, padding=12)
         window_id = canvas.create_window((0, 0), window=content, anchor="nw")
 
@@ -499,6 +502,7 @@ class StoryBuilderApp(tk.Tk):
         scroll_frame.pack(fill="both", expand=True)
 
         canvas = tk.Canvas(scroll_frame, highlightthickness=0, borderwidth=0)
+        self._scroll_canvases.append(canvas)
         scrollbar = ttk.Scrollbar(
             scroll_frame,
             orient="vertical",
@@ -521,17 +525,6 @@ class StoryBuilderApp(tk.Tk):
         content_frame.bind("<Configure>", update_scroll_region)
         canvas.bind("<Configure>", fit_content_width)
 
-        def on_mousewheel(event):
-            if event.delta:
-                canvas.yview_scroll(int(-event.delta / 120), "units")
-            elif event.num == 4:
-                canvas.yview_scroll(-3, "units")
-            elif event.num == 5:
-                canvas.yview_scroll(3, "units")
-
-        canvas.bind_all("<MouseWheel>", on_mousewheel, add="+")
-        canvas.bind_all("<Button-4>", on_mousewheel, add="+")
-        canvas.bind_all("<Button-5>", on_mousewheel, add="+")
 
         ttk.Label(
             content_frame,
@@ -3278,31 +3271,27 @@ Rules:
             widget.tag_add("misspelled", start, end)
 
     def _install_context_menus(self):
-        # Tkinter provides keyboard clipboard shortcuts, but does not create
-        # a right-click context menu automatically on Linux. Add one to every
-        # text-entry widget used by StoryBuilder.
-        widgets = [
-            self.premise_text,
-            *self.character_texts.values(),
-            self.cast_text,
-            self.notes_text,
-            self.relationships_text,
-            self.locations_text,
-            self.module_text,
-            self.situation_text,
-            self.themes_text,
-            self.open_questions_text,
-            self.writer_direction_text,
-            self.writer_output_text,
-            self.manuscript_output,
-        ]
-
-        # Find the Entry widgets associated with StringVars by walking the
-        # widget tree. This keeps the data model unchanged.
+        # Discover every Text and Entry widget so every current and future tab
+        # gets the same right-click clipboard behavior.
+        widgets = self._find_text_widgets(self)
         widgets.extend(self._find_entry_widgets(self))
 
+        seen = set()
         for widget in widgets:
+            widget_id = str(widget)
+            if widget_id in seen:
+                continue
+            seen.add(widget_id)
             self._add_context_menu(widget)
+
+    @staticmethod
+    def _find_text_widgets(root):
+        widgets = []
+        for child in root.winfo_children():
+            if isinstance(child, tk.Text):
+                widgets.append(child)
+            widgets.extend(StoryBuilderApp._find_text_widgets(child))
+        return widgets
 
     @staticmethod
     def _find_entry_widgets(root):
@@ -3312,6 +3301,89 @@ Rules:
                 entries.append(child)
             entries.extend(StoryBuilderApp._find_entry_widgets(child))
         return entries
+
+    def _install_mousewheel_scrolling(self):
+        """Route mouse-wheel input to the widget currently under the pointer."""
+        self.bind_all("<MouseWheel>", self._handle_mousewheel, add="+")
+        self.bind_all("<Button-4>", self._handle_mousewheel, add="+")
+        self.bind_all("<Button-5>", self._handle_mousewheel, add="+")
+
+    @staticmethod
+    def _mousewheel_units(event):
+        if getattr(event, "num", None) == 4:
+            return -3
+        if getattr(event, "num", None) == 5:
+            return 3
+
+        delta = getattr(event, "delta", 0)
+        if delta > 0:
+            return -3
+        if delta < 0:
+            return 3
+        return 0
+
+    def _handle_mousewheel(self, event):
+        units = self._mousewheel_units(event)
+        if not units:
+            return
+
+        try:
+            widget = self.winfo_containing(event.x_root, event.y_root)
+        except tk.TclError:
+            widget = None
+
+        if widget is None:
+            return
+
+        # Native entry widgets keep their normal mouse-wheel behavior.
+        if isinstance(widget, (ttk.Entry, ttk.Combobox, ttk.Spinbox)):
+            return
+
+        # First try the Text/Listbox directly under the pointer.
+        target = widget
+        while target is not None:
+            if isinstance(target, (tk.Text, tk.Listbox)):
+                try:
+                    before = target.yview()
+                    target.yview_scroll(units, "units")
+                    after = target.yview()
+                    if before != after:
+                        return "break"
+                except tk.TclError:
+                    pass
+                break
+
+            if isinstance(target, tk.Canvas):
+                try:
+                    target.yview_scroll(units, "units")
+                    return "break"
+                except tk.TclError:
+                    return
+
+            try:
+                parent_name = target.winfo_parent()
+                if not parent_name:
+                    break
+                target = target.nametowidget(parent_name)
+            except (tk.TclError, KeyError, AttributeError):
+                break
+
+        # If a text widget is already at an edge, scroll its containing canvas.
+        target = widget
+        while target is not None:
+            if isinstance(target, tk.Canvas):
+                try:
+                    target.yview_scroll(units, "units")
+                    return "break"
+                except tk.TclError:
+                    return
+            try:
+                parent_name = target.winfo_parent()
+                if not parent_name:
+                    break
+                target = target.nametowidget(parent_name)
+            except (tk.TclError, KeyError, AttributeError):
+                break
 
     @staticmethod
     def _add_context_menu(widget):
