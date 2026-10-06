@@ -166,6 +166,50 @@ class SceneContractTests(unittest.TestCase):
         self.assertEqual(scene_contract.SceneContract.max_attempts({"max_attempts": 99}), 5)
         self.assertEqual(scene_contract.SceneContract.max_attempts({"max_attempts": 0}), 1)
 
+    def test_contract_lint_detects_conflicting_rules(self):
+        contract = {
+            "required_beats": ["The door opens."],
+            "forbidden": ["The door opens."],
+            "max_attempts": 3,
+        }
+
+        errors = scene_contract.SceneContract.lint(contract)
+
+        self.assertTrue(errors)
+        self.assertIn("requirement and prohibition", errors[0])
+
+    def test_invalid_regex_is_rejected_before_generation(self):
+        contract = {
+            "local_hard_checks": {
+                "forbidden_patterns": ["("],
+            }
+        }
+
+        with self.assertRaises(ValueError):
+            scene_contract.SceneContract.lint(contract)
+
+    def test_author_contract_ignores_active_module_merging(self):
+        guidance = {
+            "scene_contract": {
+                "required_beats": ["Author beat"],
+                "hard_stop": "Author ending.",
+            }
+        }
+        modules = [{
+            "scene_contract": {
+                "required_beats": ["Module beat"],
+            }
+        }]
+
+        author_contract = scene_contract.SceneContract.from_guidance(guidance, [])
+        effective_contract = scene_contract.SceneContract.from_guidance(guidance, modules)
+
+        self.assertEqual(author_contract["required_beats"], ["Author beat"])
+        self.assertEqual(
+            effective_contract["required_beats"],
+            ["Author beat", "Module beat"],
+        )
+
     def test_empty_contract_still_passes(self):
         result = scene_contract.SceneContract.validate_with_engine(
             FakeEngine(),
