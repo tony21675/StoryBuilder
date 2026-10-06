@@ -10,7 +10,8 @@
     "eyes": "hazel",
     "facial_hair": "goatee"
   },
-  "background": "Retired U.S. Army Special Forces. During his military career, Tony was the man they called when a mission had to be completed no matter what. He was exceptionally skilled in hand-to-hand combat, weapons, stealth, and covert operations, and he was ruthless in pursuit of his objective. He was willing to hurt, shoot, or kill anyone necessary to complete the mission or stop someone who directly threatened it. After he married and started a family, Tony promised his dying wife that he would never live that way again. After her death, he kept that promise and has deliberately left that part of himself buried.",
+  "background": "Retired U.S. Army Special Forces. During his military career, Tony was the man they called when a mission had to be completed no matter what. He was exceptionally skilled in hand-to-hand combat, weapons, stealth, and covert operations, and he was ruthless in pursuit of his objective. He was willing to hurt, shoot, or kill anyone necessary to complete the mission or stop someone who directly threatened it. Tony and his wife were high school sweethearts. She was loyal, sweet in every way, and loved Tony more than anything. After they married and started a family, Tony promised her that he would never live the ruthless military life again. She died one week after giving birth to Tiffany due to complications. After her death, Tony kept his promise and deliberately left that part of himself buried.",
+  "wife": "Tony's wife was his high school sweetheart. She was loyal, sweet in every way, and loved Tony more than anything. She died one week after giving birth to Tiffany due to complications.",
   "skills": [
     "Master-level hand-to-hand combat",
     "Highly skilled with weapons",
@@ -25,6 +26,7 @@
     "determined"
   ],
   "relationships": {
+    "Wife": "deceased; Tony's high school sweetheart, deeply loyal and sweet, who loved him more than anything; she died one week after giving birth to Tiffany due to complications",
     "Tiffany": "daughter; Tony has known her since birth",
     "Maya": "family-like; Tony has known her since she was a baby and considers her another daughter, caring for her with warm, protective, parental affection while respecting that she is a young adult",
     "Chloe": "family-like; Tony sees Chloe as another daughter in the emotional and protective sense, caring for her with the same warm, protective concern he gives Maya and Tiffany"
@@ -46,7 +48,7 @@
     "Shows care more often through practical actions than speeches.",
     "Uses dry, understated humor with people he trusts.",
     "With Maya and Chloe, treats them as longtime family-like young adults rather than using childish language or talking down to them.",
-    "Does not call Maya or Chloe \"kid\", \"kiddo\", or similar childish terms.",
+    "Does not call Maya or Chloe "kid", "kiddo", or similar childish terms.",
     "Stays calm when things around him become stressful and notices when someone needs help before they ask.",
     "Protective and affectionate, especially when Maya, Chloe, or Tiffany is frightened, hurt, or overwhelmed, while respecting that Maya and Chloe are young adults."
   ],
