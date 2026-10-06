@@ -451,7 +451,20 @@ class StoryBuilderApp(tk.Tk):
 
         ttk.Label(
             content,
-            text="Your Answer",
+            text="Current Canon",
+            font=("", 11, "bold"),
+        ).pack(anchor="w", pady=(4, 0))
+        self.interview_current_text = tk.Text(
+            content,
+            height=7,
+            wrap="word",
+            state="disabled",
+        )
+        self.interview_current_text.pack(fill="x", pady=(4, 8))
+
+        ttk.Label(
+            content,
+            text="Your Answer / Revision",
             font=("", 11, "bold"),
         ).pack(anchor="w")
         self.interview_answer_text = tk.Text(
@@ -1244,6 +1257,10 @@ class StoryBuilderApp(tk.Tk):
             self.interview_pending_patch = None
             self.interview_question_label.configure(text="No targets exist for this interview type yet.")
             self.interview_prompt_label.configure(text="Create the first item in the appropriate tab, then return here.")
+            if hasattr(self, "interview_current_text"):
+                self.interview_current_text.configure(state="normal")
+                self.interview_current_text.delete("1.0", "end")
+                self.interview_current_text.configure(state="disabled")
             self._clear_interview_proposal()
             self._update_story_interview_buttons()
 
@@ -1265,6 +1282,115 @@ class StoryBuilderApp(tk.Tk):
         self.interview_pending_answer = ""
         self._clear_interview_proposal()
         self._show_story_interview_question()
+
+    def _interview_character_current_answer(self, title):
+        if self.package is None:
+            return ""
+
+        target = self.interview_target_var.get().strip()
+        character = self.package.characters.get(target, {})
+        if not isinstance(character, dict):
+            return ""
+
+        def scalar(value):
+            return str(value or "").strip()
+
+        def list_text(value):
+            if isinstance(value, list):
+                return "\n".join(
+                    scalar(item) for item in value if scalar(item)
+                )
+            return scalar(value)
+
+        def block(label, value):
+            if isinstance(value, dict):
+                body = self._format_key_value_block(value)
+            else:
+                body = list_text(value)
+            return f"{label}:\n{body}" if body else ""
+
+        if title == "Role":
+            return scalar(character.get("role"))
+
+        if title == "Age":
+            value = character.get("age")
+            return "" if value is None else str(value)
+
+        if title == "Appearance":
+            parts = []
+            if character.get("appearance"):
+                parts.append(block("Appearance", character.get("appearance")))
+            for key in ("description",):
+                value = scalar(character.get(key))
+                if value:
+                    parts.append(f"{key.title()}:\n{value}")
+            return "\n\n".join(parts)
+
+        if title == "Personality":
+            return list_text(character.get("personality"))
+
+        if title == "Strengths and weaknesses":
+            parts = [
+                block("Strengths", character.get("strengths")),
+                block("Weaknesses", character.get("weaknesses")),
+                block("Fears", character.get("fears")),
+            ]
+            return "\n\n".join(part for part in parts if part)
+
+        if title == "Background and family":
+            parts = []
+            for key in ("background", "family", "family_living_arrangement", "wife"):
+                value = character.get(key)
+                item = block(key.replace("_", " ").title(), value)
+                if item:
+                    parts.append(item)
+            return "\n\n".join(parts)
+
+        if title == "Relationships":
+            parts = []
+            for key in ("relationships", "friendship_dynamics", "relationship_with_tony"):
+                item = block(key.replace("_", " ").title(), character.get(key))
+                if item:
+                    parts.append(item)
+            return "\n\n".join(parts)
+
+        if title == "Private feelings":
+            parts = []
+            for key in ("private_feelings", "romance", "internal_conflict", "secret"):
+                item = block(key.replace("_", " ").title(), character.get(key))
+                if item:
+                    parts.append(item)
+            return "\n\n".join(parts)
+
+        if title == "Knowledge boundaries":
+            parts = []
+            for key in ("knowledge_rule", "knowledge", "does_not_know", "known_facts"):
+                item = block(key.replace("_", " ").title(), character.get(key))
+                if item:
+                    parts.append(item)
+            return "\n\n".join(parts)
+
+        if title == "Habits and cues":
+            return list_text(character.get("personality_cues"))
+
+        if title == "Goals and interests":
+            parts = []
+            for key in ("goals", "interests", "hobbies", "music", "fears"):
+                item = block(key.replace("_", " ").title(), character.get(key))
+                if item:
+                    parts.append(item)
+            return "\n\n".join(parts)
+
+        if title == "Skills and important details":
+            parts = []
+            for key in ("skills", "self_defense", "important_items", "access", "driving"):
+                item = block(key.replace("_", " ").title(), character.get(key))
+                if item:
+                    parts.append(item)
+            return "\n\n".join(parts)
+
+        return ""
+
 
     def _show_story_interview_question(self):
         questions = self._story_interview_questions()
@@ -1295,7 +1421,23 @@ class StoryBuilderApp(tk.Tk):
             )
         )
         self.interview_prompt_label.configure(text=prompt)
+
+        current_answer = ""
+        if self.interview_mode_var.get().strip() == "Character":
+            current_answer = self._interview_character_current_answer(title)
+
+        self.interview_current_text.configure(state="normal")
+        self.interview_current_text.delete("1.0", "end")
+        self.interview_current_text.insert(
+            "1.0",
+            current_answer or "(No canon is currently recorded for this question.)",
+        )
+        self.interview_current_text.configure(state="disabled")
+
         self.interview_answer_text.delete("1.0", "end")
+        if current_answer:
+            self.interview_answer_text.insert("1.0", current_answer)
+
         self._update_story_interview_buttons()
 
     def _current_story_interview_data(self):
