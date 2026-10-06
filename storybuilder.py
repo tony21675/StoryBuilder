@@ -1122,6 +1122,38 @@ class StoryBuilderApp(tk.Tk):
                 json.dumps(scene_characters, indent=2, ensure_ascii=False),
             ))
 
+        # Include canon cards for named people who are explicitly present in
+        # the scene state but are not part of the scene cast. This gives the
+        # writer enough information to reference an off-scene person accurately
+        # without bringing that person into the scene.
+        offscene_characters = {}
+        location_data = state.get("location", {})
+        if isinstance(location_data, dict):
+            referenced_names = {
+                str(name).casefold()
+                for name in location_data
+                if name != "primary"
+            }
+            for filename in sorted(self.package.characters):
+                data = self.package.characters[filename]
+                name = str(data.get("name", "") or "").strip()
+                filename_stem = Path(filename).stem.strip()
+                if (
+                    name
+                    and name.casefold() in referenced_names
+                    and name.casefold() not in scene_cast
+                ) or (
+                    filename_stem.casefold() in referenced_names
+                    and filename_stem.casefold() not in scene_cast
+                ):
+                    offscene_characters[name or filename_stem] = data
+
+        if offscene_characters:
+            files.append((
+                "offscene_canon_characters.json",
+                json.dumps(offscene_characters, indent=2, ensure_ascii=False),
+            ))
+
         relationships = self.package.story_bible.get("relationships", {})
         if isinstance(relationships, dict):
             relevant = {}
@@ -1712,7 +1744,8 @@ Rules:
 8. Let characters make their own choices when the scene gives them a choice.
 9. Write believable dialogue, actions, emotions, and ordinary interaction. Show feelings through the scene instead of repeatedly explaining them.
 10. Prefer dramatization over summary. Let characters reveal personality, relationships, emotions, shared history, and decisions through dialogue, actions, reactions, and interaction whenever practical. Use narration to support the scene rather than repeatedly summarizing what the characters said, did, or felt. Do not force dialogue into moments that naturally call for quiet observation, internal thought, or description.
-11. Do not invent consequential facts, motives, future events, hidden knowledge, or unnecessary story details.
+11. When an off-scene character is mentioned or referenced, use the supplied off-scene canon reference and current scene state to preserve established routines, family roles, schedules, and other known facts. Do not invent a different routine or explanation for why that person is where they are. Do not pull an off-scene character into the scene unless the current state or scene direction explicitly does so.
+12. Do not invent consequential facts, motives, future events, hidden knowledge, or unnecessary story details.
 11. Respect privacy, dignity, and established character boundaries.
 12. Do not use childlike nicknames for established adult characters unless that nickname is explicitly established.
 13. Respect the scene endpoint exactly. Do not stop early or continue past it.
