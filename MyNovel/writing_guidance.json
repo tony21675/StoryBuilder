@@ -27,7 +27,7 @@
     "Do not force every scene to accomplish a major plot development.",
     "Do not manufacture a major plot development merely to add drama.",
     "Do not reuse wording, actions, clues, injuries, knowledge, or event summaries from discarded drafts.",
-    "Do not introduce a second kidnapper in the opening arc."
+    "Do not introduce any additional kidnappers beyond the two established in Scene 5."
   ],
   "scene_plan": {
     "1": {
@@ -78,9 +78,10 @@
       "cast": [
         "Tiffany",
         "Maya",
-        "Kidnapper"
+        "Kidnapper 1",
+        "Kidnapper 2"
       ],
-      "direction": "Continue directly from Scene 4 on the quieter road. One unidentified male kidnapper intercepts Tiffany and Maya. He is the only kidnapper physically present in the scene. He grabs Tiffany and forces her into the van while Tiffany fights back using the practical self-defense Tony taught her. Maya witnesses the abduction and is not taken. Keep the event grounded in what the girls can actually see and experience. Do not reveal the kidnapper's identity, motive, destination, or hidden planning.",
+      "direction": "Continue directly from Scene 4 on the quieter road. Two unidentified male kidnappers intercept Tiffany and Maya. One kidnapper physically grabs Tiffany and forces her toward the van while the other remains with the van and assists as needed. Tiffany fights back using the practical self-defense Tony taught her. Maya witnesses the abduction and is not taken. Keep the event grounded in what the girls can actually see and experience. Do not reveal the kidnappers' identities, motive, destination, or hidden planning.",
       "end_condition": "HARD STOP after Tiffany has been taken and Maya is left alone on the roadside, conscious, shocked, and extremely distressed. Do not send Maya to Tony's house in this scene.",
       "pacing": "Let the scene begin as a believable continuation of the ordinary walk before the abduction changes everything. Fully dramatize the abduction without jumping ahead into Tony's response."
     },
@@ -97,7 +98,7 @@
           "primary": "Tony and Tiffany's home",
           "Tony": "At home, awake in his bedroom with Maya after she arrives in distress.",
           "Maya": "In Tony's bedroom, clinging to Tony after running to him for help.",
-          "Tiffany": "Inside the van with the kidnapper, being driven away.",
+          "Tiffany": "Inside the van with the two kidnappers, being driven away.",
           "Chloe": "At home sick and not participating in the scene."
         },
         "current_situation": "Maya has reached Tony after witnessing Tiffany's abduction. She is in Tony's bedroom with him, and after struggling to speak through her panic, she has finally told him that Tiffany is gone.",
@@ -111,7 +112,7 @@
           ],
           "Maya": [
             "Witnessed Tiffany being taken.",
-            "Knows one unidentified male kidnapper was involved.",
+            "Knows two unidentified male kidnappers were involved.",
             "Knows Tony is awake and with her in his bedroom.",
             "Has told Tony that Tiffany is gone."
           ]
