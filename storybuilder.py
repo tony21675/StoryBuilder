@@ -3555,6 +3555,101 @@ Rules:
         self._set_character_text("relationships", self._format_key_value_block(char.get("relationships", {})))
         self._set_character_text("important_items", self._format_key_value_block(char.get("important_items", {})))
 
+    def _refresh_supporting_people(self, select_name=None):
+        if not hasattr(self, "supporting_people_list"):
+            return
+
+        self.supporting_people_list.delete(0, "end")
+        people = self.package.story_bible.get("supporting_people", {}) if self.package else {}
+        if not isinstance(people, dict):
+            people = {}
+
+        names = sorted(
+            (str(name) for name in people if str(name).strip()),
+            key=str.casefold,
+        )
+        selected_index = None
+
+        for index, name in enumerate(names):
+            self.supporting_people_list.insert("end", name)
+            if name == select_name:
+                selected_index = index
+
+        if selected_index is not None:
+            self.supporting_people_list.selection_clear(0, "end")
+            self.supporting_people_list.selection_set(selected_index)
+            self.supporting_people_list.see(selected_index)
+            self._select_supporting_person()
+        elif not names:
+            self.supporting_person_text.delete("1.0", "end")
+
+
+    def _select_supporting_person(self, _event=None):
+        if self.package is None or not hasattr(self, "supporting_people_list"):
+            return
+
+        selection = self.supporting_people_list.curselection()
+        if not selection:
+            return
+
+        people = self.package.story_bible.get("supporting_people", {})
+        if not isinstance(people, dict):
+            return
+
+        names = sorted(
+            (str(name) for name in people if str(name).strip()),
+            key=str.casefold,
+        )
+        index = selection[0]
+        if index < 0 or index >= len(names):
+            return
+
+        name = names[index]
+        self.character_list.selection_clear(0, "end")
+        self.character_filename = None
+
+        for var in self.character_vars.values():
+            var.set("")
+        for widget in self.character_texts.values():
+            widget.delete("1.0", "end")
+
+        self.supporting_person_text.delete("1.0", "end")
+        self.supporting_person_text.insert(
+            "1.0",
+            str(people.get(name, "") or ""),
+        )
+
+
+    def _apply_supporting_person_edit(self):
+        if self.package is None or not hasattr(self, "supporting_people_list"):
+            return
+
+        selection = self.supporting_people_list.curselection()
+        if not selection:
+            return
+
+        people = self.package.story_bible.setdefault("supporting_people", {})
+        if not isinstance(people, dict):
+            people = {}
+            self.package.story_bible["supporting_people"] = people
+
+        names = sorted(
+            (str(name) for name in people if str(name).strip()),
+            key=str.casefold,
+        )
+        index = selection[0]
+        if index < 0 or index >= len(names):
+            return
+
+        name = names[index]
+        value = self.supporting_person_text.get("1.0", "end-1c").strip()
+        if value:
+            people[name] = value
+
+        self.dirty = True
+        self._update_path_label()
+
+
     def _set_character_text(self, key, value):
         widget = self.character_texts.get(key)
         if widget is None:
