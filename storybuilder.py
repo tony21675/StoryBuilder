@@ -302,16 +302,37 @@ class StoryBuilderApp(tk.Tk):
 
 
     def _build_scene_contract_tab(self):
-        tab = ttk.Frame(self.notebook, padding=12)
+        tab = ttk.Frame(self.notebook)
         self.notebook.add(tab, text="Scene Contract")
 
+        scroll_frame = ttk.Frame(tab)
+        scroll_frame.pack(fill="both", expand=True)
+
+        canvas = tk.Canvas(scroll_frame, highlightthickness=0, borderwidth=0)
+        scrollbar = ttk.Scrollbar(scroll_frame, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=scrollbar.set)
+        scrollbar.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+
+        content = ttk.Frame(canvas, padding=12)
+        window_id = canvas.create_window((0, 0), window=content, anchor="nw")
+
+        def update_scroll_region(_event=None):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        def fit_content_width(event):
+            canvas.itemconfigure(window_id, width=event.width)
+
+        content.bind("<Configure>", update_scroll_region)
+        canvas.bind("<Configure>", fit_content_width)
+
         ttk.Label(
-            tab,
+            content,
             text="Author-Controlled Scene Contract",
             font=("", 14, "bold"),
         ).pack(anchor="w")
         ttk.Label(
-            tab,
+            content,
             text=(
                 "Define the rails, not every sentence. The writer may vary the middle, "
                 "dialogue, gestures, and harmless details while the contract protects the "
@@ -319,7 +340,7 @@ class StoryBuilderApp(tk.Tk):
             ),
         ).pack(anchor="w", pady=(4, 8))
 
-        header = ttk.Frame(tab)
+        header = ttk.Frame(content)
         header.pack(fill="x", pady=(0, 8))
         self.scene_contract_scene_label = ttk.Label(
             header,
@@ -334,7 +355,7 @@ class StoryBuilderApp(tk.Tk):
             command=self._refresh_scene_contract_editor,
         ).pack(side="right")
 
-        start_frame = ttk.LabelFrame(tab, text="Beginning / Current State")
+        start_frame = ttk.LabelFrame(content, text="Beginning / Current State")
         start_frame.pack(fill="x", pady=(0, 8))
         ttk.Label(
             start_frame,
@@ -352,17 +373,17 @@ class StoryBuilderApp(tk.Tk):
         )
         self.scene_contract_start_text.pack(fill="x", padx=8, pady=(0, 8))
 
-        form = ttk.Frame(tab)
+        form = ttk.Frame(content)
         form.pack(fill="both", expand=True)
 
-        self.scene_contract_direction_text = tk.Text(form, height=5, wrap="word", undo=True)
-        self.scene_contract_end_text = tk.Text(form, height=5, wrap="word", undo=True)
+        self.scene_contract_direction_text = tk.Text(form, height=4, wrap="word", undo=True)
+        self.scene_contract_end_text = tk.Text(form, height=4, wrap="word", undo=True)
         self.scene_contract_texts = {
-            "required_beats": tk.Text(form, height=6, wrap="word", undo=True),
-            "required_facts": tk.Text(form, height=5, wrap="word", undo=True),
-            "required_sequence": tk.Text(form, height=5, wrap="word", undo=True),
-            "forbidden": tk.Text(form, height=5, wrap="word", undo=True),
-            "forbidden_details": tk.Text(form, height=5, wrap="word", undo=True),
+            "required_beats": tk.Text(form, height=5, wrap="word", undo=True),
+            "required_facts": tk.Text(form, height=4, wrap="word", undo=True),
+            "required_sequence": tk.Text(form, height=4, wrap="word", undo=True),
+            "forbidden": tk.Text(form, height=4, wrap="word", undo=True),
+            "forbidden_details": tk.Text(form, height=4, wrap="word", undo=True),
         }
 
         fields = [
@@ -376,10 +397,7 @@ class StoryBuilderApp(tk.Tk):
         ]
 
         for row, (_key, label, widget) in enumerate(fields):
-            ttk.Label(
-                form,
-                text=label,
-            ).grid(
+            ttk.Label(form, text=label).grid(
                 row=row,
                 column=0,
                 sticky="nw",
@@ -392,12 +410,9 @@ class StoryBuilderApp(tk.Tk):
             form.rowconfigure(row, weight=1 if row in (0, 1, 2) else 0)
         form.columnconfigure(1, weight=1)
 
-        attempts_row = ttk.Frame(tab)
+        attempts_row = ttk.Frame(content)
         attempts_row.pack(fill="x", pady=(8, 0))
-        ttk.Label(
-            attempts_row,
-            text="Automatic attempts",
-        ).pack(side="left")
+        ttk.Label(attempts_row, text="Automatic attempts").pack(side="left")
         self.scene_contract_attempts_var = tk.StringVar(value="3")
         ttk.Spinbox(
             attempts_row,
@@ -411,7 +426,7 @@ class StoryBuilderApp(tk.Tk):
             text="The validator rejects failed drafts and automatically retries up to this limit.",
         ).pack(side="left")
 
-        action_row = ttk.Frame(tab)
+        action_row = ttk.Frame(content)
         action_row.pack(fill="x", pady=(10, 0))
         ttk.Button(
             action_row,
@@ -1576,15 +1591,14 @@ Rules:
         self.scene_contract_start_text.configure(state="disabled")
 
         entry = self._editable_scene_guidance_entry(chapter, scene, create=False) or {}
+        contract_error = None
         try:
             contract = SceneContract.from_guidance(entry, [])
-        except ValueError as exc:
+        except (TypeError, ValueError) as exc:
             contract = {}
-            self.scene_contract_status.configure(
-                text=f"Contract needs attention: {exc}",
-            )
+            contract_error = str(exc)
 
-        self.scene_contract_direction_text.delete("1.0", "end")
+                self.scene_contract_direction_text.delete("1.0", "end")
         self.scene_contract_direction_text.insert(
             "1.0",
             str(entry.get("direction", "") or ""),
@@ -1605,49 +1619,18 @@ Rules:
 
         attempts = contract.get("max_attempts", 3)
         self.scene_contract_attempts_var.set(str(attempts))
-        self.scene_contract_status.configure(
-            text="Loaded author contract for the current scene.",
-        )
+        if contract_error:
+            self.scene_contract_status.configure(
+                text=f"Contract needs attention: {contract_error}",
+            )
+        else:
+            self.scene_contract_status.configure(
+                text="Loaded author contract for the current scene.",
+            )
 
-    def _validate_scene_contract(self):
-        if self.package is None:
-            return
-
-        chapter = int(self.package.current_state.get("chapter", 1) or 1)
-        scene = int(self.package.current_state.get("scene", 1) or 1)
-        entry = self._editable_scene_guidance_entry(chapter, scene, create=False) or {}
-
-        try:
-            contract = SceneContract.from_guidance(entry, [])
-            errors = SceneContract.lint(contract) if contract else []
-            if errors:
-                raise ValueError("Invalid scene contract:\n- " + "\n- ".join(errors))
-        except (TypeError, ValueError) as exc:
-            self.scene_contract_status.configure(text="Contract invalid.")
-            messagebox.showerror("Scene Contract", str(exc))
-            return
-
-        self.scene_contract_status.configure(
-            text="Contract is structurally valid and ready for generation.",
-        )
-        messagebox.showinfo(
-            "Scene Contract",
-            (
-                f"Chapter {chapter}, Scene {scene} contract is valid.\n\n"
-                f"Required beats: {len(contract.get('required_beats', [])) if contract else 0}\n"
-                f"Required facts: {len(contract.get('required_facts', [])) if contract else 0}\n"
-                f"Sequence steps: {len(contract.get('required_sequence', [])) if contract else 0}\n"
-                f"Forbidden rules: {len(contract.get('forbidden', [])) if contract else 0}\n"
-                f"Automatic attempts: {SceneContract.max_attempts(contract) if contract else 1}"
-            ),
-        )
-
-    def _apply_scene_contract_edits(self):
+    def _collect_scene_contract_editor(self) -> tuple[str, str, dict]:
         if self.package is None or not hasattr(self, "scene_contract_direction_text"):
-            return
-
-        chapter = int(self.package.current_state.get("chapter", 1) or 1)
-        scene = int(self.package.current_state.get("scene", 1) or 1)
+            raise ValueError("Scene contract editor is not available.")
 
         direction = self.scene_contract_direction_text.get("1.0", "end-1c").strip()
         end_text = self.scene_contract_end_text.get("1.0", "end-1c").strip()
@@ -1663,18 +1646,63 @@ Rules:
             try:
                 attempts = int(raw_attempts)
             except ValueError as exc:
-                raise ValueError("Automatic attempts must be an integer from 1 to 5.") from exc
-            contract["max_attempts"] = attempts
+                raise ValueError(
+                    "Automatic attempts must be an integer from 1 to 5."
+                ) from exc
         else:
-            contract["max_attempts"] = 3
+            attempts = 3
 
+        contract["max_attempts"] = attempts
         if end_text:
             contract["hard_stop"] = end_text
 
         SceneContract.validate_shape(contract)
         lint_errors = SceneContract.lint(contract)
         if lint_errors:
-            raise ValueError("Invalid scene contract:\n- " + "\n- ".join(lint_errors))
+            raise ValueError(
+                "Invalid scene contract:\n- " + "\n- ".join(lint_errors)
+            )
+
+        return direction, end_text, contract
+
+    def _validate_scene_contract(self):
+        if self.package is None:
+            return
+
+        chapter = int(self.package.current_state.get("chapter", 1) or 1)
+        scene = int(self.package.current_state.get("scene", 1) or 1)
+
+        try:
+            _direction, end_text, contract = self._collect_scene_contract_editor()
+        except (TypeError, ValueError) as exc:
+            self.scene_contract_status.configure(text="Contract invalid.")
+            messagebox.showerror("Scene Contract", str(exc))
+            return
+
+        self.scene_contract_status.configure(
+            text="Current editor contents are structurally valid.",
+        )
+        messagebox.showinfo(
+            "Scene Contract",
+            (
+                f"Chapter {chapter}, Scene {scene} contract is valid.\n\n"
+                f"Required beats: {len(contract.get('required_beats', []))}\n"
+                f"Required facts: {len(contract.get('required_facts', []))}\n"
+                f"Sequence steps: {len(contract.get('required_sequence', []))}\n"
+                f"Forbidden rules: {len(contract.get('forbidden', []))}\n"
+                f"Ending defined: {'yes' if end_text else 'no'}\n"
+                f"Automatic attempts: {SceneContract.max_attempts(contract)}"
+            ),
+        )
+
+    def _apply_scene_contract_edits(self):
+        if self.package is None or not hasattr(self, "scene_contract_direction_text"):
+            return
+
+        chapter = int(self.package.current_state.get("chapter", 1) or 1)
+        scene = int(self.package.current_state.get("scene", 1) or 1)
+
+        direction, end_text, contract = self._collect_scene_contract_editor()
 
         entry = self._editable_scene_guidance_entry(chapter, scene, create=True)
         if entry is None:
