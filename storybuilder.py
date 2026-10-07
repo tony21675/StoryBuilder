@@ -4122,20 +4122,13 @@ Rules:
         return [str(name) for name in location if name != "primary" and str(name) not in excluded]
 
     def _advance_to_next_scene(self):
-        """Advance the current state to the next planned scene without changing continuity."""
+        """Advance the saved state to the next planned scene without rewriting continuity."""
         if self.package is None:
             return
 
         try:
-            self._apply_state_edits()
-            if self.dirty:
-                self._save()
-                if self.dirty:
-                    return
-
             chapter = int(self.package.current_state.get("chapter", 1) or 1)
             scene = int(self.package.current_state.get("scene", 1) or 1)
-            next_scene = scene + 1
             final_scene = self._final_planned_scene_for_chapter(chapter)
 
             if final_scene is not None and scene >= final_scene:
@@ -4145,13 +4138,18 @@ Rules:
                 )
                 return
 
+            next_scene = scene + 1
             next_cast = self._scene_plan_cast(chapter, next_scene)
+
             self.package.current_state["scene"] = next_scene
             self.package.current_state["scene_completed"] = False
             self.package.current_state["chapter_completed"] = False
             if next_cast:
                 self.package.current_state["scene_cast"] = next_cast
 
+            # Preserve the completed scene's ending location, situation, and
+            # physical_state. Those values are the starting continuity for the
+            # next scene and should not be reconstructed or copied from UI fields.
             self.dirty = True
             self.generated_scene = ""
             self.accepted_scene = ""
@@ -4166,7 +4164,7 @@ Rules:
             self._chat(
                 "Builder",
                 f"Advanced from Scene {scene} to Scene {next_scene}. "
-                "The previous scene's ending state remains the starting continuity for the new scene.",
+                "The completed scene's ending state remains the starting continuity for the new scene.",
             )
             self.writer_status.configure(
                 text=f"Scene {next_scene} is ready. Build Scene Direction to begin.",
