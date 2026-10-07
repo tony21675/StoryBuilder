@@ -72,6 +72,9 @@ case "${1:-}" in
       echo
       echo "ERROR: StoryBuilder itself could not be updated cleanly."
       git status --short
+      # Abort the rebase before restoring the user's local stash. Never pop
+      # local work into an unresolved upstream conflict.
+      git rebase --abort >/dev/null 2>&1 || true
       restore_stash || true
       exit 1
     fi
