@@ -714,7 +714,18 @@ class StoryBuilderApp(tk.Tk):
         self.notes_text = tk.Text(tab, height=7, wrap="word")
         self.notes_text.grid(row=6, column=1, sticky="nsew", pady=5)
 
-        ttk.Button(tab, text="Apply State Edits", command=self._apply_state_edits).grid(row=7, column=1, sticky="e", pady=8)
+        state_button_row = ttk.Frame(tab)
+        state_button_row.grid(row=7, column=1, sticky="e", pady=8)
+        ttk.Button(
+            state_button_row,
+            text="Apply State Edits",
+            command=self._apply_state_edits,
+        ).pack(side="left")
+        ttk.Button(
+            state_button_row,
+            text="Advance to Next Scene",
+            command=self._advance_to_next_scene,
+        ).pack(side="left", padx=(8, 0))
         ttk.Label(tab, text="Current Situation").grid(row=8, column=0, sticky="nw", pady=5)
         self.situation_text = tk.Text(tab, height=5, wrap="word")
         self.situation_text.grid(row=8, column=1, sticky="nsew", pady=5)
@@ -4109,6 +4120,60 @@ Rules:
         if cast:
             return cast
         return [str(name) for name in location if name != "primary" and str(name) not in excluded]
+
+    def _advance_to_next_scene(self):
+        """Advance the current state to the next planned scene without changing continuity."""
+        if self.package is None:
+            return
+
+        try:
+            self._apply_state_edits()
+            if self.dirty:
+                self._save()
+                if self.dirty:
+                    return
+
+            chapter = int(self.package.current_state.get("chapter", 1) or 1)
+            scene = int(self.package.current_state.get("scene", 1) or 1)
+            next_scene = scene + 1
+            final_scene = self._final_planned_scene_for_chapter(chapter)
+
+            if final_scene is not None and scene >= final_scene:
+                messagebox.showinfo(
+                    "Advance Scene",
+                    f"Scene {scene} is the final planned scene for Chapter {chapter}.",
+                )
+                return
+
+            next_cast = self._scene_plan_cast(chapter, next_scene)
+            self.package.current_state["scene"] = next_scene
+            self.package.current_state["scene_completed"] = False
+            self.package.current_state["chapter_completed"] = False
+            if next_cast:
+                self.package.current_state["scene_cast"] = next_cast
+
+            self.dirty = True
+            self.generated_scene = ""
+            self.accepted_scene = ""
+            self.pending_state_patch = None
+            if hasattr(self, "writer_output_text"):
+                self.writer_output_text.delete("1.0", "end")
+            if hasattr(self, "writer_state_preview"):
+                self.writer_state_preview.delete("1.0", "end")
+
+            self._refresh_all()
+            self._save()
+            self._chat(
+                "Builder",
+                f"Advanced from Scene {scene} to Scene {next_scene}. "
+                "The previous scene's ending state remains the starting continuity for the new scene.",
+            )
+            self.writer_status.configure(
+                text=f"Scene {next_scene} is ready. Build Scene Direction to begin.",
+            )
+            self._update_writer_buttons()
+        except Exception as exc:
+            messagebox.showerror("Advance Scene", str(exc))
 
     def _apply_situation_edit(self):
         if self.package is None:
