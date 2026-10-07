@@ -5,17 +5,17 @@
   "scene_completed": false,
   "chapter_completed": false,
   "location": {
-    "primary": "Road between the school and the nearby gas station",
+    "primary": "Outside the nearby gas station convenience store",
     "Tony": "At home, asleep in his bedroom.",
-    "Tiffany": "Walking from school toward the gas station with Maya.",
-    "Maya": "Walking from school toward the gas station with Tiffany.",
+    "Tiffany": "Standing outside the convenience store with Maya.",
+    "Maya": "Standing outside the convenience store with Tiffany.",
     "Chloe": "At home sick and not participating in the scene."
   },
   "time": {
     "period": "late afternoon",
     "exact_time": "not established"
   },
-  "current_situation": "Tiffany and Maya have left school and are walking together toward the nearby gas station. They have not reached the gas station yet. Tony remains at home asleep and Chloe remains home sick and is not participating.",
+  "current_situation": "Tiffany and Maya have finished buying their drinks and stepped outside the gas station convenience store. Both have their sunglasses on because of the bright afternoon sunlight. They have not started walking home yet. Tony remains at home asleep and Chloe remains home sick and is not participating.",
   "character_knowledge": {
     "Tony": [
       "Knows Tiffany is his daughter.",
