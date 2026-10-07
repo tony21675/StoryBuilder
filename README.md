@@ -35,6 +35,40 @@ Novel_Name/
 
 The shared format is versioned with `story_format_version: "1.0"`. This gives LocalStoryChat and StoryBuilder a stable interface and leaves room for future migrations.
 
+## Separate novel repositories
+
+StoryBuilder is the reusable application. Novel data belongs in a separate repository for each novel.
+
+Recommended layout:
+
+```
+StoryWorkspace/
+├── StoryBuilder/
+├── MyNovel/
+├── AnotherNovel/
+├── Models/
+└── llama.cpp/
+```
+
+Each novel directory is its own Git repository. StoryBuilder does not need to know the GitHub repository name or URL. It opens the selected novel folder and, when you use **Sync Novel** or **Close & Sync**, commits, rebases against `origin`, and pushes that novel repository only.
+
+The StoryBuilder repository and the novel repository are synchronized independently:
+
+```
+StoryBuilder/
+    app code and reusable logic
+
+MyNovel/
+    one novel's canon, state, guidance, and manuscript
+
+AnotherNovel/
+    another novel's canon, state, guidance, and manuscript
+```
+
+This prevents novel-specific files from becoming part of the reusable StoryBuilder project.
+
+The **Open Novel** button can open any valid novel package, so additional novels do not require changes to StoryBuilder.
+
 ## Workspace storage
 
 StoryBuilder can keep the entire local AI/story workspace on a separate drive.
@@ -45,7 +79,7 @@ Recommended layout:
 StoryWorkspace/
 ├── StoryBuilder/
 ├── MyNovel/
-├── LocalStoryChat/
+├── AnotherNovel/
 ├── Models/
 └── llama.cpp/
 ```
@@ -58,7 +92,7 @@ STORY_WORKSPACE_ROOT=/path/to/StoryWorkspace
 
 Optional overrides are available for the model directory, llama-cli path, and novel directory with `STORY_MODELS_DIR`, `STORY_LLAMA_PATH`, and `STORY_NOVEL_ROOT`.
 
-GitHub stores the source code and novel files. Large local AI assets such as GGUF models and the llama.cpp build stay on the workspace drive and are not committed to the repositories.
+By default, `STORY_NOVEL_ROOT` now points to the workspace-level `MyNovel/`, not a folder inside the StoryBuilder repository. Large local AI assets such as GGUF models and the llama.cpp build stay on the workspace drive and are not committed to the repositories.
 
 ## Run
 
