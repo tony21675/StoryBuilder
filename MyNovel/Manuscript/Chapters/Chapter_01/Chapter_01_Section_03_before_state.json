@@ -1,7 +1,7 @@
 {
   "status": "story_start",
   "chapter": 1,
-  "scene": 4,
+  "scene": 3,
   "scene_completed": false,
   "chapter_completed": false,
   "location": {
@@ -32,9 +32,7 @@
       "Know Chloe is a close friend.",
       "Know her mother died while giving birth to her.",
       "Know Tony works the night shift and is normally resting during the late afternoon.",
-      "Know Chloe isn't feeling well.",
-      "Know Maya selected a two-liter bottle of grape soda.",
-      "Know Tiffany selected a neon orange citrus soda."
+      "Know Chloe isn't feeling well."
     ],
     "Maya": [
       "Know Tony is Tiffany's father and has known Tony since she was a baby.",
@@ -43,9 +41,7 @@
       "Know Chloe is a close friend.",
       "Know she lives with her mother Beth in the house next door.",
       "Know her father left when he found out Beth was pregnant with Maya and is not part of her life.",
-      "Know Tony is at home during the late afternoon.",
-      "Know Tiffany selected a neon orange citrus soda.",
-      "Know she purchased a two-liter bottle of grape soda."
+      "Know Tony is at home during the late afternoon."
     ]
   },
   "completed_events": [],
