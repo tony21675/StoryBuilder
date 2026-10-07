@@ -7,3 +7,6 @@ MyNovel/Manuscript/Chapters/**/*_after_state.json
 
 # Generated compiled manuscript outputs; source sections remain authoritative.
 MyNovel/Manuscript/Compiled/
+
+# Novel data lives in separate repositories and is not part of StoryBuilder.
+MyNovel/
