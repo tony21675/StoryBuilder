@@ -34,6 +34,7 @@ Return ONLY one valid JSON object containing a PARTIAL UPDATE to the current sto
 
 Rules:
 - Record only changes actually caused by the supplied completed story section.
+- Location is a nested state field. When the baseline current_state has a location object, never return character or primary location values at the top level. Normalize any legacy top-level location fields into the location object before returning the patch.
 - Do not repeat unchanged fields.
 - For changed nested objects, include only changed nested keys.
 - For arrays, replace the array only when that array truly changed.
@@ -122,6 +123,33 @@ def extract_expected_end_state(scene_end_guidance: str) -> dict[str, Any] | None
     value.pop("scene_constraints", None)
     value.pop("scene_guidance", None)
     return value
+
+
+def normalize_location_patch(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
+    """Normalize legacy top-level location fields into the nested location object."""
+    if not isinstance(base.get("location"), dict):
+        return patch
+
+    location_patch = patch.get("location")
+    if not isinstance(location_patch, dict):
+        location_patch = {}
+
+    top_level_location_keys = {"primary"}
+    top_level_location_keys.update(str(name) for name in base["location"].keys())
+
+    moved = False
+    result = dict(patch)
+    for key in list(result.keys()):
+        if key == "location":
+            continue
+        if key in top_level_location_keys:
+            location_patch[key] = result.pop(key)
+            moved = True
+
+    if moved:
+        result["location"] = location_patch
+
+    return result
 
 
 def remove_unchanged(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
@@ -501,6 +529,10 @@ class StateManager:
         patch = extract_json_object(output)
         if not isinstance(patch, dict):
             raise ValueError("Continuity analysis did not return an object.")
+
+        # Models sometimes emit legacy top-level location fields even though
+        # current_state stores location as a nested object. Normalize that shape first.
+        patch = normalize_location_patch(current_state, patch)
 
         # Models sometimes repeat unchanged state. Normalize that away so a
         # proposal contains only actual changes.
