@@ -1165,20 +1165,74 @@ class StoryBuilderApp(tk.Tk):
                 json.dumps(offscene_anchors, indent=2, ensure_ascii=False),
             ))
 
+        # Include compact relationship facts even when they are stored as
+        # simple strings rather than nested dictionaries. These facts are often
+        # exactly what the writer needs when an off-scene person is mentioned,
+        # such as knowing who a sick friend's mother is.
         relationships = self.package.story_bible.get("relationships", {})
+        context_names = set(scene_cast_names)
+        if isinstance(location_data, dict):
+            context_names.update(
+                str(name).strip()
+                for name in location_data
+                if str(name).strip() and str(name) != "primary"
+            )
+
         if isinstance(relationships, dict):
+            relevant_facts = {}
+            for key, value in relationships.items():
+                if not isinstance(value, (str, int, float, bool, list)):
+                    continue
+                key_text = str(key).casefold()
+                if any(str(name).casefold() in key_text for name in context_names):
+                    relevant_facts[key] = value
+            if relevant_facts:
+                files.append((
+                    "relevant_relationship_facts.json",
+                    json.dumps(relevant_facts, indent=2, ensure_ascii=False),
+                ))
+
+            # Preserve the existing richer relationship objects for scenes that
+            # use them. Keep this separate so compact scalar facts do not get
+            # filtered out.
             relevant = {}
             for key, value in relationships.items():
                 if not isinstance(value, dict):
                     continue
                 key_text = str(key).casefold()
-                if any(name in key_text for name in scene_cast):
+                if any(str(name).casefold() in key_text for name in context_names):
                     relevant[key] = value
             if relevant:
                 files.append((
                     "scene_relationships.json",
                     json.dumps(relevant, indent=2, ensure_ascii=False),
                 ))
+
+        # Supporting people are intentionally kept compact. The writer gets
+        # their established names/roles without pulling full off-scene character
+        # material into the 8K context.
+        supporting_people = self.package.story_bible.get("supporting_people", {})
+        supporting_context = {}
+        if isinstance(supporting_people, dict):
+            for name, value in supporting_people.items():
+                name_text = str(name).strip()
+                if not name_text:
+                    continue
+                if isinstance(value, str):
+                    supporting_context[name_text] = value
+                elif isinstance(value, dict):
+                    compact = {
+                        key: value[key]
+                        for key in ("role", "story_role")
+                        if key in value and value[key]
+                    }
+                    if compact:
+                        supporting_context[name_text] = compact
+        if supporting_context:
+            files.append((
+                "supporting_people_context.json",
+                json.dumps(supporting_context, indent=2, ensure_ascii=False),
+            ))
 
         # Do not place recent manuscript prose or active module plans into the
         # persistent system prompt. Those belong in the per-scene direction
@@ -1891,12 +1945,13 @@ Rules:
 15. Do not turn shared history into a narrator summary such as "They had been friends for years" or "They talked about their childhood." Whenever practical, let the characters actually talk about one or two specific remembered moments instead. The goal is a lived relationship on the page, not a report about the relationship.
 16. Do not insert dialogue merely to satisfy a rule. Quiet observation, internal thought, description, or a silent reaction is appropriate when the moment naturally calls for it. The point is freedom and natural rhythm, not a dialogue quota.
 17. When an off-scene character is mentioned or referenced, use the supplied off-scene anchor and current scene state to preserve the person's established presence and current situation. Do not invent a different routine or explanation for why that person is where they are. Do not pull an off-scene character into the scene unless the current state or scene direction explicitly does so.
+19. Use relevant_relationship_facts.json and supporting_people_context.json for established names and family/relationship roles when an off-scene person is mentioned. These references establish who people are related to, but they do not make those people physically present in the scene.
 18. Do not invent consequential facts, motives, future events, hidden knowledge, or unnecessary story details.
-19. Do not add unprompted ominous narration, hindsight, thematic warnings, or hints that something bad is about to happen when the current scene gives no reason for them. An ordinary scene should be allowed to remain ordinary. Do not contrast the characters' present happiness with a future event unless that contrast is explicitly part of the current scene direction or established context.
-20. Respect privacy, dignity, and established character boundaries. Do not expose a character's private feelings, secrets, or limited knowledge without a valid in-story reason.
-21. Do not use childlike nicknames for established adult characters unless that nickname is explicitly established.
-22. Respect the scene endpoint exactly. Do not stop early or continue past it.
-23. Output only natural story prose.
+20. Do not add unprompted ominous narration, hindsight, thematic warnings, or hints that something bad is about to happen when the current scene gives no reason for them. An ordinary scene should be allowed to remain ordinary. Do not contrast the characters' present happiness with a future event unless that contrast is explicitly part of the current scene direction or established context.
+21. Respect privacy, dignity, and established character boundaries. Do not expose a character's private feelings, secrets, or limited knowledge without a valid in-story reason.
+22. Do not use childlike nicknames for established adult characters unless that nickname is explicitly established.
+23. Respect the scene endpoint exactly. Do not stop early or continue past it.
+24. Output only natural story prose.
 """
         parts = [base, "\nSCENE REFERENCE\n"]
         for name, content in files:
