@@ -15,6 +15,7 @@ from builder.story_package import StoryPackage
 from builder.validator import validate_package
 from builder.writer_engine import WriterEngine
 from builder.manuscript import ManuscriptManager
+from builder.novel_sync import NovelSyncError, sync_novel_repository
 from builder.state_manager import StateManager
 from builder.scene_contract import SceneContract
 from builder.story_interview import (
@@ -58,7 +59,7 @@ class StoryBuilderApp(tk.Tk):
 
         self._build_ui()
         self.protocol("WM_DELETE_WINDOW", self._close_and_sync)
-        self._new_novel()
+        self._load_startup_novel()
 
     def _build_ui(self):
         toolbar = ttk.Frame(self, padding=8)
@@ -71,6 +72,7 @@ class StoryBuilderApp(tk.Tk):
             ("Validate", self._validate),
         ]:
             ttk.Button(toolbar, text=label, command=command).pack(side="left", padx=3)
+        ttk.Button(toolbar, text="Sync Novel", command=self._sync_current_novel).pack(side="left", padx=(10, 3))
         ttk.Button(toolbar, text="Close", command=self._close_without_sync).pack(side="left", padx=(10, 3))
         ttk.Button(toolbar, text="Close & Sync", command=self._close_and_sync).pack(side="left", padx=3)
         self.path_label = ttk.Label(toolbar, text="Unsaved novel")
@@ -3217,6 +3219,27 @@ Rules:
         self.manuscript_output.delete("1.0", "end")
         self.manuscript_output.insert("1.0", text)
 
+    def _sync_current_novel(self):
+        if self.package is None or self.package.path is None:
+            messagebox.showwarning(
+                "Sync Novel",
+                "Save or open a novel package before syncing the novel repository.",
+            )
+            return
+
+        self._apply_all_edits()
+        try:
+            self.package.save()
+            self.dirty = False
+            self._update_path_label()
+            result = sync_novel_repository(self.package.path)
+            self._chat("Builder", result)
+            messagebox.showinfo("Sync Novel", result)
+        except (NovelSyncError, OSError, subprocess.SubprocessError) as exc:
+            messagebox.showerror(
+                "Sync Novel",
+                "The novel was saved locally, but GitHub sync failed.\n\n" + str(exc),
+            )
     def _close_without_sync(self):
         if self._closing:
             return
@@ -3261,31 +3284,23 @@ Rules:
                 self._closing = False
                 return
 
-            sync_script = Path(__file__).resolve().parent / "sync.sh"
-            if not sync_script.exists():
-                messagebox.showerror(
+            if self.package.path is None:
+                messagebox.showwarning(
                     "Close & Sync",
-                    f"Could not find sync.sh at:\n\n{sync_script}\n\nThe app will remain open."
+                    "The novel is saved locally but has no project folder yet.\n\n"
+                    "Use Save As / Export to place it in its own novel project folder.",
                 )
                 self._closing = False
                 return
 
-            result = subprocess.run(
-                ["bash", str(sync_script), "finish"],
-                cwd=sync_script.parent,
-                text=True,
-                capture_output=True,
-                timeout=120,
-                check=False,
-            )
-
-            if result.returncode != 0:
-                details = (result.stderr or result.stdout or "Unknown sync error").strip()
+            try:
+                sync_novel_repository(self.package.path)
+            except NovelSyncError as exc:
                 messagebox.showerror(
                     "Close & Sync",
                     "The novel was saved locally, but GitHub sync failed.\n\n"
-                    + details
-                    + "\n\nThe app will remain open so you can resolve the problem."
+                    + str(exc)
+                    + "\n\nThe app will remain open so you can resolve the problem.",
                 )
                 self._closing = False
                 return
@@ -3298,6 +3313,40 @@ Rules:
             )
             self._closing = False
 
+    def _load_startup_novel(self):
+        """Open the default external novel when it exists; otherwise start blank."""
+        if NOVEL_ROOT.is_dir() and (NOVEL_ROOT / "story_bible.json").exists():
+            try:
+                self.writer_engine.stop()
+            except Exception:
+                pass
+            try:
+                self.package = StoryPackage.load(NOVEL_ROOT)
+            except Exception as exc:
+                messagebox.showwarning(
+                    "Open Novel",
+                    f"Could not open the default novel package.\n\n{exc}\n\nStarting with a new unsaved novel instead.",
+                )
+                self._new_novel()
+                return
+            self.character_filename = None
+            self.generated_scene = ""
+            self.accepted_scene = ""
+            self.pending_state_patch = None
+            self.interview_active = False
+            self.interview_index = 0
+            self.interview_pending_patch = None
+            self.interview_pending_answer = ""
+            self.last_novel_path = NOVEL_ROOT
+            self.dirty = False
+            self._refresh_all()
+            self._refresh_writer_models()
+            self._chat(
+                "Builder",
+                f'Opened "{self.package.story_bible.get("title", NOVEL_ROOT.name)}".',
+            )
+            return
+        self._new_novel()
     def _new_novel(self):
         self.guided_setup.stop()
         if hasattr(self, "guided_button"):
@@ -3349,6 +3398,7 @@ Rules:
         self.interview_index = 0
         self.interview_pending_patch = None
         self.interview_pending_answer = ""
+        self.last_novel_path = Path(folder)
         self.dirty = False
         if hasattr(self, "writer_output_text"):
             self.writer_output_text.delete("1.0", "end")
@@ -3385,6 +3435,7 @@ Rules:
         target = Path(parent) / StoryPackage.safe_filename(name).removesuffix(".json")
         try:
             self.package.save(target)
+            self.last_novel_path = target
             self.dirty = False
             self._update_path_label()
             self._chat("Builder", f"Saved novel package to {target}.")
