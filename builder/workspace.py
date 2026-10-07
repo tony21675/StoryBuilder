@@ -21,5 +21,5 @@ LLAMA = Path(
 ).expanduser().resolve()
 
 NOVEL_ROOT = Path(
-    os.environ.get("STORY_NOVEL_ROOT", str(REPO_ROOT / "MyNovel"))
+    os.environ.get("STORY_NOVEL_ROOT", str(WORKSPACE_ROOT / "MyNovel"))
 ).expanduser().resolve()
