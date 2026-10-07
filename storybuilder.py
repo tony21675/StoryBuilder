@@ -1135,36 +1135,32 @@ class StoryBuilderApp(tk.Tk):
                 json.dumps(scene_characters, indent=2, ensure_ascii=False),
             ))
 
-        # Include canon cards for named people who are explicitly present in
-        # the scene state but are not part of the scene cast. This gives the
-        # writer enough information to reference an off-scene person accurately
-        # without bringing that person into the scene.
-        offscene_characters = {}
+        # Off-scene characters do not need full character cards in the
+        # persistent writer context. Their current location/state is already
+        # supplied by scene_state.json and current_situation. A compact anchor
+        # preserves that information without spending thousands of tokens on
+        # unrelated biography, appearance, secrets, or routines.
+        offscene_anchors = {}
         location_data = state.get("location", {})
         if isinstance(location_data, dict):
-            referenced_names = {
-                str(name).casefold()
-                for name in location_data
-                if name != "primary"
-            }
-            for filename in sorted(self.package.characters):
-                data = self.package.characters[filename]
-                name = str(data.get("name", "") or "").strip()
-                filename_stem = Path(filename).stem.strip()
-                if (
-                    name
-                    and name.casefold() in referenced_names
-                    and name.casefold() not in scene_cast
-                ) or (
-                    filename_stem.casefold() in referenced_names
-                    and filename_stem.casefold() not in scene_cast
-                ):
-                    offscene_characters[name or filename_stem] = data
+            for name, location_text in location_data.items():
+                if name == "primary":
+                    continue
 
-        if offscene_characters:
+                name_text = str(name).strip()
+                if not name_text or name_text.casefold() in scene_cast:
+                    continue
+
+                offscene_anchors[name_text] = {
+                    "name": name_text,
+                    "status": "established",
+                    "scene_state": str(location_text or "").strip(),
+                }
+
+        if offscene_anchors:
             files.append((
-                "offscene_canon_characters.json",
-                json.dumps(offscene_characters, indent=2, ensure_ascii=False),
+                "offscene_character_anchors.json",
+                json.dumps(offscene_anchors, indent=2, ensure_ascii=False),
             ))
 
         relationships = self.package.story_bible.get("relationships", {})
@@ -1892,7 +1888,7 @@ Rules:
 14. Use invented memories as part of the scene, not as a lore dump. Let one memory spark a response, teasing, correction, laughter, disagreement, affection, or another small exchange, then allow the conversation to wander naturally back to what is happening now.
 15. Do not turn shared history into a narrator summary such as "They had been friends for years" or "They talked about their childhood." Whenever practical, let the characters actually talk about one or two specific remembered moments instead. The goal is a lived relationship on the page, not a report about the relationship.
 16. Do not insert dialogue merely to satisfy a rule. Quiet observation, internal thought, description, or a silent reaction is appropriate when the moment naturally calls for it. The point is freedom and natural rhythm, not a dialogue quota.
-17. When an off-scene character is mentioned or referenced, use the supplied off-scene canon reference and current scene state to preserve established routines, family roles, schedules, and other known facts. Do not invent a different routine or explanation for why that person is where they are. Do not pull an off-scene character into the scene unless the current state or scene direction explicitly does so.
+17. When an off-scene character is mentioned or referenced, use the supplied off-scene anchor and current scene state to preserve the person's established presence and current situation. Do not invent a different routine or explanation for why that person is where they are. Do not pull an off-scene character into the scene unless the current state or scene direction explicitly does so.
 18. Do not invent consequential facts, motives, future events, hidden knowledge, or unnecessary story details.
 19. Do not add unprompted ominous narration, hindsight, thematic warnings, or hints that something bad is about to happen when the current scene gives no reason for them. An ordinary scene should be allowed to remain ordinary. Do not contrast the characters' present happiness with a future event unless that contrast is explicitly part of the current scene direction or established context.
 20. Respect privacy, dignity, and established character boundaries. Do not expose a character's private feelings, secrets, or limited knowledge without a valid in-story reason.
