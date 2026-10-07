@@ -1960,7 +1960,7 @@ Rules:
 19. Do not invent consequential facts, motives, future events, hidden knowledge, or unnecessary story details.
 20. Do not add unprompted ominous narration, hindsight, thematic warnings, or hints that something bad is about to happen when the current scene gives no reason for it. An ordinary scene should be allowed to remain ordinary. Do not contrast the characters' present happiness with a future event unless that contrast is explicitly part of the current scene direction or established context.
 21. Respect privacy, dignity, and established character boundaries. Do not expose a character's private feelings, secrets, or limited knowledge without a valid in-story reason.
-22. Do not use childlike nicknames for established adult characters unless that nickname is explicitly established.
+22. Ordinary affectionate nicknames are allowed when they fit the established relationship and moment. Do not use childizing terms such as "kid", "kiddo", "little girl", or similar terms for established adult characters unless that term is explicitly established.
 23. Respect the scene endpoint exactly. Do not stop early or continue past it.
 24. Output only natural story prose.
 """
