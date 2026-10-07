@@ -58,7 +58,15 @@
       ],
       "direction": "Continue directly from Scene 1 with Tiffany and Maya still walking toward the nearby gas station. Let their conversation and ordinary interaction continue naturally until they reach the gas station entrance.",
       "end_condition": "HARD STOP when Tiffany and Maya arrive at and clearly stand at the gas station entrance. Do not enter the store, choose drinks, approach the counter, speak with the cashier, buy anything, leave the gas station, or begin walking home.",
-      "pacing": "Use this section to complete the physical trip to the gas station. Keep the focus on the two friends and their natural interaction."
+      "pacing": "Use this section to complete the physical trip to the gas station. Keep the focus on the two friends and their natural interaction.",
+      "state_after": {
+        "location": {
+          "primary": "Gas station entrance",
+          "Tiffany": "Standing at the gas station entrance with Maya.",
+          "Maya": "Standing at the gas station entrance with Tiffany."
+        },
+        "current_situation": "Tiffany and Maya have reached the gas station entrance and are standing outside the convenience store. They have not entered the store yet. Tony remains at home asleep and Chloe remains home sick and is not participating."
+      }
     },
     "3": {
       "cast": [
@@ -67,7 +75,15 @@
       ],
       "direction": "Begin exactly with Tiffany and Maya at the gas station entrance where Scene 2 ended. They enter the convenience store, choose sodas, talk naturally with each other and the attendant, pay, receive their drinks and change, then leave the store and step outside.",
       "end_condition": "HARD STOP after they have finished the purchase, stepped outside with their drinks, and put on their sunglasses because of the bright afternoon sunlight. Do not begin walking home.",
-      "pacing": "Spend most of the section on the simple soda stop, natural conversation, and the small actions of choosing and buying the drinks. End immediately after they are outside with sunglasses on."
+      "pacing": "Spend most of the section on the simple soda stop, natural conversation, and the small actions of choosing and buying the drinks. End immediately after they are outside with sunglasses on.",
+      "state_after": {
+        "location": {
+          "primary": "Outside the nearby gas station convenience store",
+          "Tiffany": "Standing outside the convenience store with Maya.",
+          "Maya": "Standing outside the convenience store with Tiffany."
+        },
+        "current_situation": "Tiffany and Maya have finished buying their drinks and stepped outside the gas station convenience store. Both have their sunglasses on because of the bright afternoon sunlight. They have not started walking home yet. Tony remains at home asleep and Chloe remains home sick and is not participating."
+      }
     },
     "4": {
       "cast": [
@@ -76,7 +92,15 @@
       ],
       "direction": "Continue from Scene 3 with Tiffany and Maya outside the gas station. They begin walking home and continue a normal conversation as they leave the busy area and move farther along their route. A suspicious van may become noticeable and remain a background concern, but nothing dangerous happens yet.",
       "end_condition": "HARD STOP before the kidnapping. End while Tiffany and Maya are still walking home on the quieter stretch, with the suspicious van having been noticed but before anyone approaches, grabs, strikes, threatens, or otherwise harms them.",
-      "pacing": "Keep the section ordinary and relaxed. The van can create mild uncertainty, but do not force suspense, foreshadow the kidnapping, or partially begin the abduction."
+      "pacing": "Keep the section ordinary and relaxed. The van can create mild uncertainty, but do not force suspense, foreshadow the kidnapping, or partially begin the abduction.",
+      "state_after": {
+        "location": {
+          "primary": "Quieter road between the gas station and home",
+          "Tiffany": "Walking home with Maya on the quieter stretch of road.",
+          "Maya": "Walking home with Tiffany on the quieter stretch of road."
+        },
+        "current_situation": "Tiffany and Maya are still walking home on the quieter stretch after leaving the gas station. They have noticed a suspicious van, but no one has approached or harmed them. Tony remains at home asleep and Chloe remains home sick and is not participating."
+      }
     },
     "5": {
       "cast": [
