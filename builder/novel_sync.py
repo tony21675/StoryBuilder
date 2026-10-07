@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import subprocess
+from datetime import datetime
 from pathlib import Path
 
 
@@ -71,7 +72,7 @@ def sync_novel_repository(novel_path: Path) -> str:
                 root,
                 "commit",
                 "-m",
-                "Sync novel changes " + __import__("datetime").datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "Sync novel changes " + datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             )
             if commit.returncode != 0:
                 raise NovelSyncError(
