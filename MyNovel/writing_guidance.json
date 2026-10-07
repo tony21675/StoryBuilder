@@ -111,6 +111,16 @@
       "direction": "Continue directly from Scene 4 on the quieter road. One unidentified male kidnapper intercepts Tiffany and Maya. He is the only kidnapper physically present in the scene. He grabs Tiffany and forces her into the van while Tiffany fights back using the practical self-defense Tony taught her. Maya witnesses the abduction and is not taken. Keep the event grounded in what the girls can actually see and experience. Do not reveal the kidnapper's identity, motive, destination, or hidden planning.",
       "end_condition": "HARD STOP after Tiffany has been taken and Maya is left alone on the roadside, conscious, shocked, and extremely distressed. Do not send Maya to Tony's house in this scene.",
       "pacing": "Let the scene begin as a believable continuation of the ordinary walk before the abduction changes everything. Fully dramatize the abduction without jumping ahead into Tony's response."
+      ,"state_after": {
+        "location": {
+          "primary": "Roadside on the quieter road between the gas station and home",
+          "Tiffany": "Inside the van with the unidentified male kidnapper after being taken.",
+          "Maya": "Collapsed on the roadside after witnessing Tiffany being taken.",
+          "Tony": "At home, asleep in his bedroom.",
+          "Chloe": "At home sick and not participating in the scene."
+        },
+        "current_situation": "The unidentified male kidnapper has taken Tiffany into the dark gray van and driven away. Maya has been left alone on the roadside, conscious, shocked, and extremely distressed after witnessing Tiffany's abduction. Tony remains at home asleep and does not yet know what happened. Chloe remains home sick and uninvolved."
+      }
     },
     "6": {
       "cast": [
