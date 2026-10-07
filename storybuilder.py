@@ -665,13 +665,13 @@ class StoryBuilderApp(tk.Tk):
         action_row.pack(fill="x", pady=(10, 0))
         ttk.Button(
             action_row,
-            text="Apply Contract",
-            command=self._apply_scene_contract_from_button,
+            text="Validate Contract",
+            command=self._validate_scene_contract,
         ).pack(side="left")
         ttk.Button(
             action_row,
-            text="Validate Contract",
-            command=self._validate_scene_contract,
+            text="Apply Contract",
+            command=self._apply_scene_contract_from_button,
         ).pack(side="left", padx=(8, 0))
         ttk.Button(
             action_row,
