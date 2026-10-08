@@ -71,6 +71,7 @@ Rules:
 - The author's scene idea is the primary creative instruction.
 - Write a concise "direction" that tells the writer what the scene is about and how it should unfold naturally.
 - Write a concise "hard_stop" that says where the scene should end.
+- The hard stop must name ONE clear stopping point. Do not offer alternatives, choices, or "or" conditions.
 - Use the FEWEST contract requirements necessary.
 - Leave required_beats empty unless a specific event is genuinely important to the author's idea.
 - Leave required_facts empty unless a specific fact must be explicitly established for continuity or the author's idea.
@@ -82,6 +83,7 @@ Rules:
 - Do not repeat the entire current state in the contract.
 - Preserve creative freedom for dialogue, gestures, pacing, sensory details, ordinary emotions, and harmless everyday interaction.
 - Prefer a small number of broad requirements over many narrow checklist items.
+- When a scene idea is broad, prefer one or two broad beats rather than several detailed beats.
 - max_attempts must be 3 unless the author clearly asks otherwise.
 - Output JSON only. No markdown or explanation.
 """
