@@ -4239,7 +4239,15 @@ Rules:
                 self.writer_state_preview.delete("1.0", "end")
 
             self._refresh_all()
-            self._save()
+            try:
+                self.package.save()
+                self.dirty = False
+                self._update_path_label()
+            except Exception as exc:
+                raise RuntimeError(
+                    f"Could not save the new chapter state: {exc}"
+                ) from exc
+
             self._chat(
                 "Builder",
                 f"Started Chapter {next_chapter}, Scene {next_scene}. "
