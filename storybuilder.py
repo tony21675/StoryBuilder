@@ -726,6 +726,11 @@ class StoryBuilderApp(tk.Tk):
             text="Advance to Next Scene",
             command=self._advance_to_next_scene,
         ).pack(side="left", padx=(8, 0))
+        ttk.Button(
+            state_button_row,
+            text="Start Next Chapter",
+            command=self._start_next_chapter,
+        ).pack(side="left", padx=(8, 0))
         ttk.Label(tab, text="Current Situation").grid(row=8, column=0, sticky="nw", pady=5)
         self.situation_text = tk.Text(tab, height=5, wrap="word")
         self.situation_text.grid(row=8, column=1, sticky="nsew", pady=5)
@@ -938,6 +943,12 @@ class StoryBuilderApp(tk.Tk):
             manuscript_button_row,
             text="Finalize Chapter",
             command=self._finalize_current_chapter,
+        ).pack(fill="x", pady=(6, 0))
+
+        ttk.Button(
+            manuscript_button_row,
+            text="Start Next Chapter",
+            command=self._start_next_chapter,
         ).pack(fill="x", pady=(6, 0))
 
         ttk.Button(
@@ -4172,6 +4183,85 @@ Rules:
             self._update_writer_buttons()
         except Exception as exc:
             messagebox.showerror("Advance Scene", str(exc))
+
+    def _start_next_chapter(self):
+        """Start Scene 1 of the next chapter from the completed chapter's ending state."""
+        if self.package is None:
+            return
+
+        try:
+            current_chapter = int(self.package.current_state.get("chapter", 1) or 1)
+            if not self.package.current_state.get("chapter_completed"):
+                messagebox.showinfo(
+                    "Start Next Chapter",
+                    f"Chapter {current_chapter} is not marked complete yet. Finalize the chapter before starting the next one.",
+                )
+                return
+
+            next_chapter = current_chapter + 1
+            next_scene = 1
+            next_guidance = self._chapter_scene_guidance(
+                self.package.extra_json.get("writing_guidance.json", {}),
+                next_chapter,
+                next_scene,
+            )
+
+            if next_guidance is None:
+                proceed = messagebox.askyesno(
+                    "Start Next Chapter",
+                    f"Chapter {next_chapter} Scene 1 has no scene guidance yet.\n\n"
+                    "Starting it will preserve the completed chapter's ending state, but the "
+                    "new scene will not have authored scene direction or cast until guidance is added.\n\n"
+                    f"Start Chapter {next_chapter} anyway?",
+                )
+                if not proceed:
+                    return
+
+            self.package.current_state["chapter"] = next_chapter
+            self.package.current_state["scene"] = next_scene
+            self.package.current_state["scene_completed"] = False
+            self.package.current_state["chapter_completed"] = False
+
+            next_cast = self._scene_plan_cast(next_chapter, next_scene)
+            if next_cast:
+                self.package.current_state["scene_cast"] = next_cast
+
+            # Preserve the completed chapter's ending continuity. Scene guidance
+            # supplies the new scene's direction/contract; it should not overwrite
+            # the established state until the scene itself is written and accepted.
+            self.dirty = True
+            self.generated_scene = ""
+            self.accepted_scene = ""
+            self.pending_state_patch = None
+            if hasattr(self, "writer_output_text"):
+                self.writer_output_text.delete("1.0", "end")
+            if hasattr(self, "writer_state_preview"):
+                self.writer_state_preview.delete("1.0", "end")
+
+            self._refresh_all()
+            try:
+                self.package.save()
+                self.dirty = False
+                self._update_path_label()
+            except Exception as exc:
+                raise RuntimeError(
+                    f"Could not save the new chapter state: {exc}"
+                ) from exc
+
+            self._chat(
+                "Builder",
+                f"Started Chapter {next_chapter}, Scene {next_scene}. "
+                "The previous chapter's ending state is now the starting continuity.",
+            )
+            self.writer_status.configure(
+                text=(
+                    f"Chapter {next_chapter}, Scene {next_scene} is ready. "
+                    "Build Scene Direction to begin."
+                ),
+            )
+            self._update_writer_buttons()
+        except Exception as exc:
+            messagebox.showerror("Start Next Chapter", str(exc))
 
     def _apply_situation_edit(self):
         if self.package is None:
