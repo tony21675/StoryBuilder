@@ -72,10 +72,15 @@ Rules:
 - Treat the scene idea as a boundary, not just a suggestion. Do not add new story events, revelations, character actions, future developments, or ending conditions that are not directly supported by the author's idea.
 - Write a concise "direction" that tells the writer what the scene is about and how it should unfold naturally, using only the actions and intent supported by the author's idea and current state.
 - Write a concise "hard_stop" that names ONE clear stopping point directly supported by the author's idea. Do not invent a new event just to create an ending.
+- Choose a useful endpoint that completes a small step of the scene's intended action, rather than stopping at the instant that action is about to begin.
+- For a conversation meant to draw out information, normally allow the other character to give an initial response or first small piece of information before stopping. Do not require a complete account or resolution unless the author asks for it.
+- Respect an author-requested cliffhanger or ending on a question when that is clearly the intended endpoint.
 - The hard stop must name ONE clear stopping point. Do not offer alternatives, choices, or "or" conditions.
 - Use the FEWEST contract requirements necessary.
 - Leave required_beats empty unless a specific event is genuinely important to the author's idea.
 - Leave required_facts empty unless a specific fact must be explicitly established for continuity or the author's idea.
+- Do not create a required fact that merely repeats an emotional state or behavior already stated in the direction.
+- Do not use required_facts to restate the scene's premise or ordinary character reactions.
 - Leave required_sequence empty unless the author clearly requires a specific order.
 - Do not generate entries for "forbidden" or "forbidden_details". Leave both arrays empty.
 - These prohibition fields are author-controlled and may be filled manually after generation when needed.
