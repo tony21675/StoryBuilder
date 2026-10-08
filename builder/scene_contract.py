@@ -48,6 +48,103 @@ def _detect_accelerator() -> str | None:
     return override or None
 
 
+CONTRACT_BUILDER_SYSTEM_PROMPT = """You are an authoring assistant for a fictional novel scene.
+
+The author will give you a short scene idea and the exact current story state at the start of the scene.
+
+Create a MINIMAL scene contract that protects the author's intent without over-constraining the writer.
+
+Return ONLY valid JSON in exactly this shape:
+{
+  "direction": "",
+  "hard_stop": "",
+  "required_beats": [],
+  "required_facts": [],
+  "required_sequence": [],
+  "forbidden": [],
+  "forbidden_details": [],
+  "max_attempts": 3
+}
+
+Rules:
+- Use the current story state as the starting point. Do not replay facts or events already completed before the scene starts.
+- The author's scene idea is the primary creative instruction.
+- Write a concise "direction" that tells the writer what the scene is about and how it should unfold naturally.
+- Write a concise "hard_stop" that says where the scene should end.
+- Use the FEWEST contract requirements necessary.
+- Leave required_beats empty unless a specific event is genuinely important to the author's idea.
+- Leave required_facts empty unless a specific fact must be explicitly established for continuity or the author's idea.
+- Leave required_sequence empty unless the author clearly requires a specific order.
+- Leave forbidden empty unless something must definitely not happen to prevent the scene from advancing too far.
+- Leave forbidden_details empty unless a specific detail must definitely be excluded.
+- Do not invent major plot developments, characters, clues, motives, backstory, injuries, revelations, or future events that the author did not request.
+- Do not turn plausible implications into mandatory requirements.
+- Do not repeat the entire current state in the contract.
+- Preserve creative freedom for dialogue, gestures, pacing, sensory details, ordinary emotions, and harmless everyday interaction.
+- Prefer a small number of broad requirements over many narrow checklist items.
+- max_attempts must be 3 unless the author clearly asks otherwise.
+- Output JSON only. No markdown or explanation.
+"""
+
+
+def _run_contract_builder(model: Path, prompt: str) -> dict[str, Any]:
+    env = os.environ.copy()
+    env["LD_LIBRARY_PATH"] = str(DEFAULT_LLAMA.parent) + (
+        ":" + env["LD_LIBRARY_PATH"] if env.get("LD_LIBRARY_PATH") else ""
+    )
+
+    device = _detect_accelerator()
+    args = [str(DEFAULT_LLAMA), "-m", str(model)]
+    if device:
+        args.extend(["--device", device, "-ngl", "all"])
+    else:
+        args.extend(["-ngl", "0", "--device", "none"])
+
+    args.extend([
+        "-c", os.environ.get("STORY_WRITER_CONTEXT", "8192"),
+        "--reasoning", "off",
+        "--temp", "0.15",
+        "--top-k", "10",
+        "--top-p", "0.80",
+        "--repeat-last-n", "256",
+        "--repeat-penalty", "1.08",
+        "--n-predict", "700",
+        "--system-prompt", CONTRACT_BUILDER_SYSTEM_PROMPT,
+        "--prompt", prompt,
+        "--color", "off",
+        "--no-display-prompt",
+        "--simple-io",
+        "--single-turn",
+    ])
+
+    proc = subprocess.Popen(
+        args,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        env=env,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    try:
+        output, _ = proc.communicate(timeout=300)
+    except subprocess.TimeoutExpired as exc:
+        proc.kill()
+        output, _ = proc.communicate()
+        raise TimeoutError("Scene contract generation timed out.") from exc
+
+    if proc.returncode not in (0, None):
+        raise RuntimeError(
+            "Scene contract generation failed.\n" + (output or "")[-2000:]
+        )
+
+    result = extract_json_object(output)
+    if not isinstance(result, dict):
+        raise ValueError("Scene contract generator did not return an object.")
+
+    return result
+
+
 def _run_validator(model: Path, prompt: str) -> dict[str, Any]:
     env = os.environ.copy()
     env["LD_LIBRARY_PATH"] = str(DEFAULT_LLAMA.parent) + (
@@ -130,6 +227,77 @@ def _run_validator(model: Path, prompt: str) -> dict[str, Any]:
 
 class SceneContract:
     """Validate generated prose against a reusable author-defined scene contract."""
+
+    @staticmethod
+    def generate_from_idea(
+        model_path: str | Path,
+        current_state: dict[str, Any],
+        scene_idea: str,
+    ) -> dict[str, Any]:
+        """Generate a minimal draft contract from an author scene idea."""
+        idea = str(scene_idea or "").strip()
+        if not idea:
+            raise ValueError("Enter a scene idea first.")
+
+        model = Path(os.path.expanduser(str(model_path))).resolve()
+        if not model.is_file() or model.suffix.casefold() != ".gguf":
+            raise ValueError("The selected model is not a valid GGUF file.")
+
+        prompt = (
+            "BUILD A MINIMAL SCENE CONTRACT.\n\n"
+            "AUTHOR SCENE IDEA:\n"
+            + idea
+            + "\n\nCURRENT STORY STATE AT SCENE START:\n"
+            + json.dumps(current_state, indent=2, ensure_ascii=False)
+            + "\n\nCreate the contract now. Keep it minimal.\n"
+        )
+
+        raw = _run_contract_builder(model, prompt)
+
+        result = {
+            "direction": str(raw.get("direction", "") or "").strip(),
+            "hard_stop": str(raw.get("hard_stop", "") or "").strip(),
+            "required_beats": raw.get("required_beats", []),
+            "required_facts": raw.get("required_facts", []),
+            "required_sequence": raw.get("required_sequence", []),
+            "forbidden": raw.get("forbidden", []),
+            "forbidden_details": raw.get("forbidden_details", []),
+            "max_attempts": raw.get("max_attempts", 3),
+        }
+
+        for key in (
+            "required_beats",
+            "required_facts",
+            "required_sequence",
+            "forbidden",
+            "forbidden_details",
+        ):
+            value = result[key]
+            if value is None:
+                result[key] = []
+            elif not isinstance(value, list):
+                raise ValueError(
+                    f"Scene contract generator returned invalid {key} data."
+                )
+            else:
+                result[key] = [
+                    str(item).strip()
+                    for item in value
+                    if str(item).strip()
+                ]
+
+        if result["max_attempts"] in (None, ""):
+            result["max_attempts"] = 3
+
+        SceneContract.validate_shape(result)
+        lint_errors = SceneContract.lint(result)
+        if lint_errors:
+            raise ValueError(
+                "Generated scene contract needs attention:\n- "
+                + "\n- ".join(lint_errors)
+            )
+
+        return result
 
     @staticmethod
     def max_attempts(contract: dict[str, Any]) -> int:
