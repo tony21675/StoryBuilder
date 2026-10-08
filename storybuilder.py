@@ -587,11 +587,12 @@ class StoryBuilderApp(tk.Tk):
         ).pack(anchor="w")
         self.scene_idea_text = tk.Text(idea_frame, height=5, wrap="word", undo=True)
         self.scene_idea_text.pack(fill="x", pady=(4, 6))
-        ttk.Button(
+        self.scene_contract_build_button = ttk.Button(
             idea_frame,
             text="Build Contract from Scene Idea",
             command=self._build_contract_from_scene_idea,
-        ).pack(anchor="w")
+        )
+        self.scene_contract_build_button.pack(anchor="w")
         ttk.Label(
             content,
             text=(
@@ -610,11 +611,12 @@ class StoryBuilderApp(tk.Tk):
         )
         self.scene_contract_scene_label.pack(side="left")
 
-        ttk.Button(
+        self.scene_contract_load_button = ttk.Button(
             header,
             text="Load Current Scene",
-            command=self._refresh_scene_contract_editor,
-        ).pack(side="right")
+            command=self._load_current_scene_contract,
+        )
+        self.scene_contract_load_button.pack(side="right")
 
         start_frame = ttk.LabelFrame(content, text="Beginning / Current State")
         start_frame.pack(fill="x", pady=(0, 8))
@@ -2461,6 +2463,54 @@ Rules:
             return []
         return [str(item).strip() for item in value if str(item).strip()]
 
+    def _clear_scene_contract_editor(self):
+        """Clear editable scene-contract fields so loading/generation is visible."""
+        if hasattr(self, "scene_idea_text"):
+            self.scene_idea_text.delete("1.0", "end")
+        if hasattr(self, "scene_contract_direction_text"):
+            self.scene_contract_direction_text.delete("1.0", "end")
+        if hasattr(self, "scene_contract_end_text"):
+            self.scene_contract_end_text.delete("1.0", "end")
+        for widget in getattr(self, "scene_contract_texts", {}).values():
+            widget.delete("1.0", "end")
+        if hasattr(self, "scene_contract_attempts_var"):
+            self.scene_contract_attempts_var.set("3")
+
+    def _scene_contract_editor_has_content(self) -> bool:
+        if hasattr(self, "scene_idea_text") and self.scene_idea_text.get("1.0", "end-1c").strip():
+            return True
+        if hasattr(self, "scene_contract_direction_text") and self.scene_contract_direction_text.get("1.0", "end-1c").strip():
+            return True
+        if hasattr(self, "scene_contract_end_text") and self.scene_contract_end_text.get("1.0", "end-1c").strip():
+            return True
+        for widget in getattr(self, "scene_contract_texts", {}).values():
+            if widget.get("1.0", "end-1c").strip():
+                return True
+        return False
+
+    def _load_current_scene_contract(self):
+        """Reload the saved contract, warning before discarding editor contents."""
+        if self.package is None:
+            return
+
+        if self._scene_contract_editor_has_content():
+            if not messagebox.askyesno(
+                "Load Current Scene",
+                "This will discard the current Scene Contract editor contents and reload the saved version.\n\n"
+                "Continue?",
+            ):
+                return
+
+        self._clear_scene_contract_editor()
+        self.scene_contract_status.configure(
+            text="Loading saved contract..."
+        )
+        self.update_idletasks()
+        self._refresh_scene_contract_editor()
+        self.scene_contract_status.configure(
+            text="Loaded the saved contract for the current scene. You can edit it or replace it with a new draft.",
+        )
+
     def _refresh_scene_contract_editor(self):
         if not hasattr(self, "scene_contract_start_text") or self.package is None:
             return
@@ -2508,6 +2558,10 @@ Rules:
 
         attempts = contract.get("max_attempts", 3)
         self.scene_contract_attempts_var.set(str(attempts))
+        if hasattr(self, "scene_contract_load_button"):
+            self.scene_contract_load_button.configure(state="normal")
+        if hasattr(self, "scene_contract_build_button"):
+            self.scene_contract_build_button.configure(state="normal")
         if contract_error:
             self.scene_contract_status.configure(
                 text=f"Contract needs attention: {contract_error}",
@@ -2643,9 +2697,18 @@ Rules:
             self._apply_all_edits()
             model = self._selected_writer_model_for_analysis()
             current_state = dict(self.package.current_state)
+
+            # Clear the old editable contract immediately so an in-progress
+            # generation can never be mistaken for the current draft.
+            self._clear_scene_contract_editor()
+            self.scene_idea_text.insert("1.0", idea)
             self.scene_contract_status.configure(
-                text="Building a minimal contract from the scene idea...",
+                text="Building a new contract from the scene idea...",
             )
+            if hasattr(self, "scene_contract_build_button"):
+                self.scene_contract_build_button.configure(state="disabled")
+            if hasattr(self, "scene_contract_load_button"):
+                self.scene_contract_load_button.configure(state="disabled")
             self.update_idletasks()
 
             def work():
@@ -2672,9 +2735,18 @@ Rules:
 
     def _finish_contract_from_scene_idea(self, idea, result, error):
         if error:
+            if hasattr(self, "scene_contract_build_button"):
+                self.scene_contract_build_button.configure(state="normal")
+            if hasattr(self, "scene_contract_load_button"):
+                self.scene_contract_load_button.configure(state="normal")
             self.scene_contract_status.configure(text="Could not build the contract.")
             messagebox.showerror("Scene Contract", error)
             return
+
+        if hasattr(self, "scene_contract_build_button"):
+            self.scene_contract_build_button.configure(state="normal")
+        if hasattr(self, "scene_contract_load_button"):
+            self.scene_contract_load_button.configure(state="normal")
 
         self.scene_idea_text.delete("1.0", "end")
         self.scene_idea_text.insert("1.0", idea)
