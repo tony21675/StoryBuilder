@@ -76,14 +76,17 @@ Rules:
 - Leave required_beats empty unless a specific event is genuinely important to the author's idea.
 - Leave required_facts empty unless a specific fact must be explicitly established for continuity or the author's idea.
 - Leave required_sequence empty unless the author clearly requires a specific order.
-- Leave forbidden empty unless something must definitely not happen to prevent the scene from advancing too far.
-- Leave forbidden_details empty unless a specific detail must definitely be excluded.
+- Leave forbidden empty unless the author explicitly says something must not happen or a continuity boundary makes it necessary to stop advancement.
+- Never invent a forbidden rule merely from your interpretation of character emotion, pacing, or plausibility.
+- Leave forbidden_details empty unless the author explicitly excludes a specific detail or continuity makes it unsafe.
 - Do not invent major plot developments, characters, clues, motives, backstory, injuries, revelations, or future events that the author did not request.
 - Do not turn plausible implications into mandatory requirements.
+- Do not turn plausible scene variations into prohibitions. If the author did not say "do not do X", do not add "do not do X" merely because X seems less appropriate.
 - Do not repeat the entire current state in the contract.
 - Preserve creative freedom for dialogue, gestures, pacing, sensory details, ordinary emotions, and harmless everyday interaction.
 - Prefer a small number of broad requirements over many narrow checklist items.
 - When a scene idea is broad, prefer one or two broad beats rather than several detailed beats.
+- A minimal contract may contain only direction and hard_stop. That is preferable to adding speculative beats, facts, sequence steps, or prohibitions.
 - max_attempts must be 3 unless the author clearly asks otherwise.
 - Output JSON only. No markdown or explanation.
 """
