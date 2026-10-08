@@ -572,7 +572,8 @@ class StoryBuilderApp(tk.Tk):
             content,
             text=(
                 "Give Builder a plain-language idea for the scene. It will draft the "
-                "minimum contract needed to protect that idea while leaving the writer room to breathe."
+                "minimum contract needed to protect that idea while leaving the writer room to breathe. "
+                "Forbidden fields are left empty for you to add manually when needed."
             ),
             wraplength=900,
             justify="left",
