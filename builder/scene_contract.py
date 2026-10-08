@@ -77,9 +77,8 @@ Rules:
 - Leave required_beats empty unless a specific event is genuinely important to the author's idea.
 - Leave required_facts empty unless a specific fact must be explicitly established for continuity or the author's idea.
 - Leave required_sequence empty unless the author clearly requires a specific order.
-- Leave forbidden empty unless the author explicitly says something must not happen or a continuity boundary makes it necessary to stop advancement.
-- Never invent a forbidden rule merely from your interpretation of character emotion, pacing, or plausibility.
-- Leave forbidden_details empty unless the author explicitly excludes a specific detail or continuity makes it unsafe.
+- Do not generate entries for "forbidden" or "forbidden_details". Leave both arrays empty.
+- These prohibition fields are author-controlled and may be filled manually after generation when needed.
 - Do not invent major plot developments, characters, clues, motives, backstory, injuries, revelations, or future events that the author did not request.
 - Do not turn plausible implications into mandatory requirements.
 - Do not turn plausible scene variations into prohibitions. If the author did not say "do not do X", do not add "do not do X" merely because X seems less appropriate.
@@ -89,7 +88,8 @@ Rules:
 - Prefer a small number of broad requirements over many narrow checklist items.
 - When a scene idea is broad, prefer one or two broad beats rather than several detailed beats.
 - A minimal contract may contain only direction and hard_stop. That is preferable to adding speculative beats, facts, sequence steps, or prohibitions.
-- Required beats, facts, sequence steps, and prohibitions must be traceable to the author's scene idea or a necessary continuity boundary. When they are not, leave them empty.
+- Required beats, facts, and sequence steps should only be added when genuinely necessary. Keep them few.
+- Prohibitions are never generated automatically. Leave them empty.
 - max_attempts must be 3 unless the author clearly asks otherwise.
 - Output JSON only. No markdown or explanation.
 """
@@ -268,8 +268,10 @@ class SceneContract:
             "required_beats": raw.get("required_beats", []),
             "required_facts": raw.get("required_facts", []),
             "required_sequence": raw.get("required_sequence", []),
-            "forbidden": raw.get("forbidden", []),
-            "forbidden_details": raw.get("forbidden_details", []),
+            # Automatic generation deliberately leaves prohibitions empty.
+            # Author can add them manually when a specific boundary is needed.
+            "forbidden": [],
+            "forbidden_details": [],
             "max_attempts": raw.get("max_attempts", 3),
         }
 
