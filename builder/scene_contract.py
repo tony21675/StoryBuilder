@@ -69,8 +69,9 @@ Return ONLY valid JSON in exactly this shape:
 Rules:
 - Use the current story state as the starting point. Do not replay facts or events already completed before the scene starts.
 - The author's scene idea is the primary creative instruction.
-- Write a concise "direction" that tells the writer what the scene is about and how it should unfold naturally.
-- Write a concise "hard_stop" that says where the scene should end.
+- Treat the scene idea as a boundary, not just a suggestion. Do not add new story events, revelations, character actions, future developments, or ending conditions that are not directly supported by the author's idea.
+- Write a concise "direction" that tells the writer what the scene is about and how it should unfold naturally, using only the actions and intent supported by the author's idea and current state.
+- Write a concise "hard_stop" that names ONE clear stopping point directly supported by the author's idea. Do not invent a new event just to create an ending.
 - The hard stop must name ONE clear stopping point. Do not offer alternatives, choices, or "or" conditions.
 - Use the FEWEST contract requirements necessary.
 - Leave required_beats empty unless a specific event is genuinely important to the author's idea.
@@ -82,11 +83,13 @@ Rules:
 - Do not invent major plot developments, characters, clues, motives, backstory, injuries, revelations, or future events that the author did not request.
 - Do not turn plausible implications into mandatory requirements.
 - Do not turn plausible scene variations into prohibitions. If the author did not say "do not do X", do not add "do not do X" merely because X seems less appropriate.
+- Do not infer default drama or closure beats such as falling asleep, leaving the room, ending comfort, calling the police, starting a pursuit, discovering a clue, or becoming fully calm unless the author explicitly requests them.
 - Do not repeat the entire current state in the contract.
 - Preserve creative freedom for dialogue, gestures, pacing, sensory details, ordinary emotions, and harmless everyday interaction.
 - Prefer a small number of broad requirements over many narrow checklist items.
 - When a scene idea is broad, prefer one or two broad beats rather than several detailed beats.
 - A minimal contract may contain only direction and hard_stop. That is preferable to adding speculative beats, facts, sequence steps, or prohibitions.
+- Required beats, facts, sequence steps, and prohibitions must be traceable to the author's scene idea or a necessary continuity boundary. When they are not, leave them empty.
 - max_attempts must be 3 unless the author clearly asks otherwise.
 - Output JSON only. No markdown or explanation.
 """
