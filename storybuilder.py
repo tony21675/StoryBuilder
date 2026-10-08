@@ -571,6 +571,30 @@ class StoryBuilderApp(tk.Tk):
         ttk.Label(
             content,
             text=(
+                "Give Builder a plain-language idea for the scene. It will draft the "
+                "minimum contract needed to protect that idea while leaving the writer room to breathe."
+            ),
+            wraplength=900,
+            justify="left",
+        ).pack(anchor="w", pady=(4, 8))
+
+        idea_frame = ttk.Frame(content)
+        idea_frame.pack(fill="x", pady=(0, 10))
+        ttk.Label(
+            idea_frame,
+            text="Scene Idea / Author Notes",
+            font=("", 11, "bold"),
+        ).pack(anchor="w")
+        self.scene_idea_text = tk.Text(idea_frame, height=5, wrap="word", undo=True)
+        self.scene_idea_text.pack(fill="x", pady=(4, 6))
+        ttk.Button(
+            idea_frame,
+            text="Build Contract from Scene Idea",
+            command=self._build_contract_from_scene_idea,
+        ).pack(anchor="w")
+        ttk.Label(
+            content,
+            text=(
                 "Define the rails, not every sentence. The writer may vary the middle, "
                 "dialogue, gestures, and harmless details while the contract protects the "
                 "required story beats and ending."
@@ -2443,6 +2467,8 @@ Rules:
         self.scene_contract_start_text.configure(state="disabled")
 
         entry = self._editable_scene_guidance_entry(chapter, scene, create=False) or {}
+        self.scene_idea_text.delete("1.0", "end")
+        self.scene_idea_text.insert("1.0", str(entry.get("scene_idea", "") or ""))
         contract_error = None
         try:
             contract = SceneContract.from_guidance(entry, [])
@@ -2484,6 +2510,7 @@ Rules:
         if self.package is None or not hasattr(self, "scene_contract_direction_text"):
             raise ValueError("Scene contract editor is not available.")
 
+        scene_idea = self.scene_idea_text.get("1.0", "end-1c").strip()
         direction = self.scene_contract_direction_text.get("1.0", "end-1c").strip()
         end_text = self.scene_contract_end_text.get("1.0", "end-1c").strip()
 
@@ -2515,7 +2542,7 @@ Rules:
                 "Invalid scene contract:\n- " + "\n- ".join(lint_errors)
             )
 
-        return direction, end_text, contract
+        return scene_idea, direction, end_text, contract
 
     def _validate_scene_contract(self):
         if self.package is None:
@@ -2525,7 +2552,7 @@ Rules:
         scene = int(self.package.current_state.get("scene", 1) or 1)
 
         try:
-            _direction, end_text, contract = self._collect_scene_contract_editor()
+            _scene_idea, _direction, end_text, contract = self._collect_scene_contract_editor()
         except (TypeError, ValueError) as exc:
             self.scene_contract_status.configure(text="Contract invalid.")
             messagebox.showerror("Scene Contract", str(exc))
@@ -2561,11 +2588,16 @@ Rules:
         chapter = int(self.package.current_state.get("chapter", 1) or 1)
         scene = int(self.package.current_state.get("scene", 1) or 1)
 
-        direction, end_text, contract = self._collect_scene_contract_editor()
+        scene_idea, direction, end_text, contract = self._collect_scene_contract_editor()
 
         entry = self._editable_scene_guidance_entry(chapter, scene, create=True)
         if entry is None:
             raise ValueError("Could not create scene guidance for this scene.")
+
+        if scene_idea:
+            entry["scene_idea"] = scene_idea
+        else:
+            entry.pop("scene_idea", None)
 
         if direction:
             entry["direction"] = direction
@@ -2585,6 +2617,81 @@ Rules:
         self._update_path_label()
         self.scene_contract_status.configure(
             text=f"Saved author contract for Chapter {chapter}, Scene {scene}.",
+        )
+
+    def _build_contract_from_scene_idea(self):
+        if self.package is None or not hasattr(self, "scene_idea_text"):
+            return
+
+        idea = self.scene_idea_text.get("1.0", "end-1c").strip()
+        if not idea:
+            messagebox.showerror("Scene Contract", "Enter a scene idea first.")
+            return
+
+        try:
+            self._apply_all_edits()
+            model = self._selected_writer_model_for_analysis()
+            current_state = dict(self.package.current_state)
+            self.scene_contract_status.configure(
+                text="Building a minimal contract from the scene idea...",
+            )
+            self.update_idletasks()
+
+            def work():
+                try:
+                    result = SceneContract.generate_from_idea(
+                        model,
+                        current_state,
+                        idea,
+                    )
+                    error = None
+                except Exception as exc:
+                    result = None
+                    error = str(exc)
+                self.after(
+                    0,
+                    lambda: self._finish_contract_from_scene_idea(
+                        idea, result, error
+                    ),
+                )
+
+            threading.Thread(target=work, daemon=True).start()
+        except Exception as exc:
+            messagebox.showerror("Scene Contract", str(exc))
+
+    def _finish_contract_from_scene_idea(self, idea, result, error):
+        if error:
+            self.scene_contract_status.configure(text="Could not build the contract.")
+            messagebox.showerror("Scene Contract", error)
+            return
+
+        self.scene_idea_text.delete("1.0", "end")
+        self.scene_idea_text.insert("1.0", idea)
+
+        self.scene_contract_direction_text.delete("1.0", "end")
+        self.scene_contract_direction_text.insert(
+            "1.0", str(result.get("direction", "") or "")
+        )
+
+        self.scene_contract_end_text.delete("1.0", "end")
+        self.scene_contract_end_text.insert(
+            "1.0", str(result.get("hard_stop", "") or "")
+        )
+
+        for key, widget in self.scene_contract_texts.items():
+            widget.delete("1.0", "end")
+            widget.insert(
+                "1.0",
+                "\n".join(str(item) for item in result.get(key, []) or []),
+            )
+
+        self.scene_contract_attempts_var.set(
+            str(result.get("max_attempts", 3) or 3)
+        )
+        self.dirty = True
+        self._update_path_label()
+        self.scene_contract_status.configure(
+            text="Draft contract built. Review it, then Apply Contract when it looks right.",
         )
 
     def _build_writer_direction_from_contract(self):
