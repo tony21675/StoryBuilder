@@ -89,7 +89,8 @@ Rules:
 - Do not turn plausible scene variations into prohibitions. If the author did not say "do not do X", do not add "do not do X" merely because X seems less appropriate.
 - Do not infer default drama or closure beats such as falling asleep, leaving the room, ending comfort, calling the police, starting a pursuit, discovering a clue, or becoming fully calm unless the author explicitly requests them.
 - Do not repeat the entire current state in the contract.
-- Preserve creative freedom for dialogue, gestures, pacing, sensory details, ordinary emotions, and harmless everyday interaction.
+- Preserve creative freedom for dialogue, gestures, pacing, sensory details, and harmless everyday interaction.
+- Preserve the emotional intensity explicitly requested by the author. If the idea describes someone as deeply shaken, trembling, struggling to speak, or unable to settle, retain that intensity in the concise direction instead of flattening it into generic sadness or worry. Do not turn this into a long checklist of required beats.
 - Prefer a small number of broad requirements over many narrow checklist items.
 - When a scene idea is broad, prefer one or two broad beats rather than several detailed beats.
 - A minimal contract may contain only direction and hard_stop. That is preferable to adding speculative beats, facts, sequence steps, or prohibitions.
