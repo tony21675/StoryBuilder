@@ -75,11 +75,11 @@ Rules:
 - Choose a useful endpoint that completes a small step of the scene's intended action, rather than stopping at the instant that action is about to begin.
 - For a conversation meant to draw out information, normally allow the other character to give an initial response or first small piece of information before stopping. Do not require a complete account or resolution unless the author asks for it.
 - Respect explicit boundaries between adjacent scenes. If the author intends a limited disclosure now and a fuller account in a later scene, make the hard_stop end at the limited disclosure and do not pull later-scene revelations into the current contract. Preserve explicitly stated starting positions and relationships unless the author directs a change.
-- When the author explicitly names a concrete action as an important part of the scene, keep it visible in the direction. If omitting that action would materially change the intended scene, include it as a concise required beat rather than assuming the direction alone will protect it. Do not split a single natural action into multiple micro-beats.
+- Preserve concrete actions the author explicitly names in the scene idea. Include them in the direction, and add a concise required beat when an action is central to the intended progression or easy to omit. Do not omit a named action just to keep the contract minimal. Combine related actions naturally rather than splitting them into micro-beats.
 - Respect an author-requested cliffhanger or ending on a question when that is clearly the intended endpoint.
 - The hard stop must name ONE clear stopping point. Do not offer alternatives, choices, or "or" conditions.
 - Use the FEWEST contract requirements necessary.
-- Leave required_beats empty unless a specific event is genuinely important to the author's idea.
+- Use required_beats for the small number of concrete actions or turning points the author clearly intends to happen in this scene. Do not leave beats empty when the idea explicitly names important actions. Keep related actions together and avoid checklist-like micro-beats.
 - Leave required_facts empty unless a specific fact must be explicitly established for continuity or the author's idea.
 - Do not create a required fact that merely repeats an emotional state or behavior already stated in the direction.
 - Do not use required_facts to restate the scene's premise or ordinary character reactions.
