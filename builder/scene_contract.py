@@ -74,6 +74,8 @@ Rules:
 - Write a concise "hard_stop" that names ONE clear stopping point directly supported by the author's idea. Do not invent a new event just to create an ending.
 - Choose a useful endpoint that completes a small step of the scene's intended action, rather than stopping at the instant that action is about to begin.
 - For a conversation meant to draw out information, normally allow the other character to give an initial response or first small piece of information before stopping. Do not require a complete account or resolution unless the author asks for it.
+- Respect explicit boundaries between adjacent scenes. If the author intends a limited disclosure now and a fuller account in a later scene, make the hard_stop end at the limited disclosure and do not pull later-scene revelations into the current contract. Preserve explicitly stated starting positions and relationships unless the author directs a change.
+- When the author explicitly names a concrete action as an important part of the scene, keep it visible in the direction. If omitting that action would materially change the intended scene, include it as a concise required beat rather than assuming the direction alone will protect it. Do not split a single natural action into multiple micro-beats.
 - Respect an author-requested cliffhanger or ending on a question when that is clearly the intended endpoint.
 - The hard stop must name ONE clear stopping point. Do not offer alternatives, choices, or "or" conditions.
 - Use the FEWEST contract requirements necessary.
