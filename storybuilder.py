@@ -2204,10 +2204,7 @@ Rules:
             "Creative variation is allowed in dialogue, wording, gestures, emotions, ordinary interaction, "
             "and other harmless details. Emotional intensity explicitly requested by the author is part of "
             "the scene intent and must not be softened into generic worry or sadness. When a character is "
-            "deeply shaken, show it naturally through persistent physical reactions, interrupted or failed "
-            "speech, and difficulty settling. Comfort can make the character feel supported without instantly "
-            "making the distress disappear. Let the other character's concern and emotion show through "
-            "their behavior, voice, and expression, without melodrama or repetitive reactions. Draw naturally on established relationship history, familiar caregiving habits, and small shared memories when they deepen the moment; these details should arise organically, not as mandatory beats or forced callbacks.\n\n"
+            "deeply shaken, give the emotional moment enough room to unfold instead of rushing from distress to explanation or resolution. Show persistent physical reactions, interrupted or failed speech, hesitation, and difficulty settling; comfort can help the character feel supported without making the distress disappear. Let familiar, welcome physical comfort fit the characters' established trust and history, using grounded gestures such as holding close or rubbing someone's back when appropriate. Do not treat ordinary affectionate comfort as inherently inappropriate, and do not over-explain it; let the action speak for itself. Let the other character's concern show through behavior, voice, and expression without melodrama or repetitive reactions. Draw naturally on relationship history and caregiving habits when they deepen the moment, without forcing callbacks or inventing consequential backstory.\n\n"
             "Write the scene now. Output only the prose."
         ])
         base_prompt = "".join(prompt_parts)
