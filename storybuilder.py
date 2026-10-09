@@ -2995,6 +2995,12 @@ Rules:
                 self.pending_state_patch,
             )
 
+            # Once the first accepted scene has been applied, the story is no
+            # longer at its starting point. Preserve any other author-defined
+            # status values.
+            if str(self.package.current_state.get("status", "")).strip().casefold() == "story_start":
+                self.package.current_state["status"] = "in_progress"
+
             # The accepted section is now complete. Advance the package to the
             # next scene so the Writer tab can immediately build the next scene
             # direction without requiring a separate chat command.
@@ -3040,6 +3046,12 @@ Rules:
             self.writer_state_preview.delete("1.0", "end")
             self._refresh_all()
             self._save()
+            if not self.package.current_state.get("chapter_completed"):
+                # Keep the Writer direction synchronized with the newly
+                # advanced state so the next scene is ready without a manual
+                # trip to Scene Contract or a separate rebuild button.
+                self._build_scene_direction()
+
             if self.package.current_state.get("chapter_completed"):
                 self._chat(
                     "Builder",
@@ -3057,7 +3069,11 @@ Rules:
                     f"Scene {self.package.current_state.get('scene')} and saved.",
                 )
                 self.writer_status.configure(
-                    text="Previous scene saved. Build Scene Direction to begin the next scene."
+                    text=(
+                        f"Chapter {self.package.current_state.get('chapter', current_chapter)}, "
+                        f"Scene {self.package.current_state.get('scene')} is ready. "
+                        "Writer direction has been refreshed."
+                    )
                 )
             self._update_writer_buttons()
         except Exception as exc:
@@ -3980,6 +3996,13 @@ Rules:
         if "continuity_notes" in state or entered_notes != list(map(str, existing_notes)):
             state["continuity_notes"] = entered_notes
         self.dirty = True
+        self._update_path_label()
+
+        # Manual edits to chapter, scene, cast, location, time, or continuity
+        # immediately refresh the related contract view and Writer direction.
+        if hasattr(self, "_refresh_scene_contract_editor"):
+            self._refresh_scene_contract_editor()
+        self._build_scene_direction()
 
     def _apply_all_edits(self):
         self._apply_story_edits()
@@ -4452,6 +4475,7 @@ Rules:
         self.package.current_state["current_situation"] = self.situation_text.get("1.0", "end-1c").strip()
         self.dirty = True
         self._update_path_label()
+        self._build_scene_direction()
 
     def _refresh_characters(self, select_filename=None):
         self.character_list.delete(0, "end")
