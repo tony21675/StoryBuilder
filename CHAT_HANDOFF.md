@@ -14,6 +14,7 @@
 - **There was only ONE kidnapper in the incident Maya witnessed.**
 - The red mark belongs in Scene 2, not Scene 1.
 - The immediate goal is to test whether the contract can guide the model with minimal author input. Do not write the scene yourself or add more contract instructions unless the user asks or the generated output shows a specific reason.
+- On 2026-10-08, updated `builder/scene_contract.py` so contract generation preserves explicitly requested emotional intensity rather than flattening it, while keeping the contract minimal. Updated the scene-writing boundary in `storybuilder.py` to honor intense distress through persistent physical reactions, broken/failed speech, and difficulty settling, while allowing comfort to support the character without instantly removing distress. These are committed on `fix/build-contract-from-idea-test`; they have not yet been locally pulled or tested.
 - If a generation is currently running, do not tell the user to restart the app or switch branches. Inspect the output once the user provides it.
 
 ## How to Work With Tony
