@@ -2201,7 +2201,12 @@ Rules:
             "character naturally learns it in this scene. Do not invent consequential facts. "
             "Complete the required beats and reach the contract's ending without adding a different plot. "
             "Creative variation is allowed in dialogue, wording, gestures, emotions, ordinary interaction, "
-            "and other harmless details.\n\n"
+            "and other harmless details. Emotional intensity explicitly requested by the author is part of "
+            "the scene intent and must not be softened into generic worry or sadness. When a character is "
+            "deeply shaken, show it naturally through persistent physical reactions, interrupted or failed "
+            "speech, and difficulty settling. Comfort can make the character feel supported without instantly "
+            "making the distress disappear. Let the other character's concern and emotion show through "
+            "their behavior, voice, and expression, without melodrama or repetitive reactions.\n\n"
             "Write the scene now. Output only the prose."
         ])
         base_prompt = "".join(prompt_parts)
