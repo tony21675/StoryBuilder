@@ -91,6 +91,7 @@ Rules:
 - Do not repeat the entire current state in the contract.
 - Preserve creative freedom for dialogue, gestures, pacing, sensory details, and harmless everyday interaction.
 - Preserve the emotional intensity explicitly requested by the author. If the idea describes someone as deeply shaken, trembling, struggling to speak, or unable to settle, retain that intensity in the concise direction instead of flattening it into generic sadness or worry. Do not turn this into a long checklist of required beats.
+- When established character history or relationships provide a natural way to deepen the moment, leave room for the writer to use familiar habits, gestures of care, shared memories, inside jokes, routines, or other small lived-in details without requiring the author to spell them out. Use these details only when they fit the current moment and do not invent consequential backstory or contradict canon. Do not turn them into mandatory checklist items.
 - Prefer a small number of broad requirements over many narrow checklist items.
 - When a scene idea is broad, prefer one or two broad beats rather than several detailed beats.
 - A minimal contract may contain only direction and hard_stop. That is preferable to adding speculative beats, facts, sequence steps, or prohibitions.
