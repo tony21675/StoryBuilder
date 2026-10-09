@@ -2000,7 +2000,8 @@ Rules:
 21. Respect privacy, dignity, and established character boundaries. Do not expose a character's private feelings, secrets, or limited knowledge without a valid in-story reason.
 22. Ordinary affectionate nicknames are allowed when they fit the established relationship and moment. Do not use childizing terms such as "kid", "kiddo", "little girl", or similar terms for established adult characters unless that term is explicitly established.
 23. Respect the scene endpoint exactly. Do not stop early or continue past it.
-24. Output only natural story prose.
+24. When established character history or relationships make a familiar gesture, comforting habit, routine, shared memory, or small personal detail relevant to the moment, feel free to use it naturally without waiting for the author to spell it out. For example, a character may instinctively repeat a familiar way of comforting someone they have cared for over many years. Let these details emerge through action or dialogue, not as a forced explanation or lore dump. Do not invent consequential backstory or contradict canon, and do not force a callback into a moment where it does not fit.
+25. Output only natural story prose.
 """
         parts = [base, "\nSCENE REFERENCE\n"]
         for name, content in files:
@@ -2206,7 +2207,7 @@ Rules:
             "deeply shaken, show it naturally through persistent physical reactions, interrupted or failed "
             "speech, and difficulty settling. Comfort can make the character feel supported without instantly "
             "making the distress disappear. Let the other character's concern and emotion show through "
-            "their behavior, voice, and expression, without melodrama or repetitive reactions.\n\n"
+            "their behavior, voice, and expression, without melodrama or repetitive reactions. Draw naturally on established relationship history, familiar caregiving habits, and small shared memories when they deepen the moment; these details should arise organically, not as mandatory beats or forced callbacks.\n\n"
             "Write the scene now. Output only the prose."
         ])
         base_prompt = "".join(prompt_parts)
