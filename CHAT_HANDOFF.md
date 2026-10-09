@@ -2,26 +2,25 @@
 
 > Purpose: Paste this document into a new ChatGPT conversation to resume work without spending time rebuilding context. Update this file after meaningful project or story changes. Treat the current-session section as the first thing to refresh.
 
-## Current Session: 2026-10-08
+## Current Session: 2026-10-09
 
-- We are testing the new **author-controlled scene contract** in StoryBuilder.
-- Current model: **Gemma 4 E4B instruction-tuned**, file `Gemma-4-E4B_q4_0-it.gguf`.
-- Current novel branch: `chapter1-clean-reset` in `tony21675/MyNovel`.
 - Current StoryBuilder test branch: `fix/build-contract-from-idea-test` in `tony21675/StoryBuilder`.
-- We are testing **Chapter 2, Scene 2**. It has not been written yet.
-- Scene 1 ends with Tony comforting Maya after she witnessed Tiffany's abduction. Maya has finally told him Tiffany is gone.
-- Intended development in Scene 2: Tony continues comforting Maya as she struggles to explain what happened. He notices the red slap mark on her cheek and gently asks whether she is hurt. Maya struggles to tell him that the kidnapper hit her.
-- **There was only ONE kidnapper in the incident Maya witnessed.**
-- The red mark belongs in Scene 2, not Scene 1.
-- The immediate goal is to test whether the contract can guide the model with minimal author input. Do not write the scene yourself or add more contract instructions unless the user asks or the generated output shows a specific reason.
-- On 2026-10-08, updated `builder/scene_contract.py` so contract generation preserves explicitly requested emotional intensity rather than flattening it, while keeping the contract minimal. Updated the scene-writing boundary in `storybuilder.py` to honor intense distress through persistent physical reactions, broken/failed speech, and difficulty settling, while allowing comfort to support the character without instantly removing distress.
-- The first local test of Chapter 2, Scene 2 produced a short passage in which Tony comforts Maya, notices the red slap mark on her cheek, and asks whether she is hurt. The prose and pacing were good, but the scene direction had not given the comforting moment much room to develop.
-- On 2026-10-08, added a **generic reusable writing principle** to the contract builder and writer prompts: naturally draw on established relationship history, familiar caregiving habits, routines, small shared memories, and personal details when they deepen a moment. These should arise organically, not as forced callbacks or mandatory checklist items, and must not contradict canon or invent consequential backstory. This is intended to work across stories.
-- After reviewing the generated passage and contract, refined the generic prompts to preserve the full emotional progression the author describes. Both contract construction and prose generation now encourage initial reactions, hesitation, pauses, failed attempts to speak, and changing emotions to have room to unfold before advancing to the next event. The goal is to avoid compressing a central emotional moment into a quick exchange while keeping the direction concise and free of micro-beat checklists. Familiar, welcome comfort remains allowed when it fits established trust and history, without over-explaining ordinary affection. These generic changes are committed on `fix/build-contract-from-idea-test` in `storybuilder.py` and `builder/scene_contract.py`; they have not yet been pulled locally or tested.
-- After reviewing the latest generated contract, identified two gaps: the explicitly requested comforting action was absent from Required beats, and the End did not define a meaningful emotional stopping point. Tony clarified the scene boundary: Scene 2 ends after Maya manages to tell Tony that the kidnapper hit her, while she is still shaken and on the bed with Tony; she must not tell him the full abduction story yet. Scene 3 covers her full account, with Tony patiently helping her get through it, and ends with Maya still on the bed with Tony.
-- On 2026-10-09, updated `builder/scene_contract.py` with two generic rules: preserve explicit boundaries between adjacent scenes when one scene contains a limited disclosure and a later scene contains the fuller account; and keep an explicitly requested important action visible in the direction and, when omission would materially change the scene, as a concise required beat. Commit `49a0c3b53d52b0a8d6a358a893e465a353c9cfbb` on `fix/build-contract-from-idea-test`. This is a GitHub change only and has not yet been pulled locally or tested.
-- Next step: Tony pulls the branch, restarts StoryBuilder, and regenerates the Scene 2 contract. Inspect Middle, End, Required beats, and Required sequence before applying it. Scene 2 must stop after Maya tells Tony she was hit, without recounting the whole abduction. Then test the prose. After Scene 2 is accepted, build Scene 3 so Maya tells Tony the complete story while remaining on the bed with him at the end. Do not plan Scene 4 until Tony asks.
-- If a generation is currently running, do not tell the user to restart the app or switch branches. Inspect the output once the user provides it.
+- Current novel branch: `chapter1-clean-reset` in `tony21675/MyNovel`.
+- The author has synced the laptop changes. The current novel state is Chapter 2, Scene 2; the updated `current_situation` is present in GitHub.
+- Scene 2 has not yet been written. Its intended boundary remains: Tony comforts Maya, notices the slap mark, and Maya manages to tell him the kidnapper hit her while still shaken. She does not give the full abduction account until Scene 3.
+- There was only ONE kidnapper in the incident Maya witnessed.
+- The current situation and continuity-note cleanup were reflected in `current_state.json`. Updated the stale state status from `story_start` to `in_progress` and removed the obsolete `Chapter 1 begins here.` entry from the legacy `continuity_requirements` list. Existing continuity notes and story content were otherwise preserved. Commit: `f4eeb58f7fa8a36ede7b6a22de9ad37fcc78600e` on `chapter1-clean-reset`.
+- Updated `storybuilder.py` on the StoryBuilder test branch to:
+  - Automatically rebuild Writer direction after **Apply State Update** advances to the next scene.
+  - Automatically rebuild Writer direction when the author applies manual Current State edits.
+  - Automatically rebuild Writer direction when the author applies Current Situation edits.
+  - Change state status from `story_start` to `in_progress` when the first accepted scene state update is applied, without overriding other custom status values.
+  - Show a clear status message that the next chapter/scene direction has been refreshed.
+  Commit: `1f30177fdf747ef2b43eae522e12a9a95cdf5c0b` on `fix/build-contract-from-idea-test`.
+- The earlier author-controlled scene-contract improvements remain on this branch, including preserving explicit boundaries between a limited disclosure and a later full account, and keeping important requested actions visible in the contract.
+- **Testing status:** these new code changes have been committed remotely but have not yet been locally run or verified. Do not claim they passed. After Tony pulls the updated StoryBuilder branch and the current novel branch, test a safe state edit first, then verify that applying an accepted scene state update advances the scene number and refreshes Writer direction without manually visiting Scene Contract.
+- Expected workflow: write scene → save/accept → analyze accepted scene → apply state update → automatically advance and prepare the next scene direction. If the current chapter is complete, do not build a direction for a nonexistent next scene.
+- Next scene boundaries: Scene 2 ends when Maya admits she was hit but remains shaken; Scene 3 contains her full account and ends with Maya still on the bed with Tony. Do not plan Scene 4 until Tony asks.
 
 ## How to Work With Tony
 
