@@ -2661,44 +2661,60 @@ Rules:
             self.scene_contract_status.configure(text="Contract not saved.")
             messagebox.showerror("Scene Contract", str(exc))
 
-    def _apply_scene_contract_edits(self):
-        if self.package is None or not hasattr(self, "scene_contract_direction_text"):
-            return
-
-        chapter = int(self.package.current_state.get("chapter", 1) or 1)
-        scene = int(self.package.current_state.get("scene", 1) or 1)
-
-        scene_idea, direction, end_text, contract = self._collect_scene_contract_editor()
-
+    def _store_scene_contract_entry(
+        self,
+        chapter: int,
+        scene: int,
+        scene_idea: str,
+        direction: str,
+        end_text: str,
+        contract: dict,
+    ) -> dict:
+        """Persist the authored contract under its explicit scene key."""
         entry = self._editable_scene_guidance_entry(chapter, scene, create=True)
         if entry is None:
-            raise ValueError("Could not create scene guidance for this scene.")
+            raise ValueError(f"Could not create guidance for Chapter {chapter}, Scene {scene}.")
 
         if scene_idea:
             entry["scene_idea"] = scene_idea
         else:
             entry.pop("scene_idea", None)
-
         if direction:
             entry["direction"] = direction
         else:
             entry.pop("direction", None)
-
         if end_text:
             entry["end_condition"] = end_text
         else:
             entry.pop("end_condition", None)
-
-        # Store the authored contract only. Active story modules stay outside it
-        # and are merged by _scene_contract at generation time.
         entry["scene_contract"] = contract
-
         self.dirty = True
         self._update_path_label()
+        return entry
+
+    def _apply_scene_contract_edits(self):
+        if self.package is None or not hasattr(self, "scene_contract_direction_text"):
+            return
+
+        scene_key = getattr(self, "scene_contract_editor_key", None)
+        if isinstance(scene_key, tuple) and len(scene_key) == 2:
+            chapter, scene = int(scene_key[0]), int(scene_key[1])
+        else:
+            chapter = int(self.package.current_state.get("chapter", 1) or 1)
+            scene = int(self.package.current_state.get("scene", 1) or 1)
+
+        scene_idea, direction, end_text, contract = self._collect_scene_contract_editor()
+        self._store_scene_contract_entry(
+            chapter,
+            scene,
+            scene_idea,
+            direction,
+            end_text,
+            contract,
+        )
         self.scene_contract_status.configure(
             text=f"Saved author contract for Chapter {chapter}, Scene {scene}.",
         )
-
     def _build_contract_from_scene_idea(self):
         if self.package is None or not hasattr(self, "scene_idea_text"):
             return
@@ -2708,18 +2724,35 @@ Rules:
             messagebox.showerror("Scene Contract", "Enter a scene idea first.")
             return
 
-        try:
-            self._apply_all_edits()
-            model = self._selected_writer_model_for_analysis()
-            current_state = dict(self.package.current_state)
+        state = self.package.current_state
+        active_key = (
+            int(state.get("chapter", 1) or 1),
+            int(state.get("scene", 1) or 1),
+        )
+        editor_key = getattr(self, "scene_contract_editor_key", None) or active_key
+        if editor_key != active_key:
+            self._refresh_scene_contract_editor()
+            messagebox.showwarning(
+                "Scene Contract",
+                "The current state and contract editor were out of sync. I reloaded the current scene's contract. "
+                "Please check the scene idea and build it again.",
+            )
+            return
 
-            # Clear the old editable contract immediately so an in-progress
-            # generation can never be mistaken for the current draft.
+        try:
+            # Save the current editor under its own scene before starting the
+            # model call. Do not apply unrelated State-tab fields implicitly.
+            self._apply_scene_contract_edits()
+            chapter, scene = active_key
+            current_state = json.loads(json.dumps(self.package.current_state, ensure_ascii=False))
+            model = self._selected_writer_model_for_analysis()
+
             self._clear_scene_contract_editor()
             self.scene_idea_text.insert("1.0", idea)
             self.scene_contract_status.configure(
-                text="Building a new contract from the scene idea...",
+                text=f"Building contract for Chapter {chapter}, Scene {scene}...",
             )
+            self.scene_contract_building = True
             if hasattr(self, "scene_contract_build_button"):
                 self.scene_contract_build_button.configure(state="disabled")
             if hasattr(self, "scene_contract_load_button"):
@@ -2728,11 +2761,7 @@ Rules:
 
             def work():
                 try:
-                    result = SceneContract.generate_from_idea(
-                        model,
-                        current_state,
-                        idea,
-                    )
+                    result = SceneContract.generate_from_idea(model, current_state, idea)
                     error = None
                 except Exception as exc:
                     result = None
@@ -2740,58 +2769,108 @@ Rules:
                 self.after(
                     0,
                     lambda: self._finish_contract_from_scene_idea(
-                        idea, result, error
+                        idea, result, error, chapter, scene
                     ),
                 )
 
             threading.Thread(target=work, daemon=True).start()
         except Exception as exc:
-            messagebox.showerror("Scene Contract", str(exc))
-
-    def _finish_contract_from_scene_idea(self, idea, result, error):
-        if error:
+            self.scene_contract_building = False
             if hasattr(self, "scene_contract_build_button"):
                 self.scene_contract_build_button.configure(state="normal")
             if hasattr(self, "scene_contract_load_button"):
                 self.scene_contract_load_button.configure(state="normal")
-            self.scene_contract_status.configure(text="Could not build the contract.")
-            messagebox.showerror("Scene Contract", error)
-            return
-
+            messagebox.showerror("Scene Contract", str(exc))
+    def _finish_contract_from_scene_idea(self, idea, result, error, chapter=None, scene=None):
+        self.scene_contract_building = False
         if hasattr(self, "scene_contract_build_button"):
             self.scene_contract_build_button.configure(state="normal")
         if hasattr(self, "scene_contract_load_button"):
             self.scene_contract_load_button.configure(state="normal")
 
-        self.scene_idea_text.delete("1.0", "end")
-        self.scene_idea_text.insert("1.0", idea)
+        if error:
+            self.scene_contract_status.configure(
+                text="Could not build the contract. The previous saved contract was kept.",
+            )
+            # Reload the saved entry so an unsuccessful build does not leave
+            # the form looking like its existing contract vanished.
+            if self.package is not None:
+                self._refresh_scene_contract_editor()
+            messagebox.showerror("Scene Contract", error)
+            return
 
-        self.scene_contract_direction_text.delete("1.0", "end")
-        self.scene_contract_direction_text.insert(
-            "1.0", str(result.get("direction", "") or "")
-        )
+        if self.package is None or not isinstance(result, dict):
+            self.scene_contract_status.configure(text="No contract was saved because the result was unavailable.")
+            return
 
-        self.scene_contract_end_text.delete("1.0", "end")
-        self.scene_contract_end_text.insert(
-            "1.0", str(result.get("hard_stop", "") or "")
-        )
+        state = self.package.current_state
+        if chapter is None:
+            chapter = int(state.get("chapter", 1) or 1)
+        if scene is None:
+            scene = int(state.get("scene", 1) or 1)
+        chapter, scene = int(chapter), int(scene)
 
-        for key, widget in self.scene_contract_texts.items():
-            widget.delete("1.0", "end")
-            widget.insert(
-                "1.0",
-                "\n".join(str(item) for item in result.get(key, []) or []),
+        direction = str(result.get("direction", "") or "").strip()
+        end_text = str(result.get("hard_stop", "") or "").strip()
+        contract = {
+            "required_beats": list(result.get("required_beats", []) or []),
+            "required_facts": list(result.get("required_facts", []) or []),
+            "required_sequence": list(result.get("required_sequence", []) or []),
+            "forbidden": list(result.get("forbidden", []) or []),
+            "forbidden_details": list(result.get("forbidden_details", []) or []),
+            "max_attempts": result.get("max_attempts", 3) or 3,
+        }
+        if end_text:
+            contract["hard_stop"] = end_text
+
+        try:
+            SceneContract.validate_shape(contract)
+            lint_errors = SceneContract.lint(contract)
+            if lint_errors:
+                raise ValueError("Generated contract needs attention:\n- " + "\n- ".join(lint_errors))
+
+            self._store_scene_contract_entry(
+                chapter, scene, idea, direction, end_text, contract
             )
 
-        self.scene_contract_attempts_var.set(
-            str(result.get("max_attempts", 3) or 3)
-        )
-        self.dirty = True
-        self._update_path_label()
-        self.scene_contract_status.configure(
-            text="Draft contract built. Review it, then Apply Contract when it looks right.",
-        )
+            persisted = False
+            if self.package.path is not None:
+                self.package.save()
+                self.dirty = False
+                persisted = True
+            else:
+                self.dirty = True
+            self._update_path_label()
 
+            active_key = (
+                int(self.package.current_state.get("chapter", 1) or 1),
+                int(self.package.current_state.get("scene", 1) or 1),
+            )
+            editor_key = getattr(self, "scene_contract_editor_key", None)
+            if active_key == (chapter, scene) and editor_key == (chapter, scene):
+                # The contract is now stored, so reload the saved values and
+                # build Writer direction in this same operation. Apply Contract
+                # and Build Writer Direction remain available for later edits,
+                # but are no longer required after every generated contract.
+                self._refresh_scene_contract_editor()
+                self._build_scene_direction()
+                status = (
+                    f"Contract saved for Chapter {chapter}, Scene {scene}. Writer direction is ready."
+                    if persisted
+                    else f"Contract drafted for Chapter {chapter}, Scene {scene}. Save or Save As to persist it."
+                )
+            else:
+                status = (
+                    f"Contract saved for Chapter {chapter}, Scene {scene}. The current scene editor was left untouched."
+                    if persisted
+                    else f"Contract drafted in memory for Chapter {chapter}, Scene {scene}. Save the novel package to persist it."
+                )
+            self.scene_contract_status.configure(text=status)
+        except Exception as exc:
+            self.dirty = True
+            self._update_path_label()
+            self.scene_contract_status.configure(text="Contract generated but could not be saved.")
+            messagebox.showerror("Scene Contract", str(exc))
     def _build_writer_direction_from_contract(self):
         try:
             self._apply_scene_contract_edits()
