@@ -48,6 +48,123 @@ def _detect_accelerator() -> str | None:
     return override or None
 
 
+CONTRACT_BUILDER_SYSTEM_PROMPT = """You are an authoring assistant for a fictional novel scene.
+
+The author will give you a short scene idea and the exact current story state at the start of the scene.
+
+Create a MINIMAL scene contract that protects the author's intent without over-constraining the writer.
+
+Return ONLY valid JSON in exactly this shape:
+{
+  "direction": "",
+  "hard_stop": "",
+  "required_beats": [],
+  "required_facts": [],
+  "required_sequence": [],
+  "forbidden": [],
+  "forbidden_details": [],
+  "max_attempts": 3
+}
+
+Rules:
+- Use the current story state as the starting point. Do not replay facts or events already completed before the scene starts.
+- Treat current_situation as the authoritative narrative snapshot at the scene opening. It describes what has already happened and where the scene should begin.
+- Stored physical_state and per-character location details are supporting continuity data, not a higher authority than current_situation. If they conflict, follow current_situation and do not repeat or recreate the conflicting older position as though it were current.
+- Do not combine contradictory snapshots into one opening. If the situation says a character has just arrived, do not also begin with that character already settled into a later position unless the scene idea explicitly requests that transition.
+- The author's scene idea is the primary creative instruction.
+- Treat the scene idea as a boundary, not just a suggestion. Do not add new story events, revelations, character actions, future developments, or ending conditions that are not directly supported by the author's idea.
+- Write a concise "direction" that tells the writer what the scene is about and how it should unfold naturally, using only the actions and intent supported by the author's idea and current state.
+- Write a concise "hard_stop" that names ONE clear stopping point directly supported by the author's idea. Do not invent a new event just to create an ending.
+- Choose a useful endpoint that completes a small step of the scene's intended action, rather than stopping at the instant that action is about to begin.
+- For a conversation meant to draw out information, normally allow the other character to give an initial response or first small piece of information before stopping. Do not require a complete account or resolution unless the author asks for it.
+- Respect explicit boundaries between adjacent scenes. If the author intends a limited disclosure now and a fuller account in a later scene, make the hard_stop end at the limited disclosure and do not pull later-scene revelations into the current contract. Preserve explicitly stated starting positions and relationships unless the author directs a change.
+- Preserve concrete actions the author explicitly names in the scene idea. Include them in the direction, and add a concise required beat when an action is central to the intended progression or easy to omit. Do not omit a named action just to keep the contract minimal. Combine related actions naturally rather than splitting them into micro-beats.
+- Respect an author-requested cliffhanger or ending on a question when that is clearly the intended endpoint.
+- The hard stop must name ONE clear stopping point. Do not offer alternatives, choices, or "or" conditions.
+- Use the FEWEST contract requirements necessary.
+- Use required_beats for the small number of concrete actions or turning points the author clearly intends to happen in this scene. Do not leave beats empty when the idea explicitly names important actions. Keep related actions together and avoid checklist-like micro-beats.
+- Leave required_facts empty unless a specific fact must be explicitly established for continuity or the author's idea.
+- Do not create a required fact that merely repeats an emotional state or behavior already stated in the direction.
+- Do not use required_facts to restate the scene's premise or ordinary character reactions.
+- Leave required_sequence empty unless the author clearly requires a specific order.
+- Do not generate entries for "forbidden" or "forbidden_details". Leave both arrays empty.
+- These prohibition fields are author-controlled and may be filled manually after generation when needed.
+- Do not invent major plot developments, characters, clues, motives, backstory, injuries, revelations, or future events that the author did not request.
+- Do not turn plausible implications into mandatory requirements.
+- Do not turn plausible scene variations into prohibitions. If the author did not say "do not do X", do not add "do not do X" merely because X seems less appropriate.
+- Do not infer default drama or closure beats such as falling asleep, leaving the room, ending comfort, calling the police, starting a pursuit, discovering a clue, or becoming fully calm unless the author explicitly requests them.
+- Do not repeat the entire current state in the contract.
+- Preserve creative freedom for dialogue, gestures, pacing, sensory details, and harmless everyday interaction.
+- Preserve the emotional intensity and pacing explicitly requested by the author. If the idea describes someone as deeply shaken, trembling, struggling to speak, or unable to settle, retain that intensity in the concise direction instead of flattening it into generic sadness or worry. Preserve the emotional progression described by the author, allowing the initial reaction, hesitation, pauses, and changes in emotion room to unfold before advancing to the next event. Avoid compressing a central emotional moment into a quick exchange; keep the direction concise and natural rather than adding a checklist of micro-beats. When the emotional struggle is central to the scene, allow it to unfold through pauses, repeated attempts to speak, and changing reactions rather than jumping straight to the explanation or resolution. Do not turn this into a long checklist of required beats.
+- When established character history or relationships provide a natural way to deepen the moment, leave room for the writer to use familiar habits, gestures of care, welcome physical comfort, shared memories, inside jokes, routines, or other small lived-in details without requiring the author to spell them out. These details should fit the characters' trust and relationship, and should be shown naturally rather than over-explained or treated as inherently inappropriate. Use them only when they fit the current moment and do not invent consequential backstory or contradict canon. Do not turn them into mandatory checklist items.
+- Prefer a small number of broad requirements over many narrow checklist items.
+- When a scene idea is broad, prefer one or two broad beats rather than several detailed beats.
+- A minimal contract may contain only direction and hard_stop. That is preferable to adding speculative beats, facts, sequence steps, or prohibitions.
+- Required beats, facts, and sequence steps should only be added when genuinely necessary. Keep them few.
+- Prohibitions are never generated automatically. Leave them empty.
+- max_attempts must be 3 unless the author clearly asks otherwise.
+- Output JSON only. No markdown or explanation.
+"""
+
+
+def _run_contract_builder(model: Path, prompt: str) -> dict[str, Any]:
+    env = os.environ.copy()
+    env["LD_LIBRARY_PATH"] = str(DEFAULT_LLAMA.parent) + (
+        ":" + env["LD_LIBRARY_PATH"] if env.get("LD_LIBRARY_PATH") else ""
+    )
+
+    device = _detect_accelerator()
+    args = [str(DEFAULT_LLAMA), "-m", str(model)]
+    if device:
+        args.extend(["--device", device, "-ngl", "all"])
+    else:
+        args.extend(["-ngl", "0", "--device", "none"])
+
+    args.extend([
+        "-c", os.environ.get("STORY_WRITER_CONTEXT", "8192"),
+        "--reasoning", "off",
+        "--temp", "0.15",
+        "--top-k", "10",
+        "--top-p", "0.80",
+        "--repeat-last-n", "256",
+        "--repeat-penalty", "1.08",
+        "--n-predict", "700",
+        "--system-prompt", CONTRACT_BUILDER_SYSTEM_PROMPT,
+        "--prompt", prompt,
+        "--color", "off",
+        "--no-display-prompt",
+        "--simple-io",
+        "--single-turn",
+    ])
+
+    proc = subprocess.Popen(
+        args,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        env=env,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    try:
+        output, _ = proc.communicate(timeout=300)
+    except subprocess.TimeoutExpired as exc:
+        proc.kill()
+        output, _ = proc.communicate()
+        raise TimeoutError("Scene contract generation timed out.") from exc
+
+    if proc.returncode not in (0, None):
+        raise RuntimeError(
+            "Scene contract generation failed.\n" + (output or "")[-2000:]
+        )
+
+    result = extract_json_object(output)
+    if not isinstance(result, dict):
+        raise ValueError("Scene contract generator did not return an object.")
+
+    return result
+
+
 def _run_validator(model: Path, prompt: str) -> dict[str, Any]:
     env = os.environ.copy()
     env["LD_LIBRARY_PATH"] = str(DEFAULT_LLAMA.parent) + (
@@ -130,6 +247,79 @@ def _run_validator(model: Path, prompt: str) -> dict[str, Any]:
 
 class SceneContract:
     """Validate generated prose against a reusable author-defined scene contract."""
+
+    @staticmethod
+    def generate_from_idea(
+        model_path: str | Path,
+        current_state: dict[str, Any],
+        scene_idea: str,
+    ) -> dict[str, Any]:
+        """Generate a minimal draft contract from an author scene idea."""
+        idea = str(scene_idea or "").strip()
+        if not idea:
+            raise ValueError("Enter a scene idea first.")
+
+        model = Path(os.path.expanduser(str(model_path))).resolve()
+        if not model.is_file() or model.suffix.casefold() != ".gguf":
+            raise ValueError("The selected model is not a valid GGUF file.")
+
+        prompt = (
+            "BUILD A MINIMAL SCENE CONTRACT.\n\n"
+            "AUTHOR SCENE IDEA:\n"
+            + idea
+            + "\n\nCURRENT STORY STATE AT SCENE START:\n"
+            + json.dumps(current_state, indent=2, ensure_ascii=False)
+            + "\n\nCreate the contract now. Keep it minimal.\n"
+        )
+
+        raw = _run_contract_builder(model, prompt)
+
+        result = {
+            "direction": str(raw.get("direction", "") or "").strip(),
+            "hard_stop": str(raw.get("hard_stop", "") or "").strip(),
+            "required_beats": raw.get("required_beats", []),
+            "required_facts": raw.get("required_facts", []),
+            "required_sequence": raw.get("required_sequence", []),
+            # Automatic generation deliberately leaves prohibitions empty.
+            # Author can add them manually when a specific boundary is needed.
+            "forbidden": [],
+            "forbidden_details": [],
+            "max_attempts": raw.get("max_attempts", 3),
+        }
+
+        for key in (
+            "required_beats",
+            "required_facts",
+            "required_sequence",
+            "forbidden",
+            "forbidden_details",
+        ):
+            value = result[key]
+            if value is None:
+                result[key] = []
+            elif not isinstance(value, list):
+                raise ValueError(
+                    f"Scene contract generator returned invalid {key} data."
+                )
+            else:
+                result[key] = [
+                    str(item).strip()
+                    for item in value
+                    if str(item).strip()
+                ]
+
+        if result["max_attempts"] in (None, ""):
+            result["max_attempts"] = 3
+
+        SceneContract.validate_shape(result)
+        lint_errors = SceneContract.lint(result)
+        if lint_errors:
+            raise ValueError(
+                "Generated scene contract needs attention:\n- "
+                + "\n- ".join(lint_errors)
+            )
+
+        return result
 
     @staticmethod
     def max_attempts(contract: dict[str, Any]) -> int:
@@ -491,7 +681,33 @@ class SceneContract:
         if model is None:
             raise RuntimeError("The active writer model is unavailable for scene validation.")
 
-        return _run_validator(Path(model), prompt)
+        raw_result = _run_validator(Path(model), prompt)
+        # Keep the public API stable even when validators are mocked or an
+        # alternate engine returns JSON booleans as strings.
+        if not isinstance(raw_result, dict):
+            raise ValueError("Scene contract validator returned an invalid result object.")
+
+        raw_pass = raw_result.get("pass", None)
+        if isinstance(raw_pass, bool):
+            passed = raw_pass
+        elif isinstance(raw_pass, str) and raw_pass.strip().casefold() in {"true", "false"}:
+            passed = raw_pass.strip().casefold() == "true"
+        else:
+            raise ValueError("Scene contract validator returned an invalid 'pass' value.")
+
+        missed = raw_result.get("missed_beats", [])
+        violations = raw_result.get("violations", [])
+        if not isinstance(missed, list):
+            raise ValueError("Scene contract validator returned invalid missed_beats data.")
+        if not isinstance(violations, list):
+            raise ValueError("Scene contract validator returned invalid violations data.")
+
+        return {
+            "pass": passed,
+            "missed_beats": [str(item).strip() for item in missed if str(item).strip()],
+            "violations": [str(item).strip() for item in violations if str(item).strip()],
+            "notes": str(raw_result.get("notes", "") or "").strip(),
+        }
 
 
     @staticmethod

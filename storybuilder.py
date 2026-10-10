@@ -47,6 +47,15 @@ class StoryBuilderApp(tk.Tk):
         self.writer_thread = None
         self.generated_scene = ""
         self.accepted_scene = ""
+        # Keep each generated scene tied to the chapter/scene and exact start
+        # state that produced it. Never file prose under a later UI selection.
+        self.generated_scene_context: tuple[int, int] | None = None
+        self.generated_scene_start_state: dict | None = None
+        self.writer_generation_context: tuple[int, int] | None = None
+        self.writer_generation_start_state: dict | None = None
+        self.writer_generation_in_progress = False
+        self.scene_contract_editor_key: tuple[int, int] | None = None
+        self.scene_contract_building = False
         self.pending_state_patch = None
         self.selected_manuscript_path = None
         self.saved_state_candidate = None
@@ -571,6 +580,32 @@ class StoryBuilderApp(tk.Tk):
         ttk.Label(
             content,
             text=(
+                "Give Builder a plain-language idea for the scene. It will draft the "
+                "minimum contract needed to protect that idea while leaving the writer room to breathe. "
+                "Forbidden fields are left empty for you to add manually when needed."
+            ),
+            wraplength=900,
+            justify="left",
+        ).pack(anchor="w", pady=(4, 8))
+
+        idea_frame = ttk.Frame(content)
+        idea_frame.pack(fill="x", pady=(0, 10))
+        ttk.Label(
+            idea_frame,
+            text="Scene Idea / Author Notes",
+            font=("", 11, "bold"),
+        ).pack(anchor="w")
+        self.scene_idea_text = tk.Text(idea_frame, height=5, wrap="word", undo=True)
+        self.scene_idea_text.pack(fill="x", pady=(4, 6))
+        self.scene_contract_build_button = ttk.Button(
+            idea_frame,
+            text="Build Contract from Scene Idea",
+            command=self._build_contract_from_scene_idea,
+        )
+        self.scene_contract_build_button.pack(anchor="w")
+        ttk.Label(
+            content,
+            text=(
                 "Define the rails, not every sentence. The writer may vary the middle, "
                 "dialogue, gestures, and harmless details while the contract protects the "
                 "required story beats and ending."
@@ -586,11 +621,12 @@ class StoryBuilderApp(tk.Tk):
         )
         self.scene_contract_scene_label.pack(side="left")
 
-        ttk.Button(
+        self.scene_contract_load_button = ttk.Button(
             header,
             text="Load Current Scene",
-            command=self._refresh_scene_contract_editor,
-        ).pack(side="right")
+            command=self._load_current_scene_contract,
+        )
+        self.scene_contract_load_button.pack(side="right")
 
         start_frame = ttk.LabelFrame(content, text="Beginning / Current State")
         start_frame.pack(fill="x", pady=(0, 8))
@@ -1816,6 +1852,7 @@ class StoryBuilderApp(tk.Tk):
             f"Current state: {situation or 'continue from the exact current state.'}",
             "Starting-state rule: The current situation above has already happened before this scene begins. Do not replay completed revelations or make characters rediscover facts explicitly stated there.",
             "Starting-knowledge rule: When the current situation says one character has already told, informed, warned, shown, or communicated a fact to another, the receiving character already knows that fact and dialogue should reflect that knowledge.",
+            "State precedence: Current state/current situation is the authoritative scene opening. Stored physical continuity is supporting data and may be stale. If it conflicts with the explicit current situation or the scene idea, follow the explicit current situation and do not recreate the conflicting older position.",
         ]
 
         # Physical state is the automatic handoff from the previous accepted
@@ -1973,7 +2010,8 @@ Rules:
 21. Respect privacy, dignity, and established character boundaries. Do not expose a character's private feelings, secrets, or limited knowledge without a valid in-story reason.
 22. Ordinary affectionate nicknames are allowed when they fit the established relationship and moment. Do not use childizing terms such as "kid", "kiddo", "little girl", or similar terms for established adult characters unless that term is explicitly established.
 23. Respect the scene endpoint exactly. Do not stop early or continue past it.
-24. Output only natural story prose.
+24. When established character history or relationships make a familiar gesture, comforting habit, routine, shared memory, or small personal detail relevant to the moment, feel free to use it naturally without waiting for the author to spell it out. For example, a character may instinctively repeat a familiar way of comforting someone they have cared for over many years. Let these details emerge through action or dialogue, not as a forced explanation or lore dump. Do not invent consequential backstory or contradict canon, and do not force a callback into a moment where it does not fit.
+25. Output only natural story prose.
 """
         parts = [base, "\nSCENE REFERENCE\n"]
         for name, content in files:
@@ -2117,6 +2155,19 @@ Rules:
         self._update_writer_buttons()
 
     def _write_next_scene(self):
+        if self.package is None:
+            messagebox.showerror("Writer", "Open or create a novel first.")
+            return
+        if getattr(self, "scene_contract_building", False):
+            messagebox.showwarning(
+                "Writer",
+                "Wait for the current scene contract to finish before generating prose.",
+            )
+            return
+        if getattr(self, "writer_generation_in_progress", False):
+            messagebox.showwarning("Writer", "A scene is already being generated.")
+            return
+
         direction = self.writer_direction_text.get("1.0", "end-1c").strip()
         if not direction:
             direction = "Write the next scene naturally from the current story state."
@@ -2146,10 +2197,13 @@ Rules:
         current_state = json.loads(
             json.dumps(self.package.current_state, ensure_ascii=False)
         )
+        # Capture the exact target before background generation starts.
+        self.writer_generation_context = (chapter, scene)
+        self.writer_generation_start_state = json.loads(
+            json.dumps(current_state, ensure_ascii=False)
+        )
+        self.writer_generation_in_progress = True
 
-        # Rebuild the writer context before every scene attempt. The writer
-        # should never carry a previous scene's conversational memory into a
-        # new scene.
         files = self._writer_package_files()
         system_prompt = self._writer_system_prompt(files)
         model = self.writer_engine.model_path
@@ -2174,7 +2228,10 @@ Rules:
             "character naturally learns it in this scene. Do not invent consequential facts. "
             "Complete the required beats and reach the contract's ending without adding a different plot. "
             "Creative variation is allowed in dialogue, wording, gestures, emotions, ordinary interaction, "
-            "and other harmless details.\n\n"
+            "and other harmless details. Emotional intensity explicitly requested by the author is part of "
+            "the scene intent and must not be softened into generic worry or sadness. When a character is "
+            "deeply shaken, give the emotional moment enough room to unfold instead of rushing from distress to explanation or resolution. Preserve the progression the author describes: let the initial reaction, hesitation, failed attempts, and changes in emotion have space before moving to the next event. Do not compress an emotional arc into a quick exchange merely because the required plot beats have been covered. Show persistent physical reactions, interrupted or failed speech, hesitation, and difficulty settling; comfort can help the character feel supported without making the distress disappear. Let familiar, welcome physical comfort fit the characters' established trust and history, using grounded gestures such as holding close or rubbing someone's back when appropriate. Do not treat ordinary affectionate comfort as inherently inappropriate, and do not over-explain it; let the action speak for itself. Let the other character's concern show through behavior, voice, and expression without melodrama or repetitive reactions. Draw naturally on relationship history and caregiving habits when they deepen the moment, without forcing callbacks or inventing consequential backstory. "
+            "If Current state/current situation conflicts with stored physical continuity, follow Current state/current situation and do not reproduce the stale conflicting position.\n\n"
             "Write the scene now. Output only the prose."
         ])
         base_prompt = "".join(prompt_parts)
@@ -2187,10 +2244,6 @@ Rules:
                 max_attempts = SceneContract.max_attempts(contract) if contract else 1
                 feedback = ""
                 answer = ""
-
-                # Start one fresh writer session for the scene. A retry only
-                # restarts the writer after a failed validation, avoiding an
-                # unnecessary model reload before the first attempt.
                 self.writer_engine.reset_context(model, system_prompt)
 
                 for attempt in range(1, max_attempts + 1):
@@ -2217,9 +2270,6 @@ Rules:
                             "The writer could not produce a scene that satisfies the scene contract "
                             f"after {max_attempts} attempts.\n\n{feedback}"
                         )
-
-                    # Only rejected drafts need a brand-new writer context.
-                    # This keeps retry feedback from accumulating prior prose.
                     self.writer_engine.reset_context(model, system_prompt)
 
                 error = None
@@ -2230,22 +2280,36 @@ Rules:
 
         self.writer_thread = threading.Thread(target=work, daemon=True)
         self.writer_thread.start()
-
-
     def _finish_generated_scene(self, answer, error):
+        target = getattr(self, "writer_generation_context", None)
+        start_state = getattr(self, "writer_generation_start_state", None)
+        self.writer_generation_in_progress = False
+        self.writer_generation_context = None
+        self.writer_generation_start_state = None
+
         if error:
+            # A failed attempt must not silently replace the prior accepted text.
             messagebox.showerror("Writer", error)
             self._update_writer_buttons()
             return
 
         self.generated_scene = answer.strip()
+        self.generated_scene_context = target or (
+            int(self.package.current_state.get("chapter", 1) or 1),
+            int(self.package.current_state.get("scene", 1) or 1),
+        )
+        self.generated_scene_start_state = start_state or json.loads(
+            json.dumps(self.package.current_state, ensure_ascii=False)
+        )
         self.writer_output_text.delete("1.0", "end")
         self.writer_output_text.insert("1.0", self.generated_scene)
         self.writer_status.configure(
-            text="Scene generated. Review it, save a draft if desired, then accept or reject it."
+            text=(
+                f"Draft generated for Chapter {self.generated_scene_context[0]}, "
+                f"Scene {self.generated_scene_context[1]}. Review it, save a draft if desired, then accept or reject it."
+            )
         )
         self._update_writer_buttons()
-
     def _reject_generated_scene(self):
         if not self.generated_scene.strip():
             return
@@ -2258,39 +2322,98 @@ Rules:
 
         self.generated_scene = ""
         self.writer_output_text.delete("1.0", "end")
+        if not self.accepted_scene.strip():
+            self.generated_scene_context = None
+            self.generated_scene_start_state = None
         self.writer_status.configure(
-            text="Scene rejected. The current story state and manuscript were not changed."
+            text="Scene rejected. The current story state and accepted manuscript were not changed.",
         )
         self._update_writer_buttons()
-
     def _save_generated_draft(self):
-        if not self.package or self.package.path is None or not self.generated_scene.strip():
+        if not self.package:
             return
 
-        try:
-            chapter = int(self.package.current_state.get("chapter", 1))
-            scene = int(self.package.current_state.get("scene", 1))
-            path = ManuscriptManager(self.package.path).save_draft(
-                chapter,
-                scene,
-                self.generated_scene,
+        prose = self._writer_editor_prose()
+        if not prose:
+            return
+
+        if self.package.path is None:
+            messagebox.showwarning(
+                "Writer",
+                "Save the novel package with Save As / Export before saving a manuscript draft.",
             )
+            return
+
+        state = self.package.current_state
+        fallback_key = (
+            int(state.get("chapter", 1) or 1),
+            int(state.get("scene", 1) or 1),
+        )
+        context = getattr(self, "generated_scene_context", None) or fallback_key
+        try:
+            chapter, scene = int(context[0]), int(context[1])
+            path = ManuscriptManager(self.package.path).save_draft(chapter, scene, prose)
+            self.generated_scene = prose
+            self.generated_scene_context = (chapter, scene)
             self._refresh_manuscript()
-            messagebox.showinfo("Writer", f"Draft saved to:\n\n{path}")
+            messagebox.showinfo(
+                "Writer",
+                f"Draft saved for Chapter {chapter}, Scene {scene}:\n\n{path}",
+            )
         except Exception as exc:
             messagebox.showerror("Writer", str(exc))
-
     def _accept_generated_scene(self):
-        if not self.package or self.package.path is None or not self.generated_scene.strip():
+        if not self.package or not self.generated_scene.strip():
+            return
+        if self.package.path is None:
+            messagebox.showwarning(
+                "Writer",
+                "Save the novel package with Save As / Export before accepting a manuscript scene.",
+            )
             return
 
-        edited = self.writer_output_text.get("1.0", "end-1c").strip()
-        if edited:
-            self.generated_scene = edited
+        prose = self._writer_editor_prose()
+        if not prose:
+            messagebox.showwarning("Writer", "There is no scene text to accept.")
+            return
 
+        state = self.package.current_state
+        current_key = (
+            int(state.get("chapter", 1) or 1),
+            int(state.get("scene", 1) or 1),
+        )
+        context = getattr(self, "generated_scene_context", None) or current_key
         try:
-            chapter = int(self.package.current_state.get("chapter", 1))
-            scene = int(self.package.current_state.get("scene", 1))
+            chapter, scene = int(context[0]), int(context[1])
+        except (TypeError, ValueError, IndexError):
+            chapter, scene = current_key
+
+        if (chapter, scene) != current_key:
+            if prose != str(getattr(self, "accepted_scene", "") or "").strip():
+                if not self._save_unsaved_writer_draft():
+                    return
+            messagebox.showwarning(
+                "Writer",
+                f"This draft belongs to Chapter {chapter}, Scene {scene}, but the current state is "
+                f"Chapter {current_key[0]}, Scene {current_key[1]}. It was not accepted under the wrong scene number. "
+                "Return to its original scene or load the saved draft from Manuscript.",
+            )
+            return
+
+        start_state = getattr(self, "generated_scene_start_state", None)
+        if isinstance(start_state, dict) and start_state != state:
+            if prose != str(getattr(self, "accepted_scene", "") or "").strip():
+                if not self._save_unsaved_writer_draft():
+                    return
+            messagebox.showwarning(
+                "Writer",
+                "The current story state changed after this prose was generated. The scene was not accepted against "
+                "a different starting state. Restore the scene's starting state or rebuild Writer direction and generate again.",
+            )
+            return
+
+        self.generated_scene = prose
+        try:
             manager = ManuscriptManager(self.package.path)
             path = manager.scene_path(chapter, scene)
             if path.exists():
@@ -2300,35 +2423,24 @@ Rules:
                 )
                 if not replace:
                     return
-            path = manager.save_scene(
-                chapter,
-                scene,
-                self.generated_scene,
-            )
-            # Preserve the exact current state that existed before this accepted
-            # section. This provides a durable recovery baseline for later state
-            # reconstruction.
+            path = manager.save_scene(chapter, scene, prose)
             manager.save_state_before(
                 chapter,
                 scene,
-                json.loads(json.dumps(self.package.current_state)),
+                json.loads(json.dumps(start_state if isinstance(start_state, dict) else state, ensure_ascii=False)),
             )
-            self.accepted_scene = self.generated_scene
+            self.accepted_scene = prose
+            self.generated_scene_context = (chapter, scene)
             self.pending_state_patch = None
             self.writer_state_preview.delete("1.0", "end")
             self._refresh_manuscript()
-            self._chat(
-                "Builder",
-                f"Accepted Scene {scene} and saved it to {path}.",
-            )
+            self._chat("Builder", f"Accepted Chapter {chapter}, Scene {scene} and saved it to {path}.")
             self.writer_status.configure(
                 text="Scene accepted. You can now analyze it for state changes."
             )
             self._update_writer_buttons()
         except Exception as exc:
             messagebox.showerror("Writer", str(exc))
-
-
     def _editable_scene_guidance_entry(
         self,
         chapter: int,
@@ -2437,12 +2549,61 @@ Rules:
             return []
         return [str(item).strip() for item in value if str(item).strip()]
 
+    def _clear_scene_contract_editor(self):
+        """Clear editable scene-contract fields so loading/generation is visible."""
+        if hasattr(self, "scene_idea_text"):
+            self.scene_idea_text.delete("1.0", "end")
+        if hasattr(self, "scene_contract_direction_text"):
+            self.scene_contract_direction_text.delete("1.0", "end")
+        if hasattr(self, "scene_contract_end_text"):
+            self.scene_contract_end_text.delete("1.0", "end")
+        for widget in getattr(self, "scene_contract_texts", {}).values():
+            widget.delete("1.0", "end")
+        if hasattr(self, "scene_contract_attempts_var"):
+            self.scene_contract_attempts_var.set("3")
+
+    def _scene_contract_editor_has_content(self) -> bool:
+        if hasattr(self, "scene_idea_text") and self.scene_idea_text.get("1.0", "end-1c").strip():
+            return True
+        if hasattr(self, "scene_contract_direction_text") and self.scene_contract_direction_text.get("1.0", "end-1c").strip():
+            return True
+        if hasattr(self, "scene_contract_end_text") and self.scene_contract_end_text.get("1.0", "end-1c").strip():
+            return True
+        for widget in getattr(self, "scene_contract_texts", {}).values():
+            if widget.get("1.0", "end-1c").strip():
+                return True
+        return False
+
+    def _load_current_scene_contract(self):
+        """Reload the saved contract, warning before discarding editor contents."""
+        if self.package is None:
+            return
+
+        if self._scene_contract_editor_has_content():
+            if not messagebox.askyesno(
+                "Load Current Scene",
+                "This will discard the current Scene Contract editor contents and reload the saved version.\n\n"
+                "Continue?",
+            ):
+                return
+
+        self._clear_scene_contract_editor()
+        self.scene_contract_status.configure(
+            text="Loading saved contract..."
+        )
+        self.update_idletasks()
+        self._refresh_scene_contract_editor()
+        self.scene_contract_status.configure(
+            text="Loaded the saved contract for the current scene. You can edit it or replace it with a new draft.",
+        )
+
     def _refresh_scene_contract_editor(self):
         if not hasattr(self, "scene_contract_start_text") or self.package is None:
             return
 
         chapter = int(self.package.current_state.get("chapter", 1) or 1)
         scene = int(self.package.current_state.get("scene", 1) or 1)
+        self.scene_contract_editor_key = (chapter, scene)
         self.scene_contract_scene_label.configure(
             text=f"Chapter {chapter}, Scene {scene}"
         )
@@ -2454,6 +2615,8 @@ Rules:
         self.scene_contract_start_text.configure(state="disabled")
 
         entry = self._editable_scene_guidance_entry(chapter, scene, create=False) or {}
+        self.scene_idea_text.delete("1.0", "end")
+        self.scene_idea_text.insert("1.0", str(entry.get("scene_idea", "") or ""))
         contract_error = None
         try:
             contract = SceneContract.from_guidance(entry, [])
@@ -2482,6 +2645,10 @@ Rules:
 
         attempts = contract.get("max_attempts", 3)
         self.scene_contract_attempts_var.set(str(attempts))
+        if hasattr(self, "scene_contract_load_button"):
+            self.scene_contract_load_button.configure(state="normal")
+        if hasattr(self, "scene_contract_build_button"):
+            self.scene_contract_build_button.configure(state="normal")
         if contract_error:
             self.scene_contract_status.configure(
                 text=f"Contract needs attention: {contract_error}",
@@ -2495,6 +2662,7 @@ Rules:
         if self.package is None or not hasattr(self, "scene_contract_direction_text"):
             raise ValueError("Scene contract editor is not available.")
 
+        scene_idea = self.scene_idea_text.get("1.0", "end-1c").strip()
         direction = self.scene_contract_direction_text.get("1.0", "end-1c").strip()
         end_text = self.scene_contract_end_text.get("1.0", "end-1c").strip()
 
@@ -2526,7 +2694,7 @@ Rules:
                 "Invalid scene contract:\n- " + "\n- ".join(lint_errors)
             )
 
-        return direction, end_text, contract
+        return scene_idea, direction, end_text, contract
 
     def _validate_scene_contract(self):
         if self.package is None:
@@ -2536,7 +2704,7 @@ Rules:
         scene = int(self.package.current_state.get("scene", 1) or 1)
 
         try:
-            _direction, end_text, contract = self._collect_scene_contract_editor()
+            _scene_idea, _direction, end_text, contract = self._collect_scene_contract_editor()
         except (TypeError, ValueError) as exc:
             self.scene_contract_status.configure(text="Contract invalid.")
             messagebox.showerror("Scene Contract", str(exc))
@@ -2565,39 +2733,216 @@ Rules:
             self.scene_contract_status.configure(text="Contract not saved.")
             messagebox.showerror("Scene Contract", str(exc))
 
-    def _apply_scene_contract_edits(self):
-        if self.package is None or not hasattr(self, "scene_contract_direction_text"):
-            return
-
-        chapter = int(self.package.current_state.get("chapter", 1) or 1)
-        scene = int(self.package.current_state.get("scene", 1) or 1)
-
-        direction, end_text, contract = self._collect_scene_contract_editor()
-
+    def _store_scene_contract_entry(
+        self,
+        chapter: int,
+        scene: int,
+        scene_idea: str,
+        direction: str,
+        end_text: str,
+        contract: dict,
+    ) -> dict:
+        """Persist the authored contract under its explicit scene key."""
         entry = self._editable_scene_guidance_entry(chapter, scene, create=True)
         if entry is None:
-            raise ValueError("Could not create scene guidance for this scene.")
+            raise ValueError(f"Could not create guidance for Chapter {chapter}, Scene {scene}.")
 
+        if scene_idea:
+            entry["scene_idea"] = scene_idea
+        else:
+            entry.pop("scene_idea", None)
         if direction:
             entry["direction"] = direction
         else:
             entry.pop("direction", None)
-
         if end_text:
             entry["end_condition"] = end_text
         else:
             entry.pop("end_condition", None)
-
-        # Store the authored contract only. Active story modules stay outside it
-        # and are merged by _scene_contract at generation time.
         entry["scene_contract"] = contract
-
         self.dirty = True
         self._update_path_label()
+        return entry
+
+    def _apply_scene_contract_edits(self):
+        if self.package is None or not hasattr(self, "scene_contract_direction_text"):
+            return
+
+        scene_key = getattr(self, "scene_contract_editor_key", None)
+        if isinstance(scene_key, tuple) and len(scene_key) == 2:
+            chapter, scene = int(scene_key[0]), int(scene_key[1])
+        else:
+            chapter = int(self.package.current_state.get("chapter", 1) or 1)
+            scene = int(self.package.current_state.get("scene", 1) or 1)
+
+        scene_idea, direction, end_text, contract = self._collect_scene_contract_editor()
+        self._store_scene_contract_entry(
+            chapter,
+            scene,
+            scene_idea,
+            direction,
+            end_text,
+            contract,
+        )
         self.scene_contract_status.configure(
             text=f"Saved author contract for Chapter {chapter}, Scene {scene}.",
         )
+    def _build_contract_from_scene_idea(self):
+        if self.package is None or not hasattr(self, "scene_idea_text"):
+            return
 
+        idea = self.scene_idea_text.get("1.0", "end-1c").strip()
+        if not idea:
+            messagebox.showerror("Scene Contract", "Enter a scene idea first.")
+            return
+
+        state = self.package.current_state
+        active_key = (
+            int(state.get("chapter", 1) or 1),
+            int(state.get("scene", 1) or 1),
+        )
+        editor_key = getattr(self, "scene_contract_editor_key", None) or active_key
+        if editor_key != active_key:
+            self._refresh_scene_contract_editor()
+            messagebox.showwarning(
+                "Scene Contract",
+                "The current state and contract editor were out of sync. I reloaded the current scene's contract. "
+                "Please check the scene idea and build it again.",
+            )
+            return
+
+        try:
+            # Save the current editor under its own scene before starting the
+            # model call. Do not apply unrelated State-tab fields implicitly.
+            self._apply_scene_contract_edits()
+            chapter, scene = active_key
+            current_state = json.loads(json.dumps(self.package.current_state, ensure_ascii=False))
+            model = self._selected_writer_model_for_analysis()
+
+            self._clear_scene_contract_editor()
+            self.scene_idea_text.insert("1.0", idea)
+            self.scene_contract_status.configure(
+                text=f"Building contract for Chapter {chapter}, Scene {scene}...",
+            )
+            self.scene_contract_building = True
+            if hasattr(self, "scene_contract_build_button"):
+                self.scene_contract_build_button.configure(state="disabled")
+            if hasattr(self, "scene_contract_load_button"):
+                self.scene_contract_load_button.configure(state="disabled")
+            self.update_idletasks()
+
+            def work():
+                try:
+                    result = SceneContract.generate_from_idea(model, current_state, idea)
+                    error = None
+                except Exception as exc:
+                    result = None
+                    error = str(exc)
+                self.after(
+                    0,
+                    lambda: self._finish_contract_from_scene_idea(
+                        idea, result, error, chapter, scene
+                    ),
+                )
+
+            threading.Thread(target=work, daemon=True).start()
+        except Exception as exc:
+            self.scene_contract_building = False
+            if hasattr(self, "scene_contract_build_button"):
+                self.scene_contract_build_button.configure(state="normal")
+            if hasattr(self, "scene_contract_load_button"):
+                self.scene_contract_load_button.configure(state="normal")
+            messagebox.showerror("Scene Contract", str(exc))
+    def _finish_contract_from_scene_idea(self, idea, result, error, chapter=None, scene=None):
+        self.scene_contract_building = False
+        if hasattr(self, "scene_contract_build_button"):
+            self.scene_contract_build_button.configure(state="normal")
+        if hasattr(self, "scene_contract_load_button"):
+            self.scene_contract_load_button.configure(state="normal")
+
+        if error:
+            self.scene_contract_status.configure(
+                text="Could not build the contract. The previous saved contract was kept.",
+            )
+            # Reload the saved entry so an unsuccessful build does not leave
+            # the form looking like its existing contract vanished.
+            if self.package is not None:
+                self._refresh_scene_contract_editor()
+            messagebox.showerror("Scene Contract", error)
+            return
+
+        if self.package is None or not isinstance(result, dict):
+            self.scene_contract_status.configure(text="No contract was saved because the result was unavailable.")
+            return
+
+        state = self.package.current_state
+        if chapter is None:
+            chapter = int(state.get("chapter", 1) or 1)
+        if scene is None:
+            scene = int(state.get("scene", 1) or 1)
+        chapter, scene = int(chapter), int(scene)
+
+        direction = str(result.get("direction", "") or "").strip()
+        end_text = str(result.get("hard_stop", "") or "").strip()
+        contract = {
+            "required_beats": list(result.get("required_beats", []) or []),
+            "required_facts": list(result.get("required_facts", []) or []),
+            "required_sequence": list(result.get("required_sequence", []) or []),
+            "forbidden": list(result.get("forbidden", []) or []),
+            "forbidden_details": list(result.get("forbidden_details", []) or []),
+            "max_attempts": result.get("max_attempts", 3) or 3,
+        }
+        if end_text:
+            contract["hard_stop"] = end_text
+
+        try:
+            SceneContract.validate_shape(contract)
+            lint_errors = SceneContract.lint(contract)
+            if lint_errors:
+                raise ValueError("Generated contract needs attention:\n- " + "\n- ".join(lint_errors))
+
+            self._store_scene_contract_entry(
+                chapter, scene, idea, direction, end_text, contract
+            )
+
+            persisted = False
+            if self.package.path is not None:
+                self.package.save()
+                self.dirty = False
+                persisted = True
+            else:
+                self.dirty = True
+            self._update_path_label()
+
+            active_key = (
+                int(self.package.current_state.get("chapter", 1) or 1),
+                int(self.package.current_state.get("scene", 1) or 1),
+            )
+            editor_key = getattr(self, "scene_contract_editor_key", None)
+            if active_key == (chapter, scene) and editor_key == (chapter, scene):
+                # The contract is now stored, so reload the saved values and
+                # build Writer direction in this same operation. Apply Contract
+                # and Build Writer Direction remain available for later edits,
+                # but are no longer required after every generated contract.
+                self._refresh_scene_contract_editor()
+                self._build_scene_direction()
+                status = (
+                    f"Contract saved for Chapter {chapter}, Scene {scene}. Writer direction is ready."
+                    if persisted
+                    else f"Contract drafted for Chapter {chapter}, Scene {scene}. Save or Save As to persist it."
+                )
+            else:
+                status = (
+                    f"Contract saved for Chapter {chapter}, Scene {scene}. The current scene editor was left untouched."
+                    if persisted
+                    else f"Contract drafted in memory for Chapter {chapter}, Scene {scene}. Save the novel package to persist it."
+                )
+            self.scene_contract_status.configure(text=status)
+        except Exception as exc:
+            self.dirty = True
+            self._update_path_label()
+            self.scene_contract_status.configure(text="Contract generated but could not be saved.")
+            messagebox.showerror("Scene Contract", str(exc))
     def _build_writer_direction_from_contract(self):
         try:
             self._apply_scene_contract_edits()
@@ -2807,10 +3152,19 @@ Rules:
             completed_chapter = int(self.package.current_state.get("chapter", 1) or 1)
             completed_scene = int(self.package.current_state.get("scene", 1) or 1)
 
+            if not self._save_unsaved_writer_draft():
+                return
+
             self.package.current_state = StateManager.merge_patch(
                 self.package.current_state,
                 self.pending_state_patch,
             )
+
+            # Once the first accepted scene has been applied, the story is no
+            # longer at its starting point. Preserve any other author-defined
+            # status values.
+            if str(self.package.current_state.get("status", "")).strip().casefold() == "story_start":
+                self.package.current_state["status"] = "in_progress"
 
             # The accepted section is now complete. Advance the package to the
             # next scene so the Writer tab can immediately build the next scene
@@ -2853,10 +3207,20 @@ Rules:
             self.pending_state_patch = None
             self.generated_scene = ""
             self.accepted_scene = ""
+            self.generated_scene_context = None
+            self.generated_scene_start_state = None
+            self.writer_generation_context = None
+            self.writer_generation_start_state = None
             self.writer_output_text.delete("1.0", "end")
             self.writer_state_preview.delete("1.0", "end")
             self._refresh_all()
             self._save()
+            if not self.package.current_state.get("chapter_completed"):
+                # Keep the Writer direction synchronized with the newly
+                # advanced state so the next scene is ready without a manual
+                # trip to Scene Contract or a separate rebuild button.
+                self._build_scene_direction()
+
             if self.package.current_state.get("chapter_completed"):
                 self._chat(
                     "Builder",
@@ -2874,7 +3238,11 @@ Rules:
                     f"Scene {self.package.current_state.get('scene')} and saved.",
                 )
                 self.writer_status.configure(
-                    text="Previous scene saved. Build Scene Direction to begin the next scene."
+                    text=(
+                        f"Chapter {self.package.current_state.get('chapter', current_chapter)}, "
+                        f"Scene {self.package.current_state.get('scene')} is ready. "
+                        "Writer direction has been refreshed."
+                    )
                 )
             self._update_writer_buttons()
         except Exception as exc:
@@ -3323,6 +3691,9 @@ Rules:
         self._closing = True
 
         try:
+            if not self._save_unsaved_writer_draft():
+                self._closing = False
+                return
             try:
                 self.writer_engine.stop()
             except Exception:
@@ -3331,7 +3702,6 @@ Rules:
             # Save all current editor contents locally, but never run the GitHub sync.
             self._save()
             if self.dirty:
-                # Save was cancelled or failed, so do not close and risk losing work.
                 self._closing = False
                 return
 
@@ -3342,13 +3712,15 @@ Rules:
                 f"The novel was saved locally, but the app could not close cleanly.\n\n{exc}\n\nThe app will remain open."
             )
             self._closing = False
-
     def _close_and_sync(self):
         if self._closing:
             return
         self._closing = True
 
         try:
+            if not self._save_unsaved_writer_draft():
+                self._closing = False
+                return
             try:
                 self.writer_engine.stop()
             except Exception:
@@ -3357,7 +3729,6 @@ Rules:
             # Save all current editor contents before running the repository sync.
             self._save()
             if self.dirty:
-                # Save was cancelled or failed, so do not close and risk losing work.
                 self._closing = False
                 return
 
@@ -3389,7 +3760,6 @@ Rules:
                 f"The novel was saved locally, but the GitHub sync could not be completed.\n\n{exc}\n\nThe app will remain open."
             )
             self._closing = False
-
     def _load_startup_novel(self):
         """Open the default external novel when it exists; otherwise start blank."""
         if NOVEL_ROOT.is_dir() and (NOVEL_ROOT / "story_bible.json").exists():
@@ -3425,6 +3795,8 @@ Rules:
             return
         self._new_novel()
     def _new_novel(self):
+        if not self._save_unsaved_writer_draft():
+            return
         self.guided_setup.stop()
         if hasattr(self, "guided_button"):
             self.guided_button.configure(text="Guided Setup")
@@ -3434,6 +3806,11 @@ Rules:
             pass
         self.generated_scene = ""
         self.accepted_scene = ""
+        self.generated_scene_context = None
+        self.generated_scene_start_state = None
+        self.writer_generation_context = None
+        self.writer_generation_start_state = None
+        self.writer_generation_in_progress = False
         self.pending_state_patch = None
         self.interview_active = False
         self.interview_index = 0
@@ -3447,7 +3824,6 @@ Rules:
             self.writer_state_preview.delete("1.0", "end")
         self._refresh_all()
         self._chat("Builder", "New novel created.")
-
     def _open_novel(self):
         self.guided_setup.stop()
         if hasattr(self, "guided_button"):
@@ -3457,6 +3833,8 @@ Rules:
             initialdir=str(NOVEL_ROOT.parent),
         )
         if not folder:
+            return
+        if not self._save_unsaved_writer_draft():
             return
         try:
             self.writer_engine.stop()
@@ -3470,6 +3848,11 @@ Rules:
         self.character_filename = None
         self.generated_scene = ""
         self.accepted_scene = ""
+        self.generated_scene_context = None
+        self.generated_scene_start_state = None
+        self.writer_generation_context = None
+        self.writer_generation_start_state = None
+        self.writer_generation_in_progress = False
         self.pending_state_patch = None
         self.interview_active = False
         self.interview_index = 0
@@ -3483,7 +3866,6 @@ Rules:
         self._refresh_all()
         self._refresh_writer_models()
         self._chat("Builder", f'Opened "{self.package.story_bible.get("title", Path(folder).name)}".')
-
     def _save(self):
         if self.package is None:
             return
@@ -3763,10 +4145,160 @@ Rules:
         self.dirty = True
         self._update_path_label()
 
+    def _writer_editor_prose(self) -> str:
+        """Return the visible Writer text, with generated text as a recovery fallback."""
+        if hasattr(self, "writer_output_text"):
+            visible = self.writer_output_text.get("1.0", "end-1c").strip()
+            if visible:
+                return visible
+        return str(getattr(self, "generated_scene", "") or "").strip()
+
+    def _save_unsaved_writer_draft(self) -> bool:
+        """Persist unaccepted Writer text under the scene that produced it."""
+        if self.package is None:
+            return True
+        if getattr(self, "writer_generation_in_progress", False):
+            messagebox.showwarning(
+                "Writer",
+                "A scene is still being generated. Let it finish before changing scenes or closing StoryBuilder.",
+            )
+            return False
+        if getattr(self, "scene_contract_building", False):
+            messagebox.showwarning(
+                "Scene Contract",
+                "A scene contract is still being generated. Let it finish before changing novels or closing StoryBuilder.",
+            )
+            return False
+
+        prose = self._writer_editor_prose()
+        if not prose:
+            return True
+
+        accepted = str(getattr(self, "accepted_scene", "") or "").strip()
+        if accepted and prose == accepted:
+            # Accepted prose already exists in the manuscript.
+            return True
+
+        state = self.package.current_state
+        fallback_key = (
+            int(state.get("chapter", 1) or 1),
+            int(state.get("scene", 1) or 1),
+        )
+        context = getattr(self, "generated_scene_context", None) or fallback_key
+        try:
+            chapter, scene = int(context[0]), int(context[1])
+        except (TypeError, ValueError, IndexError):
+            chapter, scene = fallback_key
+
+        if self.package.path is None:
+            messagebox.showwarning(
+                "Save Draft",
+                "There is unfinished Writer text, but this novel has no saved project folder yet. "
+                "Use Save As / Export before changing scenes or closing, so the draft can be preserved.",
+            )
+            return False
+
+        try:
+            path = ManuscriptManager(self.package.path).save_draft(chapter, scene, prose)
+            self.generated_scene = prose
+            self._refresh_manuscript()
+            self._chat(
+                "Builder",
+                f"Preserved unfinished Writer text as a draft for Chapter {chapter}, Scene {scene}: {path.name}.",
+            )
+            return True
+        except Exception as exc:
+            messagebox.showerror(
+                "Save Draft",
+                f"StoryBuilder could not preserve the unfinished scene. The current scene was not changed.\n\n{exc}",
+            )
+            return False
+
+    def _prepare_for_scene_change(self, target_chapter: int, target_scene: int) -> bool:
+        """Prevent scene switches from silently discarding or misfiling Writer text."""
+        if self.package is None:
+            return True
+
+        state = self.package.current_state
+        current_key = (
+            int(state.get("chapter", 1) or 1),
+            int(state.get("scene", 1) or 1),
+        )
+        target_key = (int(target_chapter), int(target_scene))
+        if current_key == target_key:
+            return True
+
+        if getattr(self, "scene_contract_building", False):
+            messagebox.showwarning(
+                "Scene Contract",
+                "A contract is still being generated for the current scene. Let it finish before changing scenes.",
+            )
+            return False
+
+        accepted = str(getattr(self, "accepted_scene", "") or "").strip()
+        if accepted and not state.get("scene_completed", False):
+            # Save post-accept edits safely, but do not let navigation skip the
+            # accepted scene's state-analysis/apply step.
+            prose = self._writer_editor_prose()
+            if prose and prose != accepted and not self._save_unsaved_writer_draft():
+                return False
+            messagebox.showwarning(
+                "Finish Current Scene",
+                "This scene has been accepted, but its state update has not been applied yet. "
+                "Analyze the accepted scene and apply its state update before moving to another scene.",
+            )
+            return False
+
+        return self._save_unsaved_writer_draft()
+
+    def _clear_writer_scene_workspace(self, status: str | None = None) -> None:
+        """Clear scene-specific Writer memory only after its text is safely saved."""
+        self.generated_scene = ""
+        self.accepted_scene = ""
+        self.generated_scene_context = None
+        self.generated_scene_start_state = None
+        self.writer_generation_context = None
+        self.writer_generation_start_state = None
+        self.pending_state_patch = None
+        if hasattr(self, "writer_output_text"):
+            self.writer_output_text.delete("1.0", "end")
+        if hasattr(self, "writer_state_preview"):
+            self.writer_state_preview.delete("1.0", "end")
+        if status and hasattr(self, "writer_status"):
+            self.writer_status.configure(text=status)
+        if hasattr(self, "_update_writer_buttons"):
+            self._update_writer_buttons()
+
     def _apply_state_edits(self):
         if self.package is None:
             return
         state = self.package.current_state
+        old_chapter = int(state.get("chapter", 1) or 1)
+        old_scene = int(state.get("scene", 1) or 1)
+        chapter_text = self.state_vars["chapter"].get().strip()
+        scene_text = self.state_vars["scene"].get().strip()
+        target_chapter = int(chapter_text) if chapter_text.isdigit() else 1
+        target_scene = int(scene_text) if scene_text.isdigit() else 1
+        scene_changed = (target_chapter, target_scene) != (old_chapter, old_scene)
+
+        if scene_changed:
+            if not self._prepare_for_scene_change(target_chapter, target_scene):
+                self.state_vars["chapter"].set(str(old_chapter))
+                self.state_vars["scene"].set(str(old_scene))
+                return
+            # Save contract edits to the scene currently displayed before the
+            # state change refreshes the editor for the destination scene.
+            try:
+                self._apply_scene_contract_edits()
+            except (TypeError, ValueError) as exc:
+                self.state_vars["chapter"].set(str(old_chapter))
+                self.state_vars["scene"].set(str(old_scene))
+                messagebox.showerror(
+                    "Scene Contract",
+                    "The current scene contract could not be saved, so the scene was not changed.\n\n" + str(exc),
+                )
+                return
+
         chapter = self.state_vars["chapter"].get().strip()
         scene = self.state_vars["scene"].get().strip()
         state["chapter"] = int(chapter) if chapter.isdigit() else 1
@@ -3797,7 +4329,18 @@ Rules:
         if "continuity_notes" in state or entered_notes != list(map(str, existing_notes)):
             state["continuity_notes"] = entered_notes
         self.dirty = True
+        self._update_path_label()
 
+        if scene_changed:
+            self._clear_writer_scene_workspace(
+                "Scene changed. Any unfinished prose was preserved as a draft in Manuscript."
+            )
+
+        # Manual edits to chapter, scene, cast, location, time, or continuity
+        # immediately refresh the related contract view and Writer direction.
+        if hasattr(self, "_refresh_scene_contract_editor"):
+            self._refresh_scene_contract_editor()
+        self._build_scene_direction()
     def _apply_all_edits(self):
         self._apply_story_edits()
         self._apply_planning_edits()
@@ -4133,7 +4676,7 @@ Rules:
         return [str(name) for name in location if name != "primary" and str(name) not in excluded]
 
     def _advance_to_next_scene(self):
-        """Advance the saved state to the next planned scene without rewriting continuity."""
+        """Advance only after safeguarding the current Writer work."""
         if self.package is None:
             return
 
@@ -4150,6 +4693,8 @@ Rules:
                 return
 
             next_scene = scene + 1
+            if not self._prepare_for_scene_change(chapter, next_scene):
+                return
             next_cast = self._scene_plan_cast(chapter, next_scene)
 
             self.package.current_state["scene"] = next_scene
@@ -4158,18 +4703,10 @@ Rules:
             if next_cast:
                 self.package.current_state["scene_cast"] = next_cast
 
-            # Preserve the completed scene's ending location, situation, and
-            # physical_state. Those values are the starting continuity for the
-            # next scene and should not be reconstructed or copied from UI fields.
             self.dirty = True
-            self.generated_scene = ""
-            self.accepted_scene = ""
-            self.pending_state_patch = None
-            if hasattr(self, "writer_output_text"):
-                self.writer_output_text.delete("1.0", "end")
-            if hasattr(self, "writer_state_preview"):
-                self.writer_state_preview.delete("1.0", "end")
-
+            self._clear_writer_scene_workspace(
+                f"Scene {next_scene} is ready. The previous scene's unfinished text, if any, was preserved as a draft."
+            )
             self._refresh_all()
             self._save()
             self._chat(
@@ -4183,9 +4720,8 @@ Rules:
             self._update_writer_buttons()
         except Exception as exc:
             messagebox.showerror("Advance Scene", str(exc))
-
     def _start_next_chapter(self):
-        """Start Scene 1 of the next chapter from the completed chapter's ending state."""
+        """Start Scene 1 of the next chapter without dropping unfinished prose."""
         if self.package is None:
             return
 
@@ -4205,7 +4741,6 @@ Rules:
                 next_chapter,
                 next_scene,
             )
-
             if next_guidance is None:
                 proceed = messagebox.askyesno(
                     "Start Next Chapter",
@@ -4217,27 +4752,21 @@ Rules:
                 if not proceed:
                     return
 
+            if not self._prepare_for_scene_change(next_chapter, next_scene):
+                return
+
             self.package.current_state["chapter"] = next_chapter
             self.package.current_state["scene"] = next_scene
             self.package.current_state["scene_completed"] = False
             self.package.current_state["chapter_completed"] = False
-
             next_cast = self._scene_plan_cast(next_chapter, next_scene)
             if next_cast:
                 self.package.current_state["scene_cast"] = next_cast
 
-            # Preserve the completed chapter's ending continuity. Scene guidance
-            # supplies the new scene's direction/contract; it should not overwrite
-            # the established state until the scene itself is written and accepted.
             self.dirty = True
-            self.generated_scene = ""
-            self.accepted_scene = ""
-            self.pending_state_patch = None
-            if hasattr(self, "writer_output_text"):
-                self.writer_output_text.delete("1.0", "end")
-            if hasattr(self, "writer_state_preview"):
-                self.writer_state_preview.delete("1.0", "end")
-
+            self._clear_writer_scene_workspace(
+                f"Chapter {next_chapter}, Scene {next_scene} is ready. Unfinished previous text was preserved as a draft."
+            )
             self._refresh_all()
             try:
                 self.package.save()
@@ -4262,14 +4791,42 @@ Rules:
             self._update_writer_buttons()
         except Exception as exc:
             messagebox.showerror("Start Next Chapter", str(exc))
-
     def _apply_situation_edit(self):
         if self.package is None:
             return
-        self.package.current_state["current_situation"] = self.situation_text.get("1.0", "end-1c").strip()
+
+        new_situation = self.situation_text.get("1.0", "end-1c").strip()
+        old_situation = str(self.package.current_state.get("current_situation", "") or "").strip()
+        if new_situation != old_situation:
+            if getattr(self, "writer_generation_in_progress", False) or getattr(self, "scene_contract_building", False):
+                messagebox.showwarning(
+                    "Current Situation",
+                    "Wait for the active scene generation to finish before changing the scene's starting state.",
+                )
+                return
+
+            accepted = str(getattr(self, "accepted_scene", "") or "").strip()
+            if accepted and not self.package.current_state.get("scene_completed", False):
+                prose = self._writer_editor_prose()
+                if prose and prose != accepted and not self._save_unsaved_writer_draft():
+                    return
+                messagebox.showwarning(
+                    "Current Situation",
+                    "This scene has been accepted but its state update has not been applied. Finish that step before changing its starting situation.",
+                )
+                return
+
+            if not self._save_unsaved_writer_draft():
+                return
+            if self.generated_scene.strip() or self.accepted_scene.strip():
+                self._clear_writer_scene_workspace(
+                    "Starting situation changed. Any unfinished prose was preserved as a draft."
+                )
+
+        self.package.current_state["current_situation"] = new_situation
         self.dirty = True
         self._update_path_label()
-
+        self._build_scene_direction()
     def _refresh_characters(self, select_filename=None):
         self.character_list.delete(0, "end")
         filenames = sorted(self.package.characters) if self.package else []
