@@ -2,25 +2,23 @@
 
 > Purpose: Paste this document into a new ChatGPT conversation to resume work without spending time rebuilding context. Update this file after meaningful project or story changes. Treat the current-session section as the first thing to refresh.
 
-## Current Session: 2026-10-09
+## Current Session: 2026-10-10
 
-- Current StoryBuilder test branch: `fix/build-contract-from-idea-test` in `tony21675/StoryBuilder`.
-- Current novel branch: `chapter1-clean-reset` in `tony21675/MyNovel`.
-- The author has synced the laptop changes. The current novel state is Chapter 2, Scene 2; the updated `current_situation` is present in GitHub.
-- Scene 2 has not yet been written. Its intended boundary remains: Tony comforts Maya, notices the slap mark, and Maya manages to tell him the kidnapper hit her while still shaken. She does not give the full abduction account until Scene 3.
-- There was only ONE kidnapper in the incident Maya witnessed.
-- The current situation and continuity-note cleanup were reflected in `current_state.json`. Updated the stale state status from `story_start` to `in_progress` and removed the obsolete `Chapter 1 begins here.` entry from the legacy `continuity_requirements` list. Existing continuity notes and story content were otherwise preserved. Commit: `f4eeb58f7fa8a36ede7b6a22de9ad37fcc78600e` on `chapter1-clean-reset`.
-- Updated `storybuilder.py` on the StoryBuilder test branch to:
-  - Automatically rebuild Writer direction after **Apply State Update** advances to the next scene.
-  - Automatically rebuild Writer direction when the author applies manual Current State edits.
-  - Automatically rebuild Writer direction when the author applies Current Situation edits.
-  - Change state status from `story_start` to `in_progress` when the first accepted scene state update is applied, without overriding other custom status values.
-  - Show a clear status message that the next chapter/scene direction has been refreshed.
-  Commit: `1f30177fdf747ef2b43eae522e12a9a95cdf5c0b` on `fix/build-contract-from-idea-test`.
-- The earlier author-controlled scene-contract improvements remain on this branch, including preserving explicit boundaries between a limited disclosure and a later full account, and keeping important requested actions visible in the contract.
-- **Testing status:** these new code changes have been committed remotely but have not yet been locally run or verified. Do not claim they passed. After Tony pulls the updated StoryBuilder branch and the current novel branch, test a safe state edit first, then verify that applying an accepted scene state update advances the scene number and refreshes Writer direction without manually visiting Scene Contract.
-- Expected workflow: write scene → save/accept → analyze accepted scene → apply state update → automatically advance and prepare the next scene direction. If the current chapter is complete, do not build a direction for a nonexistent next scene.
-- Next scene boundaries: Scene 2 ends when Maya admits she was hit but remains shaken; Scene 3 contains her full account and ends with Maya still on the bed with Tony. Do not plan Scene 4 until Tony asks.
+- **Current priority: stop the confusing scene-by-scene patching and restart Chapter 2 cleanly in the separate StoryBuilder Save As copy.** Tony explicitly decided: delete Chapter 2 in that separate working copy and rebuild it. Do not delete or overwrite Chapter 2 in the original MyNovel repo/package. The original is the safety net.
+- Repo branches remain: StoryBuilder test branch `fix/build-contract-from-idea-test` in `tony21675/StoryBuilder`; novel branch `chapter1-clean-reset` in `tony21675/MyNovel`.
+- A separate copy was created with StoryBuilder's Save As, but Tony no longer remembers the exact folder/path. Do not ask him to recall it. First help him identify which StoryBuilder window/package is the copy, using safe, simple checks.
+- No Chapter 2 deletion has been performed yet. Do not imply that it has. Next chat should calmly guide Tony to delete/rebuild Chapter 2 **only in the separate copy**, after confirming the app is indeed the copy. Preserve the original MyNovel and its saved files.
+- The original MyNovel repo's known state was Chapter 2, Scene 2 (`current_state.json` chapter 2, scene 2, status `in_progress`). Scene 2 prose was missing / not safely recovered. Previous searches found no saved prose for Chapter 2 Scene 1; the only known after-state file was `Chapter_02_Section_02_after_state.json`.
+- In the separate Save As copy, we manually changed the Current State editor to Chapter 2, Scene 1, location `Tony's bedroom, at Tony and Tiffany's home`, time `late afternoon`, cast Maya and Tony, status `in_progress`, preserving the existing continuity notes. We applied State Edits and Current Situation. Current Situation was set to the true starting point: Maya has just burst into Tony's bedroom after witnessing Tiffany's abduction; she has not yet told Tony Tiffany is gone; Tony does not yet know what happened.
+- In that same copy, the Scene Idea was replaced with the correct Scene 1 goal, Build Contract from Scene Idea was run, Beginning/End were edited, and Validate Contract returned **pass**. Apply Contract and Build Writer Direction were then run. This was a repair attempt, not a confirmed successful final setup.
+- The latest Writer Direction still has a contradiction: its Current state says Maya has just arrived and has not told Tony Tiffany is gone; its Physical continuity says Maya is already lying against Tony's chest and Tony is already holding her; its required beats say Tony must catch and settle her; the End says Maya tells him Tiffany is gone. This inconsistency is why Tony became overwhelmed. **Do not continue patching one field at a time.** Restart Chapter 2 in the separate copy as Tony requested.
+- Intended rebuilt Chapter 2 boundaries:
+  - Scene 1: Maya bursts into Tony's bedroom after witnessing Tiffany's abduction; Tony catches her and settles her against his chest; she cries and struggles to speak; scene ends when she tells him, “Tiffany is gone.”
+  - Scene 2: Tony continues comforting her; notices the slap mark; Maya struggles to admit the kidnapper hit her; Tony uses their familiar childhood comfort gesture, rubbing her back and butt, in a nonsexual, fatherly way. Scene ends with Maya admitting she was hit but still too shaken to give the full account.
+  - Scene 3: Maya tells Tony exactly what happened to Tiffany; scene ends with Maya still on the bed with Tony after he has the full story.
+- The one-kidnapper fact remains confirmed. Do not introduce a second kidnapper.
+- Do not ask Tony to decide again whether to restart Chapter 2; he has already decided. The job is to help execute that decision safely in the separate copy, with one short step at a time and no extra field patching unless needed after the clean rebuild.
+- StoryBuilder code branch changes recorded below remain committed remotely but had not been locally tested in the prior handoff. Do not claim those code changes fixed this contract inconsistency unless tested.
 
 ## How to Work With Tony
 
