@@ -3152,6 +3152,9 @@ Rules:
             completed_chapter = int(self.package.current_state.get("chapter", 1) or 1)
             completed_scene = int(self.package.current_state.get("scene", 1) or 1)
 
+            if not self._save_unsaved_writer_draft():
+                return
+
             self.package.current_state = StateManager.merge_patch(
                 self.package.current_state,
                 self.pending_state_patch,
@@ -3204,6 +3207,10 @@ Rules:
             self.pending_state_patch = None
             self.generated_scene = ""
             self.accepted_scene = ""
+            self.generated_scene_context = None
+            self.generated_scene_start_state = None
+            self.writer_generation_context = None
+            self.writer_generation_start_state = None
             self.writer_output_text.delete("1.0", "end")
             self.writer_state_preview.delete("1.0", "end")
             self._refresh_all()
@@ -4655,7 +4662,7 @@ Rules:
         return [str(name) for name in location if name != "primary" and str(name) not in excluded]
 
     def _advance_to_next_scene(self):
-        """Advance the saved state to the next planned scene without rewriting continuity."""
+        """Advance only after safeguarding the current Writer work."""
         if self.package is None:
             return
 
@@ -4672,6 +4679,8 @@ Rules:
                 return
 
             next_scene = scene + 1
+            if not self._prepare_for_scene_change(chapter, next_scene):
+                return
             next_cast = self._scene_plan_cast(chapter, next_scene)
 
             self.package.current_state["scene"] = next_scene
@@ -4680,18 +4689,10 @@ Rules:
             if next_cast:
                 self.package.current_state["scene_cast"] = next_cast
 
-            # Preserve the completed scene's ending location, situation, and
-            # physical_state. Those values are the starting continuity for the
-            # next scene and should not be reconstructed or copied from UI fields.
             self.dirty = True
-            self.generated_scene = ""
-            self.accepted_scene = ""
-            self.pending_state_patch = None
-            if hasattr(self, "writer_output_text"):
-                self.writer_output_text.delete("1.0", "end")
-            if hasattr(self, "writer_state_preview"):
-                self.writer_state_preview.delete("1.0", "end")
-
+            self._clear_writer_scene_workspace(
+                f"Scene {next_scene} is ready. The previous scene's unfinished text, if any, was preserved as a draft."
+            )
             self._refresh_all()
             self._save()
             self._chat(
@@ -4705,9 +4706,8 @@ Rules:
             self._update_writer_buttons()
         except Exception as exc:
             messagebox.showerror("Advance Scene", str(exc))
-
     def _start_next_chapter(self):
-        """Start Scene 1 of the next chapter from the completed chapter's ending state."""
+        """Start Scene 1 of the next chapter without dropping unfinished prose."""
         if self.package is None:
             return
 
@@ -4727,7 +4727,6 @@ Rules:
                 next_chapter,
                 next_scene,
             )
-
             if next_guidance is None:
                 proceed = messagebox.askyesno(
                     "Start Next Chapter",
@@ -4739,27 +4738,21 @@ Rules:
                 if not proceed:
                     return
 
+            if not self._prepare_for_scene_change(next_chapter, next_scene):
+                return
+
             self.package.current_state["chapter"] = next_chapter
             self.package.current_state["scene"] = next_scene
             self.package.current_state["scene_completed"] = False
             self.package.current_state["chapter_completed"] = False
-
             next_cast = self._scene_plan_cast(next_chapter, next_scene)
             if next_cast:
                 self.package.current_state["scene_cast"] = next_cast
 
-            # Preserve the completed chapter's ending continuity. Scene guidance
-            # supplies the new scene's direction/contract; it should not overwrite
-            # the established state until the scene itself is written and accepted.
             self.dirty = True
-            self.generated_scene = ""
-            self.accepted_scene = ""
-            self.pending_state_patch = None
-            if hasattr(self, "writer_output_text"):
-                self.writer_output_text.delete("1.0", "end")
-            if hasattr(self, "writer_state_preview"):
-                self.writer_state_preview.delete("1.0", "end")
-
+            self._clear_writer_scene_workspace(
+                f"Chapter {next_chapter}, Scene {next_scene} is ready. Unfinished previous text was preserved as a draft."
+            )
             self._refresh_all()
             try:
                 self.package.save()
@@ -4784,15 +4777,42 @@ Rules:
             self._update_writer_buttons()
         except Exception as exc:
             messagebox.showerror("Start Next Chapter", str(exc))
-
     def _apply_situation_edit(self):
         if self.package is None:
             return
-        self.package.current_state["current_situation"] = self.situation_text.get("1.0", "end-1c").strip()
+
+        new_situation = self.situation_text.get("1.0", "end-1c").strip()
+        old_situation = str(self.package.current_state.get("current_situation", "") or "").strip()
+        if new_situation != old_situation:
+            if getattr(self, "writer_generation_in_progress", False) or getattr(self, "scene_contract_building", False):
+                messagebox.showwarning(
+                    "Current Situation",
+                    "Wait for the active scene generation to finish before changing the scene's starting state.",
+                )
+                return
+
+            accepted = str(getattr(self, "accepted_scene", "") or "").strip()
+            if accepted and not self.package.current_state.get("scene_completed", False):
+                prose = self._writer_editor_prose()
+                if prose and prose != accepted and not self._save_unsaved_writer_draft():
+                    return
+                messagebox.showwarning(
+                    "Current Situation",
+                    "This scene has been accepted but its state update has not been applied. Finish that step before changing its starting situation.",
+                )
+                return
+
+            if not self._save_unsaved_writer_draft():
+                return
+            if self.generated_scene.strip() or self.accepted_scene.strip():
+                self._clear_writer_scene_workspace(
+                    "Starting situation changed. Any unfinished prose was preserved as a draft."
+                )
+
+        self.package.current_state["current_situation"] = new_situation
         self.dirty = True
         self._update_path_label()
         self._build_scene_direction()
-
     def _refresh_characters(self, select_filename=None):
         self.character_list.delete(0, "end")
         filenames = sorted(self.package.characters) if self.package else []
