@@ -185,8 +185,9 @@ class SceneContractTests(unittest.TestCase):
             }
         }
 
-        with self.assertRaises(ValueError):
-            scene_contract.SceneContract.lint(contract)
+        errors = scene_contract.SceneContract.lint(contract)
+        self.assertTrue(errors)
+        self.assertIn("Invalid scene contract regex", errors[0])
 
     def test_author_contract_ignores_active_module_merging(self):
         guidance = {
