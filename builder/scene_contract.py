@@ -681,7 +681,33 @@ class SceneContract:
         if model is None:
             raise RuntimeError("The active writer model is unavailable for scene validation.")
 
-        return _run_validator(Path(model), prompt)
+        raw_result = _run_validator(Path(model), prompt)
+        # Keep the public API stable even when validators are mocked or an
+        # alternate engine returns JSON booleans as strings.
+        if not isinstance(raw_result, dict):
+            raise ValueError("Scene contract validator returned an invalid result object.")
+
+        raw_pass = raw_result.get("pass", None)
+        if isinstance(raw_pass, bool):
+            passed = raw_pass
+        elif isinstance(raw_pass, str) and raw_pass.strip().casefold() in {"true", "false"}:
+            passed = raw_pass.strip().casefold() == "true"
+        else:
+            raise ValueError("Scene contract validator returned an invalid 'pass' value.")
+
+        missed = raw_result.get("missed_beats", [])
+        violations = raw_result.get("violations", [])
+        if not isinstance(missed, list):
+            raise ValueError("Scene contract validator returned invalid missed_beats data.")
+        if not isinstance(violations, list):
+            raise ValueError("Scene contract validator returned invalid violations data.")
+
+        return {
+            "pass": passed,
+            "missed_beats": [str(item).strip() for item in missed if str(item).strip()],
+            "violations": [str(item).strip() for item in violations if str(item).strip()],
+            "notes": str(raw_result.get("notes", "") or "").strip(),
+        }
 
 
     @staticmethod
