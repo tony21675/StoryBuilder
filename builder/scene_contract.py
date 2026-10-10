@@ -68,6 +68,9 @@ Return ONLY valid JSON in exactly this shape:
 
 Rules:
 - Use the current story state as the starting point. Do not replay facts or events already completed before the scene starts.
+- Treat current_situation as the authoritative narrative snapshot at the scene opening. It describes what has already happened and where the scene should begin.
+- Stored physical_state and per-character location details are supporting continuity data, not a higher authority than current_situation. If they conflict, follow current_situation and do not repeat or recreate the conflicting older position as though it were current.
+- Do not combine contradictory snapshots into one opening. If the situation says a character has just arrived, do not also begin with that character already settled into a later position unless the scene idea explicitly requests that transition.
 - The author's scene idea is the primary creative instruction.
 - Treat the scene idea as a boundary, not just a suggestion. Do not add new story events, revelations, character actions, future developments, or ending conditions that are not directly supported by the author's idea.
 - Write a concise "direction" that tells the writer what the scene is about and how it should unfold naturally, using only the actions and intent supported by the author's idea and current state.
