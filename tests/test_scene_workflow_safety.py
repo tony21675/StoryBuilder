@@ -97,6 +97,75 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             CONTRACT_BUILDER_SYSTEM_PROMPT,
         )
 
+    def make_save_app(self, package_path, situation, writer_generation=False):
+        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+        persisted = {}
+        state = {
+            "chapter": 2,
+            "scene": 1,
+            "scene_completed": False,
+            "current_situation": "Old saved situation",
+        }
+        package = SimpleNamespace(path=Path(package_path), current_state=state)
+        package.save = lambda: persisted.update(
+            current_situation=package.current_state["current_situation"]
+        )
+        app.package = package
+        app.situation_text = FakeText(situation)
+        app.generated_scene = ""
+        app.accepted_scene = ""
+        app.writer_generation_in_progress = writer_generation
+        app.scene_contract_building = False
+        app.dirty = False
+        app._save_unsaved_writer_draft = lambda: True
+        app._clear_writer_scene_workspace = lambda *_args: None
+        app._update_path_label = lambda: None
+        app._build_scene_direction = lambda: None
+        app._chat = lambda *_args, **_kwargs: None
+
+        # Isolate the normal save pipeline so the test focuses on whether the
+        # Current Situation editor reaches package state before persistence.
+        for method_name in (
+            "_apply_story_edits",
+            "_apply_planning_edits",
+            "_apply_scene_contract_edits",
+            "_apply_character_edits",
+            "_apply_supporting_person_edit",
+            "_apply_relationship_edits",
+            "_apply_location_edits",
+            "_apply_state_edits",
+        ):
+            setattr(app, method_name, lambda: None)
+        return app, persisted
+
+    def test_normal_save_applies_and_persists_current_situation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            corrected = "Maya is already curled against Tony's chest."
+            app, persisted = self.make_save_app(tmp, corrected)
+
+            storybuilder_app.StoryBuilderApp._save(app)
+
+            self.assertEqual(app.package.current_state["current_situation"], corrected)
+            self.assertEqual(persisted["current_situation"], corrected)
+            self.assertFalse(app.dirty)
+
+    def test_save_is_blocked_if_current_situation_cannot_be_applied_during_generation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            app, persisted = self.make_save_app(
+                tmp,
+                "A changed situation that must not be applied during generation.",
+                writer_generation=True,
+            )
+            with patch.object(storybuilder_app.messagebox, "showwarning") as warning:
+                storybuilder_app.StoryBuilderApp._save(app)
+
+            warning.assert_called_once()
+            self.assertEqual(
+                app.package.current_state["current_situation"],
+                "Old saved situation",
+            )
+            self.assertNotIn("current_situation", persisted)
+
 
 if __name__ == "__main__":
     unittest.main()
