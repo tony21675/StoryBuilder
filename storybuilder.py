@@ -1852,7 +1852,7 @@ class StoryBuilderApp(tk.Tk):
             f"Current state: {situation or 'continue from the exact current state.'}",
             "Starting-state rule: The current situation above has already happened before this scene begins. Do not replay completed revelations or make characters rediscover facts explicitly stated there.",
             "Starting-knowledge rule: When the current situation says one character has already told, informed, warned, shown, or communicated a fact to another, the receiving character already knows that fact and dialogue should reflect that knowledge.",
-            "State precedence: Current state/current situation is the authoritative scene opening. Stored physical continuity is supporting data and may be stale. If it conflicts with the explicit current situation or the scene idea, follow the explicit current situation and do not recreate the conflicting older position.",
+            "State precedence: Current situation controls completed narrative facts and any physical details it explicitly states. Preserve stored physical continuity for details current situation does not address. Treat a physical-state detail as stale only when directly contradicted by current situation or an explicit action in this scene. Do not replace an established position, posture, contact, or movement merely because current situation does not repeat it.",
         ]
 
         # Physical state is the automatic handoff from the previous accepted
@@ -1992,7 +1992,7 @@ Rules:
 3. Treat explicit knowledge transfers already completed in current_situation as established knowledge at scene start. If it says one character has told, informed, warned, shown, or otherwise communicated a fact to another character, the receiving character already knows that fact.
 4. Never make a character discover, ask whether, or react as though new something that the current_situation explicitly says they already know. They may ask for clarification or additional details that have not yet been established.
 5. A character only knows what that character has established or naturally learns. Never transfer another character's knowledge. When character_knowledge and current_situation appear to conflict, the explicit completed event in current_situation is the newer scene-start fact and controls the opening of the scene.
-6. Begin from the exact physical and narrative starting state provided. Do not replay the previous scene.
+6. Begin from the exact physical and narrative starting state provided. Do not replay the previous scene. Preserve each explicit physical-continuity detail at the opening, including location, position, posture, contact, and movement, unless current_situation or the scene direction directly requires a change. Silence in current_situation does not cancel physical continuity; treat stored physical details as stale only when there is a genuine contradiction.
 7. Follow the scene direction in order and complete its requested actions before reaching its ending.
 8. Let characters make their own choices when the scene gives them a choice.
 9. Write believable dialogue, actions, emotions, reactions, interruptions, and ordinary interaction. Show feelings through what characters say, do, notice, avoid, and react to instead of repeatedly explaining those feelings in narration.
@@ -2012,6 +2012,7 @@ Rules:
 23. Respect the scene endpoint exactly. Do not stop early or continue past it.
 24. When established character history or relationships make a familiar gesture, comforting habit, routine, shared memory, or small personal detail relevant to the moment, feel free to use it naturally without waiting for the author to spell it out. For example, a character may instinctively repeat a familiar way of comforting someone they have cared for over many years. Let these details emerge through action or dialogue, not as a forced explanation or lore dump. Do not invent consequential backstory or contradict canon, and do not force a callback into a moment where it does not fit.
 25. Output only natural story prose.
+26. Describe relationship-specific behavior in terms consistent with the characters' established roles and dynamic. Avoid an incongruous relationship metaphor or a diminishing label for someone being comforted unless the story establishes that framing. Prefer showing familiar care through grounded actions instead of explaining it with a forced analogy.
 """
         parts = [base, "\nSCENE REFERENCE\n"]
         for name, content in files:
@@ -2231,7 +2232,7 @@ Rules:
             "and other harmless details. Emotional intensity explicitly requested by the author is part of "
             "the scene intent and must not be softened into generic worry or sadness. When a character is "
             "deeply shaken, give the emotional moment enough room to unfold instead of rushing from distress to explanation or resolution. Preserve the progression the author describes: let the initial reaction, hesitation, failed attempts, and changes in emotion have space before moving to the next event. Do not compress an emotional arc into a quick exchange merely because the required plot beats have been covered. Show persistent physical reactions, interrupted or failed speech, hesitation, and difficulty settling; comfort can help the character feel supported without making the distress disappear. Let familiar, welcome physical comfort fit the characters' established trust and history, using grounded gestures such as holding close or rubbing someone's back when appropriate. Do not treat ordinary affectionate comfort as inherently inappropriate, and do not over-explain it; let the action speak for itself. Let the other character's concern show through behavior, voice, and expression without melodrama or repetitive reactions. Draw naturally on relationship history and caregiving habits when they deepen the moment, without forcing callbacks or inventing consequential backstory. "
-            "If Current state/current situation conflicts with stored physical continuity, follow Current state/current situation and do not reproduce the stale conflicting position.\n\n"
+            "At the scene opening, preserve stored location, position, posture, contact, and movement details unless current_situation or the scene direction directly contradicts or changes them. Current_situation wins only in a genuine conflict; do not assume physical continuity is stale merely because current_situation is silent about a detail.\n\n"
             "Write the scene now. Output only the prose."
         ])
         base_prompt = "".join(prompt_parts)
