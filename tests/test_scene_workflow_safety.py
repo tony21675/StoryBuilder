@@ -5,7 +5,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import storybuilder as storybuilder_app
-from builder.scene_contract import CONTRACT_BUILDER_SYSTEM_PROMPT
+from builder.scene_contract import CONTRACT_BUILDER_SYSTEM_PROMPT, SceneContract
 
 
 class FakeText:
@@ -96,6 +96,73 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             "If they conflict, follow current_situation",
             CONTRACT_BUILDER_SYSTEM_PROMPT,
         )
+
+    def test_writer_prompt_preserves_uncontradicted_physical_continuity(self):
+        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+        prompt = app._writer_system_prompt([])
+
+        self.assertIn(
+            "Silence in current_situation does not cancel physical continuity",
+            prompt,
+        )
+        self.assertIn(
+            "Avoid an incongruous relationship metaphor",
+            prompt,
+        )
+
+    def test_semantic_validator_checks_opening_physical_continuity(self):
+        current_state = {
+            "chapter": 2,
+            "scene": 1,
+            "current_situation": (
+                "Maya is against Tony's chest. Tony is comforting her."
+            ),
+            "physical_state": {
+                "Tony": {
+                    "position": "sitting upright against the headboard",
+                    "contact": "holding Maya against his chest",
+                }
+            },
+        }
+        contract = {
+            "required_beats": ["Tony comforts Maya"],
+            "required_facts": [],
+            "required_sequence": [],
+            "forbidden": [],
+            "forbidden_details": [],
+            "max_attempts": 3,
+        }
+        captured = {}
+
+        def fake_validator(_model, prompt):
+            captured["prompt"] = prompt
+            return {
+                "pass": True,
+                "missed_beats": [],
+                "violations": [],
+                "notes": "",
+            }
+
+        with patch.object(
+            SceneContract,
+            "_local_hard_checks",
+            return_value={
+                "pass": True,
+                "missed_beats": [],
+                "violations": [],
+                "notes": "",
+            },
+        ), patch("builder.scene_contract._run_validator", side_effect=fake_validator):
+            SceneContract.validate_with_engine(
+                SimpleNamespace(model_path=Path("/tmp/test-model.gguf")),
+                contract,
+                current_state,
+                "Tony sat on the edge of the bed and held Maya.",
+            )
+
+        self.assertIn("compare the prose opening with the supplied current story state", captured["prompt"])
+        self.assertIn("without a transition that explains the change", captured["prompt"])
+        self.assertIn("sitting upright against the headboard", captured["prompt"])
 
     def make_save_app(self, package_path, situation, writer_generation=False):
         app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
