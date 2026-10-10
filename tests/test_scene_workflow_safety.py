@@ -161,7 +161,7 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             )
 
         self.assertIn("compare the prose opening with the supplied current story state", captured["prompt"])
-        self.assertIn("without a transition that explains the change", captured["prompt"])
+        self.assertIn("does not show a transition that explains the change", captured["prompt"])
         self.assertIn("sitting upright against the headboard", captured["prompt"])
 
     def make_save_app(self, package_path, situation, writer_generation=False):
