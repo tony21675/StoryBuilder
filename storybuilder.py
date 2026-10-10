@@ -3691,6 +3691,9 @@ Rules:
         self._closing = True
 
         try:
+            if not self._save_unsaved_writer_draft():
+                self._closing = False
+                return
             try:
                 self.writer_engine.stop()
             except Exception:
@@ -3699,7 +3702,6 @@ Rules:
             # Save all current editor contents locally, but never run the GitHub sync.
             self._save()
             if self.dirty:
-                # Save was cancelled or failed, so do not close and risk losing work.
                 self._closing = False
                 return
 
@@ -3710,13 +3712,15 @@ Rules:
                 f"The novel was saved locally, but the app could not close cleanly.\n\n{exc}\n\nThe app will remain open."
             )
             self._closing = False
-
     def _close_and_sync(self):
         if self._closing:
             return
         self._closing = True
 
         try:
+            if not self._save_unsaved_writer_draft():
+                self._closing = False
+                return
             try:
                 self.writer_engine.stop()
             except Exception:
@@ -3725,7 +3729,6 @@ Rules:
             # Save all current editor contents before running the repository sync.
             self._save()
             if self.dirty:
-                # Save was cancelled or failed, so do not close and risk losing work.
                 self._closing = False
                 return
 
@@ -3757,7 +3760,6 @@ Rules:
                 f"The novel was saved locally, but the GitHub sync could not be completed.\n\n{exc}\n\nThe app will remain open."
             )
             self._closing = False
-
     def _load_startup_novel(self):
         """Open the default external novel when it exists; otherwise start blank."""
         if NOVEL_ROOT.is_dir() and (NOVEL_ROOT / "story_bible.json").exists():
@@ -3793,6 +3795,8 @@ Rules:
             return
         self._new_novel()
     def _new_novel(self):
+        if not self._save_unsaved_writer_draft():
+            return
         self.guided_setup.stop()
         if hasattr(self, "guided_button"):
             self.guided_button.configure(text="Guided Setup")
@@ -3802,6 +3806,11 @@ Rules:
             pass
         self.generated_scene = ""
         self.accepted_scene = ""
+        self.generated_scene_context = None
+        self.generated_scene_start_state = None
+        self.writer_generation_context = None
+        self.writer_generation_start_state = None
+        self.writer_generation_in_progress = False
         self.pending_state_patch = None
         self.interview_active = False
         self.interview_index = 0
@@ -3815,7 +3824,6 @@ Rules:
             self.writer_state_preview.delete("1.0", "end")
         self._refresh_all()
         self._chat("Builder", "New novel created.")
-
     def _open_novel(self):
         self.guided_setup.stop()
         if hasattr(self, "guided_button"):
@@ -3825,6 +3833,8 @@ Rules:
             initialdir=str(NOVEL_ROOT.parent),
         )
         if not folder:
+            return
+        if not self._save_unsaved_writer_draft():
             return
         try:
             self.writer_engine.stop()
@@ -3838,6 +3848,11 @@ Rules:
         self.character_filename = None
         self.generated_scene = ""
         self.accepted_scene = ""
+        self.generated_scene_context = None
+        self.generated_scene_start_state = None
+        self.writer_generation_context = None
+        self.writer_generation_start_state = None
+        self.writer_generation_in_progress = False
         self.pending_state_patch = None
         self.interview_active = False
         self.interview_index = 0
@@ -3851,7 +3866,6 @@ Rules:
         self._refresh_all()
         self._refresh_writer_models()
         self._chat("Builder", f'Opened "{self.package.story_bible.get("title", Path(folder).name)}".')
-
     def _save(self):
         if self.package is None:
             return
