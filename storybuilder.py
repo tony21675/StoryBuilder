@@ -3672,7 +3672,8 @@ Rules:
             )
             return
 
-        self._apply_all_edits()
+        if not self._apply_all_edits():
+            return
         try:
             self.package.save()
             self.dirty = False
@@ -3869,7 +3870,8 @@ Rules:
     def _save(self):
         if self.package is None:
             return
-        self._apply_all_edits()
+        if not self._apply_all_edits():
+            return
         if self.package.path is None:
             return self._save_as()
         try:
@@ -3883,7 +3885,8 @@ Rules:
     def _save_as(self):
         if self.package is None:
             return
-        self._apply_all_edits()
+        if not self._apply_all_edits():
+            return
         parent = filedialog.askdirectory(
             title="Choose a folder for the novel package",
             initialdir=str(WORKSPACE_ROOT),
@@ -3904,7 +3907,8 @@ Rules:
     def _validate(self):
         if self.package is None:
             return
-        self._apply_all_edits()
+        if not self._apply_all_edits():
+            return
         errors = validate_package(self.package)
         if errors:
             messagebox.showerror("Validation", "Validation found problems:\n\n" + "\n".join(f"• {e}" for e in errors))
@@ -4342,6 +4346,11 @@ Rules:
             self._refresh_scene_contract_editor()
         self._build_scene_direction()
     def _apply_all_edits(self):
+        # Current Situation is an editable part of the active story state too.
+        # Apply it through its guarded handler before saving any other fields,
+        # so ordinary Save / Save As / Sync cannot silently persist a stale value.
+        if not self._apply_situation_edit():
+            return False
         self._apply_story_edits()
         self._apply_planning_edits()
         self._apply_scene_contract_edits()
@@ -4350,6 +4359,7 @@ Rules:
         self._apply_relationship_edits()
         self._apply_location_edits()
         self._apply_state_edits()
+        return True
 
     def _add_character(self):
         if self.package is None:
@@ -4793,7 +4803,7 @@ Rules:
             messagebox.showerror("Start Next Chapter", str(exc))
     def _apply_situation_edit(self):
         if self.package is None:
-            return
+            return False
 
         new_situation = self.situation_text.get("1.0", "end-1c").strip()
         old_situation = str(self.package.current_state.get("current_situation", "") or "").strip()
@@ -4803,21 +4813,21 @@ Rules:
                     "Current Situation",
                     "Wait for the active scene generation to finish before changing the scene's starting state.",
                 )
-                return
+                return False
 
             accepted = str(getattr(self, "accepted_scene", "") or "").strip()
             if accepted and not self.package.current_state.get("scene_completed", False):
                 prose = self._writer_editor_prose()
                 if prose and prose != accepted and not self._save_unsaved_writer_draft():
-                    return
+                    return False
                 messagebox.showwarning(
                     "Current Situation",
                     "This scene has been accepted but its state update has not been applied. Finish that step before changing its starting situation.",
                 )
-                return
+                return False
 
             if not self._save_unsaved_writer_draft():
-                return
+                return False
             if self.generated_scene.strip() or self.accepted_scene.strip():
                 self._clear_writer_scene_workspace(
                     "Starting situation changed. Any unfinished prose was preserved as a draft."
@@ -4827,6 +4837,7 @@ Rules:
         self.dirty = True
         self._update_path_label()
         self._build_scene_direction()
+        return True
     def _refresh_characters(self, select_filename=None):
         self.character_list.delete(0, "end")
         filenames = sorted(self.package.characters) if self.package else []
@@ -4940,7 +4951,8 @@ Rules:
             self._chat("Builder", message)
             return
 
-        self._apply_all_edits()
+        if not self._apply_all_edits():
+            return
         # Guided setup writes directly to the package. Do not let stale editor
         # selection state cause a later chat answer to overwrite a character.
         self.character_filename = None
@@ -4951,7 +4963,8 @@ Rules:
     def _run_command(self):
         if self.package is None:
             return
-        self._apply_all_edits()
+        if not self._apply_all_edits():
+            return
         command = self.command_entry.get().strip()
         if not command:
             return
