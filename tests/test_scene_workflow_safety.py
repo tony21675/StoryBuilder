@@ -110,9 +110,18 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             prompt,
         )
         self.assertIn(
-            "plainly affectionate, non-sensual language",
+            "Prefer what characters say and do over narration",
             prompt,
         )
+        self.assertIn(
+            "Let dialogue and interaction carry scenes whenever the situation allows",
+            prompt,
+        )
+        self.assertIn(
+            "without overexplaining what the gesture means",
+            prompt,
+        )
+        self.assertNotIn("plainly affectionate, non-sensual language", prompt)
 
     def test_semantic_validator_checks_opening_physical_continuity(self):
         current_state = {
