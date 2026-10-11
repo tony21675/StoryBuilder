@@ -1,3 +1,4 @@
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -270,6 +271,178 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
                 "Old saved situation",
             )
             self.assertNotIn("current_situation", persisted)
+
+
+class SimpleLabel:
+    def __init__(self):
+        self.text = ""
+
+    def configure(self, **kwargs):
+        if "text" in kwargs:
+            self.text = kwargs["text"]
+
+
+
+    def make_restore_app(self, package_path, current_state):
+        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+        persisted = {}
+        package = SimpleNamespace(
+            path=Path(package_path),
+            current_state=current_state,
+            extra_json={},
+        )
+        package.save = lambda: persisted.update(
+            current_state=json.loads(json.dumps(package.current_state))
+        )
+        app.package = package
+        app.dirty = False
+        app.writer_generation_in_progress = False
+        app.scene_contract_building = False
+        app.writer_notes_update_in_progress = False
+        app.generated_scene = ""
+        app.accepted_scene = ""
+        app._save_unsaved_writer_draft = lambda: True
+        app._clear_writer_scene_workspace = lambda *_args: None
+        app._refresh_all = lambda: None
+        app._build_scene_direction = lambda: None
+        app._update_path_label = lambda: None
+        app._chat = lambda *_args, **_kwargs: None
+        return app, persisted
+
+    def test_restore_previous_scene_end_state_resets_pointer_and_restores_situation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            chapter = root / "Manuscript" / "Chapters" / "Chapter_01"
+            chapter.mkdir(parents=True)
+            (chapter / "Chapter_01_Section_06.txt").write_text(
+                "Maya tells Tony Tiffany is gone.", encoding="utf-8"
+            )
+            saved_end_state = {
+                "chapter": 1,
+                "scene": 6,
+                "status": "story_start",
+                "scene_completed": False,
+                "chapter_completed": False,
+                "current_situation": (
+                    "Maya has reached Tony and told him that Tiffany is gone. "
+                    "Tony has not yet noticed the slap mark."
+                ),
+                "scene_cast": ["Maya", "Tony"],
+                "physical_state": {"Tony": {"contact": "holding Maya against his chest"}},
+            }
+            (chapter / "Chapter_01_Section_06_after_state.json").write_text(
+                json.dumps(saved_end_state), encoding="utf-8"
+            )
+            current = {
+                "chapter": 2,
+                "scene": 1,
+                "status": "in_progress",
+                "scene_completed": False,
+                "current_situation": "STALE: Tony has already noticed the slap mark.",
+            }
+            app, persisted = self.make_restore_app(root, current)
+
+            with patch.object(
+                storybuilder_app.messagebox, "askyesno", return_value=True
+            ) as confirm:
+                storybuilder_app.StoryBuilderApp._restore_previous_scene_end_state(app)
+
+            restored = app.package.current_state
+            self.assertEqual((restored["chapter"], restored["scene"]), (2, 1))
+            self.assertEqual(restored["status"], "in_progress")
+            self.assertFalse(restored["scene_completed"])
+            self.assertFalse(restored["chapter_completed"])
+            self.assertIn("has not yet noticed the slap mark", restored["current_situation"])
+            self.assertNotIn("STALE:", restored["current_situation"])
+            self.assertEqual(restored["physical_state"], saved_end_state["physical_state"])
+            self.assertEqual(persisted["current_state"], restored)
+            self.assertIn("Chapter 1, Scene 6", confirm.call_args.args[1])
+
+    def test_restore_previous_scene_end_state_cancel_leaves_state_unchanged(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            chapter = root / "Manuscript" / "Chapters" / "Chapter_01"
+            chapter.mkdir(parents=True)
+            (chapter / "Chapter_01_Section_06.txt").write_text("Accepted prose", encoding="utf-8")
+            (chapter / "Chapter_01_Section_06_after_state.json").write_text(
+                json.dumps({
+                    "chapter": 1, "scene": 6,
+                    "current_situation": "Correct start state.",
+                }),
+                encoding="utf-8",
+            )
+            current = {
+                "chapter": 2, "scene": 1,
+                "current_situation": "Leave this alone.",
+                "scene_completed": False,
+            }
+            app, persisted = self.make_restore_app(root, current)
+            original = json.loads(json.dumps(current))
+
+            with patch.object(
+                storybuilder_app.messagebox, "askyesno", return_value=False
+            ) as confirm:
+                storybuilder_app.StoryBuilderApp._restore_previous_scene_end_state(app)
+
+            self.assertEqual(app.package.current_state, original)
+            self.assertFalse(persisted)
+            confirm.assert_called_once()
+
+    def test_reset_scene_contract_clears_generated_fields_but_preserves_idea(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            entry = {
+                "scene_idea": "Preserve my scene idea.",
+                "direction": "Stale direction based on the wrong start state.",
+                "end_condition": "Stale end.",
+                "scene_contract": {"required_beats": ["Stale beat"]},
+                "cast": ["Maya", "Tony"],
+            }
+            guidance = {"chapter_plans": {"2": {"scene_plan": {"1": entry}}}}
+            saved = []
+            package = SimpleNamespace(
+                path=Path(tmp),
+                current_state={"chapter": 2, "scene": 1},
+                extra_json={"writing_guidance.json": guidance},
+            )
+            package.save = lambda: saved.append(True)
+            app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+            app.package = package
+            app.dirty = False
+            app.scene_contract_building = False
+            app.writer_generation_in_progress = False
+            app.scene_idea_text = FakeText("Preserve my scene idea.")
+            app.scene_contract_status = SimpleLabel()
+            app._update_path_label = lambda: None
+            app._refresh_scene_contract_editor = lambda: None
+            app._build_scene_direction = lambda: None
+            app._chat = lambda *_args, **_kwargs: None
+
+            with patch.object(
+                storybuilder_app.messagebox, "askyesno", return_value=True
+            ):
+                storybuilder_app.StoryBuilderApp._reset_current_scene_contract(app)
+
+            self.assertEqual(entry["scene_idea"], "Preserve my scene idea.")
+            self.assertNotIn("direction", entry)
+            self.assertNotIn("end_condition", entry)
+            self.assertNotIn("scene_contract", entry)
+            self.assertEqual(entry["cast"], ["Maya", "Tony"])
+            self.assertEqual(saved, [True])
+
+    def test_clear_writer_context_requires_confirmation(self):
+        class Child:
+            def isalive(self):
+                return True
+
+        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+        app.package = SimpleNamespace()
+        app.writer_engine = SimpleNamespace(child=Child(), model_path=Path("/tmp/model.gguf"))
+        app._save = lambda: self.fail("Save should not run when reset is cancelled.")
+        with patch.object(
+            storybuilder_app.messagebox, "askyesno", return_value=False
+        ) as confirm:
+            storybuilder_app.StoryBuilderApp._clear_writer_context(app)
+        confirm.assert_called_once()
 
 
 if __name__ == "__main__":

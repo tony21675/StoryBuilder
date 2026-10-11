@@ -635,10 +635,16 @@ class StoryBuilderApp(tk.Tk):
 
         self.scene_contract_load_button = ttk.Button(
             header,
-            text="Load Current Scene",
+            text="Reload Saved Contract",
             command=self._load_current_scene_contract,
         )
         self.scene_contract_load_button.pack(side="right")
+        self.scene_contract_reset_button = ttk.Button(
+            header,
+            text="Reset Contract",
+            command=self._reset_current_scene_contract,
+        )
+        self.scene_contract_reset_button.pack(side="right", padx=(0, 8))
 
         start_frame = ttk.LabelFrame(content, text="Beginning / Current State")
         start_frame.pack(fill="x", pady=(0, 8))
@@ -769,6 +775,11 @@ class StoryBuilderApp(tk.Tk):
             text="Apply State Edits",
             command=self._apply_state_edits,
         ).pack(side="left")
+        ttk.Button(
+            state_button_row,
+            text="Restore Previous End State",
+            command=self._restore_previous_scene_end_state,
+        ).pack(side="left", padx=(8, 0))
         ttk.Button(
             state_button_row,
             text="Advance to Next Scene",
@@ -2263,6 +2274,14 @@ Rules:
             self._update_writer_buttons()
             return
 
+        if not messagebox.askyesno(
+            "Clear Writer Context",
+            "Clear the active model's conversation context and rebuild it from the current saved novel files?\n\n"
+            "This does not delete manuscript text or reset Current State. Any helpful details held only in the model's "
+            "temporary context will be cleared. Continue?",
+        ):
+            return
+
         self._save()
         if self.dirty:
             return
@@ -2732,9 +2751,9 @@ Rules:
 
         if self._scene_contract_editor_has_content():
             if not messagebox.askyesno(
-                "Load Current Scene",
-                "This will discard the current Scene Contract editor contents and reload the saved version.\n\n"
-                "Continue?",
+                "Reload Saved Contract",
+                "Discard unsaved Scene Contract editor changes and reload the saved version? "
+                "The saved novel data will not be changed.",
             ):
                 return
 
@@ -2747,6 +2766,72 @@ Rules:
         self.scene_contract_status.configure(
             text="Loaded the saved contract for the current scene. You can edit it or replace it with a new draft.",
         )
+
+    def _reset_current_scene_contract(self):
+        """Clear generated contract fields for this scene while keeping its idea."""
+        if self.package is None:
+            return
+        if getattr(self, "scene_contract_building", False) or getattr(
+            self, "writer_generation_in_progress", False
+        ):
+            messagebox.showwarning(
+                "Reset Contract",
+                "Wait for contract building or scene generation to finish before resetting the contract.",
+            )
+            return
+
+        chapter = int(self.package.current_state.get("chapter", 1) or 1)
+        scene = int(self.package.current_state.get("scene", 1) or 1)
+        entry = self._editable_scene_guidance_entry(chapter, scene, create=False)
+        if not isinstance(entry, dict):
+            self.scene_contract_status.configure(
+                text=f"No saved contract exists for Chapter {chapter}, Scene {scene}."
+            )
+            return
+
+        fields_to_clear = ("direction", "end_condition", "scene_contract")
+        if not any(key in entry for key in fields_to_clear):
+            self.scene_contract_status.configure(
+                text=f"No saved contract fields need resetting for Chapter {chapter}, Scene {scene}."
+            )
+            return
+
+        if not messagebox.askyesno(
+            "Reset Scene Contract",
+            f"Clear the saved direction, ending, and generated contract for Chapter {chapter}, Scene {scene}?\n\n"
+            "The Scene Idea, character data, manuscript, current story state, and other scenes will be preserved. "
+            "You can build a fresh contract from the saved Scene Idea after restoring the correct starting state.\n\n"
+            "Are you sure you want to reset this contract?",
+        ):
+            return
+
+        # Keep the Scene Idea while removing only generated contract fields.
+        idea = self.scene_idea_text.get("1.0", "end-1c").strip()
+        if idea:
+            entry["scene_idea"] = idea
+        for key in fields_to_clear:
+            entry.pop(key, None)
+
+        self.dirty = True
+        try:
+            self.package.save()
+            self.dirty = False
+            self._update_path_label()
+            self._refresh_scene_contract_editor()
+            self._build_scene_direction()
+            self.scene_contract_status.configure(
+                text=f"Reset the saved contract for Chapter {chapter}, Scene {scene}. The Scene Idea was preserved."
+            )
+            self._chat(
+                "Builder",
+                f"Reset the generated contract for Chapter {chapter}, Scene {scene}; the Scene Idea and manuscript were preserved.",
+            )
+        except Exception as exc:
+            self.dirty = True
+            messagebox.showerror(
+                "Reset Scene Contract",
+                f"Could not save the reset contract.\n\n{exc}",
+            )
 
     def _refresh_scene_contract_editor(self):
         if not hasattr(self, "scene_contract_start_text") or self.package is None:
@@ -4629,6 +4714,162 @@ Rules:
             self.writer_status.configure(text=status)
         if hasattr(self, "_update_writer_buttons"):
             self._update_writer_buttons()
+
+    def _restore_previous_scene_end_state(self):
+        """Restore the current scene's starting baseline from the preceding accepted scene."""
+        if self.package is None or self.package.path is None:
+            messagebox.showwarning(
+                "Restore Previous End State",
+                "Save the novel package before restoring a previous scene's ending state.",
+            )
+            return
+
+        if (
+            getattr(self, "writer_generation_in_progress", False)
+            or getattr(self, "scene_contract_building", False)
+            or self.__dict__.get("writer_notes_update_in_progress", False)
+        ):
+            messagebox.showwarning(
+                "Restore Previous End State",
+                "Wait for the active writer, contract build, or writing-notes review to finish first.",
+            )
+            return
+
+        state = self.package.current_state
+        chapter = int(state.get("chapter", 1) or 1)
+        scene = int(state.get("scene", 1) or 1)
+        target_key = (chapter, scene)
+        manager = ManuscriptManager(Path(self.package.path))
+
+        if state.get("scene_completed") or str(getattr(self, "accepted_scene", "") or "").strip():
+            messagebox.showwarning(
+                "Restore Previous End State",
+                "This scene has already been accepted or marked complete. Its state will not be reset automatically.",
+            )
+            return
+
+        if any(manager.scene_numbers(path) == target_key for path in manager.list_scenes()):
+            messagebox.showwarning(
+                "Restore Previous End State",
+                f"Accepted manuscript text already exists for Chapter {chapter}, Scene {scene}. "
+                "The state was not changed.",
+            )
+            return
+
+        if scene > 1:
+            previous_chapter, previous_scene = chapter, scene - 1
+        elif chapter > 1:
+            prior_scenes = [
+                (numbers[1], path)
+                for path in manager.list_scenes()
+                if (numbers := manager.scene_numbers(path)) is not None
+                and numbers[0] == chapter - 1
+            ]
+            if not prior_scenes:
+                messagebox.showwarning(
+                    "Restore Previous End State",
+                    f"No accepted scenes were found in Chapter {chapter - 1}. The state was not changed.",
+                )
+                return
+            previous_scene, _previous_path = max(prior_scenes, key=lambda item: item[0])
+            previous_chapter = chapter - 1
+        else:
+            messagebox.showinfo(
+                "Restore Previous End State",
+                "Chapter 1, Scene 1 has no previous scene to restore from.",
+            )
+            return
+
+        previous_after_path = manager.state_after_path(previous_chapter, previous_scene)
+        if not previous_after_path.is_file():
+            messagebox.showwarning(
+                "Restore Previous End State",
+                f"No saved ending-state snapshot exists for Chapter {previous_chapter}, Scene {previous_scene}. "
+                "Nothing was changed.",
+            )
+            return
+
+        try:
+            saved_state = json.loads(previous_after_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            messagebox.showerror(
+                "Restore Previous End State",
+                f"Could not read the previous scene's saved ending state.\n\n{exc}",
+            )
+            return
+
+        if not isinstance(saved_state, dict):
+            messagebox.showerror(
+                "Restore Previous End State",
+                "The previous scene's saved ending state is not a JSON object. Nothing was changed.",
+            )
+            return
+
+        restored_situation = str(saved_state.get("current_situation", "") or "").strip()
+        if not restored_situation:
+            messagebox.showwarning(
+                "Restore Previous End State",
+                "The previous scene's saved ending state has no Current Situation. Nothing was changed.",
+            )
+            return
+
+        preview = restored_situation if len(restored_situation) <= 800 else restored_situation[:797].rstrip() + "..."
+        if not messagebox.askyesno(
+            "Restore Previous End State",
+            f"Restore the starting state for Chapter {chapter}, Scene {scene} from the saved ending state of "
+            f"Chapter {previous_chapter}, Scene {previous_scene}?\n\n"
+            f"Restored Current Situation:\n{preview}\n\n"
+            "This replaces the current state fields and resets the active scene/status flags. "
+            "It does not delete manuscript scenes, characters, or the Scene Idea. "
+            "Unsaved current-state edits will be replaced.\n\n"
+            "Are you sure you want to restore this state?",
+        ):
+            return
+
+        if not self._save_unsaved_writer_draft():
+            return
+
+        old_state = json.loads(json.dumps(state, ensure_ascii=False))
+        restored = json.loads(json.dumps(saved_state, ensure_ascii=False))
+        restored["chapter"] = chapter
+        restored["scene"] = scene
+        restored["scene_completed"] = False
+        restored["chapter_completed"] = False
+        restored["status"] = "in_progress"
+        planned_cast = self._scene_plan_cast(chapter, scene)
+        if planned_cast:
+            restored["scene_cast"] = planned_cast
+
+        self.package.current_state = restored
+        self.dirty = True
+        try:
+            self._clear_writer_scene_workspace(
+                f"Restored the starting state for Chapter {chapter}, Scene {scene} from Chapter "
+                f"{previous_chapter}, Scene {previous_scene}."
+            )
+            self._refresh_all()
+            self._build_scene_direction()
+            self.package.save()
+            self.dirty = False
+            self._update_path_label()
+            self._chat(
+                "Builder",
+                f"Restored Chapter {chapter}, Scene {scene} from the saved ending state of "
+                f"Chapter {previous_chapter}, Scene {previous_scene}.",
+            )
+            if hasattr(self, "writer_status"):
+                self.writer_status.configure(
+                    text=f"Starting state restored for Chapter {chapter}, Scene {scene}. "
+                    "Reset the old contract, then rebuild it from the preserved Scene Idea."
+                )
+        except Exception as exc:
+            self.package.current_state = old_state
+            self.dirty = True
+            self._refresh_all()
+            messagebox.showerror(
+                "Restore Previous End State",
+                f"The state could not be saved, so the in-memory state was rolled back.\n\n{exc}",
+            )
 
     def _apply_state_edits(self):
         if self.package is None:
