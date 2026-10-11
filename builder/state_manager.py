@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -172,12 +173,80 @@ def remove_unchanged(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, A
     return result
 
 
+def validate_state_patch(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
+    """Reject malformed state-update structures before preview or application."""
+    if not isinstance(base, dict):
+        raise ValueError("The current story state must be a JSON object.")
+    if not isinstance(patch, dict):
+        raise ValueError("The proposed state update must be a JSON object.")
+
+    if "location" in patch:
+        location = patch["location"]
+        if not isinstance(location, dict):
+            raise ValueError("Invalid state update: 'location' must be an object.")
+        for field, value in location.items():
+            if not isinstance(value, str):
+                raise ValueError(
+                    f"Invalid state update at 'location.{field}': location entries must be text. "
+                    "Character knowledge belongs under 'character_knowledge', not 'location'."
+                )
+
+    if "character_knowledge" in patch:
+        knowledge = patch["character_knowledge"]
+        if not isinstance(knowledge, dict):
+            raise ValueError("Invalid state update: 'character_knowledge' must be an object.")
+        for character, facts in knowledge.items():
+            if not isinstance(facts, list) or any(not isinstance(fact, str) for fact in facts):
+                raise ValueError(
+                    f"Invalid state update at 'character_knowledge.{character}': "
+                    "each character's knowledge must be a list of text facts."
+                )
+
+    if "physical_state" in patch and not isinstance(patch["physical_state"], dict):
+        raise ValueError("Invalid state update: 'physical_state' must be an object.")
+
+    return patch
+
+
+def remove_prior_chapter_opening_markers(
+    state: dict[str, Any],
+    previous_chapter: int,
+    target_chapter: int,
+) -> dict[str, Any]:
+    """Drop only the previous chapter's opening marker while preserving other notes."""
+    if not isinstance(state, dict) or int(target_chapter) <= int(previous_chapter):
+        return state
+
+    notes = state.get("continuity_notes")
+    if not isinstance(notes, list):
+        return state
+
+    previous = int(previous_chapter)
+    opening_marker = re.compile(
+        rf"^\\s*chapter\\s+{previous}\\s+(?:begins|starts)(?:\\s+here)?[.!]?\\s*$",
+        re.IGNORECASE,
+    )
+    cleaned_notes = [
+        note
+        for note in notes
+        if not (isinstance(note, str) and opening_marker.fullmatch(note))
+    ]
+    restored = dict(state)
+    restored["continuity_notes"] = cleaned_notes
+    return restored
+
+
 class StateManager:
     """Turns accepted prose into a reviewable current_state patch."""
 
     @staticmethod
     def merge_patch(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
         return merge_patch(base, patch)
+
+    @staticmethod
+    def validate_patch(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
+        """Validate a proposed partial update before it can be applied."""
+        return validate_state_patch(base, patch)
 
     @staticmethod
     def _detect_accelerator() -> str | None:
@@ -533,6 +602,7 @@ class StateManager:
         # Models sometimes emit legacy top-level location fields even though
         # current_state stores location as a nested object. Normalize that shape first.
         patch = normalize_location_patch(current_state, patch)
+        StateManager.validate_patch(current_state, patch)
 
         # Models sometimes repeat unchanged state. Normalize that away so a
         # proposal contains only actual changes.
@@ -587,4 +657,7 @@ class StateManager:
                             legacy_location_patch[name] = value
                     patch = merge_patch(patch, legacy_location_patch)
 
+        # Revalidate after knowledge auditing and authored end-state hints have
+        # been merged, so no later normalization step can reintroduce bad shapes.
+        StateManager.validate_patch(current_state, patch)
         return patch
