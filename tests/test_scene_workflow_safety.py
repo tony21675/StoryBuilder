@@ -343,7 +343,7 @@ class SceneResetSafetyTests(unittest.TestCase):
             app, persisted = self.make_restore_app(root, current)
 
             with patch.object(
-                storybuilder_app.messagebox, "askyesno", return_value=True
+                storybuilder_app.StoryBuilderApp, "_ask_yes_no", return_value=True
             ) as confirm:
                 storybuilder_app.StoryBuilderApp._restore_previous_scene_end_state(app)
 
@@ -380,7 +380,7 @@ class SceneResetSafetyTests(unittest.TestCase):
             original = json.loads(json.dumps(current))
 
             with patch.object(
-                storybuilder_app.messagebox, "askyesno", return_value=False
+                storybuilder_app.StoryBuilderApp, "_ask_yes_no", return_value=False
             ) as confirm:
                 storybuilder_app.StoryBuilderApp._restore_previous_scene_end_state(app)
 
@@ -418,7 +418,7 @@ class SceneResetSafetyTests(unittest.TestCase):
             app._chat = lambda *_args, **_kwargs: None
 
             with patch.object(
-                storybuilder_app.messagebox, "askyesno", return_value=True
+                storybuilder_app.StoryBuilderApp, "_ask_yes_no", return_value=True
             ):
                 storybuilder_app.StoryBuilderApp._reset_current_scene_contract(app)
 
@@ -439,7 +439,7 @@ class SceneResetSafetyTests(unittest.TestCase):
         app.writer_engine = SimpleNamespace(child=Child(), model_path=Path("/tmp/model.gguf"))
         app._save = lambda: self.fail("Save should not run when reset is cancelled.")
         with patch.object(
-            storybuilder_app.messagebox, "askyesno", return_value=False
+            storybuilder_app.StoryBuilderApp, "_ask_yes_no", return_value=False
         ) as confirm:
             storybuilder_app.StoryBuilderApp._clear_writer_context(app)
         confirm.assert_called_once()
