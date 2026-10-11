@@ -6,8 +6,15 @@ from copy import deepcopy
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
+from builder.writer_notes import (
+    WRITER_NOTES_FILENAME,
+    default_writer_notes,
+    load_writer_notes,
+    normalize_writer_notes,
+)
+
 FORMAT_VERSION = "1.0"
-CORE_FILES = {"story_bible.json", "current_state.json"}
+CORE_FILES = {"story_bible.json", "current_state.json", WRITER_NOTES_FILENAME}
 
 
 class StoryPackage:
@@ -19,6 +26,7 @@ class StoryPackage:
         self.current_state: dict = {}
         self.characters: dict[str, dict] = {}
         self.extra_json: dict[str, dict] = {}
+        self.writer_notes: dict = default_writer_notes()
 
     @classmethod
     def new(cls, title: str = "Untitled") -> "StoryPackage":
@@ -33,6 +41,10 @@ class StoryPackage:
             "relationships": {},
             "locations": {},
             "story_planning": {}
+        }
+        package.extra_json["writing_guidance.json"] = {
+            "purpose": "Author-defined scene direction and reusable scene contracts.",
+            "scene_plan": {},
         }
         package.current_state = {
             "story_format_version": FORMAT_VERSION,
@@ -64,6 +76,8 @@ class StoryPackage:
                 package.current_state = json.load(f)
         else:
             package.current_state = cls.new().current_state
+
+        package.writer_notes = load_writer_notes(folder)
 
         if not isinstance(package.current_state.get("physical_state"), dict):
             package.current_state["physical_state"] = {}
@@ -156,6 +170,8 @@ class StoryPackage:
 
         self._write_json_atomic(target / "story_bible.json", self.story_bible)
         self._write_json_atomic(target / "current_state.json", self.current_state)
+        self.writer_notes = normalize_writer_notes(self.writer_notes)
+        self._write_json_atomic(target / WRITER_NOTES_FILENAME, self.writer_notes)
 
         active = set(self.characters)
         for filename, data in self.characters.items():

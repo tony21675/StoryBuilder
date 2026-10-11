@@ -12,11 +12,31 @@ from tkinter import filedialog, messagebox, simpledialog, ttk
 from builder.conversation import apply_command
 from builder.guided_setup import GuidedSetupSession
 from builder.story_package import StoryPackage
+from builder.writer_notes import (
+    WRITER_NOTES_FILENAME,
+    WRITER_NOTES_SYSTEM_PROMPT,
+    build_writer_notes_review_prompt,
+    collect_recent_accepted_scenes,
+    collect_initial_seed_scenes,
+    merge_writer_notes,
+    normalize_writer_notes,
+    parse_writer_notes_response,
+    save_writer_notes,
+)
 from builder.validator import validate_package
 from builder.writer_engine import WriterEngine
 from builder.manuscript import ManuscriptManager
-from builder.state_manager import StateManager
-from builder.workspace import NOVEL_ROOT, WORKSPACE_ROOT
+from builder.novel_sync import NovelSyncError, sync_novel_repository
+from builder.state_manager import StateManager, remove_prior_chapter_opening_markers
+from builder.scene_contract import SceneContract
+from builder.story_interview import (
+    CHARACTER_QUESTIONS,
+    RELATIONSHIP_QUESTIONS,
+    LOCATION_QUESTIONS,
+    apply_interview_patch,
+    structure_answer,
+)
+from builder.workspace import NOVEL_ROOT, WORKSPACE_ROOT, find_novel_packages
 
 
 class StoryBuilderApp(tk.Tk):
@@ -31,21 +51,36 @@ class StoryBuilderApp(tk.Tk):
         self.dirty = False
         self.guided_setup = GuidedSetupSession()
         self._closing = False
+        self._scroll_canvases = []
         self.spellcheck_available = shutil.which("aspell") is not None
         self._spellcheck_jobs = {}
         self.writer_engine = WriterEngine()
         self.writer_thread = None
+        self.writer_notes_update_in_progress = False
         self.generated_scene = ""
         self.accepted_scene = ""
+        # Keep each generated scene tied to the chapter/scene and exact start
+        # state that produced it. Never file prose under a later UI selection.
+        self.generated_scene_context: tuple[int, int] | None = None
+        self.generated_scene_start_state: dict | None = None
+        self.writer_generation_context: tuple[int, int] | None = None
+        self.writer_generation_start_state: dict | None = None
+        self.writer_generation_in_progress = False
+        self.scene_contract_editor_key: tuple[int, int] | None = None
+        self.scene_contract_building = False
         self.pending_state_patch = None
         self.selected_manuscript_path = None
         self.saved_state_candidate = None
+        self.interview_active = False
+        self.interview_index = 0
+        self.interview_pending_patch = None
+        self.interview_pending_answer = ""
         self.selected_manuscript_path = None
         self.saved_state_candidate = None
 
         self._build_ui()
         self.protocol("WM_DELETE_WINDOW", self._close_and_sync)
-        self._new_novel()
+        self._load_startup_novel()
 
     def _build_ui(self):
         toolbar = ttk.Frame(self, padding=8)
@@ -54,12 +89,13 @@ class StoryBuilderApp(tk.Tk):
             ("New Novel", self._new_novel),
             ("Open Novel", self._open_novel),
             ("Save", self._save),
-            ("Save As / Export", self._save_as),
+            ("Save As", self._save_as),
             ("Validate", self._validate),
         ]:
             ttk.Button(toolbar, text=label, command=command).pack(side="left", padx=3)
+        ttk.Button(toolbar, text="Sync Novel", command=self._sync_current_novel).pack(side="left", padx=(10, 3))
         ttk.Button(toolbar, text="Close", command=self._close_without_sync).pack(side="left", padx=(10, 3))
-        ttk.Button(toolbar, text="Close & Sync", command=self._close_and_sync).pack(side="left", padx=3)
+        ttk.Button(toolbar, text="Close & Sync Novel", command=self._close_and_sync).pack(side="left", padx=3)
         self.path_label = ttk.Label(toolbar, text="Unsaved novel")
         self.path_label.pack(side="right", padx=8)
 
@@ -73,10 +109,13 @@ class StoryBuilderApp(tk.Tk):
         self._build_locations_tab()
         self._build_modules_tab()
         self._build_planning_tab()
+        self._build_story_interview_tab()
+        self._build_scene_contract_tab()
         self._build_state_tab()
         self._build_writer_tab()
         self._build_manuscript_tab()
         self._install_context_menus()
+        self._install_mousewheel_scrolling()
         self._install_spellchecking()
 
     def _build_chat_tab(self):
@@ -129,11 +168,24 @@ class StoryBuilderApp(tk.Tk):
 
         left = ttk.Frame(tab)
         left.pack(side="left", fill="y", padx=(0, 12))
-        self.character_list = tk.Listbox(left, width=28, height=28)
-        self.character_list.pack(fill="y", expand=True)
+
+        ttk.Label(left, text="Core Characters", font=("", 11, "bold")).pack(anchor="w")
+        self.character_list = tk.Listbox(left, width=28, height=16, exportselection=False)
+        self.character_list.pack(fill="y", expand=True, pady=(4, 6))
         self.character_list.bind("<<ListboxSelect>>", self._select_character)
-        ttk.Button(left, text="Add Character", command=self._add_character).pack(fill="x", pady=(8, 3))
+        ttk.Button(left, text="Add Character", command=self._add_character).pack(fill="x", pady=(0, 3))
         ttk.Button(left, text="Remove Character", command=self._remove_character).pack(fill="x")
+
+        ttk.Label(left, text="Supporting People", font=("", 11, "bold")).pack(anchor="w", pady=(14, 2))
+        ttk.Label(
+            left,
+            text="Stored in story_bible.json as supporting people rather than full character cards.",
+            wraplength=190,
+            justify="left",
+        ).pack(anchor="w", pady=(0, 4))
+        self.supporting_people_list = tk.Listbox(left, width=28, height=8, exportselection=False)
+        self.supporting_people_list.pack(fill="y")
+        self.supporting_people_list.bind("<<ListboxSelect>>", self._select_supporting_person)
 
         right = ttk.Frame(tab)
         right.pack(side="left", fill="both", expand=True)
@@ -169,7 +221,31 @@ class StoryBuilderApp(tk.Tk):
         ttk.Button(right, text="Apply Character Edits", command=self._apply_character_edits).grid(
             row=len(fields), column=1, sticky="e", pady=8
         )
+
+        ttk.Separator(right, orient="horizontal").grid(
+            row=len(fields) + 1, column=0, columnspan=2, sticky="ew", pady=(8, 8)
+        )
+        ttk.Label(
+            right,
+            text="Supporting Person Details",
+            font=("", 11, "bold"),
+        ).grid(row=len(fields) + 2, column=0, columnspan=2, sticky="w")
+        self.supporting_person_text = tk.Text(right, height=7, wrap="word", undo=True)
+        self.supporting_person_text.grid(
+            row=len(fields) + 3,
+            column=0,
+            columnspan=2,
+            sticky="nsew",
+            pady=(4, 0),
+        )
+        ttk.Button(
+            right,
+            text="Apply Supporting Person Edit",
+            command=self._apply_supporting_person_edit,
+        ).grid(row=len(fields) + 4, column=1, sticky="e", pady=8)
+
         right.columnconfigure(1, weight=1)
+        right.rowconfigure(len(fields) + 3, weight=1)
 
     def _build_relationships_tab(self):
         tab = ttk.Frame(self.notebook, padding=12)
@@ -298,6 +374,373 @@ class StoryBuilderApp(tk.Tk):
 
         ttk.Button(tab, text="Apply Story Planning", command=self._apply_planning_edits).pack(anchor="e", pady=(8, 0))
 
+
+    def _build_story_interview_tab(self):
+        tab = ttk.Frame(self.notebook)
+        self.notebook.add(tab, text="Story Interview")
+
+        scroll_frame = ttk.Frame(tab)
+        scroll_frame.pack(fill="both", expand=True)
+
+        canvas = tk.Canvas(scroll_frame, highlightthickness=0, borderwidth=0)
+        scrollbar = ttk.Scrollbar(scroll_frame, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=scrollbar.set)
+        scrollbar.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+        self._scroll_canvases.append(canvas)
+
+        content = ttk.Frame(canvas, padding=12)
+        window_id = canvas.create_window((0, 0), window=content, anchor="nw")
+
+        def update_scroll_region(_event=None):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        def fit_content_width(event):
+            canvas.itemconfigure(window_id, width=event.width)
+
+        content.bind("<Configure>", update_scroll_region)
+        canvas.bind("<Configure>", fit_content_width)
+
+        ttk.Label(
+            content,
+            text="Guided Story Interview",
+            font=("", 14, "bold"),
+        ).pack(anchor="w")
+        ttk.Label(
+            content,
+            text=(
+                "Answer naturally, the way you would explain the story to a person. "
+                "Simple answers are handled directly. For richer answers, the local LLM "
+                "turns your answer into a proposed JSON change that you approve before it becomes canon."
+            ),
+            wraplength=900,
+            justify="left",
+        ).pack(anchor="w", pady=(4, 10))
+
+        target_row = ttk.Frame(content)
+        target_row.pack(fill="x", pady=(0, 10))
+
+        ttk.Label(target_row, text="Interview").pack(side="left")
+        self.interview_mode_var = tk.StringVar(value="Character")
+        self.interview_mode_combo = ttk.Combobox(
+            target_row,
+            textvariable=self.interview_mode_var,
+            values=("Character", "Relationship", "Location"),
+            state="readonly",
+            width=16,
+        )
+        self.interview_mode_combo.pack(side="left", padx=(8, 14))
+        self.interview_mode_combo.bind(
+            "<<ComboboxSelected>>",
+            lambda _event: self._refresh_interview_targets(reset=True),
+        )
+
+        ttk.Label(target_row, text="Target").pack(side="left")
+        self.interview_target_var = tk.StringVar()
+        self.interview_target_combo = ttk.Combobox(
+            target_row,
+            textvariable=self.interview_target_var,
+            state="readonly",
+            width=48,
+        )
+        self.interview_target_combo.pack(side="left", fill="x", expand=True, padx=(8, 8))
+        self.interview_target_combo.bind(
+            "<<ComboboxSelected>>",
+            lambda _event: self._start_story_interview(),
+        )
+
+        ttk.Button(
+            target_row,
+            text="Refresh",
+            command=lambda: self._refresh_interview_targets(reset=False),
+        ).pack(side="left")
+
+        self.interview_question_label = ttk.Label(
+            content,
+            text="Select a target to begin.",
+            font=("", 12, "bold"),
+            wraplength=900,
+            justify="left",
+        )
+        self.interview_question_label.pack(anchor="w", pady=(2, 4))
+
+        self.interview_prompt_label = ttk.Label(
+            content,
+            text="",
+            wraplength=900,
+            justify="left",
+        )
+        self.interview_prompt_label.pack(anchor="w", pady=(0, 10))
+
+        ttk.Label(
+            content,
+            text="Current Canon",
+            font=("", 11, "bold"),
+        ).pack(anchor="w", pady=(4, 0))
+        self.interview_current_text = tk.Text(
+            content,
+            height=7,
+            wrap="word",
+            state="disabled",
+        )
+        self.interview_current_text.pack(fill="x", pady=(4, 8))
+
+        ttk.Label(
+            content,
+            text="Your Answer / Revision",
+            font=("", 11, "bold"),
+        ).pack(anchor="w")
+        self.interview_answer_text = tk.Text(
+            content,
+            height=9,
+            wrap="word",
+            undo=True,
+        )
+        self.interview_answer_text.pack(fill="x", pady=(4, 8))
+
+        answer_row = ttk.Frame(content)
+        answer_row.pack(fill="x")
+        self.interview_process_button = ttk.Button(
+            answer_row,
+            text="Process Answer",
+            command=self._process_story_interview_answer,
+        )
+        self.interview_process_button.pack(side="left")
+        self.interview_skip_button = ttk.Button(
+            answer_row,
+            text="Skip",
+            command=self._skip_story_interview_question,
+        )
+        self.interview_skip_button.pack(side="left", padx=(8, 0))
+        self.interview_stop_button = ttk.Button(
+            answer_row,
+            text="Stop Interview",
+            command=self._stop_story_interview,
+        )
+        self.interview_stop_button.pack(side="left", padx=(8, 0))
+
+        ttk.Label(
+            content,
+            text="AI Proposed Changes",
+            font=("", 11, "bold"),
+        ).pack(anchor="w", pady=(14, 0))
+        self.interview_proposed_text = tk.Text(
+            content,
+            height=12,
+            wrap="none",
+            state="disabled",
+        )
+        self.interview_proposed_text.pack(fill="both", expand=True, pady=(4, 8))
+
+        proposal_row = ttk.Frame(content)
+        proposal_row.pack(fill="x")
+        self.interview_approve_button = ttk.Button(
+            proposal_row,
+            text="Approve Changes",
+            command=self._approve_story_interview_patch,
+        )
+        self.interview_approve_button.pack(side="left")
+        self.interview_reject_button = ttk.Button(
+            proposal_row,
+            text="Reject Changes",
+            command=self._reject_story_interview_patch,
+        )
+        self.interview_reject_button.pack(side="left", padx=(8, 0))
+        self.interview_status = ttk.Label(
+            content,
+            text="",
+            wraplength=900,
+            justify="left",
+        )
+        self.interview_status.pack(anchor="w", fill="x", pady=(8, 0))
+
+        self.interview_mode_combo.set("Character")
+        self._refresh_interview_targets(reset=True)
+        self._update_story_interview_buttons()
+
+    def _build_scene_contract_tab(self):
+        tab = ttk.Frame(self.notebook)
+        self.notebook.add(tab, text="Scene Contract")
+
+        scroll_frame = ttk.Frame(tab)
+        scroll_frame.pack(fill="both", expand=True)
+
+        canvas = tk.Canvas(scroll_frame, highlightthickness=0, borderwidth=0)
+        scrollbar = ttk.Scrollbar(scroll_frame, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=scrollbar.set)
+        scrollbar.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+
+        self._scroll_canvases.append(canvas)
+        content = ttk.Frame(canvas, padding=12)
+        window_id = canvas.create_window((0, 0), window=content, anchor="nw")
+
+        def update_scroll_region(_event=None):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        def fit_content_width(event):
+            canvas.itemconfigure(window_id, width=event.width)
+
+        content.bind("<Configure>", update_scroll_region)
+        canvas.bind("<Configure>", fit_content_width)
+
+        ttk.Label(
+            content,
+            text="Author-Controlled Scene Contract",
+            font=("", 14, "bold"),
+        ).pack(anchor="w")
+        ttk.Label(
+            content,
+            text=(
+                "Give Builder a plain-language idea for the scene. It will draft the "
+                "minimum contract needed to protect that idea while leaving the writer room to breathe. "
+                "Forbidden fields are left empty for you to add manually when needed."
+            ),
+            wraplength=900,
+            justify="left",
+        ).pack(anchor="w", pady=(4, 8))
+
+        idea_frame = ttk.Frame(content)
+        idea_frame.pack(fill="x", pady=(0, 10))
+        ttk.Label(
+            idea_frame,
+            text="Scene Idea / Author Notes",
+            font=("", 11, "bold"),
+        ).pack(anchor="w")
+        self.scene_idea_text = tk.Text(idea_frame, height=5, wrap="word", undo=True)
+        self.scene_idea_text.pack(fill="x", pady=(4, 6))
+        self.scene_contract_build_button = ttk.Button(
+            idea_frame,
+            text="Build Contract from Scene Idea",
+            command=self._build_contract_from_scene_idea,
+        )
+        self.scene_contract_build_button.pack(anchor="w")
+        ttk.Label(
+            content,
+            text=(
+                "Define the rails, not every sentence. The writer may vary the middle, "
+                "dialogue, gestures, and harmless details while the contract protects the "
+                "required story beats and ending."
+            ),
+        ).pack(anchor="w", pady=(4, 8))
+
+        header = ttk.Frame(content)
+        header.pack(fill="x", pady=(0, 8))
+        self.scene_contract_scene_label = ttk.Label(
+            header,
+            text="Chapter 1, Scene 1",
+            font=("", 11, "bold"),
+        )
+        self.scene_contract_scene_label.pack(side="left")
+
+        self.scene_contract_load_button = ttk.Button(
+            header,
+            text="Reload Saved Contract",
+            command=self._load_current_scene_contract,
+        )
+        self.scene_contract_load_button.pack(side="right")
+        self.scene_contract_reset_button = ttk.Button(
+            header,
+            text="Reset Contract",
+            command=self._reset_current_scene_contract,
+        )
+        self.scene_contract_reset_button.pack(side="right", padx=(0, 8))
+
+        start_frame = ttk.LabelFrame(content, text="Beginning / Current State")
+        start_frame.pack(fill="x", pady=(0, 8))
+        ttk.Label(
+            start_frame,
+            text=(
+                "The scene begins from Current State. Change that state on the Current State tab "
+                "instead of duplicating it here."
+            ),
+            justify="left",
+        ).pack(anchor="w", padx=8, pady=(6, 4))
+        self.scene_contract_start_text = tk.Text(
+            start_frame,
+            height=6,
+            wrap="word",
+            state="disabled",
+        )
+        self.scene_contract_start_text.pack(fill="x", padx=8, pady=(0, 8))
+
+        form = ttk.Frame(content)
+        form.pack(fill="both", expand=True)
+
+        self.scene_contract_direction_text = tk.Text(form, height=4, wrap="word", undo=True)
+        self.scene_contract_end_text = tk.Text(form, height=4, wrap="word", undo=True)
+        self.scene_contract_texts = {
+            "required_beats": tk.Text(form, height=5, wrap="word", undo=True),
+            "required_facts": tk.Text(form, height=4, wrap="word", undo=True),
+            "required_sequence": tk.Text(form, height=4, wrap="word", undo=True),
+            "forbidden": tk.Text(form, height=4, wrap="word", undo=True),
+            "forbidden_details": tk.Text(form, height=4, wrap="word", undo=True),
+        }
+
+        fields = [
+            ("direction", "Middle / Scene Direction", self.scene_contract_direction_text),
+            ("end", "Ending / Hard Stop", self.scene_contract_end_text),
+            ("required_beats", "Required Beats (one per line)", self.scene_contract_texts["required_beats"]),
+            ("required_facts", "Required Facts (one per line)", self.scene_contract_texts["required_facts"]),
+            ("required_sequence", "Required Sequence (one per line, in order)", self.scene_contract_texts["required_sequence"]),
+            ("forbidden", "Forbidden / Do Not Advance (one per line)", self.scene_contract_texts["forbidden"]),
+            ("forbidden_details", "Forbidden Details (one per line)", self.scene_contract_texts["forbidden_details"]),
+        ]
+
+        for row, (_key, label, widget) in enumerate(fields):
+            ttk.Label(form, text=label).grid(
+                row=row,
+                column=0,
+                sticky="nw",
+                padx=(0, 10),
+                pady=4,
+            )
+            widget.grid(row=row, column=1, sticky="nsew", pady=4)
+
+        for row in range(len(fields)):
+            form.rowconfigure(row, weight=1 if row in (0, 1, 2) else 0)
+        form.columnconfigure(1, weight=1)
+
+        attempts_row = ttk.Frame(content)
+        attempts_row.pack(fill="x", pady=(8, 0))
+        ttk.Label(attempts_row, text="Automatic attempts").pack(side="left")
+        self.scene_contract_attempts_var = tk.StringVar(value="3")
+        ttk.Spinbox(
+            attempts_row,
+            from_=1,
+            to=5,
+            textvariable=self.scene_contract_attempts_var,
+            width=6,
+        ).pack(side="left", padx=(8, 12))
+        ttk.Label(
+            attempts_row,
+            text="The validator rejects failed drafts and automatically retries up to this limit.",
+        ).pack(side="left")
+
+        action_row = ttk.Frame(content)
+        action_row.pack(fill="x", pady=(10, 0))
+        ttk.Button(
+            action_row,
+            text="Validate Contract",
+            command=self._validate_scene_contract,
+        ).pack(side="left")
+        ttk.Button(
+            action_row,
+            text="Apply Contract",
+            command=self._apply_scene_contract_from_button,
+        ).pack(side="left", padx=(8, 0))
+        ttk.Button(
+            action_row,
+            text="Build Writer Direction",
+            command=self._build_writer_direction_from_contract,
+        ).pack(side="left", padx=(8, 0))
+        self.scene_contract_status = ttk.Label(
+            action_row,
+            text="",
+            anchor="w",
+        )
+        self.scene_contract_status.pack(side="left", fill="x", expand=True, padx=(12, 0))
+
     def _build_state_tab(self):
         tab = ttk.Frame(self.notebook, padding=12)
         self.notebook.add(tab, text="Current State")
@@ -325,7 +768,28 @@ class StoryBuilderApp(tk.Tk):
         self.notes_text = tk.Text(tab, height=7, wrap="word")
         self.notes_text.grid(row=6, column=1, sticky="nsew", pady=5)
 
-        ttk.Button(tab, text="Apply State Edits", command=self._apply_state_edits).grid(row=7, column=1, sticky="e", pady=8)
+        state_button_row = ttk.Frame(tab)
+        state_button_row.grid(row=7, column=1, sticky="e", pady=8)
+        ttk.Button(
+            state_button_row,
+            text="Apply State Edits",
+            command=self._apply_state_edits,
+        ).pack(side="left")
+        ttk.Button(
+            state_button_row,
+            text="Restore Previous End State",
+            command=self._restore_previous_scene_end_state,
+        ).pack(side="left", padx=(8, 0))
+        ttk.Button(
+            state_button_row,
+            text="Advance to Next Scene",
+            command=self._advance_to_next_scene,
+        ).pack(side="left", padx=(8, 0))
+        ttk.Button(
+            state_button_row,
+            text="Start Next Chapter",
+            command=self._start_next_chapter,
+        ).pack(side="left", padx=(8, 0))
         ttk.Label(tab, text="Current Situation").grid(row=8, column=0, sticky="nw", pady=5)
         self.situation_text = tk.Text(tab, height=5, wrap="word")
         self.situation_text.grid(row=8, column=1, sticky="nsew", pady=5)
@@ -347,6 +811,7 @@ class StoryBuilderApp(tk.Tk):
         scroll_frame.pack(fill="both", expand=True)
 
         canvas = tk.Canvas(scroll_frame, highlightthickness=0, borderwidth=0)
+        self._scroll_canvases.append(canvas)
         scrollbar = ttk.Scrollbar(
             scroll_frame,
             orient="vertical",
@@ -369,17 +834,6 @@ class StoryBuilderApp(tk.Tk):
         content_frame.bind("<Configure>", update_scroll_region)
         canvas.bind("<Configure>", fit_content_width)
 
-        def on_mousewheel(event):
-            if event.delta:
-                canvas.yview_scroll(int(-event.delta / 120), "units")
-            elif event.num == 4:
-                canvas.yview_scroll(-3, "units")
-            elif event.num == 5:
-                canvas.yview_scroll(3, "units")
-
-        canvas.bind_all("<MouseWheel>", on_mousewheel, add="+")
-        canvas.bind_all("<Button-4>", on_mousewheel, add="+")
-        canvas.bind_all("<Button-5>", on_mousewheel, add="+")
 
         ttk.Label(
             content_frame,
@@ -552,6 +1006,12 @@ class StoryBuilderApp(tk.Tk):
 
         ttk.Button(
             manuscript_button_row,
+            text="Start Next Chapter",
+            command=self._start_next_chapter,
+        ).pack(fill="x", pady=(6, 0))
+
+        ttk.Button(
+            manuscript_button_row,
             text="Assemble Chapter",
             command=self._assemble_current_chapter,
         ).pack(fill="x", pady=(6, 0))
@@ -691,19 +1151,26 @@ class StoryBuilderApp(tk.Tk):
             json.dumps(scene_state, indent=2, ensure_ascii=False),
         ))
 
-        # Carry forward concise established facts from accepted scenes.
-        continuity_handoff = {}
-        for key in ("recent_events", "completed_events", "active_clues", "new_clues"):
-            value = state.get(key)
-            if isinstance(value, list):
-                items = [str(item).strip() for item in value if str(item).strip()]
-                if items:
-                    continuity_handoff[key] = items[-12:]
-        if continuity_handoff:
+        working_notes = normalize_writer_notes(
+            getattr(self.package, "writer_notes", {})
+        )
+        if working_notes.get("learned_notes"):
+            prompt_notes = {
+                "learned_notes": [
+                    {"note": item["note"]}
+                    for item in working_notes["learned_notes"]
+                    if isinstance(item, dict) and item.get("note")
+                ]
+            }
             files.append((
-                "recent_continuity.json",
-                json.dumps(continuity_handoff, indent=2, ensure_ascii=False),
+                WRITER_NOTES_FILENAME,
+                json.dumps(prompt_notes, indent=2, ensure_ascii=False),
             ))
+
+        # Do not send shared recent-event or clue lists into the writer context.
+        # Those records may describe events witnessed by one character but not known
+        # by another character in the current scene. Character knowledge is supplied
+        # separately and is the authoritative information boundary.
 
         # Physical state is persisted separately from the prose so the writer
         # can preserve exact starting positions, posture, contact, and movement
@@ -767,14 +1234,70 @@ class StoryBuilderApp(tk.Tk):
                 json.dumps(scene_characters, indent=2, ensure_ascii=False),
             ))
 
+        # Off-scene characters do not need full character cards in the
+        # persistent writer context. Their current location/state is already
+        # supplied by scene_state.json and current_situation. A compact anchor
+        # preserves that information without spending thousands of tokens on
+        # unrelated biography, appearance, secrets, or routines.
+        offscene_anchors = {}
+        location_data = state.get("location", {})
+        if isinstance(location_data, dict):
+            for name, location_text in location_data.items():
+                if name == "primary":
+                    continue
+
+                name_text = str(name).strip()
+                if not name_text or name_text.casefold() in scene_cast:
+                    continue
+
+                offscene_anchors[name_text] = {
+                    "name": name_text,
+                    "status": "established",
+                    "scene_state": str(location_text or "").strip(),
+                }
+
+        if offscene_anchors:
+            files.append((
+                "offscene_character_anchors.json",
+                json.dumps(offscene_anchors, indent=2, ensure_ascii=False),
+            ))
+
+        # Include compact relationship facts even when they are stored as
+        # simple strings rather than nested dictionaries. These facts are often
+        # exactly what the writer needs when an off-scene person is mentioned,
+        # such as knowing who a sick friend's mother is.
         relationships = self.package.story_bible.get("relationships", {})
+        context_names = set(scene_cast_names)
+        if isinstance(location_data, dict):
+            context_names.update(
+                str(name).strip()
+                for name in location_data
+                if str(name).strip() and str(name) != "primary"
+            )
+
         if isinstance(relationships, dict):
+            relevant_facts = {}
+            for key, value in relationships.items():
+                if not isinstance(value, (str, int, float, bool, list)):
+                    continue
+                key_text = str(key).casefold()
+                if any(str(name).casefold() in key_text for name in context_names):
+                    relevant_facts[key] = value
+            if relevant_facts:
+                files.append((
+                    "relevant_relationship_facts.json",
+                    json.dumps(relevant_facts, indent=2, ensure_ascii=False),
+                ))
+
+            # Preserve the existing richer relationship objects for scenes that
+            # use them. Keep this separate so compact scalar facts do not get
+            # filtered out.
             relevant = {}
             for key, value in relationships.items():
                 if not isinstance(value, dict):
                     continue
                 key_text = str(key).casefold()
-                if any(name in key_text for name in scene_cast):
+                if any(str(name).casefold() in key_text for name in context_names):
                     relevant[key] = value
             if relevant:
                 files.append((
@@ -782,10 +1305,558 @@ class StoryBuilderApp(tk.Tk):
                     json.dumps(relevant, indent=2, ensure_ascii=False),
                 ))
 
+        # Supporting people are intentionally kept compact. The writer gets
+        # their established names/roles without pulling full off-scene character
+        # material into the 8K context.
+        supporting_people = self.package.story_bible.get("supporting_people", {})
+        supporting_context = {}
+        if isinstance(supporting_people, dict):
+            for name, value in supporting_people.items():
+                name_text = str(name).strip()
+                if not name_text:
+                    continue
+                if isinstance(value, str):
+                    supporting_context[name_text] = value
+                elif isinstance(value, dict):
+                    compact = {
+                        key: value[key]
+                        for key in ("role", "story_role")
+                        if key in value and value[key]
+                    }
+                    if compact:
+                        supporting_context[name_text] = compact
+        if supporting_context:
+            files.append((
+                "supporting_people_context.json",
+                json.dumps(supporting_context, indent=2, ensure_ascii=False),
+            ))
+
         # Do not place recent manuscript prose or active module plans into the
         # persistent system prompt. Those belong in the per-scene direction
         # and short continuation handoff.
         return files
+
+    def _story_interview_questions(self):
+        mode = self.interview_mode_var.get().strip()
+        if mode == "Relationship":
+            return RELATIONSHIP_QUESTIONS
+        if mode == "Location":
+            return LOCATION_QUESTIONS
+        return CHARACTER_QUESTIONS
+
+    def _interview_targets(self, mode):
+        if self.package is None:
+            return []
+
+        if mode == "Character":
+            return sorted(self.package.characters)
+
+        if mode == "Location":
+            locations = self.package.story_bible.get("locations", {})
+            if not isinstance(locations, dict):
+                return []
+            return sorted(
+                str(key)
+                for key in locations
+                if str(key).strip()
+            )
+
+        relationships = self.package.story_bible.get("relationships", {})
+        targets = []
+        if isinstance(relationships, dict):
+            targets.extend(
+                str(key)
+                for key in relationships
+                if str(key).strip()
+            )
+
+        names = []
+        for filename, data in self.package.characters.items():
+            name = str(data.get("name", "") or "").strip()
+            if name:
+                names.append((name, filename))
+
+        existing = {"-".join(part.strip() for part in str(pair).split("-", 2)) for pair in targets}
+        for index, (left_name, _left_file) in enumerate(names):
+            for right_name, _right_file in names[index + 1:]:
+                pair = f"{left_name}-{right_name}"
+                if pair not in existing:
+                    targets.append(pair)
+        return sorted(set(targets), key=str.casefold)
+
+    def _refresh_interview_targets(self, reset=True):
+        if not hasattr(self, "interview_target_combo"):
+            return
+
+        mode = self.interview_mode_var.get().strip() or "Character"
+        values = self._interview_targets(mode)
+        current = self.interview_target_var.get().strip()
+
+        self.interview_target_combo["values"] = values
+        if values:
+            if not reset and current in values:
+                self.interview_target_var.set(current)
+            else:
+                self.interview_target_var.set(values[0])
+            self._start_story_interview(reset=reset)
+        else:
+            self.interview_target_var.set("")
+            self.interview_active = False
+            self.interview_index = 0
+            self.interview_pending_patch = None
+            self.interview_question_label.configure(text="No targets exist for this interview type yet.")
+            self.interview_prompt_label.configure(text="Create the first item in the appropriate tab, then return here.")
+            if hasattr(self, "interview_current_text"):
+                self.interview_current_text.configure(state="normal")
+                self.interview_current_text.delete("1.0", "end")
+                self.interview_current_text.configure(state="disabled")
+            self._clear_interview_proposal()
+            self._update_story_interview_buttons()
+
+    def _start_story_interview(self, reset=True):
+        if self.package is None or not hasattr(self, "interview_question_label"):
+            return
+
+        if reset or not getattr(self, "interview_active", False):
+            self.interview_index = 0
+
+        target = self.interview_target_var.get().strip()
+        if not target:
+            self.interview_active = False
+            self._update_story_interview_buttons()
+            return
+
+        self.interview_active = True
+        self.interview_pending_patch = None
+        self.interview_pending_answer = ""
+        self._clear_interview_proposal()
+        self._show_story_interview_question()
+
+    def _interview_character_current_answer(self, title):
+        if self.package is None:
+            return ""
+
+        target = self.interview_target_var.get().strip()
+        character = self.package.characters.get(target, {})
+        if not isinstance(character, dict):
+            return ""
+
+        def scalar(value):
+            return str(value or "").strip()
+
+        def list_text(value):
+            if isinstance(value, list):
+                return "\n".join(
+                    scalar(item) for item in value if scalar(item)
+                )
+            return scalar(value)
+
+        def block(label, value):
+            if isinstance(value, dict):
+                body = self._format_key_value_block(value)
+            else:
+                body = list_text(value)
+            return f"{label}:\n{body}" if body else ""
+
+        if title == "Role":
+            return scalar(character.get("role"))
+
+        if title == "Age":
+            value = character.get("age")
+            return "" if value is None else str(value)
+
+        if title == "Appearance":
+            parts = []
+            if character.get("appearance"):
+                parts.append(block("Appearance", character.get("appearance")))
+            for key in ("description",):
+                value = scalar(character.get(key))
+                if value:
+                    parts.append(f"{key.title()}:\n{value}")
+            return "\n\n".join(parts)
+
+        if title == "Personality":
+            return list_text(character.get("personality"))
+
+        if title == "Strengths and weaknesses":
+            parts = [
+                block("Strengths", character.get("strengths")),
+                block("Weaknesses", character.get("weaknesses")),
+                block("Fears", character.get("fears")),
+            ]
+            return "\n\n".join(part for part in parts if part)
+
+        if title == "Background and family":
+            parts = []
+            for key in ("background", "family", "family_living_arrangement", "wife"):
+                value = character.get(key)
+                item = block(key.replace("_", " ").title(), value)
+                if item:
+                    parts.append(item)
+            return "\n\n".join(parts)
+
+        if title == "Relationships":
+            parts = []
+            for key in ("relationships", "friendship_dynamics", "relationship_with_tony"):
+                item = block(key.replace("_", " ").title(), character.get(key))
+                if item:
+                    parts.append(item)
+            return "\n\n".join(parts)
+
+        if title == "Private feelings":
+            parts = []
+            for key in ("private_feelings", "romance", "internal_conflict", "secret"):
+                item = block(key.replace("_", " ").title(), character.get(key))
+                if item:
+                    parts.append(item)
+            return "\n\n".join(parts)
+
+        if title == "Knowledge boundaries":
+            parts = []
+            for key in ("knowledge_rule", "knowledge", "does_not_know", "known_facts"):
+                item = block(key.replace("_", " ").title(), character.get(key))
+                if item:
+                    parts.append(item)
+            return "\n\n".join(parts)
+
+        if title == "Habits and cues":
+            return list_text(character.get("personality_cues"))
+
+        if title == "Goals and interests":
+            parts = []
+            for key in ("goals", "interests", "hobbies", "music", "fears"):
+                item = block(key.replace("_", " ").title(), character.get(key))
+                if item:
+                    parts.append(item)
+            return "\n\n".join(parts)
+
+        if title == "Skills and important details":
+            parts = []
+            for key in ("skills", "self_defense", "important_items", "access", "driving"):
+                item = block(key.replace("_", " ").title(), character.get(key))
+                if item:
+                    parts.append(item)
+            return "\n\n".join(parts)
+
+        return ""
+
+
+    def _show_story_interview_question(self):
+        questions = self._story_interview_questions()
+        if not questions:
+            return
+
+        if self.interview_index >= len(questions):
+            self.interview_active = False
+            self.interview_question_label.configure(text="Interview complete.")
+            self.interview_prompt_label.configure(
+                text="All questions in this interview have been covered. Save the novel to write the approved changes to disk."
+            )
+            self._update_story_interview_buttons()
+            return
+
+        title, prompt, _kind = questions[self.interview_index]
+        target = self.interview_target_var.get().strip()
+        display_target = target
+
+        if self.interview_mode_var.get() == "Character" and self.package:
+            data = self.package.characters.get(target, {})
+            display_target = str(data.get("name", "") or target)
+
+        self.interview_question_label.configure(
+            text=(
+                f"{display_target}  •  {title}  "
+                f"({self.interview_index + 1} of {len(questions)})"
+            )
+        )
+        self.interview_prompt_label.configure(text=prompt)
+
+        current_answer = ""
+        if self.interview_mode_var.get().strip() == "Character":
+            current_answer = self._interview_character_current_answer(title)
+
+        self.interview_current_text.configure(state="normal")
+        self.interview_current_text.delete("1.0", "end")
+        self.interview_current_text.insert(
+            "1.0",
+            current_answer or "(No canon is currently recorded for this question.)",
+        )
+        self.interview_current_text.configure(state="disabled")
+
+        self.interview_answer_text.delete("1.0", "end")
+        if current_answer:
+            self.interview_answer_text.insert("1.0", current_answer)
+
+        self._update_story_interview_buttons()
+
+    def _current_story_interview_data(self):
+        if self.package is None:
+            return {}
+
+        mode = self.interview_mode_var.get().strip()
+        target = self.interview_target_var.get().strip()
+
+        if mode == "Character":
+            return {
+                "character_file": target,
+                "character": self.package.characters.get(target, {}),
+            }
+
+        if mode == "Location":
+            locations = self.package.story_bible.get("locations", {})
+            return {
+                "location_id": target,
+                "location": locations.get(target, ""),
+            }
+
+        relationships = self.package.story_bible.get("relationships", {})
+        pair_value = relationships.get(target, "") if isinstance(relationships, dict) else ""
+
+        names = [part.strip() for part in target.split("-", 1)]
+        characters = {}
+        if len(names) == 2:
+            wanted = {name.casefold() for name in names}
+            for filename, data in self.package.characters.items():
+                name = str(data.get("name", "") or "").strip()
+                if name.casefold() in wanted:
+                    characters[filename] = data
+
+        return {
+            "relationship_key": target,
+            "relationship": pair_value,
+            "characters": characters,
+        }
+
+    def _process_story_interview_answer(self):
+        if not self.interview_active or self.interview_pending_patch is not None:
+            return
+
+        questions = self._story_interview_questions()
+        if self.interview_index >= len(questions):
+            return
+
+        title, prompt, kind = questions[self.interview_index]
+        answer = self.interview_answer_text.get("1.0", "end-1c").strip()
+        if not answer:
+            messagebox.showwarning("Story Interview", "Give an answer, or click Skip.")
+            return
+
+        if kind == "age":
+            try:
+                age = int(answer)
+            except ValueError:
+                messagebox.showerror("Story Interview", "Age must be a whole number, or click Skip.")
+                return
+            if age < 0:
+                messagebox.showerror("Story Interview", "Age cannot be negative.")
+                return
+
+            target = self.interview_target_var.get().strip()
+            character = self.package.characters.get(target) if self.package else None
+            if character is None:
+                return
+            character["age"] = age
+            self.dirty = True
+            self._refresh_all()
+            self._chat("Builder", f"Interview updated {character.get('name', target)}'s age to {age}.")
+            self._advance_story_interview()
+            return
+
+        writer_running = (
+            self.writer_engine.child is not None
+            and self.writer_engine.child.isalive()
+        )
+        if writer_running:
+            messagebox.showwarning(
+                "Story Interview",
+                "Stop the Writer before using the LLM interview so the laptop does not load two copies of the model at once.",
+            )
+            return
+
+        model = self.writer_engine.model_path
+        if model is None:
+            selected = self.writer_model_var.get().strip()
+            if not selected:
+                messagebox.showerror(
+                    "Story Interview",
+                    "Select a GGUF model in the Writer tab first.",
+                )
+                return
+            try:
+                model = WriterEngine.validate_model(selected)
+            except Exception as exc:
+                messagebox.showerror("Story Interview", str(exc))
+                return
+
+        self.interview_process_button.configure(state="disabled")
+        self.interview_status.configure(text="The local LLM is structuring your answer. It will not change canon yet.")
+
+        mode_map = {
+            "Character": "character",
+            "Relationship": "relationship",
+            "Location": "location",
+        }
+        target_kind = mode_map.get(self.interview_mode_var.get().strip(), "character")
+        target = self.interview_target_var.get().strip()
+        existing = self._current_story_interview_data()
+
+        def work():
+            try:
+                patch = structure_answer(
+                    model,
+                    target_kind=target_kind,
+                    target_name=target,
+                    question=prompt,
+                    answer=answer,
+                    existing_data=existing,
+                )
+                error = None
+            except Exception as exc:
+                patch = None
+                error = str(exc)
+
+            self.after(
+                0,
+                lambda patch=patch, error=error: self._finish_story_interview_structure(
+                    patch, error, answer
+                ),
+            )
+
+        self.writer_thread = threading.Thread(target=work, daemon=True)
+        self.writer_thread.start()
+
+    def _finish_story_interview_structure(self, patch, error, answer):
+        if error:
+            messagebox.showerror("Story Interview", error)
+            self.interview_status.configure(text="The answer was not applied.")
+            self._update_story_interview_buttons()
+            return
+
+        if not isinstance(patch, dict) or not patch:
+            messagebox.showinfo(
+                "Story Interview",
+                "The local LLM could not find a safe structured change in that answer. Nothing was changed.",
+            )
+            self.interview_status.configure(
+                text="No change proposed. You can reword the answer or skip the question."
+            )
+            self._update_story_interview_buttons()
+            return
+
+        self.interview_pending_patch = patch
+        self.interview_pending_answer = answer
+        self._set_interview_proposal(patch)
+        self.interview_status.configure(
+            text="Review the proposed JSON changes. Nothing is canon until you approve them."
+        )
+        self._update_story_interview_buttons()
+
+    def _approve_story_interview_patch(self):
+        patch = self.interview_pending_patch
+        if not isinstance(patch, dict) or self.package is None:
+            return
+
+        mode_map = {
+            "Character": "character",
+            "Relationship": "relationship",
+            "Location": "location",
+        }
+        target_kind = mode_map.get(self.interview_mode_var.get().strip(), "character")
+        target = self.interview_target_var.get().strip()
+
+        try:
+            apply_interview_patch(
+                self.package,
+                patch,
+                target_kind=target_kind,
+                target_name=target,
+            )
+        except Exception as exc:
+            messagebox.showerror("Story Interview", str(exc))
+            return
+
+        self.dirty = True
+        self._refresh_all()
+        self._chat("Builder", f"Approved interview changes for {target}.")
+        self.interview_pending_patch = None
+        self.interview_pending_answer = ""
+        self._clear_interview_proposal()
+        self._advance_story_interview()
+
+    def _reject_story_interview_patch(self):
+        if self.interview_pending_patch is None:
+            return
+        self.interview_pending_patch = None
+        self.interview_pending_answer = ""
+        self._clear_interview_proposal()
+        self.interview_status.configure(
+            text="Proposed changes rejected. Your answer was not applied."
+        )
+        self.interview_answer_text.delete("1.0", "end")
+        self._update_story_interview_buttons()
+
+    def _skip_story_interview_question(self):
+        if not self.interview_active or self.interview_pending_patch is not None:
+            return
+        self.interview_answer_text.delete("1.0", "end")
+        self._advance_story_interview()
+
+    def _advance_story_interview(self):
+        self.interview_index += 1
+        self._clear_interview_proposal()
+        self.interview_status.configure(text="Answer accepted into the working novel. Continue when ready.")
+        self._show_story_interview_question()
+
+    def _stop_story_interview(self):
+        self.interview_active = False
+        self.interview_pending_patch = None
+        self.interview_pending_answer = ""
+        self._clear_interview_proposal()
+        self.interview_question_label.configure(text="Interview stopped.")
+        self.interview_prompt_label.configure(
+            text="Your approved changes remain in the working novel. Save when ready."
+        )
+        self._update_story_interview_buttons()
+
+    def _set_interview_proposal(self, patch):
+        self.interview_proposed_text.configure(state="normal")
+        self.interview_proposed_text.delete("1.0", "end")
+        self.interview_proposed_text.insert(
+            "1.0",
+            json.dumps(patch, indent=2, ensure_ascii=False),
+        )
+        self.interview_proposed_text.configure(state="disabled")
+
+    def _clear_interview_proposal(self):
+        if not hasattr(self, "interview_proposed_text"):
+            return
+        self.interview_proposed_text.configure(state="normal")
+        self.interview_proposed_text.delete("1.0", "end")
+        self.interview_proposed_text.configure(state="disabled")
+
+    def _update_story_interview_buttons(self):
+        if not hasattr(self, "interview_process_button"):
+            return
+
+        active = bool(getattr(self, "interview_active", False))
+        pending = isinstance(getattr(self, "interview_pending_patch", None), dict)
+        has_package = self.package is not None
+
+        self.interview_process_button.configure(
+            state="normal" if active and not pending and has_package else "disabled"
+        )
+        self.interview_skip_button.configure(
+            state="normal" if active and not pending else "disabled"
+        )
+        self.interview_stop_button.configure(
+            state="normal" if active else "disabled"
+        )
+        self.interview_approve_button.configure(
+            state="normal" if pending and has_package else "disabled"
+        )
+        self.interview_reject_button.configure(
+            state="normal" if pending else "disabled"
+        )
 
     def _build_scene_direction(self):
         if self.package is None:
@@ -818,6 +1889,9 @@ class StoryBuilderApp(tk.Tk):
             f"Time: {time_text or 'not established'}",
             "Cast: " + ", ".join(cast),
             f"Current state: {situation or 'continue from the exact current state.'}",
+            "Starting-state rule: The current situation above has already happened before this scene begins. Do not replay completed revelations or make characters rediscover facts explicitly stated there.",
+            "Starting-knowledge rule: When the current situation says one character has already told, informed, warned, shown, or communicated a fact to another, the receiving character already knows that fact and dialogue should reflect that knowledge.",
+            "State precedence: Current situation controls completed narrative facts and any physical details it explicitly states. Preserve stored physical continuity for details current situation does not address. Treat a physical-state detail as stale only when directly contradicted by current situation or an explicit action in this scene. Do not replace an established position, posture, contact, or movement merely because current situation does not repeat it.",
         ]
 
         # Physical state is the automatic handoff from the previous accepted
@@ -865,6 +1939,18 @@ class StoryBuilderApp(tk.Tk):
                     lines.append(f"Scene direction: {direction}")
                 if pacing:
                     lines.append(f"Pacing: {pacing}")
+                scene_contract = guidance.get("scene_contract", {})
+                if isinstance(scene_contract, dict) and scene_contract:
+                    required = scene_contract.get("required_beats", [])
+                    forbidden = scene_contract.get("forbidden", [])
+                    if isinstance(required, list) and required:
+                        lines.append("Required story beats: " + " | ".join(
+                            str(item).strip() for item in required if str(item).strip()
+                        ))
+                    if isinstance(forbidden, list) and forbidden:
+                        lines.append("Do not: " + " | ".join(
+                            str(item).strip() for item in forbidden if str(item).strip()
+                        ))
 
         module_endings = []
         module_beats = []
@@ -941,17 +2027,33 @@ class StoryBuilderApp(tk.Tk):
 
 Rules:
 1. Current scene state and scene direction are authoritative.
-2. Preserve established canon, identities, relationships, character traits, knowledge, and continuity.
-3. A character only knows what that character has established or naturally learns during the current scene. Never transfer another character's knowledge.
-4. Begin from the exact physical and narrative starting state provided. Do not replay the previous scene.
-5. Follow the scene direction in order and complete its requested actions before reaching its ending.
-6. Let characters make their own choices when the scene gives them a choice.
-7. Write believable dialogue, actions, emotions, and ordinary interaction. Show feelings through the scene instead of repeatedly explaining them.
-8. Do not invent consequential facts, motives, future events, hidden knowledge, or unnecessary story details.
-9. Respect privacy, dignity, and established character boundaries.
-10. Do not use childlike nicknames for established adult characters unless that nickname is explicitly established.
-11. Respect the scene endpoint exactly. Do not stop early or continue past it.
-12. Output only natural story prose.
+2. The current_situation in scene_state.json is the exact narrative and physical starting point for this scene. Treat statements that are already completed there as already true before writing begins. Do not replay them as new events.
+3. Treat explicit knowledge transfers already completed in current_situation as established knowledge at scene start. If it says one character has told, informed, warned, shown, or otherwise communicated a fact to another character, the receiving character already knows that fact.
+4. Never make a character discover, ask whether, or react as though new something that the current_situation explicitly says they already know. They may ask for clarification or additional details that have not yet been established.
+5. A character only knows what that character has established or naturally learns. Never transfer another character's knowledge. When character_knowledge and current_situation appear to conflict, the explicit completed event in current_situation is the newer scene-start fact and controls the opening of the scene.
+6. Begin from the exact physical and narrative starting state provided. Do not replay the previous scene. Preserve each explicit physical-continuity detail at the opening, including location, position, posture, contact, and movement, unless current_situation or the scene direction directly requires a change. Let the opening naturally orient the reader to important positions, posture, and contact using a simple concrete detail instead of vague staging, then move forward without repeatedly restating the setup. Silence in current_situation does not cancel physical continuity; treat stored physical details as stale only when there is a genuine contradiction.
+7. Follow the scene direction in order and complete its requested actions before reaching its ending. A required disclosure, answer, or action is not complete merely because a character starts to speak, hesitates, or begins attempting it. If the author asks for the character to say or do something, complete that action in the prose before ending.
+8. Let characters make their own choices when the scene gives them a choice.
+9. Write natural prose through a flexible mix of dialogue, concrete action, and selective description. Prefer what characters say and do over narration explaining what their behavior already shows. When a moment depends on shared history that the reader may not yet know, give one brief, natural cue that makes the relationship or gesture understandable; then trust the action and the character's response rather than explaining the same meaning or emotion again. Avoid restating one feeling through several descriptions, metaphors, or interpretations. Keep each character's dialogue and actions consistent with the intended tone; don't turn gentle concern into insistence or pressure unless the scene calls for it.
+10. Let dialogue and interaction carry scenes whenever the situation allows. Use natural exchanges, interruptions, reactions, and small talk when they fit; do not summarize a conversation that would be stronger played out. When a character cannot speak or the moment is quiet, let actions, pauses, the other character's natural words, and selective description carry it. Do not force dialogue or impose a quota.
+11. Give established characters room to breathe and be creative with their shared history. When two characters have known each other for years, they may naturally bring up made-up memories, old jokes, embarrassing moments, traditions, childhood adventures, school incidents, family stories, favorite places, failed plans, harmless arguments, nicknames, routines, or other little experiences they could realistically have shared. These do not need to be prewritten in the canon files. Invent them when they make the conversation feel lived-in and when they do not contradict hard canon, the timeline, character knowledge, established relationships, or explicit scene constraints.
+12. Let those invented memories feel specific rather than generic. A useful memory often includes a concrete place, object, mistake, joke, sensory detail, or tiny disagreement that gives the characters something real to react to. Example: one character reminds the other about getting lost on a bike ride, burning pancakes during a sleepover, hiding from a neighbor's sprinkler, arguing over a ridiculous school-project idea, or laughing for ten minutes over an old inside joke. The exact memory is yours to invent when the story leaves room for it.
+13. Do not treat creative shared memories as forbidden merely because they are not already written in the reference files. The canon files define hard facts and boundaries, not every harmless thing these characters have ever said or done. Prefer believable invention over sterile repetition of only documented facts.
+14. Use invented memories as part of the scene, not as a lore dump. Let one memory spark a response, teasing, correction, laughter, disagreement, affection, or another small exchange, then allow the conversation to wander naturally back to what is happening now.
+15. Do not turn shared history into a narrator summary such as "They had been friends for years" or "They talked about their childhood." Whenever practical, let the characters actually talk about one or two specific remembered moments instead. The goal is a lived relationship on the page, not a report about the relationship.
+16. Let the rhythm vary naturally. Quiet observation, internal thought, description, or silence is appropriate when the moment calls for it; do not fill every pause with dialogue or description.
+17. When an off-scene character is mentioned or referenced, use the supplied off-scene anchor and current scene state to preserve the person's established presence and current situation. Do not invent a different routine or explanation for why that person is where they are. Do not pull an off-scene character into the scene unless the current state or scene direction explicitly does so.
+18. Use relevant_relationship_facts.json and supporting_people_context.json for established names and family/relationship roles when an off-scene person is mentioned. These references establish who people are related to, but they do not make those people physically present in the scene.
+19. Do not invent consequential facts, motives, future events, hidden knowledge, or unnecessary story details.
+20. Do not add unprompted ominous narration, hindsight, thematic warnings, or hints that something bad is about to happen when the current scene gives no reason for it. An ordinary scene should be allowed to remain ordinary. Do not contrast the characters' present happiness with a future event unless that contrast is explicitly part of the current scene direction or established context.
+21. Respect privacy, dignity, and established character boundaries. Do not expose a character's private feelings, secrets, or limited knowledge without a valid in-story reason.
+22. Ordinary affectionate nicknames are allowed when they fit the established relationship and moment. Do not use childizing terms such as "kid", "kiddo", "little girl", or similar terms for established adult characters unless that term is explicitly established.
+23. Respect the scene endpoint exactly. Do not stop early or continue past it. Reach the complete authored End/hard-stop state; do not stop at a stammer, hesitation, first gesture, or just before a required action is completed. Do not continue into events beyond that endpoint.
+24. Keep relationship-specific behavior consistent with established roles and dynamics. Avoid an incongruous relationship metaphor or a diminishing label for someone being comforted unless the story establishes that framing.
+25. If temporary per-novel working writer notes are supplied, treat them as tentative craft observations learned from accepted sections. Apply them selectively when useful; they are not canon, plot instructions, or superior to current author direction, scene contract, character knowledge, or continuity. Never import note content as an in-story fact.
+26. Preserve the emotional cause-and-effect established by author direction and character continuity. When a familiar, trusted care gesture is established as reassuring, let it reassure the character unless the current scene explicitly establishes a different response. Do not invent distress caused by the gesture; connect renewed distress to the authored trigger or remembered event. Do not reverse an established emotional response just to add drama.
+27. Output only natural story prose.
+
 """
         parts = [base, "\nSCENE REFERENCE\n"]
         for name, content in files:
@@ -971,14 +2073,15 @@ Rules:
         has_accepted = bool(self.accepted_scene.strip())
         has_patch = isinstance(self.pending_state_patch, dict)
 
+        notes_updating = bool(self.__dict__.get("writer_notes_update_in_progress", False))
         self.writer_start_button.configure(
-            state="disabled" if running else "normal"
+            state="disabled" if running or notes_updating else "normal"
         )
         self.writer_stop_button.configure(
-            state="normal" if running else "disabled"
+            state="normal" if running and not notes_updating else "disabled"
         )
         self.writer_write_button.configure(
-            state="normal" if running and self.package else "disabled"
+            state="normal" if running and self.package and not notes_updating else "disabled"
         )
         self.writer_save_draft_button.configure(
             state="normal" if has_scene and self.package else "disabled"
@@ -991,23 +2094,25 @@ Rules:
         )
         if hasattr(self, "writer_clear_context_button"):
             self.writer_clear_context_button.configure(
-                state="normal" if running and self.package else "disabled"
+                state="normal" if running and self.package and not notes_updating else "disabled"
             )
         self.writer_analyze_button.configure(
-            state="normal" if has_accepted and self.package else "disabled"
+            state="normal" if has_accepted and self.package and not notes_updating else "disabled"
         )
         self.writer_apply_state_button.configure(
-            state="normal" if has_patch and self.package else "disabled"
+            state="normal" if has_patch and self.package and not notes_updating else "disabled"
         )
-        self.writer_status.configure(
-            text=(
-                f"Writer running: {self.writer_engine.model_path.name}"
-                if running and self.writer_engine.model_path
-                else "Writer stopped."
-            )
-        )
+        if notes_updating:
+            status_text = "Updating this novel's temporary writing notes from accepted scenes..."
+        elif running and self.writer_engine.model_path:
+            status_text = f"Writer running: {self.writer_engine.model_path.name}"
+        else:
+            status_text = "Writer stopped."
+        self.writer_status.configure(text=status_text)
 
-    def _start_writer(self):
+    def _start_writer(self, skip_notes_seed=False):
+        if self.__dict__.get("writer_notes_update_in_progress", False):
+            return
         if self.package is None:
             messagebox.showerror("Writer", "Open or create a novel first.")
             return
@@ -1019,6 +2124,9 @@ Rules:
 
         self._save()
         if self.dirty:
+            return
+
+        if not skip_notes_seed and self._start_initial_writer_notes_scan(model):
             return
 
         files = self._writer_package_files()
@@ -1036,6 +2144,116 @@ Rules:
 
         self.writer_thread = threading.Thread(target=work, daemon=True)
         self.writer_thread.start()
+
+    def _start_initial_writer_notes_scan(self, model):
+        """Seed a blank notebook from a chapter of existing accepted prose."""
+        if self.package is None or self.package.path is None:
+            return False
+
+        package_path = Path(self.package.path)
+        notes = normalize_writer_notes(getattr(self.package, "writer_notes", {}))
+        if notes.get("learned_notes") or notes.get("reviewed_scenes"):
+            return False
+
+        seed_scenes = collect_initial_seed_scenes(package_path)
+        if len(seed_scenes) < 2:
+            return False
+
+        available_labels = [item["scene"] for item in seed_scenes]
+        scene_label = available_labels[-1]
+        review_prompt = build_writer_notes_review_prompt(notes, seed_scenes)
+        self.writer_notes_update_in_progress = True
+        self._update_writer_buttons()
+        self.writer_status.configure(
+            text="Scanning accepted scenes for recurring writing-craft patterns before starting the writer..."
+        )
+
+        def work():
+            updated_notes = None
+            added_count = 0
+            error = None
+            engine = self.writer_engine
+            was_running = False
+            old_system_prompt = ""
+            try:
+                with engine.lock:
+                    was_running = engine.child is not None and engine.child.isalive()
+                    old_system_prompt = str(engine.system_prompt or "")
+                    try:
+                        engine.reset_context(Path(model), WRITER_NOTES_SYSTEM_PROMPT)
+                        response = engine.generate(review_prompt)
+                        suggestions = parse_writer_notes_response(response)
+                        updated_notes, added_count = merge_writer_notes(
+                            notes,
+                            suggestions,
+                            available_labels,
+                            scene_label,
+                        )
+                        # Every sampled scene was considered, even if no note
+                        # was strong enough to keep. This prevents repeated scans.
+                        updated_notes["reviewed_scenes"] = list(dict.fromkeys(
+                            updated_notes.get("reviewed_scenes", []) + available_labels
+                        ))[-100:]
+                        save_writer_notes(package_path, updated_notes)
+                    finally:
+                        if was_running and old_system_prompt:
+                            engine.reset_context(Path(model), old_system_prompt)
+                        else:
+                            engine.stop()
+            except Exception as exc:
+                error = str(exc)
+
+            try:
+                self.after(
+                    0,
+                    lambda: self._finish_initial_writer_notes_scan(
+                        package_path, updated_notes, added_count, error, scene_label
+                    ),
+                )
+            except tk.TclError:
+                pass
+
+        threading.Thread(target=work, daemon=True).start()
+        return True
+
+    def _finish_initial_writer_notes_scan(
+        self, package_path, notes, added_count, error, scene_label
+    ):
+        self.writer_notes_update_in_progress = False
+        package_matches = (
+            self.package is not None
+            and self.package.path is not None
+            and Path(self.package.path).resolve() == Path(package_path).resolve()
+        )
+        if notes is not None and package_matches:
+            self.package.writer_notes = notes
+
+        self._update_writer_buttons()
+        if error:
+            self._chat(
+                "Builder",
+                f"Initial writing-notes scan skipped for {scene_label}: {error}. "
+                "The writer will start without seeded notes.",
+            )
+        elif added_count:
+            self._chat(
+                "Builder",
+                f"Initial writing-notes scan reviewed the earliest complete chapter ending at "
+                f"{scene_label} and added {added_count} recurring craft observation(s).",
+            )
+        else:
+            self._chat(
+                "Builder",
+                f"Initial writing-notes scan reviewed the earliest complete chapter ending at "
+                f"{scene_label}. No recurring craft lesson was strong enough to add.",
+            )
+
+        # The scan is a preflight pass. Continue with fresh prompt content after
+        # it finishes, but do not invoke the seed step a second time in this call.
+        if package_matches and not self._closing:
+            self._start_writer(skip_notes_seed=True)
+        else:
+            self._update_writer_buttons()
 
     def _finish_writer_start(self, error):
         if error:
@@ -1055,6 +2273,14 @@ Rules:
         if self.writer_engine.child is None or not self.writer_engine.child.isalive():
             self.writer_status.configure(text="Writer is not running. Start it before clearing context.")
             self._update_writer_buttons()
+            return
+
+        if not self._ask_yes_no(
+            "Clear Writer Context",
+            "Clear the active model's conversation context and rebuild it from the current saved novel files?\n\n"
+            "This does not delete manuscript text or reset Current State. Any helpful details held only in the model's "
+            "temporary context will be cleared. Continue?",
+        ):
             return
 
         self._save()
@@ -1095,6 +2321,24 @@ Rules:
         self._update_writer_buttons()
 
     def _write_next_scene(self):
+        if self.__dict__.get("writer_notes_update_in_progress", False):
+            self.writer_status.configure(
+                text="The novel's writing notes are being updated from the last accepted scene."
+            )
+            return
+        if self.package is None:
+            messagebox.showerror("Writer", "Open or create a novel first.")
+            return
+        if getattr(self, "scene_contract_building", False):
+            messagebox.showwarning(
+                "Writer",
+                "Wait for the current scene contract to finish before generating prose.",
+            )
+            return
+        if getattr(self, "writer_generation_in_progress", False):
+            messagebox.showwarning("Writer", "A scene is already being generated.")
+            return
+
         direction = self.writer_direction_text.get("1.0", "end-1c").strip()
         if not direction:
             direction = "Write the next scene naturally from the current story state."
@@ -1108,35 +2352,97 @@ Rules:
 
         chapter = int(self.package.current_state.get("chapter", 1) or 1)
         scene = int(self.package.current_state.get("scene", 1) or 1)
+        try:
+            contract = self._scene_contract(chapter, scene)
+            if contract:
+                lint_errors = SceneContract.lint(contract)
+                if lint_errors:
+                    raise ValueError(
+                        "Invalid scene contract:\n- " + "\n- ".join(lint_errors)
+                    )
+        except (TypeError, ValueError) as exc:
+            messagebox.showerror("Scene Contract", str(exc))
+            self._update_writer_buttons()
+            return
 
-        # The current story state and resolved scene direction already define
-        # the exact starting point. Do not send previous manuscript prose to the
-        # writer, because it can pull completed scenes, old characters, or stale
-        # details back into the new scene.
+        current_state = json.loads(
+            json.dumps(self.package.current_state, ensure_ascii=False)
+        )
+        # Capture the exact target before background generation starts.
+        self.writer_generation_context = (chapter, scene)
+        self.writer_generation_start_state = json.loads(
+            json.dumps(current_state, ensure_ascii=False)
+        )
+        self.writer_generation_in_progress = True
+
+        files = self._writer_package_files()
+        system_prompt = self._writer_system_prompt(files)
+        model = self.writer_engine.model_path
+
         prompt_parts = [
             "AUTHOR DIRECTION:\n",
             direction,
             "\n\n",
         ]
 
+        if contract:
+            prompt_parts.extend([
+                "AUTHORITATIVE SCENE CONTRACT:\n",
+                json.dumps(contract, indent=2, ensure_ascii=False),
+                "\n\n",
+            ])
+
         prompt_parts.extend([
             "IMPORTANT SCENE BOUNDARY:\n",
-            "The HARD STOP in the author direction is mandatory. "
-            "The scene is not complete until that exact endpoint is reached. "
-            "Do not end the scene early. Do not skip ahead beyond the endpoint. "
-            "Use enough prose to fully dramatize the requested movement and arrive at the endpoint. "
-            "Do not treat a generic word count as a hard limit. Ordinary scenes can be concise, while detailed "
-            "action or emotional scenes should be substantially longer when needed, generally around 800 to 1200 "
-            "words unless the scene direction specifies another length. Characters outside the scene cast are "
-            "continuity-only and should not be mentioned or narrated "
-            "unless the author direction explicitly requires it.\n\n"
-            "Write the next scene now. Output only the prose."
+            "The scene contract and current story state are authoritative. "
+            "Do not replay the previous scene. Do not reveal information to a character before that "
+            "character naturally learns it in this scene. Do not invent consequential facts. "
+            "Complete the required beats and reach the contract's ending without adding a different plot. "
+            "Creative variation is allowed in dialogue, gestures, reactions, pacing, and harmless details. "
+            "Preserve the emotional intensity and progression the author requests, but let them emerge naturally "
+            "from the scene. Small creative details are welcome when they fit; do not invent consequential facts "
+            "or state unsupported motives as fact. "
+            "At the scene opening, preserve stored location, position, posture, contact, and movement details unless current_situation or the scene direction directly contradicts or changes them. Current_situation wins only in a genuine conflict; do not assume physical continuity is stale merely because current_situation is silent about a detail.\n\n"
+            "Write the scene now. Output only the prose."
         ])
-        prompt = "".join(prompt_parts)
+        base_prompt = "".join(prompt_parts)
 
         def work():
             try:
-                answer = self.writer_engine.generate(prompt)
+                if model is None:
+                    raise RuntimeError("The Writer model is not available.")
+
+                max_attempts = SceneContract.max_attempts(contract) if contract else 1
+                feedback = ""
+                answer = ""
+                self.writer_engine.reset_context(model, system_prompt)
+
+                for attempt in range(1, max_attempts + 1):
+                    attempt_prompt = base_prompt
+                    if feedback:
+                        attempt_prompt += "\n\n" + feedback + "\n"
+                    answer = self.writer_engine.generate(attempt_prompt)
+
+                    if not contract:
+                        break
+
+                    result = SceneContract.validate_with_engine(
+                        self.writer_engine,
+                        contract,
+                        current_state,
+                        answer,
+                    )
+                    if result.get("pass"):
+                        break
+
+                    feedback = SceneContract.feedback(result)
+                    if attempt == max_attempts:
+                        raise RuntimeError(
+                            "The writer could not produce a scene that satisfies the scene contract "
+                            f"after {max_attempts} attempts.\n\n{feedback}"
+                        )
+                    self.writer_engine.reset_context(model, system_prompt)
+
                 error = None
             except Exception as exc:
                 answer = ""
@@ -1145,26 +2451,41 @@ Rules:
 
         self.writer_thread = threading.Thread(target=work, daemon=True)
         self.writer_thread.start()
-
     def _finish_generated_scene(self, answer, error):
+        target = getattr(self, "writer_generation_context", None)
+        start_state = getattr(self, "writer_generation_start_state", None)
+        self.writer_generation_in_progress = False
+        self.writer_generation_context = None
+        self.writer_generation_start_state = None
+
         if error:
+            # A failed attempt must not silently replace the prior accepted text.
             messagebox.showerror("Writer", error)
             self._update_writer_buttons()
             return
 
         self.generated_scene = answer.strip()
+        self.generated_scene_context = target or (
+            int(self.package.current_state.get("chapter", 1) or 1),
+            int(self.package.current_state.get("scene", 1) or 1),
+        )
+        self.generated_scene_start_state = start_state or json.loads(
+            json.dumps(self.package.current_state, ensure_ascii=False)
+        )
         self.writer_output_text.delete("1.0", "end")
         self.writer_output_text.insert("1.0", self.generated_scene)
         self.writer_status.configure(
-            text="Scene generated. Review it, save a draft if desired, then accept or reject it."
+            text=(
+                f"Draft generated for Chapter {self.generated_scene_context[0]}, "
+                f"Scene {self.generated_scene_context[1]}. Review it, save a draft if desired, then accept or reject it."
+            )
         )
         self._update_writer_buttons()
-
     def _reject_generated_scene(self):
         if not self.generated_scene.strip():
             return
 
-        if not messagebox.askyesno(
+        if not self._ask_yes_no(
             "Reject Scene",
             "Discard this generated scene? It will not be accepted into the manuscript.",
         ):
@@ -1172,75 +2493,704 @@ Rules:
 
         self.generated_scene = ""
         self.writer_output_text.delete("1.0", "end")
+        if not self.accepted_scene.strip():
+            self.generated_scene_context = None
+            self.generated_scene_start_state = None
         self.writer_status.configure(
-            text="Scene rejected. The current story state and manuscript were not changed."
+            text="Scene rejected. The current story state and accepted manuscript were not changed.",
         )
         self._update_writer_buttons()
-
     def _save_generated_draft(self):
-        if not self.package or self.package.path is None or not self.generated_scene.strip():
+        if not self.package:
             return
 
-        try:
-            chapter = int(self.package.current_state.get("chapter", 1))
-            scene = int(self.package.current_state.get("scene", 1))
-            path = ManuscriptManager(self.package.path).save_draft(
-                chapter,
-                scene,
-                self.generated_scene,
+        prose = self._writer_editor_prose()
+        if not prose:
+            return
+
+        if self.package.path is None:
+            messagebox.showwarning(
+                "Writer",
+                "Save the novel package with Save As / Export before saving a manuscript draft.",
             )
+            return
+
+        state = self.package.current_state
+        fallback_key = (
+            int(state.get("chapter", 1) or 1),
+            int(state.get("scene", 1) or 1),
+        )
+        context = getattr(self, "generated_scene_context", None) or fallback_key
+        try:
+            chapter, scene = int(context[0]), int(context[1])
+            path = ManuscriptManager(self.package.path).save_draft(chapter, scene, prose)
+            self.generated_scene = prose
+            self.generated_scene_context = (chapter, scene)
             self._refresh_manuscript()
-            messagebox.showinfo("Writer", f"Draft saved to:\n\n{path}")
+            messagebox.showinfo(
+                "Writer",
+                f"Draft saved for Chapter {chapter}, Scene {scene}:\n\n{path}",
+            )
         except Exception as exc:
             messagebox.showerror("Writer", str(exc))
-
     def _accept_generated_scene(self):
-        if not self.package or self.package.path is None or not self.generated_scene.strip():
+        if not self.package or not self.generated_scene.strip():
+            return
+        if self.package.path is None:
+            messagebox.showwarning(
+                "Writer",
+                "Save the novel package with Save As / Export before accepting a manuscript scene.",
+            )
             return
 
-        edited = self.writer_output_text.get("1.0", "end-1c").strip()
-        if edited:
-            self.generated_scene = edited
+        prose = self._writer_editor_prose()
+        if not prose:
+            messagebox.showwarning("Writer", "There is no scene text to accept.")
+            return
 
+        state = self.package.current_state
+        current_key = (
+            int(state.get("chapter", 1) or 1),
+            int(state.get("scene", 1) or 1),
+        )
+        context = getattr(self, "generated_scene_context", None) or current_key
         try:
-            chapter = int(self.package.current_state.get("chapter", 1))
-            scene = int(self.package.current_state.get("scene", 1))
+            chapter, scene = int(context[0]), int(context[1])
+        except (TypeError, ValueError, IndexError):
+            chapter, scene = current_key
+
+        if (chapter, scene) != current_key:
+            if prose != str(getattr(self, "accepted_scene", "") or "").strip():
+                if not self._save_unsaved_writer_draft():
+                    return
+            messagebox.showwarning(
+                "Writer",
+                f"This draft belongs to Chapter {chapter}, Scene {scene}, but the current state is "
+                f"Chapter {current_key[0]}, Scene {current_key[1]}. It was not accepted under the wrong scene number. "
+                "Return to its original scene or load the saved draft from Manuscript.",
+            )
+            return
+
+        start_state = getattr(self, "generated_scene_start_state", None)
+        if isinstance(start_state, dict) and start_state != state:
+            if prose != str(getattr(self, "accepted_scene", "") or "").strip():
+                if not self._save_unsaved_writer_draft():
+                    return
+            messagebox.showwarning(
+                "Writer",
+                "The current story state changed after this prose was generated. The scene was not accepted against "
+                "a different starting state. Restore the scene's starting state or rebuild Writer direction and generate again.",
+            )
+            return
+
+        self.generated_scene = prose
+        try:
             manager = ManuscriptManager(self.package.path)
             path = manager.scene_path(chapter, scene)
             if path.exists():
-                replace = messagebox.askyesno(
+                replace = self._ask_yes_no(
                     "Replace Existing Scene",
                     f"{path.name} already exists. Replace it with this accepted scene?"
                 )
                 if not replace:
                     return
-            path = manager.save_scene(
-                chapter,
-                scene,
-                self.generated_scene,
-            )
-            # Preserve the exact current state that existed before this accepted
-            # section. This provides a durable recovery baseline for later state
-            # reconstruction.
+            path = manager.save_scene(chapter, scene, prose)
             manager.save_state_before(
                 chapter,
                 scene,
-                json.loads(json.dumps(self.package.current_state)),
+                json.loads(json.dumps(start_state if isinstance(start_state, dict) else state, ensure_ascii=False)),
             )
-            self.accepted_scene = self.generated_scene
+            self.accepted_scene = prose
+            self.generated_scene_context = (chapter, scene)
             self.pending_state_patch = None
             self.writer_state_preview.delete("1.0", "end")
             self._refresh_manuscript()
-            self._chat(
-                "Builder",
-                f"Accepted Scene {scene} and saved it to {path}.",
-            )
+            self._chat("Builder", f"Accepted Chapter {chapter}, Scene {scene} and saved it to {path}.")
             self.writer_status.configure(
                 text="Scene accepted. You can now analyze it for state changes."
             )
             self._update_writer_buttons()
         except Exception as exc:
             messagebox.showerror("Writer", str(exc))
+    def _editable_scene_guidance_entry(
+        self,
+        chapter: int,
+        scene: int,
+        create: bool = False,
+    ) -> dict | None:
+        """Return the author-owned guidance entry without merging active modules."""
+        if not self.package:
+            return None
+
+        plan = self.package.extra_json.get("writing_guidance.json")
+        if not isinstance(plan, dict):
+            if not create:
+                return None
+            plan = {
+                "purpose": "Author-defined scene direction and reusable scene contracts."
+            }
+            self.package.extra_json["writing_guidance.json"] = plan
+
+        chapter_plans = plan.get("chapter_plans")
+        if isinstance(chapter_plans, dict):
+            chapter_entry = chapter_plans.get(str(chapter))
+            if chapter_entry is None:
+                chapter_entry = chapter_plans.get(chapter)
+            if isinstance(chapter_entry, dict):
+                scene_plan = chapter_entry.get("scene_plan")
+                if not isinstance(scene_plan, dict):
+                    if not create:
+                        return None
+                    scene_plan = {}
+                    chapter_entry["scene_plan"] = scene_plan
+                entry = scene_plan.get(str(scene))
+                if entry is None:
+                    entry = scene_plan.get(scene)
+                if isinstance(entry, dict):
+                    return entry
+                if create:
+                    entry = {}
+                    scene_plan[str(scene)] = entry
+                    return entry
+                return None
+
+        # Preserve the legacy Chapter 1 layout already used by current novels.
+        if chapter == 1 and isinstance(plan.get("scene_plan"), dict):
+            scene_plan = plan["scene_plan"]
+            entry = scene_plan.get(str(scene))
+            if entry is None:
+                entry = scene_plan.get(scene)
+            if isinstance(entry, dict):
+                return entry
+            if create:
+                entry = {}
+                scene_plan[str(scene)] = entry
+                return entry
+            return None
+
+        if not create:
+            return None
+
+        chapter_plans = plan.setdefault("chapter_plans", {})
+        chapter_entry = chapter_plans.setdefault(str(chapter), {})
+        scene_plan = chapter_entry.setdefault("scene_plan", {})
+        return scene_plan.setdefault(str(scene), {})
+
+    def _scene_contract_start_summary(self) -> str:
+        if not self.package:
+            return ""
+
+        state = self.package.current_state
+        location = state.get("location", "")
+        if isinstance(location, dict):
+            location_text = str(location.get("primary", "") or "").strip()
+        else:
+            location_text = str(location or "").strip()
+
+        time_data = state.get("time", state.get("time_of_day", ""))
+        if isinstance(time_data, dict):
+            time_text = str(time_data.get("period", "") or "").strip()
+            exact = str(time_data.get("exact_time", "") or "").strip()
+            if exact and exact != "not established":
+                time_text = f"{time_text} ({exact})"
+        else:
+            time_text = str(time_data or "").strip()
+
+        cast = [
+            str(name).strip()
+            for name in state.get("scene_cast", [])
+            if str(name).strip()
+        ]
+        situation = str(state.get("current_situation", "") or "").strip()
+
+        lines = [
+            f"Chapter: {int(state.get('chapter', 1) or 1)}",
+            f"Scene: {int(state.get('scene', 1) or 1)}",
+            f"Location: {location_text or 'not established'}",
+            f"Time: {time_text or 'not established'}",
+            "Cast: " + (", ".join(cast) if cast else "not established"),
+            f"Current situation: {situation or 'not established'}",
+        ]
+        return "\n".join(lines)
+
+    @staticmethod
+    def _contract_list(contract: dict, key: str) -> list[str]:
+        value = contract.get(key, [])
+        if not isinstance(value, list):
+            return []
+        return [str(item).strip() for item in value if str(item).strip()]
+
+    def _clear_scene_contract_editor(self):
+        """Clear editable scene-contract fields so loading/generation is visible."""
+        if hasattr(self, "scene_idea_text"):
+            self.scene_idea_text.delete("1.0", "end")
+        if hasattr(self, "scene_contract_direction_text"):
+            self.scene_contract_direction_text.delete("1.0", "end")
+        if hasattr(self, "scene_contract_end_text"):
+            self.scene_contract_end_text.delete("1.0", "end")
+        for widget in getattr(self, "scene_contract_texts", {}).values():
+            widget.delete("1.0", "end")
+        if hasattr(self, "scene_contract_attempts_var"):
+            self.scene_contract_attempts_var.set("3")
+
+    def _scene_contract_editor_has_content(self) -> bool:
+        if hasattr(self, "scene_idea_text") and self.scene_idea_text.get("1.0", "end-1c").strip():
+            return True
+        if hasattr(self, "scene_contract_direction_text") and self.scene_contract_direction_text.get("1.0", "end-1c").strip():
+            return True
+        if hasattr(self, "scene_contract_end_text") and self.scene_contract_end_text.get("1.0", "end-1c").strip():
+            return True
+        for widget in getattr(self, "scene_contract_texts", {}).values():
+            if widget.get("1.0", "end-1c").strip():
+                return True
+        return False
+
+    def _load_current_scene_contract(self):
+        """Reload the saved contract, warning before discarding editor contents."""
+        if self.package is None:
+            return
+
+        if self._scene_contract_editor_has_content():
+            if not self._ask_yes_no(
+                "Reload Saved Contract",
+                "Discard unsaved Scene Contract editor changes and reload the saved version? "
+                "The saved novel data will not be changed.",
+            ):
+                return
+
+        self._clear_scene_contract_editor()
+        self.scene_contract_status.configure(
+            text="Loading saved contract..."
+        )
+        self.update_idletasks()
+        self._refresh_scene_contract_editor()
+        self.scene_contract_status.configure(
+            text="Loaded the saved contract for the current scene. You can edit it or replace it with a new draft.",
+        )
+
+    def _reset_current_scene_contract(self):
+        """Clear generated contract fields for this scene while keeping its idea."""
+        if self.package is None:
+            return
+        if getattr(self, "scene_contract_building", False) or getattr(
+            self, "writer_generation_in_progress", False
+        ):
+            messagebox.showwarning(
+                "Reset Contract",
+                "Wait for contract building or scene generation to finish before resetting the contract.",
+            )
+            return
+
+        chapter = int(self.package.current_state.get("chapter", 1) or 1)
+        scene = int(self.package.current_state.get("scene", 1) or 1)
+        entry = self._editable_scene_guidance_entry(chapter, scene, create=False)
+        if not isinstance(entry, dict):
+            self.scene_contract_status.configure(
+                text=f"No saved contract exists for Chapter {chapter}, Scene {scene}."
+            )
+            return
+
+        fields_to_clear = ("direction", "end_condition", "scene_contract")
+        if not any(key in entry for key in fields_to_clear):
+            self.scene_contract_status.configure(
+                text=f"No saved contract fields need resetting for Chapter {chapter}, Scene {scene}."
+            )
+            return
+
+        if not self._ask_yes_no(
+            "Reset Scene Contract",
+            f"Clear the saved direction, ending, and generated contract for Chapter {chapter}, Scene {scene}?\n\n"
+            "The Scene Idea, character data, manuscript, current story state, and other scenes will be preserved. "
+            "You can build a fresh contract from the saved Scene Idea after restoring the correct starting state.\n\n"
+            "Are you sure you want to reset this contract?",
+        ):
+            return
+
+        # Keep the Scene Idea while removing only generated contract fields.
+        idea = self.scene_idea_text.get("1.0", "end-1c").strip()
+        if idea:
+            entry["scene_idea"] = idea
+        for key in fields_to_clear:
+            entry.pop(key, None)
+
+        self.dirty = True
+        try:
+            self.package.save()
+            self.dirty = False
+            self._update_path_label()
+            self._refresh_scene_contract_editor()
+            self._build_scene_direction()
+            self.scene_contract_status.configure(
+                text=f"Reset the saved contract for Chapter {chapter}, Scene {scene}. The Scene Idea was preserved."
+            )
+            self._chat(
+                "Builder",
+                f"Reset the generated contract for Chapter {chapter}, Scene {scene}; the Scene Idea and manuscript were preserved.",
+            )
+        except Exception as exc:
+            self.dirty = True
+            messagebox.showerror(
+                "Reset Scene Contract",
+                f"Could not save the reset contract.\n\n{exc}",
+            )
+
+    def _refresh_scene_contract_editor(self):
+        if not hasattr(self, "scene_contract_start_text") or self.package is None:
+            return
+
+        chapter = int(self.package.current_state.get("chapter", 1) or 1)
+        scene = int(self.package.current_state.get("scene", 1) or 1)
+        self.scene_contract_editor_key = (chapter, scene)
+        self.scene_contract_scene_label.configure(
+            text=f"Chapter {chapter}, Scene {scene}"
+        )
+
+        start = self._scene_contract_start_summary()
+        self.scene_contract_start_text.configure(state="normal")
+        self.scene_contract_start_text.delete("1.0", "end")
+        self.scene_contract_start_text.insert("1.0", start)
+        self.scene_contract_start_text.configure(state="disabled")
+
+        entry = self._editable_scene_guidance_entry(chapter, scene, create=False) or {}
+        self.scene_idea_text.delete("1.0", "end")
+        self.scene_idea_text.insert("1.0", str(entry.get("scene_idea", "") or ""))
+        contract_error = None
+        try:
+            contract = SceneContract.from_guidance(entry, [])
+        except (TypeError, ValueError) as exc:
+            contract = {}
+            contract_error = str(exc)
+
+        self.scene_contract_direction_text.delete("1.0", "end")
+        self.scene_contract_direction_text.insert(
+            "1.0",
+            str(entry.get("direction", "") or ""),
+        )
+
+        self.scene_contract_end_text.delete("1.0", "end")
+        self.scene_contract_end_text.insert(
+            "1.0",
+            str(contract.get("hard_stop") or entry.get("end_condition") or ""),
+        )
+
+        for key, widget in self.scene_contract_texts.items():
+            widget.delete("1.0", "end")
+            widget.insert(
+                "1.0",
+                "\n".join(self._contract_list(contract, key)),
+            )
+
+        attempts = contract.get("max_attempts", 3)
+        self.scene_contract_attempts_var.set(str(attempts))
+        if hasattr(self, "scene_contract_load_button"):
+            self.scene_contract_load_button.configure(state="normal")
+        if hasattr(self, "scene_contract_build_button"):
+            self.scene_contract_build_button.configure(state="normal")
+        if contract_error:
+            self.scene_contract_status.configure(
+                text=f"Contract needs attention: {contract_error}",
+            )
+        else:
+            self.scene_contract_status.configure(
+                text="Loaded author contract for the current scene.",
+            )
+
+    def _collect_scene_contract_editor(self) -> tuple[str, str, dict]:
+        if self.package is None or not hasattr(self, "scene_contract_direction_text"):
+            raise ValueError("Scene contract editor is not available.")
+
+        scene_idea = self.scene_idea_text.get("1.0", "end-1c").strip()
+        direction = self.scene_contract_direction_text.get("1.0", "end-1c").strip()
+        end_text = self.scene_contract_end_text.get("1.0", "end-1c").strip()
+
+        contract = {}
+        for key, widget in self.scene_contract_texts.items():
+            values = self._lines(widget)
+            if values:
+                contract[key] = values
+
+        raw_attempts = self.scene_contract_attempts_var.get().strip()
+        if raw_attempts:
+            try:
+                attempts = int(raw_attempts)
+            except ValueError as exc:
+                raise ValueError(
+                    "Automatic attempts must be an integer from 1 to 5."
+                ) from exc
+        else:
+            attempts = 3
+
+        contract["max_attempts"] = attempts
+        if end_text:
+            contract["hard_stop"] = end_text
+
+        SceneContract.validate_shape(contract)
+        lint_errors = SceneContract.lint(contract)
+        if lint_errors:
+            raise ValueError(
+                "Invalid scene contract:\n- " + "\n- ".join(lint_errors)
+            )
+
+        return scene_idea, direction, end_text, contract
+
+    def _validate_scene_contract(self):
+        if self.package is None:
+            return
+
+        chapter = int(self.package.current_state.get("chapter", 1) or 1)
+        scene = int(self.package.current_state.get("scene", 1) or 1)
+
+        try:
+            _scene_idea, _direction, end_text, contract = self._collect_scene_contract_editor()
+        except (TypeError, ValueError) as exc:
+            self.scene_contract_status.configure(text="Contract invalid.")
+            messagebox.showerror("Scene Contract", str(exc))
+            return
+
+        self.scene_contract_status.configure(
+            text="Current editor contents are structurally valid.",
+        )
+        messagebox.showinfo(
+            "Scene Contract",
+            (
+                f"Chapter {chapter}, Scene {scene} contract is valid.\n\n"
+                f"Required beats: {len(contract.get('required_beats', []))}\n"
+                f"Required facts: {len(contract.get('required_facts', []))}\n"
+                f"Sequence steps: {len(contract.get('required_sequence', []))}\n"
+                f"Forbidden rules: {len(contract.get('forbidden', []))}\n"
+                f"Ending defined: {'yes' if end_text else 'no'}\n"
+                f"Automatic attempts: {SceneContract.max_attempts(contract)}"
+            ),
+        )
+
+    def _apply_scene_contract_from_button(self):
+        try:
+            self._apply_scene_contract_edits()
+        except (TypeError, ValueError) as exc:
+            self.scene_contract_status.configure(text="Contract not saved.")
+            messagebox.showerror("Scene Contract", str(exc))
+
+    def _store_scene_contract_entry(
+        self,
+        chapter: int,
+        scene: int,
+        scene_idea: str,
+        direction: str,
+        end_text: str,
+        contract: dict,
+    ) -> dict:
+        """Persist the authored contract under its explicit scene key."""
+        entry = self._editable_scene_guidance_entry(chapter, scene, create=True)
+        if entry is None:
+            raise ValueError(f"Could not create guidance for Chapter {chapter}, Scene {scene}.")
+
+        if scene_idea:
+            entry["scene_idea"] = scene_idea
+        else:
+            entry.pop("scene_idea", None)
+        if direction:
+            entry["direction"] = direction
+        else:
+            entry.pop("direction", None)
+        if end_text:
+            entry["end_condition"] = end_text
+        else:
+            entry.pop("end_condition", None)
+        entry["scene_contract"] = contract
+        self.dirty = True
+        self._update_path_label()
+        return entry
+
+    def _apply_scene_contract_edits(self):
+        if self.package is None or not hasattr(self, "scene_contract_direction_text"):
+            return
+
+        scene_key = getattr(self, "scene_contract_editor_key", None)
+        if isinstance(scene_key, tuple) and len(scene_key) == 2:
+            chapter, scene = int(scene_key[0]), int(scene_key[1])
+        else:
+            chapter = int(self.package.current_state.get("chapter", 1) or 1)
+            scene = int(self.package.current_state.get("scene", 1) or 1)
+
+        scene_idea, direction, end_text, contract = self._collect_scene_contract_editor()
+        self._store_scene_contract_entry(
+            chapter,
+            scene,
+            scene_idea,
+            direction,
+            end_text,
+            contract,
+        )
+        self.scene_contract_status.configure(
+            text=f"Saved author contract for Chapter {chapter}, Scene {scene}.",
+        )
+    def _build_contract_from_scene_idea(self):
+        if self.__dict__.get("writer_notes_update_in_progress", False):
+            self.scene_contract_status.configure(
+                text="The writing-notes review is using the local model. Build the next contract after it finishes."
+            )
+            return
+        if self.package is None or not hasattr(self, "scene_idea_text"):
+            return
+
+        idea = self.scene_idea_text.get("1.0", "end-1c").strip()
+        if not idea:
+            messagebox.showerror("Scene Contract", "Enter a scene idea first.")
+            return
+
+        state = self.package.current_state
+        active_key = (
+            int(state.get("chapter", 1) or 1),
+            int(state.get("scene", 1) or 1),
+        )
+        editor_key = getattr(self, "scene_contract_editor_key", None) or active_key
+        if editor_key != active_key:
+            self._refresh_scene_contract_editor()
+            messagebox.showwarning(
+                "Scene Contract",
+                "The current state and contract editor were out of sync. I reloaded the current scene's contract. "
+                "Please check the scene idea and build it again.",
+            )
+            return
+
+        try:
+            # Save the current editor under its own scene before starting the
+            # model call. Do not apply unrelated State-tab fields implicitly.
+            self._apply_scene_contract_edits()
+            chapter, scene = active_key
+            current_state = json.loads(json.dumps(self.package.current_state, ensure_ascii=False))
+            model = self._selected_writer_model_for_analysis()
+
+            self._clear_scene_contract_editor()
+            self.scene_idea_text.insert("1.0", idea)
+            self.scene_contract_status.configure(
+                text=f"Building contract for Chapter {chapter}, Scene {scene}...",
+            )
+            self.scene_contract_building = True
+            if hasattr(self, "scene_contract_build_button"):
+                self.scene_contract_build_button.configure(state="disabled")
+            if hasattr(self, "scene_contract_load_button"):
+                self.scene_contract_load_button.configure(state="disabled")
+            self.update_idletasks()
+
+            def work():
+                try:
+                    result = SceneContract.generate_from_idea(model, current_state, idea)
+                    error = None
+                except Exception as exc:
+                    result = None
+                    error = str(exc)
+                self.after(
+                    0,
+                    lambda: self._finish_contract_from_scene_idea(
+                        idea, result, error, chapter, scene
+                    ),
+                )
+
+            threading.Thread(target=work, daemon=True).start()
+        except Exception as exc:
+            self.scene_contract_building = False
+            if hasattr(self, "scene_contract_build_button"):
+                self.scene_contract_build_button.configure(state="normal")
+            if hasattr(self, "scene_contract_load_button"):
+                self.scene_contract_load_button.configure(state="normal")
+            messagebox.showerror("Scene Contract", str(exc))
+    def _finish_contract_from_scene_idea(self, idea, result, error, chapter=None, scene=None):
+        self.scene_contract_building = False
+        if hasattr(self, "scene_contract_build_button"):
+            self.scene_contract_build_button.configure(state="normal")
+        if hasattr(self, "scene_contract_load_button"):
+            self.scene_contract_load_button.configure(state="normal")
+
+        if error:
+            self.scene_contract_status.configure(
+                text="Could not build the contract. The previous saved contract was kept.",
+            )
+            # Reload the saved entry so an unsuccessful build does not leave
+            # the form looking like its existing contract vanished.
+            if self.package is not None:
+                self._refresh_scene_contract_editor()
+            messagebox.showerror("Scene Contract", error)
+            return
+
+        if self.package is None or not isinstance(result, dict):
+            self.scene_contract_status.configure(text="No contract was saved because the result was unavailable.")
+            return
+
+        state = self.package.current_state
+        if chapter is None:
+            chapter = int(state.get("chapter", 1) or 1)
+        if scene is None:
+            scene = int(state.get("scene", 1) or 1)
+        chapter, scene = int(chapter), int(scene)
+
+        direction = str(result.get("direction", "") or "").strip()
+        end_text = str(result.get("hard_stop", "") or "").strip()
+        contract = {
+            "required_beats": list(result.get("required_beats", []) or []),
+            "required_facts": list(result.get("required_facts", []) or []),
+            "required_sequence": list(result.get("required_sequence", []) or []),
+            "forbidden": list(result.get("forbidden", []) or []),
+            "forbidden_details": list(result.get("forbidden_details", []) or []),
+            "max_attempts": result.get("max_attempts", 3) or 3,
+        }
+        if end_text:
+            contract["hard_stop"] = end_text
+
+        try:
+            SceneContract.validate_shape(contract)
+            lint_errors = SceneContract.lint(contract)
+            if lint_errors:
+                raise ValueError("Generated contract needs attention:\n- " + "\n- ".join(lint_errors))
+
+            self._store_scene_contract_entry(
+                chapter, scene, idea, direction, end_text, contract
+            )
+
+            persisted = False
+            if self.package.path is not None:
+                self.package.save()
+                self.dirty = False
+                persisted = True
+            else:
+                self.dirty = True
+            self._update_path_label()
+
+            active_key = (
+                int(self.package.current_state.get("chapter", 1) or 1),
+                int(self.package.current_state.get("scene", 1) or 1),
+            )
+            editor_key = getattr(self, "scene_contract_editor_key", None)
+            if active_key == (chapter, scene) and editor_key == (chapter, scene):
+                # The contract is now stored, so reload the saved values and
+                # build Writer direction in this same operation. Apply Contract
+                # and Build Writer Direction remain available for later edits,
+                # but are no longer required after every generated contract.
+                self._refresh_scene_contract_editor()
+                self._build_scene_direction()
+                status = (
+                    f"Contract saved for Chapter {chapter}, Scene {scene}. Writer direction is ready."
+                    if persisted
+                    else f"Contract drafted for Chapter {chapter}, Scene {scene}. Save or Save As to persist it."
+                )
+            else:
+                status = (
+                    f"Contract saved for Chapter {chapter}, Scene {scene}. The current scene editor was left untouched."
+                    if persisted
+                    else f"Contract drafted in memory for Chapter {chapter}, Scene {scene}. Save the novel package to persist it."
+                )
+            self.scene_contract_status.configure(text=status)
+        except Exception as exc:
+            self.dirty = True
+            self._update_path_label()
+            self.scene_contract_status.configure(text="Contract generated but could not be saved.")
+            messagebox.showerror("Scene Contract", str(exc))
+    def _build_writer_direction_from_contract(self):
+        try:
+            self._apply_scene_contract_edits()
+            self._build_scene_direction()
+        except Exception as exc:
+            messagebox.showerror("Scene Contract", str(exc))
 
     @staticmethod
     def _chapter_scene_guidance(
@@ -1317,18 +3267,86 @@ Rules:
         except Exception:
             return ""
 
+    def _scene_contract(self, chapter: int, scene: int) -> dict:
+        """Build the reusable contract for the current scene.
+
+        Explicit scene_contract data remains authoritative, while legacy
+        end_condition/required_events/do_not_advance fields and active module
+        guidance are folded in automatically.
+        """
+        if not self.package:
+            return {}
+
+        guidance = self.package.extra_json.get("writing_guidance.json", {})
+        entry = self._chapter_scene_guidance(guidance, chapter, scene) or {}
+        if not isinstance(entry, dict):
+            entry = {}
+
+        module_guidance = []
+        modules = self.package.story_bible.get("optional_story_modules", [])
+        if isinstance(modules, list):
+            for module in modules:
+                if not isinstance(module, dict):
+                    continue
+                if str(module.get("status", "")).casefold() != "active":
+                    continue
+                filename = str(module.get("file", "") or "").strip()
+                if not filename:
+                    continue
+                data = self.package.extra_json.get(filename, {})
+                if not isinstance(data, dict):
+                    continue
+                scene_guidance = data.get("scene_guidance", {})
+                if not isinstance(scene_guidance, dict):
+                    continue
+                module_entry = scene_guidance.get(str(scene))
+                if module_entry is None:
+                    module_entry = scene_guidance.get(scene)
+                if isinstance(module_entry, dict):
+                    module_guidance.append(module_entry)
+
+        return SceneContract.from_guidance(entry, module_guidance)
+
+
     def _analyze_accepted_scene(self):
-        if (
-            not self.package
-            or not self.accepted_scene.strip()
-            or not self.writer_engine.model_path
-        ):
+        if not self.package or not self.accepted_scene.strip():
             return
 
         current_state = dict(self.package.current_state)
         story_text = self.accepted_scene
         completed_chapter = int(current_state.get("chapter", 1) or 1)
         completed_scene = int(current_state.get("scene", 1) or 1)
+        contract = self._scene_contract(completed_chapter, completed_scene)
+        fixed_state_after = contract.get("state_after") if isinstance(contract, dict) else None
+
+        if isinstance(fixed_state_after, dict):
+            try:
+                StateManager.validate_patch(current_state, fixed_state_after)
+            except (TypeError, ValueError) as exc:
+                messagebox.showerror(
+                    "State Update",
+                    "The authored state update is malformed and was rejected. "
+                    "No state changes were applied.\n\n" + str(exc),
+                )
+                self._update_writer_buttons()
+                return
+            self.pending_state_patch = json.loads(
+                json.dumps(fixed_state_after, ensure_ascii=False)
+            )
+            self.writer_state_preview.delete("1.0", "end")
+            self.writer_state_preview.insert(
+                "1.0",
+                json.dumps(self.pending_state_patch, indent=2, ensure_ascii=False),
+            )
+            self.writer_status.configure(
+                text="Scene contract state loaded. No AI state reconstruction is needed."
+            )
+            self._update_writer_buttons()
+            return
+
+        if not self.writer_engine.model_path:
+            return
+
         scene_end_guidance = self._scene_end_guidance(completed_chapter, completed_scene)
         model = self.writer_engine.model_path
 
@@ -1360,9 +3378,30 @@ Rules:
         )
         self.writer_thread.start()
 
+
     def _finish_state_analysis(self, patch, error):
         if error:
+            self.pending_state_patch = None
+            if hasattr(self, "writer_state_preview"):
+                self.writer_state_preview.delete("1.0", "end")
             messagebox.showerror("State Update", error)
+            self._update_writer_buttons()
+            return
+
+        try:
+            if self.package is None:
+                raise ValueError("No novel package is open.")
+            StateManager.validate_patch(self.package.current_state, patch or {})
+        except (TypeError, ValueError) as exc:
+            self.pending_state_patch = None
+            if hasattr(self, "writer_state_preview"):
+                self.writer_state_preview.delete("1.0", "end")
+            messagebox.showerror(
+                "State Update",
+                "The proposed state update is malformed and was rejected. "
+                "Nothing was applied.\n\n" + str(exc),
+            )
+            self.writer_status.configure(text="Malformed state update rejected. Analyze the accepted scene again after the underlying issue is fixed.")
             self._update_writer_buttons()
             return
 
@@ -1382,13 +3421,42 @@ Rules:
             return
 
         try:
+            StateManager.validate_patch(
+                self.package.current_state,
+                self.pending_state_patch,
+            )
+        except (TypeError, ValueError) as exc:
+            self.pending_state_patch = None
+            if hasattr(self, "writer_state_preview"):
+                self.writer_state_preview.delete("1.0", "end")
+            messagebox.showerror(
+                "State Update",
+                "The proposed state update is malformed and cannot be applied. "
+                "No state changes were made.\n\n" + str(exc),
+            )
+            self._update_writer_buttons()
+            return
+
+        try:
             completed_chapter = int(self.package.current_state.get("chapter", 1) or 1)
             completed_scene = int(self.package.current_state.get("scene", 1) or 1)
+            completed_prose = str(
+                getattr(self, "accepted_scene", "") or self._writer_editor_prose() or ""
+            ).strip()
+
+            if not self._save_unsaved_writer_draft():
+                return
 
             self.package.current_state = StateManager.merge_patch(
                 self.package.current_state,
                 self.pending_state_patch,
             )
+
+            # Once the first accepted scene has been applied, the story is no
+            # longer at its starting point. Preserve any other author-defined
+            # status values.
+            if str(self.package.current_state.get("status", "")).strip().casefold() == "story_start":
+                self.package.current_state["status"] = "in_progress"
 
             # The accepted section is now complete. Advance the package to the
             # next scene so the Writer tab can immediately build the next scene
@@ -1431,10 +3499,20 @@ Rules:
             self.pending_state_patch = None
             self.generated_scene = ""
             self.accepted_scene = ""
+            self.generated_scene_context = None
+            self.generated_scene_start_state = None
+            self.writer_generation_context = None
+            self.writer_generation_start_state = None
             self.writer_output_text.delete("1.0", "end")
             self.writer_state_preview.delete("1.0", "end")
             self._refresh_all()
             self._save()
+            if not self.package.current_state.get("chapter_completed"):
+                # Keep the Writer direction synchronized with the newly
+                # advanced state so the next scene is ready without a manual
+                # trip to Scene Contract or a separate rebuild button.
+                self._build_scene_direction()
+
             if self.package.current_state.get("chapter_completed"):
                 self._chat(
                     "Builder",
@@ -1452,11 +3530,137 @@ Rules:
                     f"Scene {self.package.current_state.get('scene')} and saved.",
                 )
                 self.writer_status.configure(
-                    text="Previous scene saved. Build Scene Direction to begin the next scene."
+                    text=(
+                        f"Chapter {self.package.current_state.get('chapter', current_chapter)}, "
+                        f"Scene {self.package.current_state.get('scene')} is ready. "
+                        "Writer direction has been refreshed."
+                    )
+                )
+            if completed_prose:
+                self._start_writer_notes_learning(
+                    completed_chapter,
+                    completed_scene,
+                    completed_prose,
                 )
             self._update_writer_buttons()
         except Exception as exc:
             messagebox.showerror("State Update", str(exc))
+
+    def _start_writer_notes_learning(self, chapter, scene, prose):
+        """Learn craft notes from several accepted scenes after state application."""
+        if self.package is None or self.package.path is None or not str(prose or "").strip():
+            return
+        if self.__dict__.get("writer_notes_update_in_progress", False):
+            return
+
+        package_path = Path(self.package.path)
+        scene_label = f"Chapter {int(chapter)}, Scene {int(scene)}"
+        notes = normalize_writer_notes(getattr(self.package, "writer_notes", {}))
+        if scene_label in notes.get("reviewed_scenes", []):
+            return
+
+        model = getattr(self.writer_engine, "model_path", None)
+        if model is None and hasattr(self, "writer_model_var"):
+            selected_model = self.writer_model_var.get().strip()
+            model = Path(selected_model) if selected_model else None
+        if model is None:
+            return
+
+        recent_scenes = collect_recent_accepted_scenes(
+            package_path,
+            int(chapter),
+            int(scene),
+            str(prose),
+            limit=3,
+        )
+        if len(recent_scenes) < 2:
+            # Wait until there are at least two accepted sections to compare.
+            # No lesson is inferred from a single scene.
+            return
+        available_labels = [item["scene"] for item in recent_scenes]
+        review_prompt = build_writer_notes_review_prompt(notes, recent_scenes)
+        self.writer_notes_update_in_progress = True
+        self._update_writer_buttons()
+        self.writer_status.configure(
+            text="Updating this novel's temporary writing notes from accepted scenes..."
+        )
+
+        def work():
+            updated_notes = None
+            added_count = 0
+            error = None
+            engine = self.writer_engine
+            was_running = False
+            old_system_prompt = ""
+            try:
+                with engine.lock:
+                    was_running = engine.child is not None and engine.child.isalive()
+                    old_system_prompt = str(engine.system_prompt or "")
+                    try:
+                        engine.reset_context(model, WRITER_NOTES_SYSTEM_PROMPT)
+                        response = engine.generate(review_prompt)
+                        suggestions = parse_writer_notes_response(response)
+                        updated_notes, added_count = merge_writer_notes(
+                            notes,
+                            suggestions,
+                            available_labels,
+                            scene_label,
+                        )
+                        save_writer_notes(package_path, updated_notes)
+                    finally:
+                        # Restore the writer session if it was already running.
+                        # Next scene generation rebuilds the prompt from current
+                        # notes and the current scene state in either case.
+                        if was_running and old_system_prompt:
+                            engine.reset_context(model, old_system_prompt)
+                        else:
+                            engine.stop()
+                error = None
+            except Exception as exc:
+                error = str(exc)
+
+            try:
+                self.after(
+                    0,
+                    lambda: self._finish_writer_notes_learning(
+                        package_path, updated_notes, added_count, error, scene_label
+                    ),
+                )
+            except tk.TclError:
+                pass
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _finish_writer_notes_learning(
+        self, package_path, notes, added_count, error, scene_label
+    ):
+        self.writer_notes_update_in_progress = False
+        if (
+            notes is not None
+            and self.package is not None
+            and self.package.path is not None
+            and Path(self.package.path).resolve() == Path(package_path).resolve()
+        ):
+            self.package.writer_notes = notes
+
+        self._update_writer_buttons()
+        if error:
+            self.writer_status.configure(
+                text="The scene remains saved. The automatic writing-notes review did not finish cleanly."
+            )
+            self._chat("Builder", f"Writing-notes review skipped for {scene_label}: {error}")
+        elif added_count:
+            self.writer_status.configure(
+                text=f"Writing notes updated for this novel with {added_count} recurring craft observation(s)."
+            )
+            self._chat(
+                "Builder",
+                f"Updated this novel's temporary writing notes after reviewing accepted scenes ending at {scene_label}.",
+            )
+        else:
+            self.writer_status.configure(
+                text="Writing notes reviewed. No new recurring craft lesson was strong enough to add."
+            )
 
     def _copy_proposed_state(self):
         if not hasattr(self, "writer_state_preview"):
@@ -1635,7 +3839,7 @@ Rules:
         if self.package is None or not isinstance(self.saved_state_candidate, dict):
             return
 
-        if not messagebox.askyesno(
+        if not self._ask_yes_no(
             "Restore Reconstructed State",
             "Replace the current story state with this reconstructed state?\\n\\n"
             "The reconstructed JSON has already been saved as a recovery file.",
@@ -1775,7 +3979,7 @@ Rules:
             )
             return
 
-        if not messagebox.askyesno(
+        if not self._ask_yes_no(
             "Finalize Chapter",
             f"Mark Chapter {chapter}, Scene {scene}, as complete?\n\n"
             "This will not create a new scene or advance to the next chapter.",
@@ -1874,12 +4078,43 @@ Rules:
         self.manuscript_output.delete("1.0", "end")
         self.manuscript_output.insert("1.0", text)
 
+    def _sync_current_novel(self):
+        if self.package is None or self.package.path is None:
+            messagebox.showwarning(
+                "Sync Novel",
+                "Save or open a novel package before syncing the novel repository.",
+            )
+            return
+
+        if not self._apply_all_edits():
+            return
+        try:
+            self.package.save()
+            self.dirty = False
+            self._update_path_label()
+            result = sync_novel_repository(self.package.path)
+            self._chat("Builder", result)
+            messagebox.showinfo("Sync Novel", result)
+        except (NovelSyncError, OSError, subprocess.SubprocessError) as exc:
+            messagebox.showerror(
+                "Sync Novel",
+                "The novel was saved locally, but GitHub sync failed.\n\n" + str(exc),
+            )
     def _close_without_sync(self):
+        if self.__dict__.get("writer_notes_update_in_progress", False):
+            messagebox.showwarning(
+                "Close",
+                "StoryBuilder is updating the novel's writing notes. The app will remain open until the update is saved.",
+            )
+            return
         if self._closing:
             return
         self._closing = True
 
         try:
+            if not self._save_unsaved_writer_draft():
+                self._closing = False
+                return
             try:
                 self.writer_engine.stop()
             except Exception:
@@ -1888,7 +4123,6 @@ Rules:
             # Save all current editor contents locally, but never run the GitHub sync.
             self._save()
             if self.dirty:
-                # Save was cancelled or failed, so do not close and risk losing work.
                 self._closing = False
                 return
 
@@ -1899,13 +4133,21 @@ Rules:
                 f"The novel was saved locally, but the app could not close cleanly.\n\n{exc}\n\nThe app will remain open."
             )
             self._closing = False
-
     def _close_and_sync(self):
+        if self.__dict__.get("writer_notes_update_in_progress", False):
+            messagebox.showwarning(
+                "Close & Sync",
+                "StoryBuilder is updating the novel's writing notes. The app will remain open until the update is saved.",
+            )
+            return
         if self._closing:
             return
         self._closing = True
 
         try:
+            if not self._save_unsaved_writer_draft():
+                self._closing = False
+                return
             try:
                 self.writer_engine.stop()
             except Exception:
@@ -1914,35 +4156,26 @@ Rules:
             # Save all current editor contents before running the repository sync.
             self._save()
             if self.dirty:
-                # Save was cancelled or failed, so do not close and risk losing work.
                 self._closing = False
                 return
 
-            sync_script = Path(__file__).resolve().parent / "sync.sh"
-            if not sync_script.exists():
-                messagebox.showerror(
+            if self.package.path is None:
+                messagebox.showwarning(
                     "Close & Sync",
-                    f"Could not find sync.sh at:\n\n{sync_script}\n\nThe app will remain open."
+                    "The novel is saved locally but has no project folder yet.\n\n"
+                    "Use Save As / Export to place it in its own novel project folder.",
                 )
                 self._closing = False
                 return
 
-            result = subprocess.run(
-                ["bash", str(sync_script), "finish"],
-                cwd=sync_script.parent,
-                text=True,
-                capture_output=True,
-                timeout=120,
-                check=False,
-            )
-
-            if result.returncode != 0:
-                details = (result.stderr or result.stdout or "Unknown sync error").strip()
+            try:
+                sync_novel_repository(self.package.path)
+            except NovelSyncError as exc:
                 messagebox.showerror(
                     "Close & Sync",
                     "The novel was saved locally, but GitHub sync failed.\n\n"
-                    + details
-                    + "\n\nThe app will remain open so you can resolve the problem."
+                    + str(exc)
+                    + "\n\nThe app will remain open so you can resolve the problem.",
                 )
                 self._closing = False
                 return
@@ -1954,8 +4187,71 @@ Rules:
                 f"The novel was saved locally, but the GitHub sync could not be completed.\n\n{exc}\n\nThe app will remain open."
             )
             self._closing = False
+    def _load_startup_novel(self):
+        """Open the sole novel automatically, or ask when the library has several."""
+        candidates = find_novel_packages(NOVEL_ROOT)
+        if not candidates:
+            self._new_novel()
+            return
 
+        if len(candidates) == 1:
+            folder = candidates[0]
+        else:
+            selected = filedialog.askdirectory(
+                title="Choose a novel from the MyNovel library",
+                initialdir=str(NOVEL_ROOT),
+            )
+            if not selected:
+                self._new_novel()
+                return
+            folder = Path(selected).expanduser().resolve()
+            allowed = {candidate.resolve() for candidate in candidates}
+            if folder not in allowed:
+                messagebox.showwarning(
+                    "Open Novel",
+                    f"Choose a novel folder directly inside {NOVEL_ROOT}.",
+                )
+                self._new_novel()
+                return
+
+        try:
+            self.writer_engine.stop()
+        except Exception:
+            pass
+        try:
+            self.package = StoryPackage.load(folder)
+        except Exception as exc:
+            messagebox.showwarning(
+                "Open Novel",
+                f"Could not open the novel package.\n\n{exc}\n\nStarting with a new unsaved novel instead.",
+            )
+            self._new_novel()
+            return
+        self.character_filename = None
+        self.generated_scene = ""
+        self.accepted_scene = ""
+        self.pending_state_patch = None
+        self.interview_active = False
+        self.interview_index = 0
+        self.interview_pending_patch = None
+        self.interview_pending_answer = ""
+        self.last_novel_path = folder
+        self.dirty = False
+        self._refresh_all()
+        self._refresh_writer_models()
+        self._chat(
+            "Builder",
+            f'Opened "{self.package.story_bible.get("title", folder.name)}".',
+        )
     def _new_novel(self):
+        if self.__dict__.get("writer_notes_update_in_progress", False):
+            messagebox.showwarning(
+                "Writing Notes",
+                "Finish the current novel's automatic writing-notes update before switching novels.",
+            )
+            return
+        if not self._save_unsaved_writer_draft():
+            return
         self.guided_setup.stop()
         if hasattr(self, "guided_button"):
             self.guided_button.configure(text="Guided Setup")
@@ -1965,7 +4261,16 @@ Rules:
             pass
         self.generated_scene = ""
         self.accepted_scene = ""
+        self.generated_scene_context = None
+        self.generated_scene_start_state = None
+        self.writer_generation_context = None
+        self.writer_generation_start_state = None
+        self.writer_generation_in_progress = False
         self.pending_state_patch = None
+        self.interview_active = False
+        self.interview_index = 0
+        self.interview_pending_patch = None
+        self.interview_pending_answer = ""
         self.package = StoryPackage.new()
         self.character_filename = None
         self.dirty = True
@@ -1974,30 +4279,55 @@ Rules:
             self.writer_state_preview.delete("1.0", "end")
         self._refresh_all()
         self._chat("Builder", "New novel created.")
-
     def _open_novel(self):
+        if self.__dict__.get("writer_notes_update_in_progress", False):
+            messagebox.showwarning(
+                "Writing Notes",
+                "Finish the current novel's automatic writing-notes update before switching novels.",
+            )
+            return
         self.guided_setup.stop()
         if hasattr(self, "guided_button"):
             self.guided_button.configure(text="Guided Setup")
         folder = filedialog.askdirectory(
-            title="Open Novel Package",
-            initialdir=str(NOVEL_ROOT.parent),
+            title="Open Novel from MyNovel",
+            initialdir=str(NOVEL_ROOT),
         )
         if not folder:
+            return
+        selected_folder = Path(folder).expanduser().resolve()
+        allowed = {candidate.resolve() for candidate in find_novel_packages(NOVEL_ROOT)}
+        if selected_folder not in allowed:
+            messagebox.showerror(
+                "Open Novel",
+                f"Choose a novel folder directly inside {NOVEL_ROOT}.",
+            )
+            return
+        if not self._save_unsaved_writer_draft():
             return
         try:
             self.writer_engine.stop()
         except Exception:
             pass
         try:
-            self.package = StoryPackage.load(Path(folder))
+            self.package = StoryPackage.load(selected_folder)
         except Exception as exc:
             messagebox.showerror("Open Novel", f"Could not open that novel package.\n\n{exc}")
             return
         self.character_filename = None
         self.generated_scene = ""
         self.accepted_scene = ""
+        self.generated_scene_context = None
+        self.generated_scene_start_state = None
+        self.writer_generation_context = None
+        self.writer_generation_start_state = None
+        self.writer_generation_in_progress = False
         self.pending_state_patch = None
+        self.interview_active = False
+        self.interview_index = 0
+        self.interview_pending_patch = None
+        self.interview_pending_answer = ""
+        self.last_novel_path = selected_folder
         self.dirty = False
         if hasattr(self, "writer_output_text"):
             self.writer_output_text.delete("1.0", "end")
@@ -2005,11 +4335,17 @@ Rules:
         self._refresh_all()
         self._refresh_writer_models()
         self._chat("Builder", f'Opened "{self.package.story_bible.get("title", Path(folder).name)}".')
-
     def _save(self):
+        if self.__dict__.get("writer_notes_update_in_progress", False):
+            messagebox.showwarning(
+                "Save",
+                "StoryBuilder is updating the novel's temporary writing-notes file. Save again when that update finishes.",
+            )
+            return
         if self.package is None:
             return
-        self._apply_all_edits()
+        if not self._apply_all_edits():
+            return
         if self.package.path is None:
             return self._save_as()
         try:
@@ -2021,29 +4357,48 @@ Rules:
             messagebox.showerror("Save", str(exc))
 
     def _save_as(self):
+        if self.__dict__.get("writer_notes_update_in_progress", False):
+            messagebox.showwarning(
+                "Save As",
+                "Finish the automatic writing-notes update before saving this novel.",
+            )
+            return
         if self.package is None:
             return
-        self._apply_all_edits()
-        parent = filedialog.askdirectory(
-            title="Choose a folder for the novel package",
-            initialdir=str(WORKSPACE_ROOT),
-        )
-        if not parent:
+        if not self._apply_all_edits():
             return
+
         name = self.package.story_bible.get("title", "Untitled").strip() or "Untitled"
-        target = Path(parent) / StoryPackage.safe_filename(name).removesuffix(".json")
+        folder_name = StoryPackage.safe_filename(name).removesuffix(".json")
+        target = NOVEL_ROOT / folder_name
+        current_path = (
+            Path(self.package.path).expanduser().resolve()
+            if self.package.path is not None
+            else None
+        )
+        if target.exists() and current_path != target.resolve():
+            messagebox.showerror(
+                "Save As",
+                f"A folder for '{name}' already exists here:\n\n{target}\n\n"
+                "Open that novel instead, or change the title before saving a new novel.",
+            )
+            return
+
         try:
+            NOVEL_ROOT.mkdir(parents=True, exist_ok=True)
             self.package.save(target)
+            self.last_novel_path = target
             self.dirty = False
             self._update_path_label()
             self._chat("Builder", f"Saved novel package to {target}.")
         except Exception as exc:
-            messagebox.showerror("Save As / Export", str(exc))
+            messagebox.showerror("Save As", str(exc))
 
     def _validate(self):
         if self.package is None:
             return
-        self._apply_all_edits()
+        if not self._apply_all_edits():
+            return
         errors = validate_package(self.package)
         if errors:
             messagebox.showerror("Validation", "Validation found problems:\n\n" + "\n".join(f"• {e}" for e in errors))
@@ -2284,10 +4639,322 @@ Rules:
         self.dirty = True
         self._update_path_label()
 
+    def _writer_editor_prose(self) -> str:
+        """Return the visible Writer text, with generated text as a recovery fallback."""
+        if hasattr(self, "writer_output_text"):
+            visible = self.writer_output_text.get("1.0", "end-1c").strip()
+            if visible:
+                return visible
+        return str(getattr(self, "generated_scene", "") or "").strip()
+
+    def _save_unsaved_writer_draft(self) -> bool:
+        """Persist unaccepted Writer text under the scene that produced it."""
+        if self.package is None:
+            return True
+        if getattr(self, "writer_generation_in_progress", False):
+            messagebox.showwarning(
+                "Writer",
+                "A scene is still being generated. Let it finish before changing scenes or closing StoryBuilder.",
+            )
+            return False
+        if getattr(self, "scene_contract_building", False):
+            messagebox.showwarning(
+                "Scene Contract",
+                "A scene contract is still being generated. Let it finish before changing novels or closing StoryBuilder.",
+            )
+            return False
+
+        prose = self._writer_editor_prose()
+        if not prose:
+            return True
+
+        accepted = str(getattr(self, "accepted_scene", "") or "").strip()
+        if accepted and prose == accepted:
+            # Accepted prose already exists in the manuscript.
+            return True
+
+        state = self.package.current_state
+        fallback_key = (
+            int(state.get("chapter", 1) or 1),
+            int(state.get("scene", 1) or 1),
+        )
+        context = getattr(self, "generated_scene_context", None) or fallback_key
+        try:
+            chapter, scene = int(context[0]), int(context[1])
+        except (TypeError, ValueError, IndexError):
+            chapter, scene = fallback_key
+
+        if self.package.path is None:
+            messagebox.showwarning(
+                "Save Draft",
+                "There is unfinished Writer text, but this novel has no saved project folder yet. "
+                "Use Save As / Export before changing scenes or closing, so the draft can be preserved.",
+            )
+            return False
+
+        try:
+            path = ManuscriptManager(self.package.path).save_draft(chapter, scene, prose)
+            self.generated_scene = prose
+            self._refresh_manuscript()
+            self._chat(
+                "Builder",
+                f"Preserved unfinished Writer text as a draft for Chapter {chapter}, Scene {scene}: {path.name}.",
+            )
+            return True
+        except Exception as exc:
+            messagebox.showerror(
+                "Save Draft",
+                f"StoryBuilder could not preserve the unfinished scene. The current scene was not changed.\n\n{exc}",
+            )
+            return False
+
+    def _prepare_for_scene_change(self, target_chapter: int, target_scene: int) -> bool:
+        """Prevent scene switches from silently discarding or misfiling Writer text."""
+        if self.package is None:
+            return True
+
+        state = self.package.current_state
+        current_key = (
+            int(state.get("chapter", 1) or 1),
+            int(state.get("scene", 1) or 1),
+        )
+        target_key = (int(target_chapter), int(target_scene))
+        if current_key == target_key:
+            return True
+
+        if getattr(self, "scene_contract_building", False):
+            messagebox.showwarning(
+                "Scene Contract",
+                "A contract is still being generated for the current scene. Let it finish before changing scenes.",
+            )
+            return False
+
+        accepted = str(getattr(self, "accepted_scene", "") or "").strip()
+        if accepted and not state.get("scene_completed", False):
+            # Save post-accept edits safely, but do not let navigation skip the
+            # accepted scene's state-analysis/apply step.
+            prose = self._writer_editor_prose()
+            if prose and prose != accepted and not self._save_unsaved_writer_draft():
+                return False
+            messagebox.showwarning(
+                "Finish Current Scene",
+                "This scene has been accepted, but its state update has not been applied yet. "
+                "Analyze the accepted scene and apply its state update before moving to another scene.",
+            )
+            return False
+
+        return self._save_unsaved_writer_draft()
+
+    def _clear_writer_scene_workspace(self, status: str | None = None) -> None:
+        """Clear scene-specific Writer memory only after its text is safely saved."""
+        self.generated_scene = ""
+        self.accepted_scene = ""
+        self.generated_scene_context = None
+        self.generated_scene_start_state = None
+        self.writer_generation_context = None
+        self.writer_generation_start_state = None
+        self.pending_state_patch = None
+        if hasattr(self, "writer_output_text"):
+            self.writer_output_text.delete("1.0", "end")
+        if hasattr(self, "writer_state_preview"):
+            self.writer_state_preview.delete("1.0", "end")
+        if status and hasattr(self, "writer_status"):
+            self.writer_status.configure(text=status)
+        if hasattr(self, "_update_writer_buttons"):
+            self._update_writer_buttons()
+
+    def _restore_previous_scene_end_state(self):
+        """Restore the current scene's starting baseline from the preceding accepted scene."""
+        if self.package is None or self.package.path is None:
+            messagebox.showwarning(
+                "Restore Previous End State",
+                "Save the novel package before restoring a previous scene's ending state.",
+            )
+            return
+
+        if (
+            getattr(self, "writer_generation_in_progress", False)
+            or getattr(self, "scene_contract_building", False)
+            or self.__dict__.get("writer_notes_update_in_progress", False)
+        ):
+            messagebox.showwarning(
+                "Restore Previous End State",
+                "Wait for the active writer, contract build, or writing-notes review to finish first.",
+            )
+            return
+
+        state = self.package.current_state
+        chapter = int(state.get("chapter", 1) or 1)
+        scene = int(state.get("scene", 1) or 1)
+        target_key = (chapter, scene)
+        manager = ManuscriptManager(Path(self.package.path))
+
+        if state.get("scene_completed") or str(getattr(self, "accepted_scene", "") or "").strip():
+            messagebox.showwarning(
+                "Restore Previous End State",
+                "This scene has already been accepted or marked complete. Its state will not be reset automatically.",
+            )
+            return
+
+        if any(manager.scene_numbers(path) == target_key for path in manager.list_scenes()):
+            messagebox.showwarning(
+                "Restore Previous End State",
+                f"Accepted manuscript text already exists for Chapter {chapter}, Scene {scene}. "
+                "The state was not changed.",
+            )
+            return
+
+        if scene > 1:
+            previous_chapter, previous_scene = chapter, scene - 1
+        elif chapter > 1:
+            prior_scenes = [
+                (numbers[1], path)
+                for path in manager.list_scenes()
+                if (numbers := manager.scene_numbers(path)) is not None
+                and numbers[0] == chapter - 1
+            ]
+            if not prior_scenes:
+                messagebox.showwarning(
+                    "Restore Previous End State",
+                    f"No accepted scenes were found in Chapter {chapter - 1}. The state was not changed.",
+                )
+                return
+            previous_scene, _previous_path = max(prior_scenes, key=lambda item: item[0])
+            previous_chapter = chapter - 1
+        else:
+            messagebox.showinfo(
+                "Restore Previous End State",
+                "Chapter 1, Scene 1 has no previous scene to restore from.",
+            )
+            return
+
+        previous_after_path = manager.state_after_path(previous_chapter, previous_scene)
+        if not previous_after_path.is_file():
+            messagebox.showwarning(
+                "Restore Previous End State",
+                f"No saved ending-state snapshot exists for Chapter {previous_chapter}, Scene {previous_scene}. "
+                "Nothing was changed.",
+            )
+            return
+
+        try:
+            saved_state = json.loads(previous_after_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            messagebox.showerror(
+                "Restore Previous End State",
+                f"Could not read the previous scene's saved ending state.\n\n{exc}",
+            )
+            return
+
+        if not isinstance(saved_state, dict):
+            messagebox.showerror(
+                "Restore Previous End State",
+                "The previous scene's saved ending state is not a JSON object. Nothing was changed.",
+            )
+            return
+
+        restored_situation = str(saved_state.get("current_situation", "") or "").strip()
+        if not restored_situation:
+            messagebox.showwarning(
+                "Restore Previous End State",
+                "The previous scene's saved ending state has no Current Situation. Nothing was changed.",
+            )
+            return
+
+        preview = restored_situation
+        if not self._ask_yes_no(
+            "Restore Previous End State",
+            f"Restore the starting state for Chapter {chapter}, Scene {scene} from the saved ending state of "
+            f"Chapter {previous_chapter}, Scene {previous_scene}?\n\n"
+            f"Restored Current Situation:\n{preview}\n\n"
+            "This replaces the current state fields and resets the active scene/status flags. "
+            "It does not delete manuscript scenes, characters, or the Scene Idea. "
+            "Unsaved current-state edits will be replaced.\n\n"
+            "Are you sure you want to restore this state?",
+        ):
+            return
+
+        if not self._save_unsaved_writer_draft():
+            return
+
+        old_state = json.loads(json.dumps(state, ensure_ascii=False))
+        restored = json.loads(json.dumps(saved_state, ensure_ascii=False))
+        restored = remove_prior_chapter_opening_markers(
+            restored,
+            previous_chapter,
+            chapter,
+        )
+        restored["chapter"] = chapter
+        restored["scene"] = scene
+        restored["scene_completed"] = False
+        restored["chapter_completed"] = False
+        restored["status"] = "in_progress"
+        planned_cast = self._scene_plan_cast(chapter, scene)
+        if planned_cast:
+            restored["scene_cast"] = planned_cast
+
+        self.package.current_state = restored
+        self.dirty = True
+        try:
+            self._clear_writer_scene_workspace(
+                f"Restored the starting state for Chapter {chapter}, Scene {scene} from Chapter "
+                f"{previous_chapter}, Scene {previous_scene}."
+            )
+            self._refresh_all()
+            self._build_scene_direction()
+            self.package.save()
+            self.dirty = False
+            self._update_path_label()
+            self._chat(
+                "Builder",
+                f"Restored Chapter {chapter}, Scene {scene} from the saved ending state of "
+                f"Chapter {previous_chapter}, Scene {previous_scene}.",
+            )
+            writer_status = self.__dict__.get("writer_status")
+            if writer_status is not None:
+                writer_status.configure(
+                    text=f"Starting state restored for Chapter {chapter}, Scene {scene}. "
+                    "Reset the old contract, then rebuild it from the preserved Scene Idea."
+                )
+        except Exception as exc:
+            self.package.current_state = old_state
+            self.dirty = True
+            self._refresh_all()
+            messagebox.showerror(
+                "Restore Previous End State",
+                f"The state could not be saved, so the in-memory state was rolled back.\n\n{exc}",
+            )
+
     def _apply_state_edits(self):
         if self.package is None:
             return
         state = self.package.current_state
+        old_chapter = int(state.get("chapter", 1) or 1)
+        old_scene = int(state.get("scene", 1) or 1)
+        chapter_text = self.state_vars["chapter"].get().strip()
+        scene_text = self.state_vars["scene"].get().strip()
+        target_chapter = int(chapter_text) if chapter_text.isdigit() else 1
+        target_scene = int(scene_text) if scene_text.isdigit() else 1
+        scene_changed = (target_chapter, target_scene) != (old_chapter, old_scene)
+
+        if scene_changed:
+            if not self._prepare_for_scene_change(target_chapter, target_scene):
+                self.state_vars["chapter"].set(str(old_chapter))
+                self.state_vars["scene"].set(str(old_scene))
+                return
+            # Save contract edits to the scene currently displayed before the
+            # state change refreshes the editor for the destination scene.
+            try:
+                self._apply_scene_contract_edits()
+            except (TypeError, ValueError) as exc:
+                self.state_vars["chapter"].set(str(old_chapter))
+                self.state_vars["scene"].set(str(old_scene))
+                messagebox.showerror(
+                    "Scene Contract",
+                    "The current scene contract could not be saved, so the scene was not changed.\n\n" + str(exc),
+                )
+                return
+
         chapter = self.state_vars["chapter"].get().strip()
         scene = self.state_vars["scene"].get().strip()
         state["chapter"] = int(chapter) if chapter.isdigit() else 1
@@ -2318,14 +4985,33 @@ Rules:
         if "continuity_notes" in state or entered_notes != list(map(str, existing_notes)):
             state["continuity_notes"] = entered_notes
         self.dirty = True
+        self._update_path_label()
 
+        if scene_changed:
+            self._clear_writer_scene_workspace(
+                "Scene changed. Any unfinished prose was preserved as a draft in Manuscript."
+            )
+
+        # Manual edits to chapter, scene, cast, location, time, or continuity
+        # immediately refresh the related contract view and Writer direction.
+        if hasattr(self, "_refresh_scene_contract_editor"):
+            self._refresh_scene_contract_editor()
+        self._build_scene_direction()
     def _apply_all_edits(self):
+        # Current Situation is an editable part of the active story state too.
+        # Apply it through its guarded handler before saving any other fields,
+        # so ordinary Save / Save As / Sync cannot silently persist a stale value.
+        if not self._apply_situation_edit():
+            return False
         self._apply_story_edits()
         self._apply_planning_edits()
+        self._apply_scene_contract_edits()
         self._apply_character_edits()
+        self._apply_supporting_person_edit()
         self._apply_relationship_edits()
         self._apply_location_edits()
         self._apply_state_edits()
+        return True
 
     def _add_character(self):
         if self.package is None:
@@ -2348,7 +5034,7 @@ Rules:
             return
         char = self.package.characters[self.character_filename]
         name = char.get("name", self.character_filename)
-        if not messagebox.askyesno("Remove Character", f"Remove {name}?"):
+        if not self._ask_yes_no("Remove Character", f"Remove {name}?"):
             return
         self.package.remove_character(self.character_filename)
         self.character_filename = None
@@ -2362,6 +5048,8 @@ Rules:
         selection = self.character_list.curselection()
         if not selection:
             return
+        self.supporting_people_list.selection_clear(0, "end")
+        self.supporting_person_text.delete("1.0", "end")
         filenames = sorted(self.package.characters)
         self.character_filename = filenames[selection[0]]
         char = self.package.characters[self.character_filename]
@@ -2377,6 +5065,101 @@ Rules:
         self._set_character_text("appearance", self._format_key_value_block(char.get("appearance", {})))
         self._set_character_text("relationships", self._format_key_value_block(char.get("relationships", {})))
         self._set_character_text("important_items", self._format_key_value_block(char.get("important_items", {})))
+
+    def _refresh_supporting_people(self, select_name=None):
+        if not hasattr(self, "supporting_people_list"):
+            return
+
+        self.supporting_people_list.delete(0, "end")
+        people = self.package.story_bible.get("supporting_people", {}) if self.package else {}
+        if not isinstance(people, dict):
+            people = {}
+
+        names = sorted(
+            (str(name) for name in people if str(name).strip()),
+            key=str.casefold,
+        )
+        selected_index = None
+
+        for index, name in enumerate(names):
+            self.supporting_people_list.insert("end", name)
+            if name == select_name:
+                selected_index = index
+
+        if selected_index is not None:
+            self.supporting_people_list.selection_clear(0, "end")
+            self.supporting_people_list.selection_set(selected_index)
+            self.supporting_people_list.see(selected_index)
+            self._select_supporting_person()
+        elif not names:
+            self.supporting_person_text.delete("1.0", "end")
+
+
+    def _select_supporting_person(self, _event=None):
+        if self.package is None or not hasattr(self, "supporting_people_list"):
+            return
+
+        selection = self.supporting_people_list.curselection()
+        if not selection:
+            return
+
+        people = self.package.story_bible.get("supporting_people", {})
+        if not isinstance(people, dict):
+            return
+
+        names = sorted(
+            (str(name) for name in people if str(name).strip()),
+            key=str.casefold,
+        )
+        index = selection[0]
+        if index < 0 or index >= len(names):
+            return
+
+        name = names[index]
+        self.character_list.selection_clear(0, "end")
+        self.character_filename = None
+
+        for var in self.character_vars.values():
+            var.set("")
+        for widget in self.character_texts.values():
+            widget.delete("1.0", "end")
+
+        self.supporting_person_text.delete("1.0", "end")
+        self.supporting_person_text.insert(
+            "1.0",
+            str(people.get(name, "") or ""),
+        )
+
+
+    def _apply_supporting_person_edit(self):
+        if self.package is None or not hasattr(self, "supporting_people_list"):
+            return
+
+        selection = self.supporting_people_list.curselection()
+        if not selection:
+            return
+
+        people = self.package.story_bible.setdefault("supporting_people", {})
+        if not isinstance(people, dict):
+            people = {}
+            self.package.story_bible["supporting_people"] = people
+
+        names = sorted(
+            (str(name) for name in people if str(name).strip()),
+            key=str.casefold,
+        )
+        index = selection[0]
+        if index < 0 or index >= len(names):
+            return
+
+        name = names[index]
+        value = self.supporting_person_text.get("1.0", "end-1c").strip()
+        if value:
+            people[name] = value
+
+        self.dirty = True
+        self._update_path_label()
+
 
     def _set_character_text(self, key, value):
         widget = self.character_texts.get(key)
@@ -2487,6 +5270,10 @@ Rules:
         self.notes_text.insert("1.0", "\n".join(map(str, continuity)))
         self.situation_text.delete("1.0", "end")
         self.situation_text.insert("1.0", str(state.get("current_situation", "")))
+        if hasattr(self, "scene_contract_start_text"):
+            self._refresh_scene_contract_editor()
+        if hasattr(self, "interview_target_combo"):
+            self._refresh_interview_targets(reset=False)
         self._update_path_label()
 
     @staticmethod
@@ -2550,26 +5337,261 @@ Rules:
             return cast
         return [str(name) for name in location if name != "primary" and str(name) not in excluded]
 
-    def _apply_situation_edit(self):
+    def _advance_to_next_scene(self):
+        """Advance only after safeguarding the current Writer work."""
         if self.package is None:
             return
-        self.package.current_state["current_situation"] = self.situation_text.get("1.0", "end-1c").strip()
+
+        try:
+            chapter = int(self.package.current_state.get("chapter", 1) or 1)
+            scene = int(self.package.current_state.get("scene", 1) or 1)
+            final_scene = self._final_planned_scene_for_chapter(chapter)
+
+            if final_scene is not None and scene >= final_scene:
+                messagebox.showinfo(
+                    "Advance Scene",
+                    f"Scene {scene} is the final planned scene for Chapter {chapter}.",
+                )
+                return
+
+            next_scene = scene + 1
+            if not self._prepare_for_scene_change(chapter, next_scene):
+                return
+            next_cast = self._scene_plan_cast(chapter, next_scene)
+
+            self.package.current_state["scene"] = next_scene
+            self.package.current_state["scene_completed"] = False
+            self.package.current_state["chapter_completed"] = False
+            if next_cast:
+                self.package.current_state["scene_cast"] = next_cast
+
+            self.dirty = True
+            self._clear_writer_scene_workspace(
+                f"Scene {next_scene} is ready. The previous scene's unfinished text, if any, was preserved as a draft."
+            )
+            self._refresh_all()
+            self._save()
+            self._chat(
+                "Builder",
+                f"Advanced from Scene {scene} to Scene {next_scene}. "
+                "The completed scene's ending state remains the starting continuity for the new scene.",
+            )
+            self.writer_status.configure(
+                text=f"Scene {next_scene} is ready. Build Scene Direction to begin.",
+            )
+            self._update_writer_buttons()
+        except Exception as exc:
+            messagebox.showerror("Advance Scene", str(exc))
+    def _start_next_chapter(self):
+        """Start Scene 1 of the next chapter without dropping unfinished prose."""
+        if self.package is None:
+            return
+
+        try:
+            current_chapter = int(self.package.current_state.get("chapter", 1) or 1)
+            if not self.package.current_state.get("chapter_completed"):
+                messagebox.showinfo(
+                    "Start Next Chapter",
+                    f"Chapter {current_chapter} is not marked complete yet. Finalize the chapter before starting the next one.",
+                )
+                return
+
+            next_chapter = current_chapter + 1
+            next_scene = 1
+            next_guidance = self._chapter_scene_guidance(
+                self.package.extra_json.get("writing_guidance.json", {}),
+                next_chapter,
+                next_scene,
+            )
+            if next_guidance is None:
+                proceed = self._ask_yes_no(
+                    "Start Next Chapter",
+                    f"Chapter {next_chapter} Scene 1 has no scene guidance yet.\n\n"
+                    "Starting it will preserve the completed chapter's ending state, but the "
+                    "new scene will not have authored scene direction or cast until guidance is added.\n\n"
+                    f"Start Chapter {next_chapter} anyway?",
+                )
+                if not proceed:
+                    return
+
+            if not self._prepare_for_scene_change(next_chapter, next_scene):
+                return
+
+            self.package.current_state["chapter"] = next_chapter
+            self.package.current_state["scene"] = next_scene
+            self.package.current_state["scene_completed"] = False
+            self.package.current_state["chapter_completed"] = False
+            next_cast = self._scene_plan_cast(next_chapter, next_scene)
+            if next_cast:
+                self.package.current_state["scene_cast"] = next_cast
+
+            self.dirty = True
+            self._clear_writer_scene_workspace(
+                f"Chapter {next_chapter}, Scene {next_scene} is ready. Unfinished previous text was preserved as a draft."
+            )
+            self._refresh_all()
+            try:
+                self.package.save()
+                self.dirty = False
+                self._update_path_label()
+            except Exception as exc:
+                raise RuntimeError(
+                    f"Could not save the new chapter state: {exc}"
+                ) from exc
+
+            self._chat(
+                "Builder",
+                f"Started Chapter {next_chapter}, Scene {next_scene}. "
+                "The previous chapter's ending state is now the starting continuity.",
+            )
+            self.writer_status.configure(
+                text=(
+                    f"Chapter {next_chapter}, Scene {next_scene} is ready. "
+                    "Build Scene Direction to begin."
+                ),
+            )
+            self._update_writer_buttons()
+        except Exception as exc:
+            messagebox.showerror("Start Next Chapter", str(exc))
+    def _apply_situation_edit(self):
+        if self.package is None:
+            return False
+
+        new_situation = self.situation_text.get("1.0", "end-1c").strip()
+        old_situation = str(self.package.current_state.get("current_situation", "") or "").strip()
+        if new_situation != old_situation:
+            if getattr(self, "writer_generation_in_progress", False) or getattr(self, "scene_contract_building", False):
+                messagebox.showwarning(
+                    "Current Situation",
+                    "Wait for the active scene generation to finish before changing the scene's starting state.",
+                )
+                return False
+
+            accepted = str(getattr(self, "accepted_scene", "") or "").strip()
+            if accepted and not self.package.current_state.get("scene_completed", False):
+                prose = self._writer_editor_prose()
+                if prose and prose != accepted and not self._save_unsaved_writer_draft():
+                    return False
+                messagebox.showwarning(
+                    "Current Situation",
+                    "This scene has been accepted but its state update has not been applied. Finish that step before changing its starting situation.",
+                )
+                return False
+
+            if not self._save_unsaved_writer_draft():
+                return False
+            if self.generated_scene.strip() or self.accepted_scene.strip():
+                self._clear_writer_scene_workspace(
+                    "Starting situation changed. Any unfinished prose was preserved as a draft."
+                )
+
+        self.package.current_state["current_situation"] = new_situation
         self.dirty = True
         self._update_path_label()
-
+        self._build_scene_direction()
+        return True
     def _refresh_characters(self, select_filename=None):
         self.character_list.delete(0, "end")
         filenames = sorted(self.package.characters) if self.package else []
         selected_index = None
         for index, filename in enumerate(filenames):
-            self.character_list.insert("end", self.package.characters[filename].get("name", filename.removesuffix(".json")))
+            self.character_list.insert(
+                "end",
+                self.package.characters[filename].get("name", filename.removesuffix(".json")),
+            )
             if filename == select_filename:
                 selected_index = index
 
         if selected_index is not None:
+            self.character_list.selection_clear(0, "end")
             self.character_list.selection_set(selected_index)
             self.character_list.see(selected_index)
             self._select_character()
+
+        self._refresh_supporting_people()
+
+
+    def _refresh_supporting_people(self, select_name=None):
+        if not hasattr(self, "supporting_people_list"):
+            return
+
+        self.supporting_people_list.delete(0, "end")
+        people = self.package.story_bible.get("supporting_people", {}) if self.package else {}
+        if not isinstance(people, dict):
+            people = {}
+
+        selected_index = None
+        for index, name in enumerate(sorted(people, key=str.casefold)):
+            self.supporting_people_list.insert("end", name)
+            if name == select_name:
+                selected_index = index
+
+        if selected_index is not None:
+            self.supporting_people_list.selection_clear(0, "end")
+            self.supporting_people_list.selection_set(selected_index)
+            self.supporting_people_list.see(selected_index)
+            self._select_supporting_person()
+        elif not selected_index and self.supporting_people_list.size() == 0:
+            self.supporting_person_text.delete("1.0", "end")
+
+
+    def _select_supporting_person(self, _event=None):
+        if self.package is None:
+            return
+
+        selection = self.supporting_people_list.curselection()
+        if not selection:
+            return
+
+        people = self.package.story_bible.get("supporting_people", {})
+        if not isinstance(people, dict):
+            return
+
+        names = sorted(people, key=str.casefold)
+        index = selection[0]
+        if index < 0 or index >= len(names):
+            return
+
+        name = names[index]
+        self.character_list.selection_clear(0, "end")
+        self.character_filename = None
+
+        for var in self.character_vars.values():
+            var.set("")
+        for widget in self.character_texts.values():
+            widget.delete("1.0", "end")
+
+        self.supporting_person_text.delete("1.0", "end")
+        self.supporting_person_text.insert("1.0", str(people.get(name, "") or ""))
+
+
+    def _apply_supporting_person_edit(self):
+        if self.package is None or not hasattr(self, "supporting_people_list"):
+            return
+
+        selection = self.supporting_people_list.curselection()
+        if not selection:
+            return
+
+        people = self.package.story_bible.setdefault("supporting_people", {})
+        if not isinstance(people, dict):
+            people = {}
+            self.package.story_bible["supporting_people"] = people
+
+        names = sorted(people, key=str.casefold)
+        index = selection[0]
+        if index < 0 or index >= len(names):
+            return
+
+        name = names[index]
+        value = self.supporting_person_text.get("1.0", "end-1c").strip()
+        if value:
+            people[name] = value
+        else:
+            people.pop(name, None)
+
+        self.dirty = True
+        self._update_path_label()
 
 
     def _toggle_guided_setup(self):
@@ -2581,7 +5603,8 @@ Rules:
             self._chat("Builder", message)
             return
 
-        self._apply_all_edits()
+        if not self._apply_all_edits():
+            return
         # Guided setup writes directly to the package. Do not let stale editor
         # selection state cause a later chat answer to overwrite a character.
         self.character_filename = None
@@ -2592,7 +5615,8 @@ Rules:
     def _run_command(self):
         if self.package is None:
             return
-        self._apply_all_edits()
+        if not self._apply_all_edits():
+            return
         command = self.command_entry.get().strip()
         if not command:
             return
@@ -2632,6 +5656,8 @@ Rules:
             self.situation_text,
             self.themes_text,
             self.open_questions_text,
+            self.interview_answer_text,
+            self.supporting_person_text,
             self.writer_direction_text,
             self.writer_output_text,
             self.writer_state_preview,
@@ -2716,31 +5742,27 @@ Rules:
             widget.tag_add("misspelled", start, end)
 
     def _install_context_menus(self):
-        # Tkinter provides keyboard clipboard shortcuts, but does not create
-        # a right-click context menu automatically on Linux. Add one to every
-        # text-entry widget used by StoryBuilder.
-        widgets = [
-            self.premise_text,
-            *self.character_texts.values(),
-            self.cast_text,
-            self.notes_text,
-            self.relationships_text,
-            self.locations_text,
-            self.module_text,
-            self.situation_text,
-            self.themes_text,
-            self.open_questions_text,
-            self.writer_direction_text,
-            self.writer_output_text,
-            self.manuscript_output,
-        ]
-
-        # Find the Entry widgets associated with StringVars by walking the
-        # widget tree. This keeps the data model unchanged.
+        # Discover every Text and Entry widget so every current and future tab
+        # gets the same right-click clipboard behavior.
+        widgets = self._find_text_widgets(self)
         widgets.extend(self._find_entry_widgets(self))
 
+        seen = set()
         for widget in widgets:
+            widget_id = str(widget)
+            if widget_id in seen:
+                continue
+            seen.add(widget_id)
             self._add_context_menu(widget)
+
+    @staticmethod
+    def _find_text_widgets(root):
+        widgets = []
+        for child in root.winfo_children():
+            if isinstance(child, tk.Text):
+                widgets.append(child)
+            widgets.extend(StoryBuilderApp._find_text_widgets(child))
+        return widgets
 
     @staticmethod
     def _find_entry_widgets(root):
@@ -2750,6 +5772,93 @@ Rules:
                 entries.append(child)
             entries.extend(StoryBuilderApp._find_entry_widgets(child))
         return entries
+
+    def _install_mousewheel_scrolling(self):
+        """Route mouse-wheel input to the widget currently under the pointer."""
+        self.bind_all("<MouseWheel>", self._handle_mousewheel, add="+")
+        self.bind_all("<Button-4>", self._handle_mousewheel, add="+")
+        self.bind_all("<Button-5>", self._handle_mousewheel, add="+")
+
+    @staticmethod
+    def _mousewheel_units(event):
+        if getattr(event, "num", None) == 4:
+            return -3
+        if getattr(event, "num", None) == 5:
+            return 3
+
+        delta = getattr(event, "delta", 0)
+        if delta > 0:
+            return -3
+        if delta < 0:
+            return 3
+        return 0
+
+    def _handle_mousewheel(self, event):
+        units = self._mousewheel_units(event)
+        if not units:
+            return
+
+        try:
+            widget = self.winfo_containing(event.x_root, event.y_root)
+        except (tk.TclError, KeyError):
+            # ttk.Combobox creates a temporary Tk "popdown" window for its
+            # dropdown list. While that window is open, winfo_containing() can
+            # return a path that is no longer present in the widget tree.
+            # Ignore that wheel event instead of printing a callback traceback.
+            widget = None
+
+        if widget is None:
+            return
+
+        # Native entry widgets keep their normal mouse-wheel behavior.
+        if isinstance(widget, (ttk.Entry, ttk.Combobox, ttk.Spinbox)):
+            return
+
+        # First try the Text/Listbox directly under the pointer.
+        target = widget
+        while target is not None:
+            if isinstance(target, (tk.Text, tk.Listbox)):
+                try:
+                    before = target.yview()
+                    target.yview_scroll(units, "units")
+                    after = target.yview()
+                    if before != after:
+                        return "break"
+                except tk.TclError:
+                    pass
+                break
+
+            if isinstance(target, tk.Canvas):
+                try:
+                    target.yview_scroll(units, "units")
+                    return "break"
+                except tk.TclError:
+                    return
+
+            try:
+                parent_name = target.winfo_parent()
+                if not parent_name:
+                    break
+                target = target.nametowidget(parent_name)
+            except (tk.TclError, KeyError, AttributeError):
+                break
+
+        # If a text widget is already at an edge, scroll its containing canvas.
+        target = widget
+        while target is not None:
+            if isinstance(target, tk.Canvas):
+                try:
+                    target.yview_scroll(units, "units")
+                    return "break"
+                except tk.TclError:
+                    return
+            try:
+                parent_name = target.winfo_parent()
+                if not parent_name:
+                    break
+                target = target.nametowidget(parent_name)
+            except (tk.TclError, KeyError, AttributeError):
+                break
 
     @staticmethod
     def _add_context_menu(widget):
@@ -2848,6 +5957,126 @@ Rules:
         widget.bind("<Control-c>", lambda _event: (copy(), "break")[1], add="+")
         widget.bind("<Control-v>", lambda _event: (paste(), "break")[1], add="+")
         widget.bind("<Control-a>", lambda _event: (select_all(), "break")[1], add="+")
+
+    def _ask_yes_no(self, title: str, message: str) -> bool:
+        """Show a readable, scrollable, copyable Yes/No confirmation dialog."""
+        dialog = tk.Toplevel(self)
+        dialog.title(title)
+        dialog.transient(self)
+        dialog.resizable(True, True)
+
+        screen_width = dialog.winfo_screenwidth()
+        screen_height = dialog.winfo_screenheight()
+        width = min(760, max(320, screen_width - 48))
+        height = min(560, max(260, screen_height - 80))
+        dialog.minsize(min(460, width), min(320, height))
+        x = max(0, (screen_width - width) // 2)
+        y = max(0, (screen_height - height) // 2)
+        dialog.geometry(f"{width}x{height}+{x}+{y}")
+
+        outer = ttk.Frame(dialog, padding=12)
+        outer.pack(fill="both", expand=True)
+
+        message_frame = ttk.Frame(outer)
+        message_frame.pack(fill="both", expand=True)
+
+        scrollbar = ttk.Scrollbar(message_frame, orient="vertical")
+        message_text = tk.Text(
+            message_frame,
+            wrap="word",
+            yscrollcommand=scrollbar.set,
+            padx=8,
+            pady=8,
+            takefocus=True,
+            height=14,
+            width=70,
+        )
+        scrollbar.configure(command=message_text.yview)
+        message_text.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        message_text.insert("1.0", str(message))
+        message_text.configure(state="disabled")
+
+        def copy_selection(_event=None):
+            try:
+                selected = message_text.get("sel.first", "sel.last")
+            except tk.TclError:
+                return "break"
+            try:
+                dialog.clipboard_clear()
+                dialog.clipboard_append(selected)
+                dialog.update_idletasks()
+            except tk.TclError:
+                pass
+            return "break"
+
+        def select_all(_event=None):
+            message_text.tag_add("sel", "1.0", "end-1c")
+            message_text.mark_set("insert", "1.0")
+            message_text.see("insert")
+            return "break"
+
+        message_text.bind("<Control-c>", copy_selection)
+        message_text.bind("<Control-C>", copy_selection)
+        message_text.bind("<Control-Insert>", copy_selection)
+        message_text.bind("<<Copy>>", copy_selection)
+        message_text.bind("<Control-a>", select_all)
+        message_text.bind("<Control-A>", select_all)
+
+        context_menu = tk.Menu(dialog, tearoff=False)
+        context_menu.add_command(label="Copy", command=copy_selection)
+        context_menu.add_command(label="Select All", command=select_all)
+
+        def show_context_menu(event):
+            try:
+                context_menu.tk_popup(event.x_root, event.y_root)
+            finally:
+                context_menu.grab_release()
+
+        message_text.bind("<Button-3>", show_context_menu)
+
+        footer = ttk.Frame(outer)
+        footer.pack(fill="x", pady=(10, 0))
+        ttk.Label(
+            footer,
+            text="Tip: Ctrl+A selects all text; Ctrl+C copies the selection.",
+        ).pack(side="left", padx=(0, 8))
+
+        answer = {"value": False}
+
+        def finish(value: bool):
+            answer["value"] = value
+            try:
+                dialog.grab_release()
+            except tk.TclError:
+                pass
+            if dialog.winfo_exists():
+                dialog.destroy()
+
+        buttons = ttk.Frame(footer)
+        buttons.pack(side="right")
+        ttk.Button(
+            buttons,
+            text="No",
+            command=lambda: finish(False),
+        ).pack(side="right", padx=(6, 0))
+        ttk.Button(
+            buttons,
+            text="Yes",
+            command=lambda: finish(True),
+        ).pack(side="right")
+
+        dialog.protocol("WM_DELETE_WINDOW", lambda: finish(False))
+        dialog.bind("<Escape>", lambda _event: finish(False))
+        dialog.update_idletasks()
+        try:
+            dialog.grab_set()
+            message_text.focus_set()
+            dialog.wait_window()
+        except tk.TclError:
+            # If the dialog is closed by the window manager, default to No.
+            pass
+        return bool(answer["value"])
 
     def _chat(self, speaker, message):
         self.chat_log.configure(state="normal")
