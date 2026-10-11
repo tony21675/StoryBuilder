@@ -223,7 +223,7 @@ def remove_prior_chapter_opening_markers(
 
     previous = int(previous_chapter)
     opening_marker = re.compile(
-        rf"^\\s*chapter\\s+{previous}\\s+(?:begins|starts)(?:\\s+here)?[.!]?\\s*$",
+        rf"^\s*chapter\s+{previous}\s+(?:begins|starts)(?:\s+here)?[.!]?\s*$",
         re.IGNORECASE,
     )
     cleaned_notes = [
