@@ -32,6 +32,8 @@ Validation standard:
 - When a contract gives a specific physical result, do not treat a materially different physical result as an equivalent. For example, a temporary red mark is not equivalent to bleeding, a scrape, a cut, a handprint, or a lasting wound unless the contract explicitly allows those variations.
 - Required sequence matters. A scene can fail even when all individual events appear somewhere in the prose if they happen in the wrong order.
 - The hard stop matters. The scene must stop at the authored ending state. Do not pass a scene that jumps beyond the stopping point, even if the required ending state also appears earlier.
+- A required action or disclosure is not satisfied merely because the character starts, considers, or struggles to do it. Verify that the specific authored action or information is actually completed in the prose.
+- Preserve the emotional cause-and-effect established by the scene contract and supplied continuity. If a familiar, trusted gesture is established as reassuring, do not treat the gesture itself as the cause of distress unless the prose and author direction explicitly establish that response. Evaluate the stated cause of the character's reaction, not just whether the emotion appears.
 - Character knowledge matters. Do not allow a character to know a fact before the character learns it in the scene.
 - If a forbidden detail or contradiction occurs, mark a violation even when the rest of the scene is good.
 - If a required beat, required fact, sequence step, or hard-stop condition is missing or only weakly implied, mark it as missed.
@@ -75,6 +77,9 @@ Rules:
 - Do not combine contradictory snapshots into one opening. If the situation says a character has just arrived, do not also begin with that character already settled into a later position unless the scene idea explicitly requests that transition.
 - The author's scene idea is the primary creative instruction.
 - Treat the scene idea as a boundary, not just a suggestion. Do not add new story events, revelations, character actions, future developments, or ending conditions that are not directly supported by the author's idea.
+- If the idea uses labeled sections such as Beginning, Middle, End, Required, Required Beats, or Must Include, preserve their distinct purposes. Beginning anchors the intended opening; Middle preserves the important action and emotional progression; End defines the actual intended terminal state; Required/Required Beats lists explicit requirements that must not be silently omitted.
+- Do not replace the authored End with the last small gesture that happens before it. The hard_stop must describe the complete intended ending state from the author's End section when one is supplied.
+- Preserve every explicit item in a Required/Required Beats section. Keep each supplied beat, combining only genuinely inseparable items; do not drop an item in the name of minimalism. Minimal means no speculative extras, not omission of author requirements.
 - Write a concise "direction" that tells the writer what the scene is about and how it should unfold naturally, using only the actions and intent supported by the author's idea and current state.
 - Write a concise "hard_stop" that names ONE clear stopping point directly supported by the author's idea. Do not invent a new event just to create an ending.
 - Choose a useful endpoint that completes a small step of the scene's intended action, rather than stopping at the instant that action is about to begin.
@@ -247,6 +252,83 @@ def _run_validator(model: Path, prompt: str) -> dict[str, Any]:
     }
 
 
+_AUTHOR_SECTION_ALIASES = {
+    "beginning": "beginning",
+    "opening": "beginning",
+    "start": "beginning",
+    "middle": "middle",
+    "progression": "middle",
+    "end": "end",
+    "ending": "end",
+    "hard stop": "end",
+    "required": "required_beats",
+    "required beat": "required_beats",
+    "required beats": "required_beats",
+    "must include": "required_beats",
+}
+
+
+def extract_authored_scene_sections(scene_idea: str) -> dict[str, Any]:
+    """Extract clearly labeled author sections so generation cannot silently omit them."""
+    collected: dict[str, list[str]] = {}
+    active_section: str | None = None
+
+    for raw_line in str(scene_idea or "").splitlines():
+        line = raw_line.strip()
+        if not line:
+            if active_section:
+                collected.setdefault(active_section, []).append("")
+            continue
+
+        header = line.lstrip("#").strip()
+        header = header.strip("*_ ").strip()
+        inline_value = ""
+        candidate = header.casefold()
+        if ":" in header:
+            heading, inline_value = header.split(":", 1)
+            candidate = heading.strip().strip("*_ ").casefold()
+        section = _AUTHOR_SECTION_ALIASES.get(candidate)
+
+        # A heading without a colon must be a standalone label. This avoids
+        # treating ordinary prose beginning with "End" or "Required" as a label.
+        standalone_heading = ":" not in header and not inline_value
+        if section and (not standalone_heading or candidate in _AUTHOR_SECTION_ALIASES):
+            active_section = section
+            collected.setdefault(active_section, [])
+            if inline_value.strip():
+                collected[active_section].append(inline_value.strip())
+            continue
+
+        if active_section:
+            collected.setdefault(active_section, []).append(line)
+
+    sections: dict[str, Any] = {}
+    for key in ("beginning", "middle", "end"):
+        value = "\\n".join(collected.get(key, [])).strip()
+        if value:
+            sections[key] = value
+
+    required_beats = []
+    for raw_item in collected.get("required_beats", []):
+        item = re.sub(r"^\\s*(?:[-*•]+|\\d+[.)])\\s*", "", str(raw_item)).strip()
+        if item:
+            required_beats.append(item)
+    if required_beats:
+        sections["required_beats"] = required_beats
+
+    return sections
+
+
+def _append_author_section(direction: str, label: str, text: str) -> str:
+    """Keep explicit opening/progression intent when the model compresses it away."""
+    direction = str(direction or "").strip()
+    text = str(text or "").strip()
+    if not text or text.casefold() in direction.casefold():
+        return direction
+    addition = f"Author-defined {label}: {text}"
+    return f"{direction}\\n\\n{addition}".strip() if direction else addition
+
+
 class SceneContract:
     """Validate generated prose against a reusable author-defined scene contract."""
 
@@ -276,6 +358,7 @@ class SceneContract:
 
         raw = _run_contract_builder(model, prompt)
 
+        authored_sections = extract_authored_scene_sections(idea)
         result = {
             "direction": str(raw.get("direction", "") or "").strip(),
             "hard_stop": str(raw.get("hard_stop", "") or "").strip(),
@@ -309,6 +392,24 @@ class SceneContract:
                     for item in value
                     if str(item).strip()
                 ]
+
+        # The model drafts a concise contract, but clearly labeled author
+        # sections remain authoritative if the model omits or compresses them.
+        result["direction"] = _append_author_section(
+            result["direction"], "beginning", authored_sections.get("beginning", "")
+        )
+        result["direction"] = _append_author_section(
+            result["direction"], "progression", authored_sections.get("middle", "")
+        )
+        if authored_sections.get("end"):
+            result["hard_stop"] = authored_sections["end"]
+
+        for beat in authored_sections.get("required_beats", []):
+            if beat.casefold() not in {
+                str(existing).strip().casefold()
+                for existing in result["required_beats"]
+            }:
+                result["required_beats"].append(beat)
 
         if result["max_attempts"] in (None, ""):
             result["max_attempts"] = 3
