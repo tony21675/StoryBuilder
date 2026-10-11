@@ -4857,8 +4857,9 @@ Rules:
                 f"Restored Chapter {chapter}, Scene {scene} from the saved ending state of "
                 f"Chapter {previous_chapter}, Scene {previous_scene}.",
             )
-            if hasattr(self, "writer_status"):
-                self.writer_status.configure(
+            writer_status = self.__dict__.get("writer_status")
+            if writer_status is not None:
+                writer_status.configure(
                     text=f"Starting state restored for Chapter {chapter}, Scene {scene}. "
                     "Reset the old contract, then rebuild it from the preserved Scene Idea."
                 )
