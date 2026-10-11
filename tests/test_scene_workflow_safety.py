@@ -282,7 +282,7 @@ class SimpleLabel:
             self.text = kwargs["text"]
 
 
-
+class SceneResetSafetyTests(unittest.TestCase):
     def make_restore_app(self, package_path, current_state):
         app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
         persisted = {}
