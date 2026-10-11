@@ -2060,7 +2060,7 @@ Rules:
         has_accepted = bool(self.accepted_scene.strip())
         has_patch = isinstance(self.pending_state_patch, dict)
 
-        notes_updating = bool(getattr(self, "writer_notes_update_in_progress", False))
+        notes_updating = bool(self.__dict__.get("writer_notes_update_in_progress", False))
         self.writer_start_button.configure(
             state="disabled" if running or notes_updating else "normal"
         )
@@ -2098,7 +2098,7 @@ Rules:
         self.writer_status.configure(text=status_text)
 
     def _start_writer(self):
-        if getattr(self, "writer_notes_update_in_progress", False):
+        if self.__dict__.get("writer_notes_update_in_progress", False):
             return
         if self.package is None:
             messagebox.showerror("Writer", "Open or create a novel first.")
@@ -2187,7 +2187,7 @@ Rules:
         self._update_writer_buttons()
 
     def _write_next_scene(self):
-        if getattr(self, "writer_notes_update_in_progress", False):
+        if self.__dict__.get("writer_notes_update_in_progress", False):
             self.writer_status.configure(
                 text="The novel's writing notes are being updated from the last accepted scene."
             )
@@ -2825,7 +2825,7 @@ Rules:
             text=f"Saved author contract for Chapter {chapter}, Scene {scene}.",
         )
     def _build_contract_from_scene_idea(self):
-        if getattr(self, "writer_notes_update_in_progress", False):
+        if self.__dict__.get("writer_notes_update_in_progress", False):
             self.scene_contract_status.configure(
                 text="The writing-notes review is using the local model. Build the next contract after it finishes."
             )
@@ -3303,7 +3303,7 @@ Rules:
         """Learn craft notes from several accepted scenes after state application."""
         if self.package is None or self.package.path is None or not str(prose or "").strip():
             return
-        if getattr(self, "writer_notes_update_in_progress", False):
+        if self.__dict__.get("writer_notes_update_in_progress", False):
             return
 
         package_path = Path(self.package.path)
@@ -3854,7 +3854,7 @@ Rules:
                 "The novel was saved locally, but GitHub sync failed.\n\n" + str(exc),
             )
     def _close_without_sync(self):
-        if getattr(self, "writer_notes_update_in_progress", False):
+        if self.__dict__.get("writer_notes_update_in_progress", False):
             messagebox.showwarning(
                 "Close",
                 "StoryBuilder is updating the novel's writing notes. The app will remain open until the update is saved.",
@@ -3887,7 +3887,7 @@ Rules:
             )
             self._closing = False
     def _close_and_sync(self):
-        if getattr(self, "writer_notes_update_in_progress", False):
+        if self.__dict__.get("writer_notes_update_in_progress", False):
             messagebox.showwarning(
                 "Close & Sync",
                 "StoryBuilder is updating the novel's writing notes. The app will remain open until the update is saved.",
@@ -3975,7 +3975,7 @@ Rules:
             return
         self._new_novel()
     def _new_novel(self):
-        if getattr(self, "writer_notes_update_in_progress", False):
+        if self.__dict__.get("writer_notes_update_in_progress", False):
             messagebox.showwarning(
                 "Writing Notes",
                 "Finish the current novel's automatic writing-notes update before switching novels.",
@@ -4011,7 +4011,7 @@ Rules:
         self._refresh_all()
         self._chat("Builder", "New novel created.")
     def _open_novel(self):
-        if getattr(self, "writer_notes_update_in_progress", False):
+        if self.__dict__.get("writer_notes_update_in_progress", False):
             messagebox.showwarning(
                 "Writing Notes",
                 "Finish the current novel's automatic writing-notes update before switching novels.",
@@ -4059,7 +4059,7 @@ Rules:
         self._refresh_writer_models()
         self._chat("Builder", f'Opened "{self.package.story_bible.get("title", Path(folder).name)}".')
     def _save(self):
-        if getattr(self, "writer_notes_update_in_progress", False):
+        if self.__dict__.get("writer_notes_update_in_progress", False):
             messagebox.showwarning(
                 "Save",
                 "StoryBuilder is updating the novel's temporary writing-notes file. Save again when that update finishes.",
@@ -4080,7 +4080,7 @@ Rules:
             messagebox.showerror("Save", str(exc))
 
     def _save_as(self):
-        if getattr(self, "writer_notes_update_in_progress", False):
+        if self.__dict__.get("writer_notes_update_in_progress", False):
             messagebox.showwarning(
                 "Save As / Export",
                 "Finish the automatic writing-notes update before changing this novel's package location.",
