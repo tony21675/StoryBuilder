@@ -165,6 +165,66 @@ def collect_recent_accepted_scenes(
     return samples[-max(1, int(limit)):]
 
 
+def collect_initial_seed_scenes(
+    novel_path: str | Path,
+    per_scene_limit: int = 3200,
+    total_limit: int = 18000,
+) -> list[dict]:
+    """Sample every accepted scene from the earliest chapter with at least two scenes.
+
+    This one-time startup seed gives the notebook an initial body of evidence.
+    Only accepted manuscript files are considered; draft files are excluded by
+    ManuscriptManager.list_scenes().
+    """
+    manager = ManuscriptManager(Path(novel_path))
+    chapters: dict[int, list[dict]] = {}
+
+    for path in manager.list_scenes():
+        numbers = manager.scene_numbers(path)
+        if numbers is None:
+            continue
+        chapter, scene = numbers
+        try:
+            prose = path.read_text(encoding="utf-8").strip()
+        except OSError:
+            continue
+        if not prose:
+            continue
+        chapters.setdefault(chapter, []).append({
+            "scene": f"Chapter {chapter}, Scene {scene}",
+            "prose": prose,
+        })
+
+    selected = []
+    for chapter in sorted(chapters):
+        if len(chapters[chapter]) >= 2:
+            selected = chapters[chapter]
+            break
+    if not selected:
+        return []
+
+    # Keep the whole chapter represented without letting a long chapter flood
+    # the model context. Each scene contributes its opening and ending.
+    total_budget = max(400, int(total_limit))
+    per_scene_budget = max(
+        400,
+        min(max(400, int(per_scene_limit)), total_budget // len(selected)),
+    )
+    samples = []
+    for item in selected:
+        prose = item["prose"]
+        if len(prose) > per_scene_budget:
+            head_size = per_scene_budget // 2
+            tail_size = per_scene_budget - head_size
+            prose = (
+                prose[:head_size].rstrip()
+                + "\n[Middle omitted for the initial writing-craft review.]\n"
+                + prose[-tail_size:].lstrip()
+            )
+        samples.append({"scene": item["scene"], "prose": prose})
+    return samples
+
+
 def build_writer_notes_review_prompt(notes: dict, recent_scenes: list[dict]) -> str:
     """Create the small review task sent after a scene has been accepted and applied."""
     return (

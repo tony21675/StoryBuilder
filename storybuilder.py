@@ -17,6 +17,7 @@ from builder.writer_notes import (
     WRITER_NOTES_SYSTEM_PROMPT,
     build_writer_notes_review_prompt,
     collect_recent_accepted_scenes,
+    collect_initial_seed_scenes,
     merge_writer_notes,
     normalize_writer_notes,
     parse_writer_notes_response,
@@ -2097,7 +2098,7 @@ Rules:
             status_text = "Writer stopped."
         self.writer_status.configure(text=status_text)
 
-    def _start_writer(self):
+    def _start_writer(self, skip_notes_seed=False):
         if self.__dict__.get("writer_notes_update_in_progress", False):
             return
         if self.package is None:
@@ -2111,6 +2112,9 @@ Rules:
 
         self._save()
         if self.dirty:
+            return
+
+        if not skip_notes_seed and self._start_initial_writer_notes_scan(model):
             return
 
         files = self._writer_package_files()
@@ -2128,6 +2132,116 @@ Rules:
 
         self.writer_thread = threading.Thread(target=work, daemon=True)
         self.writer_thread.start()
+
+    def _start_initial_writer_notes_scan(self, model):
+        """Seed a blank notebook from a chapter of existing accepted prose."""
+        if self.package is None or self.package.path is None:
+            return False
+
+        package_path = Path(self.package.path)
+        notes = normalize_writer_notes(getattr(self.package, "writer_notes", {}))
+        if notes.get("learned_notes") or notes.get("reviewed_scenes"):
+            return False
+
+        seed_scenes = collect_initial_seed_scenes(package_path)
+        if len(seed_scenes) < 2:
+            return False
+
+        available_labels = [item["scene"] for item in seed_scenes]
+        scene_label = available_labels[-1]
+        review_prompt = build_writer_notes_review_prompt(notes, seed_scenes)
+        self.writer_notes_update_in_progress = True
+        self._update_writer_buttons()
+        self.writer_status.configure(
+            text="Scanning accepted scenes for recurring writing-craft patterns before starting the writer..."
+        )
+
+        def work():
+            updated_notes = None
+            added_count = 0
+            error = None
+            engine = self.writer_engine
+            was_running = False
+            old_system_prompt = ""
+            try:
+                with engine.lock:
+                    was_running = engine.child is not None and engine.child.isalive()
+                    old_system_prompt = str(engine.system_prompt or "")
+                    try:
+                        engine.reset_context(Path(model), WRITER_NOTES_SYSTEM_PROMPT)
+                        response = engine.generate(review_prompt)
+                        suggestions = parse_writer_notes_response(response)
+                        updated_notes, added_count = merge_writer_notes(
+                            notes,
+                            suggestions,
+                            available_labels,
+                            scene_label,
+                        )
+                        # Every sampled scene was considered, even if no note
+                        # was strong enough to keep. This prevents repeated scans.
+                        updated_notes["reviewed_scenes"] = list(dict.fromkeys(
+                            updated_notes.get("reviewed_scenes", []) + available_labels
+                        ))[-100:]
+                        save_writer_notes(package_path, updated_notes)
+                    finally:
+                        if was_running and old_system_prompt:
+                            engine.reset_context(Path(model), old_system_prompt)
+                        else:
+                            engine.stop()
+            except Exception as exc:
+                error = str(exc)
+
+            try:
+                self.after(
+                    0,
+                    lambda: self._finish_initial_writer_notes_scan(
+                        package_path, updated_notes, added_count, error, scene_label
+                    ),
+                )
+            except tk.TclError:
+                pass
+
+        threading.Thread(target=work, daemon=True).start()
+        return True
+
+    def _finish_initial_writer_notes_scan(
+        self, package_path, notes, added_count, error, scene_label
+    ):
+        self.writer_notes_update_in_progress = False
+        package_matches = (
+            self.package is not None
+            and self.package.path is not None
+            and Path(self.package.path).resolve() == Path(package_path).resolve()
+        )
+        if notes is not None and package_matches:
+            self.package.writer_notes = notes
+
+        self._update_writer_buttons()
+        if error:
+            self._chat(
+                "Builder",
+                f"Initial writing-notes scan skipped for {scene_label}: {error}. "
+                "The writer will start without seeded notes.",
+            )
+        elif added_count:
+            self._chat(
+                "Builder",
+                f"Initial writing-notes scan reviewed the earliest complete chapter ending at "
+                f"{scene_label} and added {added_count} recurring craft observation(s).",
+            )
+        else:
+            self._chat(
+                "Builder",
+                f"Initial writing-notes scan reviewed the earliest complete chapter ending at "
+                f"{scene_label}. No recurring craft lesson was strong enough to add.",
+            )
+
+        # The scan is a preflight pass. Continue with fresh prompt content after
+        # it finishes, but do not invoke the seed step a second time in this call.
+        if package_matches and not self._closing:
+            self._start_writer(skip_notes_seed=True)
+        else:
+            self._update_writer_buttons()
 
     def _finish_writer_start(self, error):
         if error:

@@ -8,6 +8,7 @@ from builder.writer_notes import (
     WRITER_NOTES_FILENAME,
     build_writer_notes_review_prompt,
     collect_recent_accepted_scenes,
+    collect_initial_seed_scenes,
     default_writer_notes,
     load_writer_notes,
     merge_writer_notes,
@@ -135,6 +136,63 @@ class WriterNotesTests(unittest.TestCase):
             'Result:\n{"suggestions":[{"note":"Use natural dialogue.","evidence_scenes":["Chapter 1, Scene 1","Chapter 1, Scene 2"]}]}\nDone.'
         )
         self.assertEqual(len(parsed), 1)
+
+    def test_initial_seed_scans_every_accepted_scene_in_first_multi_scene_chapter(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            chapters = root / "Manuscript" / "Chapters"
+            chapter_one = chapters / "Chapter_01"
+            chapter_two = chapters / "Chapter_02"
+            chapter_one.mkdir(parents=True)
+            chapter_two.mkdir(parents=True)
+
+            (chapter_one / "Chapter_01_Section_01.txt").write_text("Chapter one scene one.", encoding="utf-8")
+            (chapter_one / "Chapter_01_Section_02.txt").write_text("Chapter one scene two.", encoding="utf-8")
+            (chapter_one / "Chapter_01_Section_03.txt").write_text("Chapter one scene three.", encoding="utf-8")
+            (chapter_one / "Chapter_01_Section_03_draft.txt").write_text("Draft only, not accepted.", encoding="utf-8")
+            (chapter_two / "Chapter_02_Section_01.txt").write_text("Chapter two scene one.", encoding="utf-8")
+            (chapter_two / "Chapter_02_Section_02.txt").write_text("Chapter two scene two.", encoding="utf-8")
+
+            samples = collect_initial_seed_scenes(root)
+
+            self.assertEqual(
+                [item["scene"] for item in samples],
+                ["Chapter 1, Scene 1", "Chapter 1, Scene 2", "Chapter 1, Scene 3"],
+            )
+            self.assertNotIn("Draft only", " ".join(item["prose"] for item in samples))
+
+    def test_initial_seed_uses_first_chapter_with_two_accepted_scenes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            chapter_one = root / "Manuscript" / "Chapters" / "Chapter_01"
+            chapter_two = root / "Manuscript" / "Chapters" / "Chapter_02"
+            chapter_one.mkdir(parents=True)
+            chapter_two.mkdir(parents=True)
+            (chapter_one / "Chapter_01_Section_01.txt").write_text("Only one scene.", encoding="utf-8")
+            (chapter_two / "Chapter_02_Section_01.txt").write_text("First scene of the next chapter.", encoding="utf-8")
+            (chapter_two / "Chapter_02_Section_02.txt").write_text("Second scene of the next chapter.", encoding="utf-8")
+
+            samples = collect_initial_seed_scenes(root)
+
+            self.assertEqual(
+                [item["scene"] for item in samples],
+                ["Chapter 2, Scene 1", "Chapter 2, Scene 2"],
+            )
+
+    def test_initial_seed_keeps_opening_and_ending_when_sampling_long_scene(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            chapter = root / "Manuscript" / "Chapters" / "Chapter_01"
+            chapter.mkdir(parents=True)
+            (chapter / "Chapter_01_Section_01.txt").write_text("A" * 900, encoding="utf-8")
+            (chapter / "Chapter_01_Section_02.txt").write_text("B" * 900, encoding="utf-8")
+
+            samples = collect_initial_seed_scenes(root, per_scene_limit=500, total_limit=1000)
+
+            self.assertEqual(len(samples), 2)
+            self.assertIn("[Middle omitted for the initial writing-craft review.]", samples[0]["prose"])
+            self.assertTrue(samples[0]["prose"].startswith("A"))
+            self.assertTrue(samples[0]["prose"].endswith("A"))
 
     def test_notes_save_load_round_trip(self):
         with tempfile.TemporaryDirectory() as tmp:
