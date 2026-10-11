@@ -2274,7 +2274,7 @@ Rules:
             self._update_writer_buttons()
             return
 
-        if not messagebox.askyesno(
+        if not self._ask_yes_no(
             "Clear Writer Context",
             "Clear the active model's conversation context and rebuild it from the current saved novel files?\n\n"
             "This does not delete manuscript text or reset Current State. Any helpful details held only in the model's "
@@ -2484,7 +2484,7 @@ Rules:
         if not self.generated_scene.strip():
             return
 
-        if not messagebox.askyesno(
+        if not self._ask_yes_no(
             "Reject Scene",
             "Discard this generated scene? It will not be accepted into the manuscript.",
         ):
@@ -2587,7 +2587,7 @@ Rules:
             manager = ManuscriptManager(self.package.path)
             path = manager.scene_path(chapter, scene)
             if path.exists():
-                replace = messagebox.askyesno(
+                replace = self._ask_yes_no(
                     "Replace Existing Scene",
                     f"{path.name} already exists. Replace it with this accepted scene?"
                 )
@@ -2750,7 +2750,7 @@ Rules:
             return
 
         if self._scene_contract_editor_has_content():
-            if not messagebox.askyesno(
+            if not self._ask_yes_no(
                 "Reload Saved Contract",
                 "Discard unsaved Scene Contract editor changes and reload the saved version? "
                 "The saved novel data will not be changed.",
@@ -2796,7 +2796,7 @@ Rules:
             )
             return
 
-        if not messagebox.askyesno(
+        if not self._ask_yes_no(
             "Reset Scene Contract",
             f"Clear the saved direction, ending, and generated contract for Chapter {chapter}, Scene {scene}?\n\n"
             "The Scene Idea, character data, manuscript, current story state, and other scenes will be preserved. "
@@ -3791,7 +3791,7 @@ Rules:
         if self.package is None or not isinstance(self.saved_state_candidate, dict):
             return
 
-        if not messagebox.askyesno(
+        if not self._ask_yes_no(
             "Restore Reconstructed State",
             "Replace the current story state with this reconstructed state?\\n\\n"
             "The reconstructed JSON has already been saved as a recovery file.",
@@ -3931,7 +3931,7 @@ Rules:
             )
             return
 
-        if not messagebox.askyesno(
+        if not self._ask_yes_no(
             "Finalize Chapter",
             f"Mark Chapter {chapter}, Scene {scene}, as complete?\n\n"
             "This will not create a new scene or advance to the next chapter.",
@@ -4813,8 +4813,8 @@ Rules:
             )
             return
 
-        preview = restored_situation if len(restored_situation) <= 800 else restored_situation[:797].rstrip() + "..."
-        if not messagebox.askyesno(
+        preview = restored_situation
+        if not self._ask_yes_no(
             "Restore Previous End State",
             f"Restore the starting state for Chapter {chapter}, Scene {scene} from the saved ending state of "
             f"Chapter {previous_chapter}, Scene {previous_scene}?\n\n"
@@ -4981,7 +4981,7 @@ Rules:
             return
         char = self.package.characters[self.character_filename]
         name = char.get("name", self.character_filename)
-        if not messagebox.askyesno("Remove Character", f"Remove {name}?"):
+        if not self._ask_yes_no("Remove Character", f"Remove {name}?"):
             return
         self.package.remove_character(self.character_filename)
         self.character_filename = None
@@ -5351,7 +5351,7 @@ Rules:
                 next_scene,
             )
             if next_guidance is None:
-                proceed = messagebox.askyesno(
+                proceed = self._ask_yes_no(
                     "Start Next Chapter",
                     f"Chapter {next_chapter} Scene 1 has no scene guidance yet.\n\n"
                     "Starting it will preserve the completed chapter's ending state, but the "
@@ -5904,6 +5904,126 @@ Rules:
         widget.bind("<Control-c>", lambda _event: (copy(), "break")[1], add="+")
         widget.bind("<Control-v>", lambda _event: (paste(), "break")[1], add="+")
         widget.bind("<Control-a>", lambda _event: (select_all(), "break")[1], add="+")
+
+    def _ask_yes_no(self, title: str, message: str) -> bool:
+        """Show a readable, scrollable, copyable Yes/No confirmation dialog."""
+        dialog = tk.Toplevel(self)
+        dialog.title(title)
+        dialog.transient(self)
+        dialog.resizable(True, True)
+
+        screen_width = dialog.winfo_screenwidth()
+        screen_height = dialog.winfo_screenheight()
+        width = min(760, max(320, screen_width - 48))
+        height = min(560, max(260, screen_height - 80))
+        dialog.minsize(min(460, width), min(320, height))
+        x = max(0, (screen_width - width) // 2)
+        y = max(0, (screen_height - height) // 2)
+        dialog.geometry(f"{width}x{height}+{x}+{y}")
+
+        outer = ttk.Frame(dialog, padding=12)
+        outer.pack(fill="both", expand=True)
+
+        message_frame = ttk.Frame(outer)
+        message_frame.pack(fill="both", expand=True)
+
+        scrollbar = ttk.Scrollbar(message_frame, orient="vertical")
+        message_text = tk.Text(
+            message_frame,
+            wrap="word",
+            yscrollcommand=scrollbar.set,
+            padx=8,
+            pady=8,
+            takefocus=True,
+            height=14,
+            width=70,
+        )
+        scrollbar.configure(command=message_text.yview)
+        message_text.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        message_text.insert("1.0", str(message))
+        message_text.configure(state="disabled")
+
+        def copy_selection(_event=None):
+            try:
+                selected = message_text.get("sel.first", "sel.last")
+            except tk.TclError:
+                return "break"
+            try:
+                dialog.clipboard_clear()
+                dialog.clipboard_append(selected)
+                dialog.update_idletasks()
+            except tk.TclError:
+                pass
+            return "break"
+
+        def select_all(_event=None):
+            message_text.tag_add("sel", "1.0", "end-1c")
+            message_text.mark_set("insert", "1.0")
+            message_text.see("insert")
+            return "break"
+
+        message_text.bind("<Control-c>", copy_selection)
+        message_text.bind("<Control-C>", copy_selection)
+        message_text.bind("<Control-Insert>", copy_selection)
+        message_text.bind("<<Copy>>", copy_selection)
+        message_text.bind("<Control-a>", select_all)
+        message_text.bind("<Control-A>", select_all)
+
+        context_menu = tk.Menu(dialog, tearoff=False)
+        context_menu.add_command(label="Copy", command=copy_selection)
+        context_menu.add_command(label="Select All", command=select_all)
+
+        def show_context_menu(event):
+            try:
+                context_menu.tk_popup(event.x_root, event.y_root)
+            finally:
+                context_menu.grab_release()
+
+        message_text.bind("<Button-3>", show_context_menu)
+
+        footer = ttk.Frame(outer)
+        footer.pack(fill="x", pady=(10, 0))
+        ttk.Label(
+            footer,
+            text="Tip: Ctrl+A selects all text; Ctrl+C copies the selection.",
+        ).pack(side="left", padx=(0, 8))
+
+        answer = {"value": False}
+
+        def finish(value: bool):
+            answer["value"] = value
+            try:
+                dialog.grab_release()
+            except tk.TclError:
+                pass
+            if dialog.winfo_exists():
+                dialog.destroy()
+
+        buttons = ttk.Frame(footer)
+        buttons.pack(side="right")
+        ttk.Button(
+            buttons,
+            text="No",
+            command=lambda: finish(False),
+        ).pack(side="right", padx=(6, 0))
+        ttk.Button(
+            buttons,
+            text="Yes",
+            command=lambda: finish(True),
+        ).pack(side="right")
+
+        dialog.protocol("WM_DELETE_WINDOW", lambda: finish(False))
+        dialog.bind("<Escape>", lambda _event: finish(False))
+        dialog.update_idletasks()
+        try:
+            dialog.grab_set()
+            message_text.focus_set()
+            dialog.wait_window()
+        except tk.TclError:
+            # If the dialog is closed by the window manager, default to No.
+            pass
+        return bool(answer["value"])
 
     def _chat(self, speaker, message):
         self.chat_log.configure(state="normal")
