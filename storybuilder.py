@@ -27,7 +27,7 @@ from builder.validator import validate_package
 from builder.writer_engine import WriterEngine
 from builder.manuscript import ManuscriptManager
 from builder.novel_sync import NovelSyncError, sync_novel_repository
-from builder.state_manager import StateManager
+from builder.state_manager import StateManager, remove_prior_chapter_opening_markers
 from builder.scene_contract import SceneContract
 from builder.story_interview import (
     CHARACTER_QUESTIONS,
@@ -2032,7 +2032,7 @@ Rules:
 4. Never make a character discover, ask whether, or react as though new something that the current_situation explicitly says they already know. They may ask for clarification or additional details that have not yet been established.
 5. A character only knows what that character has established or naturally learns. Never transfer another character's knowledge. When character_knowledge and current_situation appear to conflict, the explicit completed event in current_situation is the newer scene-start fact and controls the opening of the scene.
 6. Begin from the exact physical and narrative starting state provided. Do not replay the previous scene. Preserve each explicit physical-continuity detail at the opening, including location, position, posture, contact, and movement, unless current_situation or the scene direction directly requires a change. Let the opening naturally orient the reader to important positions, posture, and contact using a simple concrete detail instead of vague staging, then move forward without repeatedly restating the setup. Silence in current_situation does not cancel physical continuity; treat stored physical details as stale only when there is a genuine contradiction.
-7. Follow the scene direction in order and complete its requested actions before reaching its ending.
+7. Follow the scene direction in order and complete its requested actions before reaching its ending. A required disclosure, answer, or action is not complete merely because a character starts to speak, hesitates, or begins attempting it. If the author asks for the character to say or do something, complete that action in the prose before ending.
 8. Let characters make their own choices when the scene gives them a choice.
 9. Write natural prose through a flexible mix of dialogue, concrete action, and selective description. Prefer what characters say and do over narration explaining what their behavior already shows. When a moment depends on shared history that the reader may not yet know, give one brief, natural cue that makes the relationship or gesture understandable; then trust the action and the character's response rather than explaining the same meaning or emotion again. Avoid restating one feeling through several descriptions, metaphors, or interpretations. Keep each character's dialogue and actions consistent with the intended tone; don't turn gentle concern into insistence or pressure unless the scene calls for it.
 10. Let dialogue and interaction carry scenes whenever the situation allows. Use natural exchanges, interruptions, reactions, and small talk when they fit; do not summarize a conversation that would be stronger played out. When a character cannot speak or the moment is quiet, let actions, pauses, the other character's natural words, and selective description carry it. Do not force dialogue or impose a quota.
@@ -2048,10 +2048,11 @@ Rules:
 20. Do not add unprompted ominous narration, hindsight, thematic warnings, or hints that something bad is about to happen when the current scene gives no reason for it. An ordinary scene should be allowed to remain ordinary. Do not contrast the characters' present happiness with a future event unless that contrast is explicitly part of the current scene direction or established context.
 21. Respect privacy, dignity, and established character boundaries. Do not expose a character's private feelings, secrets, or limited knowledge without a valid in-story reason.
 22. Ordinary affectionate nicknames are allowed when they fit the established relationship and moment. Do not use childizing terms such as "kid", "kiddo", "little girl", or similar terms for established adult characters unless that term is explicitly established.
-23. Respect the scene endpoint exactly. Do not stop early or continue past it.
+23. Respect the scene endpoint exactly. Do not stop early or continue past it. Reach the complete authored End/hard-stop state; do not stop at a stammer, hesitation, first gesture, or just before a required action is completed. Do not continue into events beyond that endpoint.
 24. Keep relationship-specific behavior consistent with established roles and dynamics. Avoid an incongruous relationship metaphor or a diminishing label for someone being comforted unless the story establishes that framing.
 25. If temporary per-novel working writer notes are supplied, treat them as tentative craft observations learned from accepted sections. Apply them selectively when useful; they are not canon, plot instructions, or superior to current author direction, scene contract, character knowledge, or continuity. Never import note content as an in-story fact.
-26. Output only natural story prose.
+26. Preserve the emotional cause-and-effect established by author direction and character continuity. When a familiar, trusted care gesture is established as reassuring, let it reassure the character unless the current scene explicitly establishes a different response. Do not invent distress caused by the gesture; connect renewed distress to the authored trigger or remembered event. Do not reverse an established emotional response just to add drama.
+27. Output only natural story prose.
 
 """
         parts = [base, "\nSCENE REFERENCE\n"]
@@ -3319,6 +3320,16 @@ Rules:
         fixed_state_after = contract.get("state_after") if isinstance(contract, dict) else None
 
         if isinstance(fixed_state_after, dict):
+            try:
+                StateManager.validate_patch(current_state, fixed_state_after)
+            except (TypeError, ValueError) as exc:
+                messagebox.showerror(
+                    "State Update",
+                    "The authored state update is malformed and was rejected. "
+                    "No state changes were applied.\n\n" + str(exc),
+                )
+                self._update_writer_buttons()
+                return
             self.pending_state_patch = json.loads(
                 json.dumps(fixed_state_after, ensure_ascii=False)
             )
@@ -3370,7 +3381,27 @@ Rules:
 
     def _finish_state_analysis(self, patch, error):
         if error:
+            self.pending_state_patch = None
+            if hasattr(self, "writer_state_preview"):
+                self.writer_state_preview.delete("1.0", "end")
             messagebox.showerror("State Update", error)
+            self._update_writer_buttons()
+            return
+
+        try:
+            if self.package is None:
+                raise ValueError("No novel package is open.")
+            StateManager.validate_patch(self.package.current_state, patch or {})
+        except (TypeError, ValueError) as exc:
+            self.pending_state_patch = None
+            if hasattr(self, "writer_state_preview"):
+                self.writer_state_preview.delete("1.0", "end")
+            messagebox.showerror(
+                "State Update",
+                "The proposed state update is malformed and was rejected. "
+                "Nothing was applied.\n\n" + str(exc),
+            )
+            self.writer_status.configure(text="Malformed state update rejected. Analyze the accepted scene again after the underlying issue is fixed.")
             self._update_writer_buttons()
             return
 
@@ -3387,6 +3418,23 @@ Rules:
 
     def _apply_state_update(self):
         if self.package is None or not isinstance(self.pending_state_patch, dict):
+            return
+
+        try:
+            StateManager.validate_patch(
+                self.package.current_state,
+                self.pending_state_patch,
+            )
+        except (TypeError, ValueError) as exc:
+            self.pending_state_patch = None
+            if hasattr(self, "writer_state_preview"):
+                self.writer_state_preview.delete("1.0", "end")
+            messagebox.showerror(
+                "State Update",
+                "The proposed state update is malformed and cannot be applied. "
+                "No state changes were made.\n\n" + str(exc),
+            )
+            self._update_writer_buttons()
             return
 
         try:
@@ -4831,6 +4879,11 @@ Rules:
 
         old_state = json.loads(json.dumps(state, ensure_ascii=False))
         restored = json.loads(json.dumps(saved_state, ensure_ascii=False))
+        restored = remove_prior_chapter_opening_markers(
+            restored,
+            previous_chapter,
+            chapter,
+        )
         restored["chapter"] = chapter
         restored["scene"] = scene
         restored["scene_completed"] = False
