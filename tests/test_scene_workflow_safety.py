@@ -122,6 +122,14 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             prompt,
         )
         self.assertNotIn("plainly affectionate, non-sensual language", prompt)
+        self.assertIn(
+            "Let the opening naturally orient the reader to important positions, posture, and contact",
+            prompt,
+        )
+        self.assertIn(
+            "When one concrete action or image already conveys a feeling, trust it and move forward",
+            prompt,
+        )
 
     def test_semantic_validator_checks_opening_physical_continuity(self):
         current_state = {
