@@ -36,7 +36,7 @@ from builder.story_interview import (
     apply_interview_patch,
     structure_answer,
 )
-from builder.workspace import NOVEL_ROOT, WORKSPACE_ROOT
+from builder.workspace import NOVEL_ROOT, WORKSPACE_ROOT, find_novel_packages
 
 
 class StoryBuilderApp(tk.Tk):
@@ -89,7 +89,7 @@ class StoryBuilderApp(tk.Tk):
             ("New Novel", self._new_novel),
             ("Open Novel", self._open_novel),
             ("Save", self._save),
-            ("Save As / Export", self._save_as),
+            ("Save As", self._save_as),
             ("Validate", self._validate),
         ]:
             ttk.Button(toolbar, text=label, command=command).pack(side="left", padx=3)
@@ -4055,39 +4055,61 @@ Rules:
             )
             self._closing = False
     def _load_startup_novel(self):
-        """Open the default external novel when it exists; otherwise start blank."""
-        if NOVEL_ROOT.is_dir() and (NOVEL_ROOT / "story_bible.json").exists():
-            try:
-                self.writer_engine.stop()
-            except Exception:
-                pass
-            try:
-                self.package = StoryPackage.load(NOVEL_ROOT)
-            except Exception as exc:
+        """Open the sole novel automatically, or ask when the library has several."""
+        candidates = find_novel_packages(NOVEL_ROOT)
+        if not candidates:
+            self._new_novel()
+            return
+
+        if len(candidates) == 1:
+            folder = candidates[0]
+        else:
+            selected = filedialog.askdirectory(
+                title="Choose a novel from the MyNovel library",
+                initialdir=str(NOVEL_ROOT),
+            )
+            if not selected:
+                self._new_novel()
+                return
+            folder = Path(selected).expanduser().resolve()
+            allowed = {candidate.resolve() for candidate in candidates}
+            if folder not in allowed:
                 messagebox.showwarning(
                     "Open Novel",
-                    f"Could not open the default novel package.\n\n{exc}\n\nStarting with a new unsaved novel instead.",
+                    f"Choose a novel folder directly inside {NOVEL_ROOT}.",
                 )
                 self._new_novel()
                 return
-            self.character_filename = None
-            self.generated_scene = ""
-            self.accepted_scene = ""
-            self.pending_state_patch = None
-            self.interview_active = False
-            self.interview_index = 0
-            self.interview_pending_patch = None
-            self.interview_pending_answer = ""
-            self.last_novel_path = NOVEL_ROOT
-            self.dirty = False
-            self._refresh_all()
-            self._refresh_writer_models()
-            self._chat(
-                "Builder",
-                f'Opened "{self.package.story_bible.get("title", NOVEL_ROOT.name)}".',
+
+        try:
+            self.writer_engine.stop()
+        except Exception:
+            pass
+        try:
+            self.package = StoryPackage.load(folder)
+        except Exception as exc:
+            messagebox.showwarning(
+                "Open Novel",
+                f"Could not open the novel package.\n\n{exc}\n\nStarting with a new unsaved novel instead.",
             )
+            self._new_novel()
             return
-        self._new_novel()
+        self.character_filename = None
+        self.generated_scene = ""
+        self.accepted_scene = ""
+        self.pending_state_patch = None
+        self.interview_active = False
+        self.interview_index = 0
+        self.interview_pending_patch = None
+        self.interview_pending_answer = ""
+        self.last_novel_path = folder
+        self.dirty = False
+        self._refresh_all()
+        self._refresh_writer_models()
+        self._chat(
+            "Builder",
+            f'Opened "{self.package.story_bible.get("title", folder.name)}".',
+        )
     def _new_novel(self):
         if self.__dict__.get("writer_notes_update_in_progress", False):
             messagebox.showwarning(
@@ -4135,10 +4157,18 @@ Rules:
         if hasattr(self, "guided_button"):
             self.guided_button.configure(text="Guided Setup")
         folder = filedialog.askdirectory(
-            title="Open Novel Package",
-            initialdir=str(NOVEL_ROOT.parent),
+            title="Open Novel from MyNovel",
+            initialdir=str(NOVEL_ROOT),
         )
         if not folder:
+            return
+        selected_folder = Path(folder).expanduser().resolve()
+        allowed = {candidate.resolve() for candidate in find_novel_packages(NOVEL_ROOT)}
+        if selected_folder not in allowed:
+            messagebox.showerror(
+                "Open Novel",
+                f"Choose a novel folder directly inside {NOVEL_ROOT}.",
+            )
             return
         if not self._save_unsaved_writer_draft():
             return
@@ -4147,7 +4177,7 @@ Rules:
         except Exception:
             pass
         try:
-            self.package = StoryPackage.load(Path(folder))
+            self.package = StoryPackage.load(selected_folder)
         except Exception as exc:
             messagebox.showerror("Open Novel", f"Could not open that novel package.\n\n{exc}")
             return
@@ -4164,7 +4194,7 @@ Rules:
         self.interview_index = 0
         self.interview_pending_patch = None
         self.interview_pending_answer = ""
-        self.last_novel_path = Path(folder)
+        self.last_novel_path = selected_folder
         self.dirty = False
         if hasattr(self, "writer_output_text"):
             self.writer_output_text.delete("1.0", "end")
@@ -4196,30 +4226,40 @@ Rules:
     def _save_as(self):
         if self.__dict__.get("writer_notes_update_in_progress", False):
             messagebox.showwarning(
-                "Save As / Export",
-                "Finish the automatic writing-notes update before changing this novel's package location.",
+                "Save As",
+                "Finish the automatic writing-notes update before saving this novel.",
             )
             return
         if self.package is None:
             return
         if not self._apply_all_edits():
             return
-        parent = filedialog.askdirectory(
-            title="Choose a folder for the novel package",
-            initialdir=str(WORKSPACE_ROOT),
-        )
-        if not parent:
-            return
+
         name = self.package.story_bible.get("title", "Untitled").strip() or "Untitled"
-        target = Path(parent) / StoryPackage.safe_filename(name).removesuffix(".json")
+        folder_name = StoryPackage.safe_filename(name).removesuffix(".json")
+        target = NOVEL_ROOT / folder_name
+        current_path = (
+            Path(self.package.path).expanduser().resolve()
+            if self.package.path is not None
+            else None
+        )
+        if target.exists() and current_path != target.resolve():
+            messagebox.showerror(
+                "Save As",
+                f"A folder for '{name}' already exists here:\n\n{target}\n\n"
+                "Open that novel instead, or change the title before saving a new novel.",
+            )
+            return
+
         try:
+            NOVEL_ROOT.mkdir(parents=True, exist_ok=True)
             self.package.save(target)
             self.last_novel_path = target
             self.dirty = False
             self._update_path_label()
             self._chat("Builder", f"Saved novel package to {target}.")
         except Exception as exc:
-            messagebox.showerror("Save As / Export", str(exc))
+            messagebox.showerror("Save As", str(exc))
 
     def _validate(self):
         if self.package is None:
