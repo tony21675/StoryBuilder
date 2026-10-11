@@ -4,10 +4,13 @@
 
 ## Current Session: 2026-10-11
 
+- **Repository consolidation:** PR [#8](https://github.com/tony21675/StoryBuilder/pull/8) was merged into `main` at merge commit `ff20984f6ffff7810a41512940cb8880f7ba79bd`; it includes the current application and the 45-test suite. PR [#6](https://github.com/tony21675/StoryBuilder/pull/6) was closed as superseded because its Start Next Chapter work is included in PR #8. `main` is now the canonical StoryBuilder working branch. GitHub Actions compiled the app and passed all 45 tests on the PR head immediately before merge. Old branch names still exist on GitHub and require branch cleanup; do not create replacement branches.
+- **MyNovel safety check:** Do not promote `MyNovel/chapter1-clean-reset` to `MyNovel/main` yet. The current GitHub `current_state.json` on `chapter1-clean-reset` says Chapter 2, Scene 2, while the latest handoff says Chapter 2 Scene 1's state update remains unapplied. Reconcile the actual local novel state first. Preserve `archive/pre-cleanup-2026-10-08` unchanged.
+
 - **Current code commits:** State validation/note helper in `builder/state_manager.py`; apply/restore and writer prompt guards in `storybuilder.py`; structured contract preservation and validator guidance in `builder/scene_contract.py`; regression tests in `tests/test_scene_contract.py` and `tests/test_state_manager_validation.py`.
 - **Verification:** GitHub Actions run [177](https://github.com/tony21675/StoryBuilder/actions/runs/38178938732) compiled the application and builder modules and passed all 45 unit tests. This is automated test evidence; the local model still needs end-to-end live verification after Tony pulls the branch.
 
-- **Current task:** Implement and verify the four StoryBuilder reliability fixes directly on the existing `fix/build-contract-from-idea-test` branch. No new branch, second clone, or alternate project copy was created. The accepted Chapter 2 Scene 1 remains untouched, and its malformed pending state update remains unapplied. The app-repository work does not edit `~/Documents/MyNovel/Taken_at_Dusk`.
+- **Current task:** Live-test the four StoryBuilder reliability fixes from the canonical `main` branch. Do not alter the accepted Chapter 2 Scene 1 prose or apply the previously malformed state candidate. The app-repository work does not edit `~/Documents/MyNovel/Taken_at_Dusk`.
 - **Generic design requirement:** Shared behavior must work across genres, including science fiction, horror, children's books, and future novels. Notes and canon stay isolated inside each novel's package.
 - **Per-novel file:** `working_writer_notes.json`. A new unsaved `StoryPackage` starts with a clean empty notes object; a normal first save/save-as creates the file. Older packages load clean defaults without changing the package just by opening it, then get the notes file on the next save. Notes survive subsequent package saves.
 - **Writer prompt integration:** Learned craft notes are included as a small, separate reference only when notes exist. The writer prompt treats them as provisional craft observations, never canon, plot instructions, or higher priority than author directions, state, scene contracts, character knowledge, or continuity. The writer receives the note text without the evidence/review metadata.
@@ -20,7 +23,7 @@
 - **Cleanup completed:** `~/Documents/MyNovel_before_migration` and `~/Documents/MyNovel_Scene1_Rebuild/Taken_at_Dusk` were removed after verifying all six accepted Chapter 1 scenes and compiled Chapter 1 in `~/Documents/MyNovel/Taken_at_Dusk`. The test-only `Manuscript/Chapters/Chapter_02/Chapter_02_Section_06_after_state.json` was deleted at Tony's request. `StoryBuilder/Test_Novel` was emptied by a tracked StoryBuilder cleanup commit and its empty local folder was removed. The sole known local novel-repository modification was the intentional `writing_guidance.json` edit.
 - **Current scene/canon reminder:** Chapter 2 Scene 1 starts immediately after Chapter 1 Scene 6: Maya is curled against Tony's chest after telling him Tiffany is gone. Tony has NOT yet noticed the slap mark, and Maya has NOT yet told him that the kidnapper hit her. Scene 1 ends at Maya's admission that the single kidnapper hit her. Tony remains gently patient; his established fatherly comfort gesture toward Maya must not be suppressed or recast as sexual.
 - **State-reset behavior added:** Current State > `Restore Previous End State` loads the saved `_after_state.json` of the prior accepted scene, previews its Current Situation in a Yes/No dialog, preserves the target chapter/scene pointer, resets status/completion flags, and refuses to overwrite accepted target prose. Scene Contract > `Reset Contract` clears saved `direction`, `end_condition`, and `scene_contract` for the current scene while preserving its `scene_idea`, and asks for confirmation. `Reload Saved Contract` confirms before discarding unsaved editor contents. Writer > `Clear Writer Context` confirms and does not delete manuscript prose or reset story state.
-- **Next step:** After this handoff update is committed, close StoryBuilder and pull/sync the current `fix/build-contract-from-idea-test` branch once. Do not apply the previously malformed state candidate. Restart StoryBuilder and live-test the updated restore, contract-building, prose-generation, and state-analysis flows one step at a time.
+- **Next step:** With StoryBuilder closed, switch the existing local StoryBuilder checkout to `main`, then pull/sync `origin/main` once; do not create another clone or branch. Restart StoryBuilder and live-test the restore, contract-building, prose-generation, and state-analysis flows one step at a time. Inspect the new state-analysis candidate carefully and do not apply anything malformed.
 - **Storage change in current StoryBuilder work:** The app now treats `NOVEL_ROOT` (`~/Documents/MyNovel` by default) as a one-level-deep library. It opens a sole child novel automatically, prompts when there are multiple, and saves/open novel packages within that library. Existing root-level legacy packages remain discoverable. `builder.workspace.find_novel_packages()` has regression tests.
 - **Environment/model:** Linux Mint, Python 3; current local writer model `Gemma-4-E4B_q4_0-it.gguf`.
 
@@ -35,12 +38,12 @@
 - Existing explicit permissions remain in force: a clearly directed change can be carried out within that agreed scope; this rule does not require repeated confirmation of details already agreed.
 
 ## How to Work With Tony
-- Continue using the current branch `fix/build-contract-from-idea-test`; do not branch off for these fixes.
+- Work directly on StoryBuilder `main`; do not create feature/test branches or extra project copies. MyNovel is a separate repository. Do not change its active/default branch until the local-vs-GitHub state discrepancy in the Current Session notes is resolved.
 
 - Read this handoff before responding and continue from the current task instead of restarting.
 - Do not make Tony repeat details already included here.
 - Do not guess what files, code, or branches contain. When current repository information matters, inspect GitHub's actual current branch and files first.
-- **Single-working-area rule:** Keep app work in one project folder on the existing active branch. Do not create new feature/test branches, alternate clones, parallel working folders, or extra novel copies unless Tony explicitly asks. For app tasks, leave the novel repository untouched.
+- **Single-working-area rule:** Keep app work in one project folder on StoryBuilder `main`. Do not create feature/test branches, alternate clones, parallel working folders, or extra novel copies unless Tony explicitly asks. For app tasks, leave the novel repository untouched. Clean up existing obsolete branch refs only after confirming their code is represented in `main`.
 - Do not claim a test passed without evidence.
 - Run the available test suite or CI against the actual changed branch before declaring the code ready. Be explicit about what was tested and what still requires a live local-model test.
 - Never overwrite, reset, delete, or replace work without discussing it with Tony first.
@@ -51,7 +54,7 @@
 ## Repositories
 
 - StoryBuilder: https://github.com/tony21675/StoryBuilder
-- Current StoryBuilder test branch: https://github.com/tony21675/StoryBuilder/tree/fix/build-contract-from-idea-test
+- Current StoryBuilder working branch: https://github.com/tony21675/StoryBuilder/tree/main
 - Private novel repository: https://github.com/tony21675/MyNovel
 - Current novel branch: https://github.com/tony21675/MyNovel/tree/chapter1-clean-reset
 - Archive branch: https://github.com/tony21675/MyNovel/tree/archive/pre-cleanup-2026-10-08
@@ -124,7 +127,7 @@ When output misses the target, first compare the contract and generated prose. C
 
 ## Updating This File
 
-After meaningful progress, update this file on the current StoryBuilder test branch with:
+After meaningful progress, update this file on the current StoryBuilder `main` branch with:
 - The new current task and scene status.
 - What was actually tested and observed.
 - Any confirmed code/contract changes and their commit or branch.
