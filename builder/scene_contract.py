@@ -37,6 +37,8 @@ Validation standard:
 - If a required beat, required fact, sequence step, or hard-stop condition is missing or only weakly implied, mark it as missed.
 - If the contract specifies a character's established wording or address preferences, treat violations as contract violations when they materially contradict the supplied character guidance.
 - Do not penalize harmless creative detail that is not constrained by the contract.
+- When the authored direction or required beats establish a fatherly or familial comfort gesture, flag prose that turns it into lingering, sensualized body-focused description (for example, framing the touch as a caress or dwelling on anatomy). Accept neutral descriptions of where a hand rests as part of ordinary comfort; do not infer sexual intent from the gesture itself.
+- Flag an unsupported hidden motive only when the prose states it as fact and materially reframes the character. Ordinary emotional inference is allowed.
 - Pass ONLY when every required beat and required fact is explicitly satisfied, the required sequence is preserved, the hard stop is satisfied, and no forbidden or contradictory detail appears.
 - Keep missed_beats and violations concise and specific. Name the missing fact or wrong event rather than giving generic criticism.
 - Output JSON only. No markdown or explanation outside the JSON.
@@ -642,6 +644,7 @@ class SceneContract:
         semantic_contract = {
             key: contract[key]
             for key in (
+                "direction",
                 "required_beats",
                 "required_facts",
                 "required_sequence",
@@ -668,6 +671,12 @@ class SceneContract:
             "- Reject genuine missing requirements, contradictions, knowledge "
             "leaks, sequence errors, an incorrect hard stop, or clearly incompatible "
             "relationship framing that undermines the dynamic explicitly stated in the scene direction.\n"
+            "- When the authored direction or required beats establish a fatherly or familial "
+            "comfort gesture, flag lingering sensualized body-focused descriptions that recast "
+            "it as a caress or dwell on anatomy. Accept neutral descriptions of where a hand "
+            "rests during ordinary comfort; do not infer sexual intent from the gesture itself.\n"
+            "- Flag unsupported hidden motives only when stated as fact and materially reframing "
+            "a character. Do not over-police ordinary emotional inference.\n"
             "- If the scene direction explicitly calls a gesture fatherly or familial, flag "
             "sensualized or lingering body-focused wording that recasts the gesture as a caress "
             "or dwells on anatomy. Accept neutral descriptions of where a hand rests as part of "
