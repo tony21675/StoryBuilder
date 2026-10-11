@@ -304,13 +304,13 @@ def extract_authored_scene_sections(scene_idea: str) -> dict[str, Any]:
 
     sections: dict[str, Any] = {}
     for key in ("beginning", "middle", "end"):
-        value = "\\n".join(collected.get(key, [])).strip()
+        value = "\n".join(collected.get(key, [])).strip()
         if value:
             sections[key] = value
 
     required_beats = []
     for raw_item in collected.get("required_beats", []):
-        item = re.sub(r"^\\s*(?:[-*•]+|\\d+[.)])\\s*", "", str(raw_item)).strip()
+        item = re.sub(r"^\s*(?:[-*•]+|\d+[.)])\s*", "", str(raw_item)).strip()
         if item:
             required_beats.append(item)
     if required_beats:
@@ -326,7 +326,7 @@ def _append_author_section(direction: str, label: str, text: str) -> str:
     if not text or text.casefold() in direction.casefold():
         return direction
     addition = f"Author-defined {label}: {text}"
-    return f"{direction}\\n\\n{addition}".strip() if direction else addition
+    return f"{direction}\n\n{addition}".strip() if direction else addition
 
 
 class SceneContract:
