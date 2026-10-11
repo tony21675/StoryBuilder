@@ -118,7 +118,15 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             prompt,
         )
         self.assertIn(
-            "without overexplaining what the gesture means",
+            "give one brief, natural cue that makes the relationship or gesture understandable",
+            prompt,
+        )
+        self.assertIn(
+            "rather than explaining the same meaning or emotion again",
+            prompt,
+        )
+        self.assertIn(
+            "don't turn gentle concern into insistence or pressure unless the scene calls for it",
             prompt,
         )
         self.assertNotIn("plainly affectionate, non-sensual language", prompt)
@@ -127,7 +135,7 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             prompt,
         )
         self.assertIn(
-            "When one concrete action or image already conveys a feeling, trust it and move forward",
+            "Avoid restating one feeling through several descriptions, metaphors, or interpretations",
             prompt,
         )
 
