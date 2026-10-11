@@ -139,6 +139,12 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             prompt,
         )
 
+        notes_prompt = app._writer_system_prompt([
+            ("working_writer_notes.json", '{"learned_notes":[{"note":"Use selective description and avoid repeating an emotion."}]}')
+        ])
+        self.assertIn("temporary per-novel working writer notes are supplied", notes_prompt)
+        self.assertIn("Use selective description and avoid repeating an emotion.", notes_prompt)
+
     def test_semantic_validator_checks_opening_physical_continuity(self):
         current_state = {
             "chapter": 2,

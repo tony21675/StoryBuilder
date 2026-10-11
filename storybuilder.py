@@ -12,6 +12,16 @@ from tkinter import filedialog, messagebox, simpledialog, ttk
 from builder.conversation import apply_command
 from builder.guided_setup import GuidedSetupSession
 from builder.story_package import StoryPackage
+from builder.writer_notes import (
+    WRITER_NOTES_FILENAME,
+    WRITER_NOTES_SYSTEM_PROMPT,
+    build_writer_notes_review_prompt,
+    collect_recent_accepted_scenes,
+    merge_writer_notes,
+    normalize_writer_notes,
+    parse_writer_notes_response,
+    save_writer_notes,
+)
 from builder.validator import validate_package
 from builder.writer_engine import WriterEngine
 from builder.manuscript import ManuscriptManager
@@ -45,6 +55,7 @@ class StoryBuilderApp(tk.Tk):
         self._spellcheck_jobs = {}
         self.writer_engine = WriterEngine()
         self.writer_thread = None
+        self.writer_notes_update_in_progress = False
         self.generated_scene = ""
         self.accepted_scene = ""
         # Keep each generated scene tied to the chapter/scene and exact start
@@ -1128,6 +1139,22 @@ class StoryBuilderApp(tk.Tk):
             json.dumps(scene_state, indent=2, ensure_ascii=False),
         ))
 
+        working_notes = normalize_writer_notes(
+            getattr(self.package, "writer_notes", {})
+        )
+        if working_notes.get("learned_notes"):
+            prompt_notes = {
+                "learned_notes": [
+                    {"note": item["note"]}
+                    for item in working_notes["learned_notes"]
+                    if isinstance(item, dict) and item.get("note")
+                ]
+            }
+            files.append((
+                WRITER_NOTES_FILENAME,
+                json.dumps(prompt_notes, indent=2, ensure_ascii=False),
+            ))
+
         # Do not send shared recent-event or clue lists into the writer context.
         # Those records may describe events witnessed by one character but not known
         # by another character in the current scene. Character knowledge is supplied
@@ -2011,7 +2038,8 @@ Rules:
 22. Ordinary affectionate nicknames are allowed when they fit the established relationship and moment. Do not use childizing terms such as "kid", "kiddo", "little girl", or similar terms for established adult characters unless that term is explicitly established.
 23. Respect the scene endpoint exactly. Do not stop early or continue past it.
 24. Keep relationship-specific behavior consistent with established roles and dynamics. Avoid an incongruous relationship metaphor or a diminishing label for someone being comforted unless the story establishes that framing.
-25. Output only natural story prose.
+25. If temporary per-novel working writer notes are supplied, treat them as tentative craft observations learned from accepted sections. Apply them selectively when useful; they are not canon, plot instructions, or superior to current author direction, scene contract, character knowledge, or continuity. Never import note content as an in-story fact.
+26. Output only natural story prose.
 
 """
         parts = [base, "\nSCENE REFERENCE\n"]
@@ -2032,14 +2060,15 @@ Rules:
         has_accepted = bool(self.accepted_scene.strip())
         has_patch = isinstance(self.pending_state_patch, dict)
 
+        notes_updating = bool(getattr(self, "writer_notes_update_in_progress", False))
         self.writer_start_button.configure(
-            state="disabled" if running else "normal"
+            state="disabled" if running or notes_updating else "normal"
         )
         self.writer_stop_button.configure(
-            state="normal" if running else "disabled"
+            state="normal" if running and not notes_updating else "disabled"
         )
         self.writer_write_button.configure(
-            state="normal" if running and self.package else "disabled"
+            state="normal" if running and self.package and not notes_updating else "disabled"
         )
         self.writer_save_draft_button.configure(
             state="normal" if has_scene and self.package else "disabled"
@@ -2052,23 +2081,25 @@ Rules:
         )
         if hasattr(self, "writer_clear_context_button"):
             self.writer_clear_context_button.configure(
-                state="normal" if running and self.package else "disabled"
+                state="normal" if running and self.package and not notes_updating else "disabled"
             )
         self.writer_analyze_button.configure(
-            state="normal" if has_accepted and self.package else "disabled"
+            state="normal" if has_accepted and self.package and not notes_updating else "disabled"
         )
         self.writer_apply_state_button.configure(
-            state="normal" if has_patch and self.package else "disabled"
+            state="normal" if has_patch and self.package and not notes_updating else "disabled"
         )
-        self.writer_status.configure(
-            text=(
-                f"Writer running: {self.writer_engine.model_path.name}"
-                if running and self.writer_engine.model_path
-                else "Writer stopped."
-            )
-        )
+        if notes_updating:
+            status_text = "Updating this novel's temporary writing notes from accepted scenes..."
+        elif running and self.writer_engine.model_path:
+            status_text = f"Writer running: {self.writer_engine.model_path.name}"
+        else:
+            status_text = "Writer stopped."
+        self.writer_status.configure(text=status_text)
 
     def _start_writer(self):
+        if getattr(self, "writer_notes_update_in_progress", False):
+            return
         if self.package is None:
             messagebox.showerror("Writer", "Open or create a novel first.")
             return
@@ -2156,6 +2187,11 @@ Rules:
         self._update_writer_buttons()
 
     def _write_next_scene(self):
+        if getattr(self, "writer_notes_update_in_progress", False):
+            self.writer_status.configure(
+                text="The novel's writing notes are being updated from the last accepted scene."
+            )
+            return
         if self.package is None:
             messagebox.showerror("Writer", "Open or create a novel first.")
             return
@@ -2789,6 +2825,11 @@ Rules:
             text=f"Saved author contract for Chapter {chapter}, Scene {scene}.",
         )
     def _build_contract_from_scene_idea(self):
+        if getattr(self, "writer_notes_update_in_progress", False):
+            self.scene_contract_status.configure(
+                text="The writing-notes review is using the local model. Build the next contract after it finishes."
+            )
+            return
         if self.package is None or not hasattr(self, "scene_idea_text"):
             return
 
@@ -3152,6 +3193,9 @@ Rules:
         try:
             completed_chapter = int(self.package.current_state.get("chapter", 1) or 1)
             completed_scene = int(self.package.current_state.get("scene", 1) or 1)
+            completed_prose = str(
+                getattr(self, "accepted_scene", "") or self._writer_editor_prose() or ""
+            ).strip()
 
             if not self._save_unsaved_writer_draft():
                 return
@@ -3245,9 +3289,131 @@ Rules:
                         "Writer direction has been refreshed."
                     )
                 )
+            if completed_prose:
+                self._start_writer_notes_learning(
+                    completed_chapter,
+                    completed_scene,
+                    completed_prose,
+                )
             self._update_writer_buttons()
         except Exception as exc:
             messagebox.showerror("State Update", str(exc))
+
+    def _start_writer_notes_learning(self, chapter, scene, prose):
+        """Learn craft notes from several accepted scenes after state application."""
+        if self.package is None or self.package.path is None or not str(prose or "").strip():
+            return
+        if getattr(self, "writer_notes_update_in_progress", False):
+            return
+
+        package_path = Path(self.package.path)
+        scene_label = f"Chapter {int(chapter)}, Scene {int(scene)}"
+        notes = normalize_writer_notes(getattr(self.package, "writer_notes", {}))
+        if scene_label in notes.get("reviewed_scenes", []):
+            return
+
+        model = getattr(self.writer_engine, "model_path", None)
+        if model is None and hasattr(self, "writer_model_var"):
+            selected_model = self.writer_model_var.get().strip()
+            model = Path(selected_model) if selected_model else None
+        if model is None:
+            return
+
+        recent_scenes = collect_recent_accepted_scenes(
+            package_path,
+            int(chapter),
+            int(scene),
+            str(prose),
+            limit=3,
+        )
+        if len(recent_scenes) < 2:
+            # Wait until there are at least two accepted sections to compare.
+            # No lesson is inferred from a single scene.
+            return
+        available_labels = [item["scene"] for item in recent_scenes]
+        review_prompt = build_writer_notes_review_prompt(notes, recent_scenes)
+        self.writer_notes_update_in_progress = True
+        self._update_writer_buttons()
+        self.writer_status.configure(
+            text="Updating this novel's temporary writing notes from accepted scenes..."
+        )
+
+        def work():
+            updated_notes = None
+            added_count = 0
+            error = None
+            engine = self.writer_engine
+            was_running = False
+            old_system_prompt = ""
+            try:
+                with engine.lock:
+                    was_running = engine.child is not None and engine.child.isalive()
+                    old_system_prompt = str(engine.system_prompt or "")
+                    try:
+                        engine.reset_context(model, WRITER_NOTES_SYSTEM_PROMPT)
+                        response = engine.generate(review_prompt)
+                        suggestions = parse_writer_notes_response(response)
+                        updated_notes, added_count = merge_writer_notes(
+                            notes,
+                            suggestions,
+                            available_labels,
+                            scene_label,
+                        )
+                        save_writer_notes(package_path, updated_notes)
+                    finally:
+                        # Restore the writer session if it was already running.
+                        # Next scene generation rebuilds the prompt from current
+                        # notes and the current scene state in either case.
+                        if was_running and old_system_prompt:
+                            engine.reset_context(model, old_system_prompt)
+                        else:
+                            engine.stop()
+                error = None
+            except Exception as exc:
+                error = str(exc)
+
+            try:
+                self.after(
+                    0,
+                    lambda: self._finish_writer_notes_learning(
+                        package_path, updated_notes, added_count, error, scene_label
+                    ),
+                )
+            except tk.TclError:
+                pass
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _finish_writer_notes_learning(
+        self, package_path, notes, added_count, error, scene_label
+    ):
+        self.writer_notes_update_in_progress = False
+        if (
+            notes is not None
+            and self.package is not None
+            and self.package.path is not None
+            and Path(self.package.path).resolve() == Path(package_path).resolve()
+        ):
+            self.package.writer_notes = notes
+
+        self._update_writer_buttons()
+        if error:
+            self.writer_status.configure(
+                text="The scene remains saved. The automatic writing-notes review did not finish cleanly."
+            )
+            self._chat("Builder", f"Writing-notes review skipped for {scene_label}: {error}")
+        elif added_count:
+            self.writer_status.configure(
+                text=f"Writing notes updated for this novel with {added_count} recurring craft observation(s)."
+            )
+            self._chat(
+                "Builder",
+                f"Updated this novel's temporary writing notes after reviewing accepted scenes ending at {scene_label}.",
+            )
+        else:
+            self.writer_status.configure(
+                text="Writing notes reviewed. No new recurring craft lesson was strong enough to add."
+            )
 
     def _copy_proposed_state(self):
         if not hasattr(self, "writer_state_preview"):
@@ -3688,6 +3854,12 @@ Rules:
                 "The novel was saved locally, but GitHub sync failed.\n\n" + str(exc),
             )
     def _close_without_sync(self):
+        if getattr(self, "writer_notes_update_in_progress", False):
+            messagebox.showwarning(
+                "Close",
+                "StoryBuilder is updating the novel's writing notes. The app will remain open until the update is saved.",
+            )
+            return
         if self._closing:
             return
         self._closing = True
@@ -3715,6 +3887,12 @@ Rules:
             )
             self._closing = False
     def _close_and_sync(self):
+        if getattr(self, "writer_notes_update_in_progress", False):
+            messagebox.showwarning(
+                "Close & Sync",
+                "StoryBuilder is updating the novel's writing notes. The app will remain open until the update is saved.",
+            )
+            return
         if self._closing:
             return
         self._closing = True
@@ -3797,6 +3975,12 @@ Rules:
             return
         self._new_novel()
     def _new_novel(self):
+        if getattr(self, "writer_notes_update_in_progress", False):
+            messagebox.showwarning(
+                "Writing Notes",
+                "Finish the current novel's automatic writing-notes update before switching novels.",
+            )
+            return
         if not self._save_unsaved_writer_draft():
             return
         self.guided_setup.stop()
@@ -3827,6 +4011,12 @@ Rules:
         self._refresh_all()
         self._chat("Builder", "New novel created.")
     def _open_novel(self):
+        if getattr(self, "writer_notes_update_in_progress", False):
+            messagebox.showwarning(
+                "Writing Notes",
+                "Finish the current novel's automatic writing-notes update before switching novels.",
+            )
+            return
         self.guided_setup.stop()
         if hasattr(self, "guided_button"):
             self.guided_button.configure(text="Guided Setup")
@@ -3869,6 +4059,12 @@ Rules:
         self._refresh_writer_models()
         self._chat("Builder", f'Opened "{self.package.story_bible.get("title", Path(folder).name)}".')
     def _save(self):
+        if getattr(self, "writer_notes_update_in_progress", False):
+            messagebox.showwarning(
+                "Save",
+                "StoryBuilder is updating the novel's temporary writing-notes file. Save again when that update finishes.",
+            )
+            return
         if self.package is None:
             return
         if not self._apply_all_edits():
@@ -3884,6 +4080,12 @@ Rules:
             messagebox.showerror("Save", str(exc))
 
     def _save_as(self):
+        if getattr(self, "writer_notes_update_in_progress", False):
+            messagebox.showwarning(
+                "Save As / Export",
+                "Finish the automatic writing-notes update before changing this novel's package location.",
+            )
+            return
         if self.package is None:
             return
         if not self._apply_all_edits():
