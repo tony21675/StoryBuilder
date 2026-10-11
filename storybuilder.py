@@ -2010,7 +2010,7 @@ Rules:
 21. Respect privacy, dignity, and established character boundaries. Do not expose a character's private feelings, secrets, or limited knowledge without a valid in-story reason.
 22. Ordinary affectionate nicknames are allowed when they fit the established relationship and moment. Do not use childizing terms such as "kid", "kiddo", "little girl", or similar terms for established adult characters unless that term is explicitly established.
 23. Respect the scene endpoint exactly. Do not stop early or continue past it.
-24. Keep relationship-specific behavior consistent with established roles and dynamics. Avoid incongruous relationship metaphors or diminishing labels for someone being comforted unless the story establishes that framing.
+24. Keep relationship-specific behavior consistent with established roles and dynamics. Avoid an incongruous relationship metaphor or a diminishing label for someone being comforted unless the story establishes that framing.
 25. Output only natural story prose.
 
 """
