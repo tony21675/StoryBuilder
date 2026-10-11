@@ -36,6 +36,7 @@ Return ONLY one valid JSON object containing a PARTIAL UPDATE to the current sto
 Rules:
 - Record only changes actually caused by the supplied completed story section.
 - Location is a nested state field. When the baseline current_state has a location object, never return character or primary location values at the top level. Normalize any legacy top-level location fields into the location object before returning the patch.
+- Strict field shape: location must be an object whose primary and per-character entries are plain text location descriptions. Never put lists, knowledge facts, or nested objects under location. character_knowledge must be an object mapping each character name to a list of text facts. Keep these fields separate even when a character learns something without changing location.
 - Do not repeat unchanged fields.
 - For changed nested objects, include only changed nested keys.
 - For arrays, replace the array only when that array truly changed.
@@ -598,6 +599,12 @@ class StateManager:
         patch = extract_json_object(output)
         if not isinstance(patch, dict):
             raise ValueError("Continuity analysis did not return an object.")
+
+        # Reject a malformed nested location container before legacy normalization;
+        # otherwise malformed data could be silently overwritten when top-level
+        # legacy location keys are moved into it.
+        if "location" in patch and not isinstance(patch["location"], dict):
+            raise ValueError("Invalid state update: 'location' must be an object.")
 
         # Models sometimes emit legacy top-level location fields even though
         # current_state stores location as a nested object. Normalize that shape first.
