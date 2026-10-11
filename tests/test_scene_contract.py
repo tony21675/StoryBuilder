@@ -221,5 +221,55 @@ class SceneContractTests(unittest.TestCase):
         self.assertTrue(result["pass"])
 
 
+    def test_generate_from_idea_preserves_labeled_author_sections(self):
+        idea = """Beginning
+Tony keeps comforting Maya patiently as she struggles to speak.
+
+Middle
+Maya remembers the blow and becomes upset again while Tony stays calm and reassuring.
+
+End
+Maya begins to tell Tony that the man hit her.
+
+Required Beats
+- Tony notices the visible mark on Maya's cheek and asks if she is hurt.
+- Maya tells Tony that the man hit her.
+"""
+        generated = {
+            "direction": "Tony comforts Maya patiently.",
+            "hard_stop": "Tony finishes the comforting gesture.",
+            "required_beats": [],
+            "required_facts": [],
+            "required_sequence": [],
+            "max_attempts": 3,
+        }
+
+        with patch.object(Path, "is_file", return_value=True), patch.object(
+            scene_contract, "_run_contract_builder", return_value=generated
+        ):
+            contract = scene_contract.SceneContract.generate_from_idea(
+                "/tmp/test-model.gguf",
+                {"chapter": 2, "scene": 1, "current_situation": "Tony comforts Maya."},
+                idea,
+            )
+
+        self.assertEqual(
+            contract["hard_stop"],
+            "Maya begins to tell Tony that the man hit her.",
+        )
+        self.assertIn("Author-defined beginning:", contract["direction"])
+        self.assertIn("Tony keeps comforting Maya patiently", contract["direction"])
+        self.assertIn("Author-defined progression:", contract["direction"])
+        self.assertIn("becomes upset again", contract["direction"])
+        self.assertIn(
+            "Tony notices the visible mark on Maya's cheek and asks if she is hurt.",
+            contract["required_beats"],
+        )
+        self.assertIn(
+            "Maya tells Tony that the man hit her.",
+            contract["required_beats"],
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
