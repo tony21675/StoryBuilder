@@ -109,6 +109,10 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             "Avoid an incongruous relationship metaphor",
             prompt,
         )
+        self.assertIn(
+            "plainly affectionate, non-sensual language",
+            prompt,
+        )
 
     def test_semantic_validator_checks_opening_physical_continuity(self):
         current_state = {
@@ -125,6 +129,7 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             },
         }
         contract = {
+            "direction": "Tony provides a familiar fatherly comfort gesture.",
             "required_beats": ["Tony comforts Maya"],
             "required_facts": [],
             "required_sequence": [],
@@ -163,6 +168,8 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         self.assertIn("compare the prose opening with the supplied current story state", captured["prompt"])
         self.assertIn("does not show a transition that explains the change", captured["prompt"])
         self.assertIn("sitting upright against the headboard", captured["prompt"])
+        self.assertIn("sensualized or lingering body-focused wording", captured["prompt"])
+        self.assertIn("Tony provides a familiar fatherly comfort gesture.", captured["prompt"])
 
     def make_save_app(self, package_path, situation, writer_generation=False):
         app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
