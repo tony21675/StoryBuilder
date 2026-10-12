@@ -191,9 +191,44 @@ class StoryBuilderApp(tk.Tk):
         self._install_mousewheel_scrolling()
         self._install_spellchecking()
 
+    def _make_scrollable_tab(self, page, padding=12):
+        """Place a tab's content in a vertical scrolling area.
+
+        Keep the scrollbar visible so controls below the bottom edge remain
+        discoverable on short laptop displays. Existing tabs with custom
+        scroll layouts use their own canvas and do not call this helper.
+        """
+        scroll_frame = ttk.Frame(page)
+        scroll_frame.pack(fill="both", expand=True)
+
+        canvas = tk.Canvas(scroll_frame, highlightthickness=0, borderwidth=0)
+        scrollbar = ttk.Scrollbar(
+            scroll_frame,
+            orient="vertical",
+            command=canvas.yview,
+        )
+        canvas.configure(yscrollcommand=scrollbar.set)
+        scrollbar.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+        self._scroll_canvases.append(canvas)
+
+        content = ttk.Frame(canvas, padding=padding)
+        window_id = canvas.create_window((0, 0), window=content, anchor="nw")
+
+        def update_scroll_region(_event=None):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        def fit_content_width(event):
+            canvas.itemconfigure(window_id, width=event.width)
+
+        content.bind("<Configure>", update_scroll_region)
+        canvas.bind("<Configure>", fit_content_width)
+        return content
+
     def _build_chat_tab(self):
-        tab = ttk.Frame(self.notebook.pages, padding=12)
-        self.notebook.add(tab, text="Talk to Builder")
+        page = ttk.Frame(self.notebook.pages)
+        self.notebook.add(page, text="Talk to Builder")
+        tab = self._make_scrollable_tab(page)
 
         ttk.Label(tab, text="Tell the builder what to change", font=("", 14, "bold")).pack(anchor="w")
         ttk.Label(
@@ -216,8 +251,9 @@ class StoryBuilderApp(tk.Tk):
         self._chat("Builder", "Ready. Tell me what you want to change.")
 
     def _build_story_tab(self):
-        tab = ttk.Frame(self.notebook.pages, padding=12)
-        self.notebook.add(tab, text="Story")
+        page = ttk.Frame(self.notebook.pages)
+        self.notebook.add(page, text="Story")
+        tab = self._make_scrollable_tab(page)
 
         labels = [("title", "Title"), ("version", "Version"), ("status", "Status")]
         self.story_vars = {}
@@ -236,8 +272,9 @@ class StoryBuilderApp(tk.Tk):
         tab.rowconfigure(3, weight=1)
 
     def _build_canon_tab(self):
-        tab = ttk.Frame(self.notebook.pages, padding=12)
-        self.notebook.add(tab, text="Canon & Rules")
+        page = ttk.Frame(self.notebook.pages)
+        self.notebook.add(page, text="Canon & Rules")
+        tab = self._make_scrollable_tab(page)
         ttk.Label(tab, text="Canon and Story Rules", font=("", 14, "bold")).pack(anchor="w")
         ttk.Label(
             tab,
@@ -256,8 +293,9 @@ class StoryBuilderApp(tk.Tk):
         self.canon_rules_status.pack(side="left", fill="x", expand=True, padx=(12, 0))
 
     def _build_change_assistant_tab(self):
-        tab = ttk.Frame(self.notebook.pages, padding=12)
-        self.notebook.add(tab, text="Change Assistant")
+        page = ttk.Frame(self.notebook.pages)
+        self.notebook.add(page, text="Change Assistant")
+        tab = self._make_scrollable_tab(page)
         ttk.Label(tab, text="Plain-English Change Assistant", font=("", 14, "bold")).pack(anchor="w")
         ttk.Label(
             tab,
@@ -292,8 +330,9 @@ class StoryBuilderApp(tk.Tk):
         self.change_assistant_status.pack(anchor="w")
 
     def _build_characters_tab(self):
-        tab = ttk.Frame(self.notebook.pages, padding=12)
-        self.notebook.add(tab, text="Characters")
+        page = ttk.Frame(self.notebook.pages)
+        self.notebook.add(page, text="Characters")
+        tab = self._make_scrollable_tab(page)
 
         left = ttk.Frame(tab)
         left.pack(side="left", fill="y", padx=(0, 12))
@@ -379,8 +418,9 @@ class StoryBuilderApp(tk.Tk):
         right.rowconfigure(len(fields) + 3, weight=1)
 
     def _build_relationships_tab(self):
-        tab = ttk.Frame(self.notebook.pages, padding=12)
-        self.notebook.add(tab, text="Relationships")
+        page = ttk.Frame(self.notebook.pages)
+        self.notebook.add(page, text="Relationships")
+        tab = self._make_scrollable_tab(page)
 
         ttk.Label(
             tab,
@@ -402,8 +442,9 @@ class StoryBuilderApp(tk.Tk):
         ).pack(anchor="e", pady=(8, 0))
 
     def _build_locations_tab(self):
-        tab = ttk.Frame(self.notebook.pages, padding=12)
-        self.notebook.add(tab, text="Locations")
+        page = ttk.Frame(self.notebook.pages)
+        self.notebook.add(page, text="Locations")
+        tab = self._make_scrollable_tab(page)
 
         ttk.Label(
             tab,
@@ -425,8 +466,9 @@ class StoryBuilderApp(tk.Tk):
         ).pack(anchor="e", pady=(8, 0))
 
     def _build_modules_tab(self):
-        tab = ttk.Frame(self.notebook.pages, padding=12)
-        self.notebook.add(tab, text="Story Modules")
+        page = ttk.Frame(self.notebook.pages)
+        self.notebook.add(page, text="Story Modules")
+        tab = self._make_scrollable_tab(page)
 
         left = ttk.Frame(tab)
         left.pack(side="left", fill="y", padx=(0, 12))
@@ -465,8 +507,9 @@ class StoryBuilderApp(tk.Tk):
 
 
     def _build_planning_tab(self):
-        tab = ttk.Frame(self.notebook.pages, padding=12)
-        self.notebook.add(tab, text="Story Planning")
+        page = ttk.Frame(self.notebook.pages)
+        self.notebook.add(page, text="Story Planning")
+        tab = self._make_scrollable_tab(page)
 
         ttk.Label(
             tab,
@@ -852,8 +895,9 @@ class StoryBuilderApp(tk.Tk):
         self.scene_contract_status.pack(side="left", fill="x", expand=True)
 
     def _build_state_tab(self):
-        tab = ttk.Frame(self.notebook.pages, padding=12)
-        self.notebook.add(tab, text="Current State")
+        page = ttk.Frame(self.notebook.pages)
+        self.notebook.add(page, text="Current State")
+        tab = self._make_scrollable_tab(page)
 
         self.state_vars = {}
         fields = [
@@ -1093,8 +1137,9 @@ class StoryBuilderApp(tk.Tk):
         self._update_writer_buttons()
 
     def _build_manuscript_tab(self):
-        tab = ttk.Frame(self.notebook.pages, padding=12)
-        self.notebook.add(tab, text="Manuscript")
+        page = ttk.Frame(self.notebook.pages)
+        self.notebook.add(page, text="Manuscript")
+        tab = self._make_scrollable_tab(page)
 
         ttk.Label(
             tab,
