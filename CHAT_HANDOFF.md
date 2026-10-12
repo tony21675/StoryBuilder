@@ -1,5 +1,16 @@
 # StoryBuilder Chat Handoff
 
+## Current Session: 2026-10-12
+
+- **Sealed letters: preserve secrecy.** The existing Tiffany letter remains at `~/Documents/MyNovel/Taken_at_Dusk/secrets/sarah_letter.enc.b64`, with metadata in `sarah_letter.meta.json`. Metadata says it is sealed, encrypted, and not stored as plaintext in the repository; the reveal condition is `current_state.secret_reveals.sarah_letter == 'revealed'`. Do not decrypt to the screen, display, quote, or place the letter's plaintext in StoryBuilder context, manuscript files, or GitHub.
+- **Encryption investigation:** The ciphertext begins with OpenSSL's `Salted__` marker, but the original cipher and key-derivation settings have not been identified. Searching saved shell history/scripts did not locate the original encryption command. No existing letter files were changed. The author suspects they remember the passphrase, but the passphrase itself must never be recorded in this handoff or any repository file.
+- **Next safe check:** A proposed terminal check tests the suspected passphrase using AES-256-CBC and sends decrypted bytes to `/dev/null`, so no letter text is shown or saved. This has **not yet been run**. A failure would not prove the passphrase is wrong because the original cipher/settings may differ. Keep Tiffany's original ciphertext and metadata untouched until the encryption method is confirmed.
+- **Tony's letter:** A separate letter from Sarah to Tony is intended to be stored in the same local `secrets` folder as its own encrypted file and sealed metadata. It has **not yet been encrypted or saved**. Use an explicitly specified encryption method and a passphrase chosen by the author; keep plaintext out of GitHub and StoryBuilder. Do not claim it has been saved until verified.
+- **Story beat under consideration, not yet committed:** After Tony settles Maya, he may consider opening Sarah's letter to him and set it aside unopened. Learning what the kidnappers intend for Tiffany is the possible trigger that pushes Tony toward the edge. Do not invent or expose details beyond established canon, and do not treat this idea as accepted manuscript text yet.
+- **Current task:** Safely determine the existing Tiffany letter's encryption settings without exposing its contents, then create and verify Tony's separate sealed letter locally. Never put either letter's plaintext or a passphrase in this handoff, GitHub, or active StoryBuilder context.
+
+## Previous Session: 2026-10-11
+
 > Purpose: Paste this document into a new ChatGPT conversation to resume work without spending time rebuilding context. Update this file after meaningful project or story changes. Treat the current-session section as the first thing to refresh.
 
 ## Current Session: 2026-10-11
