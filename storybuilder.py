@@ -46,6 +46,62 @@ from builder.story_interview import (
 from builder.workspace import NOVEL_ROOT, WORKSPACE_ROOT, find_novel_packages
 
 
+class CompactTabContainer(ttk.Frame):
+    """Notebook-style page container with a compact dropdown navigator.
+
+    ttk.Notebook keeps all tabs in one horizontal strip, which can run off
+    narrower laptop screens. This container preserves the existing add(page,
+    text=...) interface while showing one page at a time through a dropdown.
+    """
+
+    def __init__(self, master, **kwargs):
+        super().__init__(master, **kwargs)
+        self._page_labels = []
+        self._pages_by_label = {}
+        self._selected_label = None
+        self._section_var = tk.StringVar(self)
+
+        navigation = ttk.Frame(self)
+        navigation.pack(fill="x", pady=(0, 6))
+        ttk.Label(navigation, text="Go to section:").pack(side="left", padx=(0, 8))
+        self.selector = ttk.Combobox(
+            navigation,
+            textvariable=self._section_var,
+            state="readonly",
+            width=26,
+        )
+        self.selector.pack(side="left", fill="x", expand=True)
+        self.selector.bind("<<ComboboxSelected>>", self._on_section_selected)
+
+        self.pages = ttk.Frame(self)
+        self.pages.pack(fill="both", expand=True)
+
+    def add(self, page, text):
+        """Register a page and make the first registered page visible."""
+        if text in self._pages_by_label:
+            raise ValueError(f"A page named {text!r} is already registered.")
+        if page.master is not self.pages:
+            raise ValueError("Pages must be created as children of the pages frame.")
+        self._page_labels.append(text)
+        self._pages_by_label[text] = page
+        self.selector.configure(values=tuple(self._page_labels))
+        if self._selected_label is None:
+            self._show_page(text)
+
+    def _on_section_selected(self, _event=None):
+        self._show_page(self._section_var.get())
+
+    def _show_page(self, label):
+        page = self._pages_by_label.get(label)
+        if page is None:
+            return
+        if self._selected_label is not None:
+            self._pages_by_label[self._selected_label].pack_forget()
+        page.pack(fill="both", expand=True)
+        self._selected_label = label
+        self._section_var.set(label)
+
+
 class StoryBuilderApp(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
@@ -114,7 +170,7 @@ class StoryBuilderApp(tk.Tk):
         self.path_label = ttk.Label(toolbar, text="Unsaved novel")
         self.path_label.pack(side="right", padx=8)
 
-        self.notebook = ttk.Notebook(self)
+        self.notebook = CompactTabContainer(self)
         self.notebook.pack(fill="both", expand=True, padx=8, pady=(0, 8))
 
         self._build_chat_tab()
@@ -136,7 +192,7 @@ class StoryBuilderApp(tk.Tk):
         self._install_spellchecking()
 
     def _build_chat_tab(self):
-        tab = ttk.Frame(self.notebook, padding=12)
+        tab = ttk.Frame(self.notebook.pages, padding=12)
         self.notebook.add(tab, text="Talk to Builder")
 
         ttk.Label(tab, text="Tell the builder what to change", font=("", 14, "bold")).pack(anchor="w")
@@ -160,7 +216,7 @@ class StoryBuilderApp(tk.Tk):
         self._chat("Builder", "Ready. Tell me what you want to change.")
 
     def _build_story_tab(self):
-        tab = ttk.Frame(self.notebook, padding=12)
+        tab = ttk.Frame(self.notebook.pages, padding=12)
         self.notebook.add(tab, text="Story")
 
         labels = [("title", "Title"), ("version", "Version"), ("status", "Status")]
@@ -180,7 +236,7 @@ class StoryBuilderApp(tk.Tk):
         tab.rowconfigure(3, weight=1)
 
     def _build_canon_tab(self):
-        tab = ttk.Frame(self.notebook, padding=12)
+        tab = ttk.Frame(self.notebook.pages, padding=12)
         self.notebook.add(tab, text="Canon & Rules")
         ttk.Label(tab, text="Canon and Story Rules", font=("", 14, "bold")).pack(anchor="w")
         ttk.Label(
@@ -200,7 +256,7 @@ class StoryBuilderApp(tk.Tk):
         self.canon_rules_status.pack(side="left", fill="x", expand=True, padx=(12, 0))
 
     def _build_change_assistant_tab(self):
-        tab = ttk.Frame(self.notebook, padding=12)
+        tab = ttk.Frame(self.notebook.pages, padding=12)
         self.notebook.add(tab, text="Change Assistant")
         ttk.Label(tab, text="Plain-English Change Assistant", font=("", 14, "bold")).pack(anchor="w")
         ttk.Label(
@@ -236,7 +292,7 @@ class StoryBuilderApp(tk.Tk):
         self.change_assistant_status.pack(anchor="w")
 
     def _build_characters_tab(self):
-        tab = ttk.Frame(self.notebook, padding=12)
+        tab = ttk.Frame(self.notebook.pages, padding=12)
         self.notebook.add(tab, text="Characters")
 
         left = ttk.Frame(tab)
@@ -323,7 +379,7 @@ class StoryBuilderApp(tk.Tk):
         right.rowconfigure(len(fields) + 3, weight=1)
 
     def _build_relationships_tab(self):
-        tab = ttk.Frame(self.notebook, padding=12)
+        tab = ttk.Frame(self.notebook.pages, padding=12)
         self.notebook.add(tab, text="Relationships")
 
         ttk.Label(
@@ -346,7 +402,7 @@ class StoryBuilderApp(tk.Tk):
         ).pack(anchor="e", pady=(8, 0))
 
     def _build_locations_tab(self):
-        tab = ttk.Frame(self.notebook, padding=12)
+        tab = ttk.Frame(self.notebook.pages, padding=12)
         self.notebook.add(tab, text="Locations")
 
         ttk.Label(
@@ -369,7 +425,7 @@ class StoryBuilderApp(tk.Tk):
         ).pack(anchor="e", pady=(8, 0))
 
     def _build_modules_tab(self):
-        tab = ttk.Frame(self.notebook, padding=12)
+        tab = ttk.Frame(self.notebook.pages, padding=12)
         self.notebook.add(tab, text="Story Modules")
 
         left = ttk.Frame(tab)
@@ -409,7 +465,7 @@ class StoryBuilderApp(tk.Tk):
 
 
     def _build_planning_tab(self):
-        tab = ttk.Frame(self.notebook, padding=12)
+        tab = ttk.Frame(self.notebook.pages, padding=12)
         self.notebook.add(tab, text="Story Planning")
 
         ttk.Label(
@@ -451,7 +507,7 @@ class StoryBuilderApp(tk.Tk):
 
 
     def _build_story_interview_tab(self):
-        tab = ttk.Frame(self.notebook)
+        tab = ttk.Frame(self.notebook.pages)
         self.notebook.add(tab, text="Story Interview")
 
         scroll_frame = ttk.Frame(tab)
@@ -634,7 +690,7 @@ class StoryBuilderApp(tk.Tk):
         self._update_story_interview_buttons()
 
     def _build_scene_contract_tab(self):
-        tab = ttk.Frame(self.notebook)
+        tab = ttk.Frame(self.notebook.pages)
         self.notebook.add(tab, text="Scene Contract")
 
         scroll_frame = ttk.Frame(tab)
@@ -796,7 +852,7 @@ class StoryBuilderApp(tk.Tk):
         self.scene_contract_status.pack(side="left", fill="x", expand=True)
 
     def _build_state_tab(self):
-        tab = ttk.Frame(self.notebook, padding=12)
+        tab = ttk.Frame(self.notebook.pages, padding=12)
         self.notebook.add(tab, text="Current State")
 
         self.state_vars = {}
@@ -855,7 +911,7 @@ class StoryBuilderApp(tk.Tk):
         tab.rowconfigure(8, weight=1)
 
     def _build_writer_tab(self):
-        tab = ttk.Frame(self.notebook)
+        tab = ttk.Frame(self.notebook.pages)
         self.notebook.add(tab, text="Writer")
 
         # The Writer tab contains more controls than a small laptop display can
@@ -1024,7 +1080,7 @@ class StoryBuilderApp(tk.Tk):
         self._update_writer_buttons()
 
     def _build_manuscript_tab(self):
-        tab = ttk.Frame(self.notebook, padding=12)
+        tab = ttk.Frame(self.notebook.pages, padding=12)
         self.notebook.add(tab, text="Manuscript")
 
         ttk.Label(
