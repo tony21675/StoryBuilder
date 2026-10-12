@@ -9,6 +9,14 @@ import storybuilder as storybuilder_app
 from builder.scene_contract import CONTRACT_BUILDER_SYSTEM_PROMPT, SceneContract
 
 
+class FakeButton:
+    def __init__(self):
+        self.options = {}
+
+    def configure(self, **kwargs):
+        self.options.update(kwargs)
+
+
 class FakeText:
     def __init__(self, value=""):
         self.value = value
@@ -70,6 +78,137 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             )
             self.assertEqual(expected.read_text(encoding="utf-8"), "Scene 1 draft text\n")
             self.assertFalse(wrong_scene.exists())
+
+    def test_edited_prose_must_pass_contract_before_acceptance(self):
+        class ImmediateThread:
+            def __init__(self, target, daemon=False):
+                self.target = target
+
+            def start(self):
+                self.target()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            state = {
+                "chapter": 2,
+                "scene": 1,
+                "status": "in_progress",
+                "scene_completed": False,
+                "current_situation": "Maya has reached Tony but has not told him Tiffany is gone.",
+            }
+            app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+            app.package = SimpleNamespace(path=Path(tmp), current_state=state)
+            app.generated_scene = "Original generated prose"
+            app.accepted_scene = ""
+            app.generated_scene_context = (2, 1)
+            app.generated_scene_start_state = json.loads(json.dumps(state))
+            app.writer_generation_context = None
+            app.writer_generation_start_state = None
+            edited_prose = "Edited prose omits Tony noticing the mark."
+            app.writer_output_text = FakeText(edited_prose)
+            app.writer_state_preview = FakeText()
+            app.writer_status = SimpleLabel()
+            app.writer_accept_button = FakeButton()
+            app.writer_reject_button = FakeButton()
+            app.writer_engine = SimpleNamespace(model_path=Path("/tmp/fake-writer.gguf"))
+            app._writer_editor_prose = lambda: edited_prose
+            app._scene_contract = lambda *_args: {
+                "required_beats": ["Tony notices the slap mark."],
+                "hard_stop": "Maya begins to tell Tony that the man hit her.",
+            }
+            app._save_unsaved_writer_draft = lambda: True
+            app._refresh_manuscript = lambda: None
+            app._chat = lambda *_args, **_kwargs: None
+            app._update_writer_buttons = lambda: None
+            app.after = lambda _delay, callback: callback()
+
+            failed = {
+                "pass": False,
+                "missed_beats": ["Tony does not notice the slap mark."],
+                "violations": [],
+                "notes": "",
+            }
+            with (
+                patch.object(storybuilder_app.threading, "Thread", ImmediateThread),
+                patch.object(SceneContract, "validate_with_engine", return_value=failed),
+                patch.object(storybuilder_app.messagebox, "showwarning") as warning,
+            ):
+                storybuilder_app.StoryBuilderApp._accept_generated_scene(app)
+
+            warning.assert_called_once()
+            self.assertFalse(
+                (Path(tmp) / "Manuscript" / "Chapters" / "Chapter_02" /
+                 "Chapter_02_Section_01.txt").exists()
+            )
+            self.assertEqual(app.generated_scene, "Original generated prose")
+
+    def test_apply_state_update_saves_end_state_snapshot_before_advancing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state = {
+                "chapter": 2,
+                "scene": 1,
+                "status": "in_progress",
+                "scene_completed": False,
+                "chapter_completed": False,
+                "current_situation": "Scene 1 starting situation.",
+                "scene_cast": ["Maya", "Tony"],
+            }
+            guidance = {
+                "chapter_plans": {
+                    "2": {
+                        "scene_plan": {
+                            "1": {"cast": ["Maya", "Tony"]},
+                            "2": {"cast": ["Maya", "Tony"]},
+                        }
+                    }
+                }
+            }
+            app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+            app.package = SimpleNamespace(
+                path=root,
+                current_state=state,
+                extra_json={"writing_guidance.json": guidance},
+            )
+            app.pending_state_patch = {
+                "current_situation": (
+                    "Maya has told Tony that Tiffany is gone and is too shaken to explain more."
+                )
+            }
+            app.generated_scene = ""
+            app.accepted_scene = ""
+            app.generated_scene_context = None
+            app.generated_scene_start_state = None
+            app.writer_generation_context = None
+            app.writer_generation_start_state = None
+            app.writer_generation_in_progress = False
+            app.scene_contract_building = False
+            app.writer_output_text = FakeText()
+            app.writer_state_preview = FakeText()
+            app.writer_status = SimpleLabel()
+            app._writer_editor_prose = lambda: ""
+            app._save_unsaved_writer_draft = lambda: True
+            app._final_planned_scene_for_chapter = lambda _chapter: 4
+            app._scene_plan_cast = lambda chapter, scene: ["Maya", "Tony"] if (chapter, scene) == (2, 2) else []
+            app._refresh_all = lambda: None
+            app._save = lambda: setattr(app, "dirty", False)
+            app._build_scene_direction = lambda: None
+            app._chat = lambda *_args, **_kwargs: None
+            app._update_writer_buttons = lambda: None
+
+            storybuilder_app.StoryBuilderApp._apply_state_update(app)
+
+            snapshot_path = (
+                root / "Manuscript" / "Chapters" / "Chapter_02" /
+                "Chapter_02_Section_01_after_state.json"
+            )
+            self.assertTrue(snapshot_path.is_file())
+            snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
+            self.assertEqual((snapshot["chapter"], snapshot["scene"]), (2, 1))
+            self.assertEqual(
+                snapshot["current_situation"],
+                "Maya has told Tony that Tiffany is gone and is too shaken to explain more.",
+            )
+            self.assertEqual(app.package.current_state["scene"], 2)
 
     def test_scene_switch_is_blocked_until_accepted_scene_state_is_applied(self):
         with tempfile.TemporaryDirectory() as tmp:

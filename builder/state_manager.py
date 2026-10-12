@@ -65,6 +65,7 @@ Rules:
 - For any character whose location or immediate situation changes during the section, include that changed character under location even if the before-state already listed a different location.
 - Use the supplied scene end guidance only to clarify the intended scene boundary. The actual completed prose is authoritative for what happened.
 - Do not invent motives, identities, locations, evidence, backstory, or other consequential facts.
+- The application owns scene navigation and workflow flags. NEVER return the keys chapter, scene, status, scene_completed, chapter_completed, or scene_cast in a state patch; those are updated by StoryBuilder after the reviewed patch is applied.
 - Do not rewrite the complete current_state.json.
 - Do not output markdown, explanations, notes, or code fences.
 """
@@ -181,6 +182,18 @@ def validate_state_patch(base: dict[str, Any], patch: dict[str, Any]) -> dict[st
     if not isinstance(patch, dict):
         raise ValueError("The proposed state update must be a JSON object.")
 
+    app_managed_fields = {
+        "chapter", "scene", "status", "scene_completed",
+        "chapter_completed", "scene_cast",
+    }
+    forbidden_fields = sorted(app_managed_fields.intersection(patch))
+    if forbidden_fields:
+        raise ValueError(
+            "Invalid state update: these fields are controlled by StoryBuilder's "
+            "scene workflow and cannot be proposed by the continuity model: "
+            + ", ".join(forbidden_fields)
+        )
+
     if "location" in patch:
         location = patch["location"]
         if not isinstance(location, dict):
@@ -214,12 +227,8 @@ def remove_prior_chapter_opening_markers(
     previous_chapter: int,
     target_chapter: int,
 ) -> dict[str, Any]:
-    """Drop only the previous chapter's opening marker while preserving other notes."""
+    """Remove the prior chapter's opening marker from both continuity lists."""
     if not isinstance(state, dict) or int(target_chapter) <= int(previous_chapter):
-        return state
-
-    notes = state.get("continuity_notes")
-    if not isinstance(notes, list):
         return state
 
     previous = int(previous_chapter)
@@ -227,14 +236,21 @@ def remove_prior_chapter_opening_markers(
         rf"^\s*chapter\s+{previous}\s+(?:begins|starts)(?:\s+here)?[.!]?\s*$",
         re.IGNORECASE,
     )
-    cleaned_notes = [
-        note
-        for note in notes
-        if not (isinstance(note, str) and opening_marker.fullmatch(note))
-    ]
     restored = dict(state)
-    restored["continuity_notes"] = cleaned_notes
-    return restored
+    changed = False
+    for field in ("continuity_notes", "continuity_requirements"):
+        items = state.get(field)
+        if not isinstance(items, list):
+            continue
+        cleaned = [
+            item
+            for item in items
+            if not (isinstance(item, str) and opening_marker.fullmatch(item))
+        ]
+        if cleaned != items:
+            restored[field] = cleaned
+            changed = True
+    return restored if changed else state
 
 
 class StateManager:
@@ -636,35 +652,9 @@ class StateManager:
             # audit cannot be parsed or completed. Do not fabricate knowledge.
             pass
 
-        # A structured state_after is an authored scene outcome. When it is
-        # present, use it to anchor the proposed ending state rather than
-        # allowing the language model to veto or overwrite the known scene
-        # transition. Any other model-derived changes are preserved.
-        if end_guidance:
-            expected_end_state = extract_expected_end_state(end_guidance)
-            if expected_end_state:
-                authored_patch = remove_unchanged(
-                    current_state,
-                    expected_end_state,
-                )
-                patch = merge_patch(patch, authored_patch)
-
-                # Keep legacy top-level location fields synchronized with the
-                # authoritative nested location object when those fields still
-                # exist in older story packages.
-                expected_location = expected_end_state.get("location")
-                if isinstance(expected_location, dict):
-                    legacy_location_patch = {}
-                    if "primary" in current_state and "primary" in expected_location:
-                        legacy_location_patch["primary"] = expected_location["primary"]
-                    for name, value in expected_location.items():
-                        if name == "primary":
-                            continue
-                        if name in current_state:
-                            legacy_location_patch[name] = value
-                    patch = merge_patch(patch, legacy_location_patch)
-
-        # Revalidate after knowledge auditing and authored end-state hints have
-        # been merged, so no later normalization step can reintroduce bad shapes.
+        # End-state hints are included in the prompt as planning context only.
+        # Never merge a planned state directly over facts inferred from accepted
+        # prose: a planned event may have been omitted, changed, or not actually
+        # occurred in the scene that the author accepted.
         StateManager.validate_patch(current_state, patch)
         return patch

@@ -2074,27 +2074,28 @@ Rules:
         has_patch = isinstance(self.pending_state_patch, dict)
 
         notes_updating = bool(self.__dict__.get("writer_notes_update_in_progress", False))
+        acceptance_validating = bool(self.__dict__.get("acceptance_validation_in_progress", False))
         self.writer_start_button.configure(
-            state="disabled" if running or notes_updating else "normal"
+            state="disabled" if running or notes_updating or acceptance_validating else "normal"
         )
         self.writer_stop_button.configure(
-            state="normal" if running and not notes_updating else "disabled"
+            state="normal" if running and not notes_updating and not acceptance_validating else "disabled"
         )
         self.writer_write_button.configure(
-            state="normal" if running and self.package and not notes_updating else "disabled"
+            state="normal" if running and self.package and not notes_updating and not acceptance_validating else "disabled"
         )
         self.writer_save_draft_button.configure(
-            state="normal" if has_scene and self.package else "disabled"
+            state="normal" if has_scene and self.package and not acceptance_validating else "disabled"
         )
         self.writer_accept_button.configure(
-            state="normal" if has_scene and not has_accepted and self.package else "disabled"
+            state="normal" if has_scene and not has_accepted and self.package and not acceptance_validating else "disabled"
         )
         self.writer_reject_button.configure(
-            state="normal" if has_scene and not has_accepted and self.package else "disabled"
+            state="normal" if has_scene and not has_accepted and self.package and not acceptance_validating else "disabled"
         )
         if hasattr(self, "writer_clear_context_button"):
             self.writer_clear_context_button.configure(
-                state="normal" if running and self.package and not notes_updating else "disabled"
+                state="normal" if running and self.package and not notes_updating and not acceptance_validating else "disabled"
             )
         self.writer_analyze_button.configure(
             state="normal" if has_accepted and self.package and not notes_updating else "disabled"
@@ -2102,7 +2103,9 @@ Rules:
         self.writer_apply_state_button.configure(
             state="normal" if has_patch and self.package and not notes_updating else "disabled"
         )
-        if notes_updating:
+        if acceptance_validating:
+            status_text = "Validating edited prose against the active scene contract..."
+        elif notes_updating:
             status_text = "Updating this novel's temporary writing notes from accepted scenes..."
         elif running and self.writer_engine.model_path:
             status_text = f"Writer running: {self.writer_engine.model_path.name}"
@@ -2547,6 +2550,9 @@ Rules:
         if not prose:
             messagebox.showwarning("Writer", "There is no scene text to accept.")
             return
+        if self.__dict__.get("acceptance_validation_in_progress", False):
+            return
+        original_generated_prose = str(self.generated_scene or "").strip()
 
         state = self.package.current_state
         current_key = (
@@ -2583,6 +2589,57 @@ Rules:
             )
             return
 
+        contract = self._scene_contract(chapter, scene)
+        if contract and prose.strip() != original_generated_prose:
+            if not getattr(self.writer_engine, "model_path", None):
+                messagebox.showwarning(
+                    "Scene Contract",
+                    "This text differs from the generated scene, so StoryBuilder must recheck it "
+                    "against the active scene contract before accepting it. Start/select the Writer "
+                    "model, then try Accept Scene again.",
+                )
+                return
+
+            validation_state = json.loads(json.dumps(
+                start_state if isinstance(start_state, dict) else state,
+                ensure_ascii=False,
+            ))
+            validation_contract = json.loads(json.dumps(contract, ensure_ascii=False))
+            self.acceptance_validation_in_progress = True
+            self._update_writer_buttons()
+            self.writer_status.configure(
+                text="Checking edited prose against the active scene contract before acceptance..."
+            )
+
+            def work():
+                try:
+                    result = SceneContract.validate_with_engine(
+                        self.writer_engine,
+                        validation_contract,
+                        validation_state,
+                        prose,
+                    )
+                    error = None
+                except Exception as exc:
+                    result = None
+                    error = str(exc)
+
+                self.after(
+                    0,
+                    lambda: self._finish_edited_scene_validation(
+                        chapter,
+                        scene,
+                        prose,
+                        validation_state,
+                        result,
+                        error,
+                    ),
+                )
+
+            self.writer_thread = threading.Thread(target=work, daemon=True)
+            self.writer_thread.start()
+            return
+
         self.generated_scene = prose
         try:
             manager = ManuscriptManager(self.package.path)
@@ -2612,6 +2669,70 @@ Rules:
             self._update_writer_buttons()
         except Exception as exc:
             messagebox.showerror("Writer", str(exc))
+    def _finish_edited_scene_validation(
+        self,
+        chapter: int,
+        scene: int,
+        prose: str,
+        validation_state: dict,
+        result: dict | None,
+        error: str | None,
+    ) -> None:
+        """Complete acceptance only when manually edited prose meets the active contract."""
+        self.acceptance_validation_in_progress = False
+
+        if error:
+            messagebox.showerror(
+                "Scene Contract",
+                "The edited scene could not be validated and was not accepted. "
+                "Your text remains in the Writer editor.\n\n" + error,
+            )
+            self._update_writer_buttons()
+            return
+
+        if self.package is None:
+            self._update_writer_buttons()
+            return
+
+        state = self.package.current_state
+        current_key = (
+            int(state.get("chapter", 1) or 1),
+            int(state.get("scene", 1) or 1),
+        )
+        if current_key != (int(chapter), int(scene)) or state != validation_state:
+            messagebox.showwarning(
+                "Scene Contract",
+                "The story state changed while the edited scene was being checked. "
+                "Nothing was accepted. Restore the starting state and try again.",
+            )
+            self._update_writer_buttons()
+            return
+
+        if not isinstance(result, dict) or not result.get("pass", False):
+            details = SceneContract.feedback(
+                result if isinstance(result, dict) else {
+                    "pass": False,
+                    "missed_beats": [],
+                    "violations": ["The validator returned no usable result."],
+                    "notes": "",
+                }
+            )
+            messagebox.showwarning(
+                "Scene Contract",
+                "The edited prose does not satisfy the active scene contract, so it was not accepted. "
+                "Revise the prose or adjust the scene guidance, then try again.\n\n" + details,
+            )
+            self.writer_status.configure(
+                text="Edited prose did not pass contract validation. It remains unaccepted in the Writer editor."
+            )
+            self._update_writer_buttons()
+            return
+
+        # Mark these exact, freshly validated words as the generated baseline so
+        # the normal acceptance path can save them without a second validation pass.
+        self.generated_scene = prose
+        self._accept_generated_scene()
+
     def _editable_scene_guidance_entry(
         self,
         chapter: int,
@@ -3458,6 +3579,16 @@ Rules:
             if str(self.package.current_state.get("status", "")).strip().casefold() == "story_start":
                 self.package.current_state["status"] = "in_progress"
 
+            # Capture the actual end state of the completed section before
+            # the application advances the live pointer to the next scene.
+            completed_end_state = json.loads(
+                json.dumps(self.package.current_state, ensure_ascii=False)
+            )
+            completed_end_state["chapter"] = completed_chapter
+            completed_end_state["scene"] = completed_scene
+            completed_end_state["scene_completed"] = False
+            completed_end_state["chapter_completed"] = False
+
             # The accepted section is now complete. Advance the package to the
             # next scene so the Writer tab can immediately build the next scene
             # direction without requiring a separate chat command.
@@ -3507,6 +3638,20 @@ Rules:
             self.writer_state_preview.delete("1.0", "end")
             self._refresh_all()
             self._save()
+            if self.package.path is not None:
+                try:
+                    ManuscriptManager(self.package.path).save_state_after_candidate(
+                        completed_chapter,
+                        completed_scene,
+                        completed_end_state,
+                    )
+                except Exception as snapshot_error:
+                    messagebox.showwarning(
+                        "State Snapshot",
+                        "The state update was saved, but StoryBuilder could not save the "
+                        f"recovery snapshot for Chapter {completed_chapter}, Scene {completed_scene}.\n\n"
+                        f"{snapshot_error}",
+                    )
             if not self.package.current_state.get("chapter_completed"):
                 # Keep the Writer direction synchronized with the newly
                 # advanced state so the next scene is ready without a manual
@@ -4712,6 +4857,13 @@ Rules:
         """Prevent scene switches from silently discarding or misfiling Writer text."""
         if self.package is None:
             return True
+
+        if self.__dict__.get("acceptance_validation_in_progress", False):
+            messagebox.showwarning(
+                "Scene Contract",
+                "Wait for edited prose validation to finish before changing scenes.",
+            )
+            return False
 
         state = self.package.current_state
         current_key = (
