@@ -36,6 +36,55 @@ class FakeText:
         self.value = value
 
 
+class FakePopupWidget:
+    """Small Tk widget stand-in used to test error-dialog clipboard behavior."""
+
+    instances = []
+
+    def __init__(self, *args, **kwargs):
+        self.args = args
+        self.kwargs = kwargs
+        self.bindings = {}
+        self.options = {}
+        self.commands = []
+        FakePopupWidget.instances.append(self)
+
+    def pack(self, *args, **kwargs):
+        pass
+
+    def configure(self, **kwargs):
+        self.options.update(kwargs)
+
+    def bind(self, sequence, callback):
+        self.bindings[sequence] = callback
+
+    def insert(self, *args, **kwargs):
+        pass
+
+    def tag_add(self, *args, **kwargs):
+        pass
+
+    def mark_set(self, *args, **kwargs):
+        pass
+
+    def see(self, *args, **kwargs):
+        pass
+
+    def add_command(self, *args, **kwargs):
+        self.commands.append(kwargs)
+
+    def winfo_screenwidth(self):
+        return 1200
+
+    def winfo_screenheight(self):
+        return 800
+
+    def __getattr__(self, name):
+        # Tk geometry, title, focus, menu popup, and other display operations
+        # are intentionally inert in this non-GUI regression test.
+        return lambda *args, **kwargs: None
+
+
 class SceneWorkflowSafetyTests(unittest.TestCase):
     def make_app(self, package_path, prose, context=(2, 1), accepted=""):
         # Avoid opening a real Tk window; these tests exercise the file/state
@@ -90,6 +139,41 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
                 "GitHub synchronization did not complete",
                 kwargs["summary"],
             )
+
+    def test_copyable_error_dialog_uses_main_window_clipboard(self):
+        FakePopupWidget.instances.clear()
+        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+        app.clipboard_clear = __import__("unittest").mock.Mock()
+        app.clipboard_append = __import__("unittest").mock.Mock()
+        app.update_idletasks = __import__("unittest").mock.Mock()
+
+        with (
+            patch.object(storybuilder_app.tk, "Toplevel", FakePopupWidget),
+            patch.object(storybuilder_app.tk, "Text", FakePopupWidget),
+            patch.object(storybuilder_app.tk, "Menu", FakePopupWidget),
+            patch.object(storybuilder_app.ttk, "Frame", FakePopupWidget),
+            patch.object(storybuilder_app.ttk, "Label", FakePopupWidget),
+            patch.object(storybuilder_app.ttk, "Scrollbar", FakePopupWidget),
+            patch.object(storybuilder_app.ttk, "Button", FakePopupWidget),
+        ):
+            storybuilder_app.StoryBuilderApp._show_copyable_error(
+                app,
+                "Sync Novel",
+                "The novel repository is not on a normal branch.",
+            )
+
+        copy_button = next(
+            widget
+            for widget in FakePopupWidget.instances
+            if widget.kwargs.get("text") == "Copy Full Error"
+        )
+        copy_button.kwargs["command"]()
+
+        app.clipboard_clear.assert_called_once_with()
+        app.clipboard_append.assert_called_once_with(
+            "The novel repository is not on a normal branch."
+        )
+        app.update_idletasks.assert_called_once_with()
 
     def test_unfinished_writer_text_is_saved_to_origin_scene_not_current_selection(self):
         with tempfile.TemporaryDirectory() as tmp:
