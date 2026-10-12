@@ -231,9 +231,13 @@ class StateUpdateValidationTests(unittest.TestCase):
                 "location": {
                     "Tony": [
                         {"event": "Tony continues comforting Maya."},
-                        {"event": "Maya begins describing the van."},
                     ],
                 },
+                # Legacy top-level character fields are normalized into
+                # location, so include one to guard against sanitizing too early.
+                "Maya": [
+                    {"event": "Maya remains curled against Tony."},
+                ],
                 "physical_state": {
                     "Maya": {
                         "posture": "crying against Tony",
