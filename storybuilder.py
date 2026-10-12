@@ -72,6 +72,7 @@ class StoryBuilderApp(tk.Tk):
         self.pending_state_patch = None
         self.selected_manuscript_path = None
         self.saved_state_candidate = None
+        self.saved_state_candidate_path = None
         self.scene_flow_review_in_progress = False
         self.scene_flow_review_thread = None
         self.interview_active = False
@@ -3931,6 +3932,7 @@ Rules:
                         "patch": patch,
                         "candidate": candidate,
                         "save_path": save_path,
+                        "source_path": path,
                         "used_fallback": used_fallback,
                         "error": None,
                     }
@@ -3939,6 +3941,7 @@ Rules:
                         "patch": None,
                         "candidate": None,
                         "save_path": None,
+                        "source_path": path,
                         "used_fallback": used_fallback,
                         "error": str(exc),
                     }
@@ -3966,6 +3969,8 @@ Rules:
             return
 
         self.saved_state_candidate = result.get("candidate")
+        source_path = result.get("source_path")
+        self.saved_state_candidate_path = Path(source_path) if source_path else None
         self.manuscript_state_preview.delete("1.0", "end")
         self.manuscript_state_preview.insert(
             "1.0",
@@ -3977,15 +3982,23 @@ Rules:
         )
 
         save_path = result.get("save_path")
+        source_name = self.saved_state_candidate_path.name if self.saved_state_candidate_path else "selected section"
         note = "using the current state as the baseline because no before-state snapshot exists" if result.get("used_fallback") else "using the saved before-state snapshot"
         self.manuscript_recovery_status.configure(
-            text=f"Reconstructed state saved to {save_path.name} ({note})."
+            text=f"Reconstructed state for {source_name} saved to {save_path.name} ({note})."
         )
         self._update_saved_state_buttons()
 
     def _update_saved_state_buttons(self):
-        has_selection = self._selected_manuscript_scene() is not None
+        selected_path = self._selected_manuscript_scene()
+        has_selection = selected_path is not None
         has_candidate = isinstance(self.saved_state_candidate, dict)
+        candidate_matches_selection = (
+            has_candidate
+            and self.saved_state_candidate_path is not None
+            and selected_path is not None
+            and Path(selected_path) == Path(self.saved_state_candidate_path)
+        )
 
         if hasattr(self, "manuscript_analyze_button"):
             self.manuscript_analyze_button.configure(
@@ -3993,7 +4006,7 @@ Rules:
             )
         if hasattr(self, "manuscript_restore_button"):
             self.manuscript_restore_button.configure(
-                state="normal" if has_candidate and self.package else "disabled"
+                state="normal" if candidate_matches_selection and self.package else "disabled"
             )
         if hasattr(self, "manuscript_copy_state_button"):
             self.manuscript_copy_state_button.configure(
@@ -4002,6 +4015,17 @@ Rules:
 
     def _restore_saved_state_candidate(self):
         if self.package is None or not isinstance(self.saved_state_candidate, dict):
+            return
+        selected_path = self._selected_manuscript_scene()
+        if (
+            self.saved_state_candidate_path is None
+            or selected_path is None
+            or Path(selected_path) != Path(self.saved_state_candidate_path)
+        ):
+            messagebox.showwarning(
+                "Restore Reconstructed State",
+                "The reconstructed state belongs to a different manuscript section. Select that section in the left-hand list before restoring it.",
+            )
             return
 
         if not self._ask_yes_no(
@@ -4391,11 +4415,27 @@ Rules:
 
         path = items[index]
         self.selected_manuscript_path = path
-        self.saved_state_candidate = None
-        self.manuscript_state_preview.delete("1.0", "end")
-        self.manuscript_recovery_status.configure(
-            text=f"Selected {path.name}. Click Analyze Saved Section to reconstruct its state."
-        )
+        if (
+            isinstance(self.saved_state_candidate, dict)
+            and self.saved_state_candidate_path is not None
+        ):
+            candidate_name = self.saved_state_candidate_path.name
+            selected_name = path.name
+            if Path(path) == Path(self.saved_state_candidate_path):
+                status_text = (
+                    f"Selected {selected_name}. The reconstructed state preview is preserved; "
+                    "review it and restore it when ready."
+                )
+            else:
+                status_text = (
+                    f"Selected {selected_name}. The reconstructed state for {candidate_name} "
+                    "is preserved. Reselect its entry to restore that candidate."
+                )
+        else:
+            status_text = (
+                f"Selected {path.name}. Click Analyze Saved Section to reconstruct its state."
+            )
+        self.manuscript_recovery_status.configure(text=status_text)
         self._update_saved_state_buttons()
         try:
             text = path.read_text(encoding="utf-8")
