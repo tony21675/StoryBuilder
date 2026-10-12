@@ -215,6 +215,160 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             )
             self.assertEqual(app.package.current_state["scene"], 2)
 
+    def test_apply_state_update_does_not_auto_finalize_at_the_planned_last_scene(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state = {
+                "chapter": 2,
+                "scene": 2,
+                "status": "in_progress",
+                "scene_completed": False,
+                "chapter_completed": False,
+                "current_situation": "Scene 2 starting situation.",
+            }
+            guidance = {
+                "chapter_plans": {
+                    "2": {
+                        "scene_plan": {
+                            "1": {"cast": ["Maya", "Tony"]},
+                            "2": {"cast": ["Maya", "Tony"]},
+                        }
+                    }
+                }
+            }
+            app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+            app.package = SimpleNamespace(
+                path=root,
+                current_state=state,
+                extra_json={"writing_guidance.json": guidance},
+            )
+            app.pending_state_patch = {"current_situation": "Scene 2 ending situation."}
+            app.generated_scene = ""
+            app.accepted_scene = ""
+            app.generated_scene_context = None
+            app.generated_scene_start_state = None
+            app.writer_generation_context = None
+            app.writer_generation_start_state = None
+            app.writer_generation_in_progress = False
+            app.scene_contract_building = False
+            app.writer_output_text = FakeText()
+            app.writer_state_preview = FakeText()
+            app.writer_status = SimpleLabel()
+            app._writer_editor_prose = lambda: ""
+            app._save_unsaved_writer_draft = lambda: True
+            app._final_planned_scene_for_chapter = lambda _chapter: 2
+            app._scene_plan_cast = lambda _chapter, _scene: []
+            app._refresh_all = lambda: None
+            app._save = lambda: setattr(app, "dirty", False)
+            app._build_scene_direction = lambda: None
+            app._chat = lambda *_args, **_kwargs: None
+            app._update_writer_buttons = lambda: None
+
+            storybuilder_app.StoryBuilderApp._apply_state_update(app)
+
+            self.assertEqual(app.package.current_state["scene"], 3)
+            self.assertFalse(app.package.current_state["scene_completed"])
+            self.assertFalse(app.package.current_state["chapter_completed"])
+
+    def test_advance_to_next_scene_ignores_the_planned_scene_limit(self):
+        state = {
+            "chapter": 2,
+            "scene": 2,
+            "scene_completed": False,
+            "chapter_completed": False,
+        }
+        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+        app.package = SimpleNamespace(
+            path=None,
+            current_state=state,
+            extra_json={
+                "writing_guidance.json": {
+                    "chapter_plans": {
+                        "2": {"scene_plan": {"1": {}, "2": {}}}
+                    }
+                }
+            },
+        )
+        app._prepare_for_scene_change = lambda *_args: True
+        app._scene_plan_cast = lambda *_args: []
+        app._clear_writer_scene_workspace = lambda *_args: None
+        app._refresh_all = lambda: None
+        app._save = lambda: None
+        app._chat = lambda *_args, **_kwargs: None
+        app.writer_status = SimpleLabel()
+        app._update_writer_buttons = lambda: None
+
+        with patch.object(storybuilder_app.messagebox, "showinfo") as info, patch.object(
+            storybuilder_app.messagebox, "showerror"
+        ) as error:
+            storybuilder_app.StoryBuilderApp._advance_to_next_scene(app)
+
+        self.assertEqual(app.package.current_state["scene"], 3)
+        info.assert_not_called()
+        error.assert_not_called()
+
+    def test_finalize_chapter_restores_last_accepted_scene_ending_snapshot(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            chapter_dir = root / "Manuscript" / "Chapters" / "Chapter_02"
+            chapter_dir.mkdir(parents=True)
+            (chapter_dir / "Chapter_02_Section_02.txt").write_text(
+                "Maya recounts what happened to Tiffany.", encoding="utf-8"
+            )
+            ending = {
+                "chapter": 2,
+                "scene": 2,
+                "status": "in_progress",
+                "scene_completed": False,
+                "chapter_completed": False,
+                "current_situation": "Correct ending state from accepted Scene 2.",
+                "scene_cast": ["Maya", "Tony"],
+            }
+            (chapter_dir / "Chapter_02_Section_02_after_state.json").write_text(
+                json.dumps(ending), encoding="utf-8"
+            )
+            app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+            app.package = SimpleNamespace(
+                path=root,
+                current_state={
+                    "chapter": 2,
+                    "scene": 3,
+                    "status": "in_progress",
+                    "scene_completed": False,
+                    "chapter_completed": False,
+                    "current_situation": "Should not be kept from the next-scene pointer.",
+                    "scene_cast": ["Wrong next-scene cast"],
+                },
+            )
+            persisted = {}
+            app.dirty = False
+            app.accepted_scene = ""
+            app._ask_yes_no = lambda *_args: True
+            app._save_unsaved_writer_draft = lambda: True
+            app._apply_all_edits = lambda: True
+            app._update_path_label = lambda: None
+            app._refresh_all = lambda: None
+            app._save = lambda: persisted.update(
+                state=json.loads(json.dumps(app.package.current_state))
+            )
+            app._chat = lambda *_args, **_kwargs: None
+            app.writer_status = SimpleLabel()
+            app.manuscript_recovery_status = SimpleLabel()
+
+            storybuilder_app.StoryBuilderApp._finalize_current_chapter(app)
+
+            final_state = app.package.current_state
+            self.assertEqual((final_state["chapter"], final_state["scene"]), (2, 2))
+            self.assertTrue(final_state["scene_completed"])
+            self.assertTrue(final_state["chapter_completed"])
+            self.assertEqual(
+                final_state["current_situation"],
+                "Correct ending state from accepted Scene 2.",
+            )
+            self.assertEqual(final_state["scene_cast"], ["Maya", "Tony"])
+            self.assertEqual(persisted["state"], final_state)
+            self.assertIn("finalized", app.writer_status.text.casefold())
+
     def test_authored_state_after_is_a_hint_and_does_not_bypass_prose_analysis(self):
         class ImmediateThread:
             def __init__(self, target, daemon=False):

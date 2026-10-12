@@ -900,15 +900,28 @@ class StoryBuilderApp(tk.Tk):
             text="Start Next Chapter",
             command=self._start_next_chapter,
         ).pack(side="left", padx=(8, 0))
-        ttk.Label(tab, text="Current Situation").grid(row=8, column=0, sticky="nw", pady=5)
+
+        chapter_action_row = ttk.Frame(tab)
+        chapter_action_row.grid(row=8, column=1, sticky="w", pady=(0, 8))
+        ttk.Button(
+            chapter_action_row,
+            text="Finalize Chapter",
+            command=self._finalize_current_chapter,
+        ).pack(side="left")
+        ttk.Label(
+            chapter_action_row,
+            text="Use after the final accepted scene's state has been applied.",
+        ).pack(side="left", padx=(8, 0))
+
+        ttk.Label(tab, text="Current Situation").grid(row=9, column=0, sticky="nw", pady=5)
         self.situation_text = tk.Text(tab, height=5, wrap="word")
-        self.situation_text.grid(row=8, column=1, sticky="nsew", pady=5)
-        ttk.Button(tab, text="Apply Situation", command=self._apply_situation_edit).grid(row=9, column=1, sticky="e", pady=8)
+        self.situation_text.grid(row=9, column=1, sticky="nsew", pady=5)
+        ttk.Button(tab, text="Apply Situation", command=self._apply_situation_edit).grid(row=10, column=1, sticky="e", pady=8)
 
         tab.columnconfigure(1, weight=1)
         tab.rowconfigure(5, weight=1)
         tab.rowconfigure(6, weight=1)
-        tab.rowconfigure(8, weight=1)
+        tab.rowconfigure(9, weight=1)
 
     def _build_writer_tab(self):
         tab = ttk.Frame(self.notebook.pages)
@@ -1107,18 +1120,6 @@ class StoryBuilderApp(tk.Tk):
             text="Refresh Manuscript",
             command=self._refresh_manuscript,
         ).pack(fill="x")
-
-        ttk.Button(
-            manuscript_button_row,
-            text="Finalize Chapter",
-            command=self._finalize_current_chapter,
-        ).pack(fill="x", pady=(6, 0))
-
-        ttk.Button(
-            manuscript_button_row,
-            text="Start Next Chapter",
-            command=self._start_next_chapter,
-        ).pack(fill="x", pady=(6, 0))
 
         ttk.Button(
             manuscript_button_row,
@@ -3754,25 +3755,15 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             current_chapter = int(self.package.current_state.get("chapter", completed_chapter) or completed_chapter)
             current_scene = int(self.package.current_state.get("scene", completed_scene) or completed_scene)
 
-            # If this is the final planned scene in the current writing
-            # guidance, close the chapter instead of inventing a Scene N+1.
-            final_planned_scene = self._final_planned_scene_for_chapter(
-                current_chapter
-            )
-            if final_planned_scene is None:
-                final_planned_scene = completed_scene
-
+            # Scene plans guide generation but do not decide when a chapter ends.
+            # Applying a scene's analyzed state always leaves the chapter open;
+            # only the author's explicit Finalize Chapter action closes it.
             if current_chapter == completed_chapter and current_scene == completed_scene:
-                if completed_scene >= final_planned_scene:
-                    self.package.current_state["scene_completed"] = True
-                    self.package.current_state["chapter_completed"] = True
-                else:
-                    self.package.current_state["scene"] = completed_scene + 1
-                    self.package.current_state["scene_completed"] = False
-            else:
-                # If the continuity manager explicitly advanced the state, keep
-                # its chapter/scene decision intact.
-                self.package.current_state["scene_completed"] = False
+                self.package.current_state["scene"] = completed_scene + 1
+            # If the continuity manager explicitly advanced the state, keep its
+            # chapter/scene decision intact. In either case, completion is manual.
+            self.package.current_state["scene_completed"] = False
+            self.package.current_state["chapter_completed"] = False
 
             # When the next scene has an explicit cast in writing guidance,
             # load that cast for the newly advanced scene instead of carrying
@@ -4260,72 +4251,125 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         return None
 
     def _finalize_current_chapter(self):
+        """Finalize the last accepted scene only when the author explicitly asks."""
         if self.package is None or self.package.path is None:
+            messagebox.showwarning(
+                "Finalize Chapter",
+                "Save the novel package before finalizing a chapter.",
+            )
+            return
+
+        if getattr(self, "accepted_scene", "") and not self.package.current_state.get("chapter_completed"):
+            messagebox.showwarning(
+                "Finish Current Scene",
+                "The current scene has been accepted but its state update has not been applied yet. "
+                "Analyze the accepted scene and apply its state update before finalizing the chapter.",
+            )
             return
 
         chapter = int(self.package.current_state.get("chapter", 1) or 1)
-        scene = int(self.package.current_state.get("scene", 1) or 1)
+        current_scene = int(self.package.current_state.get("scene", 1) or 1)
+        if self.package.current_state.get("chapter_completed"):
+            messagebox.showinfo(
+                "Finalize Chapter",
+                f"Chapter {chapter} is already finalized.",
+            )
+            return
+
         manager = ManuscriptManager(self.package.path)
         scene_paths = manager.chapter_scene_paths(chapter)
-
-        if not scene_paths:
+        scene_numbers = [
+            numbers[1]
+            for path in scene_paths
+            if (numbers := ManuscriptManager.scene_numbers(path)) is not None
+        ]
+        if not scene_numbers:
             messagebox.showwarning(
                 "Finalize Chapter",
                 f"No accepted manuscript sections were found for Chapter {chapter}.",
             )
             return
 
-        latest_scene = max(
-            numbers[1]
-            for path in scene_paths
-            if (numbers := ManuscriptManager.scene_numbers(path)) is not None
-        )
-        planned_final = self._final_planned_scene_for_chapter(chapter)
-
-        if scene < latest_scene:
+        latest_scene = max(scene_numbers)
+        if current_scene < latest_scene:
             messagebox.showwarning(
                 "Finalize Chapter",
-                f"Current state is on Scene {scene}, but Chapter {chapter} already contains "
-                f"accepted material through Scene {latest_scene}. Finalize from the latest scene "
-                "after restoring the correct current state.",
+                f"Current state is on Scene {current_scene}, but Chapter {chapter} already contains "
+                f"accepted material through Scene {latest_scene}. Restore the ending state for the "
+                "latest accepted scene before finalizing.",
             )
             return
 
-        if planned_final is not None and scene < planned_final:
+        saved_end_state = manager.load_state_after(chapter, latest_scene)
+        if saved_end_state is None:
             messagebox.showwarning(
                 "Finalize Chapter",
-                f"Scene {scene} is not the final planned scene for the current guidance. "
-                f"Scene {planned_final} is the final planned scene.",
+                f"Chapter {chapter}, Scene {latest_scene} has no saved ending-state snapshot.\n\n"
+                "Open Manuscript, select that accepted scene, click Analyze Saved Section, "
+                "then click Restore Reconstructed State. Return here and finalize the chapter.",
             )
             return
 
-        if self.package.current_state.get("chapter_completed"):
-            messagebox.showinfo(
-                "Finalize Chapter",
-                f"Chapter {chapter} is already marked complete.",
-            )
-            return
+        # If the live pointer is already on the last accepted scene, preserve
+        # any author-reviewed edits to that end state. If it has moved forward,
+        # restore the scene-specific snapshot so next-scene fields do not leak.
+        if current_scene == latest_scene:
+            end_state = json.loads(json.dumps(self.package.current_state, ensure_ascii=False))
+        else:
+            end_state = saved_end_state
 
         if not self._ask_yes_no(
             "Finalize Chapter",
-            f"Mark Chapter {chapter}, Scene {scene}, as complete?\n\n"
-            "This will not create a new scene or advance to the next chapter.",
+            f"Finalize Chapter {chapter} at its last accepted scene, Scene {latest_scene}?\n\n"
+            "This marks the chapter complete, restores that scene's ending state, and prepares "
+            "StoryBuilder for Start Next Chapter. The scene plan will not decide chapter length, "
+            "and accepted manuscript prose will not be changed.",
         ):
             return
 
+        if not self._save_unsaved_writer_draft():
+            return
+        # Apply any pending edits before refreshing the form, so canon, character,
+        # location, and scene-idea edits are not silently discarded by finalization.
+        if not self._apply_all_edits():
+            return
+        live_state = self.package.current_state
+        live_chapter = int(live_state.get("chapter", 1) or 1)
+        live_scene = int(live_state.get("scene", 1) or 1)
+        if live_chapter != chapter:
+            messagebox.showwarning(
+                "Finalize Chapter",
+                "The active chapter changed while saving pending edits. No chapter was finalized; "
+                "check Current State and try again.",
+            )
+            return
+        if current_scene == latest_scene and live_scene == latest_scene:
+            end_state = json.loads(json.dumps(live_state, ensure_ascii=False))
+
+        self.package.current_state = json.loads(json.dumps(end_state, ensure_ascii=False))
+        self.package.current_state["chapter"] = chapter
+        self.package.current_state["scene"] = latest_scene
         self.package.current_state["scene_completed"] = True
         self.package.current_state["chapter_completed"] = True
         self.dirty = True
-        self._save()
+        self._update_path_label()
+        # Refresh before saving so the State editor's chapter/scene controls do
+        # not write the previous live pointer back over the restored end state.
         self._refresh_all()
+        self._save()
         self._chat(
             "Builder",
-            f"Chapter {chapter} is finalized. Scene {scene} remains the final scene "
-            "and the story is ready for the next chapter when you choose to continue.",
+            f"Chapter {chapter} finalized at Scene {latest_scene}. "
+            "The ending state is saved and the next chapter can now be started.",
         )
-        self.manuscript_recovery_status.configure(
-            text=f"Chapter {chapter} finalized. It remains at Scene {scene} until the next chapter is started."
-        )
+        if hasattr(self, "writer_status"):
+            self.writer_status.configure(
+                text=f"Chapter {chapter} finalized at Scene {latest_scene}. Use Start Next Chapter when ready."
+            )
+        if hasattr(self, "manuscript_recovery_status"):
+            self.manuscript_recovery_status.configure(
+                text=f"Chapter {chapter} finalized at its last accepted scene, Scene {latest_scene}."
+            )
 
     def _review_scene_flow(self):
         if self.package is None or self.package.path is None:
@@ -6125,19 +6169,14 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         try:
             chapter = int(self.package.current_state.get("chapter", 1) or 1)
             scene = int(self.package.current_state.get("scene", 1) or 1)
-            final_scene = self._final_planned_scene_for_chapter(chapter)
+            if self.package.current_state.get("chapter_completed"):
+                messagebox.showinfo(
+                    "Advance Scene",
+                    f"Chapter {chapter} is finalized. Use Start Next Chapter to continue.",
+                )
+                return
 
             next_scene = scene + 1
-            if final_scene is not None and scene >= final_scene:
-                proceed = self._ask_yes_no(
-                    "Advance Beyond Planned Scenes",
-                    f"Scene {scene} is the last planned scene for Chapter {chapter}.\\n\\n"
-                    f"Advance to Scene {next_scene} anyway? This will create an unplanned scene slot. "
-                    "You can define the new scene's idea and contract on the Scene Contract tab after advancing.\\n\\n"
-                    "The current scene's prose and ending state will be preserved.",
-                )
-                if not proceed:
-                    return
             if not self._prepare_for_scene_change(chapter, next_scene):
                 return
             next_cast = self._scene_plan_cast(chapter, next_scene)
