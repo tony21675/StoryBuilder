@@ -345,6 +345,7 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             app.accepted_scene = ""
             app._ask_yes_no = lambda *_args: True
             app._save_unsaved_writer_draft = lambda: True
+            app._apply_all_edits = lambda: True
             app._update_path_label = lambda: None
             app._refresh_all = lambda: None
             app._save = lambda: persisted.update(
