@@ -630,6 +630,44 @@ class StateManager:
                 break
             except (TypeError, ValueError) as exc:
                 if attempt == 1:
+                    # If the model repeats the location-shape mistake after the
+                    # correction prompt, discard only malformed location values.
+                    # This preserves the baseline location instead of guessing,
+                    # while allowing independently valid state changes to be reviewed.
+                    error_text = str(exc)
+                    if (
+                        "Invalid state update at 'location." in error_text
+                        or "Invalid state update: 'location' must be an object" in error_text
+                    ):
+                        try:
+                            recovered = extract_json_object(output)
+                            raw_location = recovered.get("location")
+                            if isinstance(raw_location, dict):
+                                clean_location = {
+                                    name: value
+                                    for name, value in raw_location.items()
+                                    if isinstance(value, str)
+                                }
+                                if clean_location:
+                                    recovered["location"] = clean_location
+                                else:
+                                    recovered.pop("location", None)
+                            else:
+                                recovered.pop("location", None)
+
+                            recovered = normalize_location_patch(
+                                current_state,
+                                recovered,
+                            )
+                            StateManager.validate_patch(current_state, recovered)
+                            patch = recovered
+                            break
+                        except (TypeError, ValueError):
+                            # Do not salvage if any other part of the proposal
+                            # remains malformed. The ordinary error below retains
+                            # the full validator detail for diagnosis.
+                            pass
+
                     excerpt = (output or "")[-1800:]
                     raise ValueError(
                         "The continuity model returned an invalid state update even after one "
