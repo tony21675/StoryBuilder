@@ -622,6 +622,14 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             "If they conflict, follow current_situation",
             CONTRACT_BUILDER_SYSTEM_PROMPT,
         )
+        self.assertIn(
+            "When the scene idea explicitly asks for reassurance",
+            CONTRACT_BUILDER_SYSTEM_PROMPT,
+        )
+        self.assertIn(
+            "capture it as one concise required beat",
+            CONTRACT_BUILDER_SYSTEM_PROMPT,
+        )
 
     def test_writer_prompt_preserves_uncontradicted_physical_continuity(self):
         app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
@@ -662,6 +670,14 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         )
         self.assertIn(
             "Avoid restating one feeling through several descriptions, metaphors, or interpretations",
+            prompt,
+        )
+        self.assertIn(
+            "allow the other character to offer brief, natural reassurance",
+            prompt,
+        )
+        self.assertIn(
+            "without forcing it into every pause",
             prompt,
         )
 
