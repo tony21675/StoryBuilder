@@ -13,6 +13,14 @@
 
 Always fetch these files from the current `main` branch when resuming. Do not assume an old in-chat copy is current.
 
+## Scene and chapter workflow: author controls chapter endings
+
+- Scene plans are guidance, not a cap on how many scenes a chapter may contain. The author may keep advancing to additional scenes as the story needs them, including scenes not already listed in the structured plan.
+- Do not infer that a chapter has ended merely because the existing scene plan runs out. The author decides when the actual final scene is complete.
+- After the final accepted scene's state update has been applied, use **Finalize Chapter** when Tony says that chapter is finished. Then use **Start Next Chapter** when ready to begin the next chapter.
+- For a new scene, use the redesigned Scene Contract workflow: edit only **Scene Idea / Author Notes**, then click **Build Contract from Scene Idea**. The detailed contract fields are generated, read-only guidance. Adjust the idea and rebuild if needed.
+- Do not tell Tony to manually edit the scene number in JSON or restore the old planned-scene cap workflow.
+
 ## Standing writing principle: guardrails, not rails
 
 Do not micromanage the story. Once Tony has established the must-happen beats, hard stops, canon, character knowledge, and continuity rules, write creatively and let each scene breathe.
