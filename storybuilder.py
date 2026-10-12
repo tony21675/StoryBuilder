@@ -4695,9 +4695,13 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             self._chat("Builder", result)
             messagebox.showinfo("Sync Novel", result)
         except (NovelSyncError, OSError, subprocess.SubprocessError) as exc:
-            messagebox.showerror(
+            self._show_copyable_error(
                 "Sync Novel",
                 "The novel was saved locally, but GitHub sync failed.\n\n" + str(exc),
+                summary=(
+                    "The novel was saved locally, but GitHub synchronization did not complete. "
+                    "Review or copy the full error details below."
+                ),
             )
     def _close_without_sync(self):
         if self.__dict__.get("writer_notes_update_in_progress", False):
@@ -6831,7 +6835,12 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         widget.bind("<Control-v>", lambda _event: (paste(), "break")[1], add="+")
         widget.bind("<Control-a>", lambda _event: (select_all(), "break")[1], add="+")
 
-    def _show_copyable_error(self, title: str, message: str) -> None:
+    def _show_copyable_error(
+        self,
+        title: str,
+        message: str,
+        summary: str = "The operation failed. No state changes were applied.",
+    ) -> None:
         """Show a scrollable error whose full text can be selected or copied."""
         dialog = tk.Toplevel(self)
         dialog.title(title)
@@ -6851,7 +6860,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         outer.pack(fill="both", expand=True)
         ttk.Label(
             outer,
-            text="The operation failed. No state changes were applied.",
+            text=summary,
             wraplength=700,
             justify="left",
         ).pack(anchor="w", pady=(0, 8))
