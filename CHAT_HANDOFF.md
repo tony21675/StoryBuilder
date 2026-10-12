@@ -13,6 +13,19 @@
 
 Always fetch these files from the current `main` branch when resuming. Do not assume an old in-chat copy is current.
 
+## Standing writing principle: guardrails, not rails
+
+Do not micromanage the story. Once Tony has established the must-happen beats, hard stops, canon, character knowledge, and continuity rules, write creatively and let each scene breathe.
+
+- Use sound judgment for natural dialogue, reactions, body language, atmosphere, pacing, and small connective events. These ordinary creative choices do not need individual approval.
+- Do not turn scene planning into an exhaustive script or keep asking Tony to decide small details. If a detail is minor, choose what best fits the established characters and story.
+- Preserve explicit requirements, scene hard stops, accepted prose, and known secrets. Creativity must not contradict those boundaries or silently change canon.
+- Pause to consult Tony only for meaningful conflicts, consequential ambiguities, major plot commitments, or changes to agreed requirements. Mark optional future ideas as proposed rather than settled.
+- Aim for emotionally honest scenes with room for quiet moments, dialogue, humor, tenderness, and character-led discoveries, not just plot delivery.
+
+Treat the plan as sturdy guardrails, not instructions for every sentence. Keep the story coherent, but leave room for creative surprises.
+
+
 
 ## Current Session: 2026-10-12
 
