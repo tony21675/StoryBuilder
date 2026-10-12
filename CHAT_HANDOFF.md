@@ -1,4 +1,4 @@
-
+# StoryBuilder Chat Handoff
 ## Mandatory startup reading: do this at the start of every new session
 
 **Do not begin drafting, changing story canon, editing state, or modifying project files until these reads are complete.** This handoff is a map, not a substitute for reading the current source files.
