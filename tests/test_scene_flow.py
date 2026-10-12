@@ -76,7 +76,7 @@ class SceneFlowPromptTests(unittest.TestCase):
             only_scene = Path(tmp) / "Chapter_01_Section_01.txt"
             only_scene.write_text("Just one scene.", encoding="utf-8")
 
-            with self.assertRaisesRegex(ValueError, "at least two"):
+            with self.assertRaisesRegex(ValueError, "(?i)at least two"):
                 review_chapter_flow(Path("/tmp/fake-writer.gguf"), [only_scene])
 
 
