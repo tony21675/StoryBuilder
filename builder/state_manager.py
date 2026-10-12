@@ -553,79 +553,110 @@ class StateManager:
         ])
         prompt = "".join(prompt_parts)
 
-        env = os.environ.copy()
-        env["LD_LIBRARY_PATH"] = str(
-            DEFAULT_LLAMA.parent
-        ) + (
-            ":" + env["LD_LIBRARY_PATH"]
-            if env.get("LD_LIBRARY_PATH")
-            else ""
-        )
-
-        device = StateManager._detect_accelerator()
-        args = [
-            str(DEFAULT_LLAMA),
-            "-m", str(model),
-        ]
-        if device:
-            args.extend(["--device", device, "-ngl", "all"])
-        else:
-            args.extend(["-ngl", "0", "--device", "none"])
-
-        args.extend([
-            "-c", "8192",
-            "--reasoning", "off",
-            "--temp", "0.10",
-            "--top-k", "20",
-            "--top-p", "0.80",
-            "--repeat-last-n", "256",
-            "--repeat-penalty", "1.08",
-            "--n-predict", "1000",
-            "--system-prompt", STATE_SYSTEM_PROMPT,
-            "--prompt", prompt,
-            "--color", "off",
-            "--no-display-prompt",
-            "--simple-io",
-            "--single-turn",
-        ])
-
-        proc = subprocess.Popen(
-            args,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            env=env,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-        )
-
-        try:
-            output, _ = proc.communicate(timeout=600)
-        except subprocess.TimeoutExpired as exc:
-            proc.kill()
-            output, _ = proc.communicate()
-            raise TimeoutError("Continuity analysis timed out.") from exc
-
-        if proc.returncode not in (0, None):
-            raise RuntimeError(
-                "Continuity analysis failed.\n"
-                + (output or "")[-3000:]
+        def run_model(prompt_text: str) -> str:
+            env = os.environ.copy()
+            env["LD_LIBRARY_PATH"] = str(
+                DEFAULT_LLAMA.parent
+            ) + (
+                ":" + env["LD_LIBRARY_PATH"]
+                if env.get("LD_LIBRARY_PATH")
+                else ""
             )
 
-        patch = extract_json_object(output)
-        if not isinstance(patch, dict):
-            raise ValueError("Continuity analysis did not return an object.")
+            device = StateManager._detect_accelerator()
+            args = [
+                str(DEFAULT_LLAMA),
+                "-m", str(model),
+            ]
+            if device:
+                args.extend(["--device", device, "-ngl", "all"])
+            else:
+                args.extend(["-ngl", "0", "--device", "none"])
 
-        # Reject a malformed nested location container before legacy normalization;
-        # otherwise malformed data could be silently overwritten when top-level
-        # legacy location keys are moved into it.
-        if "location" in patch and not isinstance(patch["location"], dict):
-            raise ValueError("Invalid state update: 'location' must be an object.")
+            args.extend([
+                "-c", "8192",
+                "--reasoning", "off",
+                "--temp", "0.10",
+                "--top-k", "20",
+                "--top-p", "0.80",
+                "--repeat-last-n", "256",
+                "--repeat-penalty", "1.08",
+                "--n-predict", "1000",
+                "--system-prompt", STATE_SYSTEM_PROMPT,
+                "--prompt", prompt_text,
+                "--color", "off",
+                "--no-display-prompt",
+                "--simple-io",
+                "--single-turn",
+            ])
 
-        # Models sometimes emit legacy top-level location fields even though
-        # current_state stores location as a nested object. Normalize that shape first.
-        patch = normalize_location_patch(current_state, patch)
-        StateManager.validate_patch(current_state, patch)
+            proc = subprocess.Popen(
+                args,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                env=env,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+            )
+            try:
+                output, _ = proc.communicate(timeout=600)
+            except subprocess.TimeoutExpired as exc:
+                proc.kill()
+                output, _ = proc.communicate()
+                raise TimeoutError("Continuity analysis timed out.") from exc
+
+            if proc.returncode not in (0, None):
+                raise RuntimeError(
+                    "Continuity analysis failed.\\n"
+                    + (output or "")[-3000:]
+                )
+            return output or ""
+
+        output = run_model(prompt)
+        patch = None
+
+        # Local models occasionally place character knowledge lists under
+        # location. Reject the malformed proposal, ask for one corrected JSON
+        # patch, and strictly validate the corrected response as well.
+        for attempt in range(2):
+            try:
+                candidate = extract_json_object(output)
+                if "location" in candidate and not isinstance(candidate["location"], dict):
+                    raise ValueError("Invalid state update: 'location' must be an object.")
+                candidate = normalize_location_patch(current_state, candidate)
+                StateManager.validate_patch(current_state, candidate)
+                patch = candidate
+                break
+            except (TypeError, ValueError) as exc:
+                if attempt == 1:
+                    excerpt = (output or "")[-1800:]
+                    raise ValueError(
+                        "The continuity model returned an invalid state update even after one "
+                        "automatic correction attempt. No state changes were applied.\\n\\n"
+                        f"Validation detail: {exc}\\n\\nLast model response:\\n{excerpt}"
+                    ) from exc
+
+                repair_prompt = (
+                    prompt
+                    + "\\n\\nAUTOMATIC CORRECTION REQUIRED: your previous JSON proposal was "
+                    "rejected by the application's state validator. Correct the same proposal "
+                    "using only facts supported by the completed prose. Do not invent new events.\\n"
+                    + f"VALIDATION ERROR: {exc}\\n"
+                    + "SCHEMA REMINDER: location must be an object whose primary and per-character "
+                    "entries are plain text strings only. Character knowledge belongs only under "
+                    "character_knowledge, an object mapping character names to lists of text facts. "
+                    "Never put lists or knowledge facts under location. Return corrected partial JSON only.\\n"
+                    + "PREVIOUS INVALID RESPONSE TO CORRECT:\\n"
+                    + (output or "")[-3000:]
+                )
+                output = run_model(repair_prompt)
+
+        if patch is None:
+            raise ValueError(
+                "The continuity model could not produce a valid state update. "
+                "No state changes were applied."
+            )
 
         # Models sometimes repeat unchanged state. Normalize that away so a
         # proposal contains only actual changes.

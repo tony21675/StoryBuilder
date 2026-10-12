@@ -3507,7 +3507,7 @@ Rules:
             self.pending_state_patch = None
             if hasattr(self, "writer_state_preview"):
                 self.writer_state_preview.delete("1.0", "end")
-            messagebox.showerror("State Update", error)
+            self._show_copyable_error("State Update", error)
             self._update_writer_buttons()
             return
 
@@ -3519,7 +3519,7 @@ Rules:
             self.pending_state_patch = None
             if hasattr(self, "writer_state_preview"):
                 self.writer_state_preview.delete("1.0", "end")
-            messagebox.showerror(
+            self._show_copyable_error(
                 "State Update",
                 "The proposed state update is malformed and was rejected. "
                 "Nothing was applied.\n\n" + str(exc),
@@ -6111,6 +6111,90 @@ Rules:
         widget.bind("<Control-c>", lambda _event: (copy(), "break")[1], add="+")
         widget.bind("<Control-v>", lambda _event: (paste(), "break")[1], add="+")
         widget.bind("<Control-a>", lambda _event: (select_all(), "break")[1], add="+")
+
+    def _show_copyable_error(self, title: str, message: str) -> None:
+        """Show a scrollable error whose full text can be selected or copied."""
+        dialog = tk.Toplevel(self)
+        dialog.title(title)
+        dialog.transient(self)
+        dialog.resizable(True, True)
+
+        screen_width = dialog.winfo_screenwidth()
+        screen_height = dialog.winfo_screenheight()
+        width = min(760, max(340, screen_width - 48))
+        height = min(560, max(280, screen_height - 80))
+        dialog.geometry(
+            f"{width}x{height}+{max(0, (screen_width-width)//2)}+"
+            f"{max(0, (screen_height-height)//2)}"
+        )
+
+        outer = ttk.Frame(dialog, padding=12)
+        outer.pack(fill="both", expand=True)
+        ttk.Label(
+            outer,
+            text="The operation failed. No state changes were applied.",
+            wraplength=700,
+            justify="left",
+        ).pack(anchor="w", pady=(0, 8))
+
+        text_frame = ttk.Frame(outer)
+        text_frame.pack(fill="both", expand=True)
+        scrollbar = ttk.Scrollbar(text_frame, orient="vertical")
+        error_text = tk.Text(
+            text_frame,
+            wrap="word",
+            yscrollcommand=scrollbar.set,
+            padx=8,
+            pady=8,
+            height=14,
+            width=76,
+        )
+        scrollbar.configure(command=error_text.yview)
+        error_text.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        error_text.insert("1.0", str(message))
+        error_text.configure(state="disabled")
+
+        status = ttk.Label(outer, text="Select text to copy, or copy the full error.")
+        status.pack(anchor="w", pady=(6, 0))
+
+        def copy_text(value: str) -> None:
+            try:
+                dialog.clipboard_clear()
+                dialog.clipboard_append(value)
+                dialog.update_idletasks()
+                status.configure(text="Error text copied. Paste it wherever you need it.")
+            except tk.TclError as exc:
+                status.configure(text=f"Clipboard copy failed: {exc}")
+
+        def copy_selection(_event=None):
+            try:
+                selected = error_text.get("sel.first", "sel.last")
+            except tk.TclError:
+                selected = str(message)
+            copy_text(selected)
+            return "break"
+
+        error_text.bind("<Control-c>", copy_selection)
+        error_text.bind("<Control-C>", copy_selection)
+        error_text.bind("<Control-Insert>", copy_selection)
+        error_text.bind("<<Copy>>", copy_selection)
+
+        buttons = ttk.Frame(outer)
+        buttons.pack(fill="x", pady=(8, 0))
+        ttk.Button(
+            buttons,
+            text="Copy Full Error",
+            command=lambda: copy_text(str(message)),
+        ).pack(side="left")
+        ttk.Button(
+            buttons,
+            text="Close",
+            command=dialog.destroy,
+        ).pack(side="right")
+
+        dialog.bind("<Escape>", lambda _event: dialog.destroy())
+        dialog.focus_force()
 
     def _ask_yes_no(self, title: str, message: str) -> bool:
         """Show a readable, scrollable, copyable Yes/No confirmation dialog."""
