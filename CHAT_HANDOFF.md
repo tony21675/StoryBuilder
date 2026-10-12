@@ -6,6 +6,7 @@
 1. Read the full, current [MyNovel HANDOFF.md](https://github.com/tony21675/MyNovel/blob/main/HANDOFF.md). It identifies the saved manuscript position, next task, and project-state cautions.
 2. Read the full, current [MyNovel STORY_PLAN.md](https://github.com/tony21675/MyNovel/blob/main/STORY_PLAN.md). It is the central planning source for chapter and scene outlines, confirmed beats, constraints, and unresolved ideas.
 3. Read [MyNovel current_state.json](https://github.com/tony21675/MyNovel/blob/main/current_state.json) to establish the actual writing pointer and status. Do not infer the current scene from handoff prose alone.
+3a. Read [MyNovel writing_guidance.json](https://github.com/tony21675/MyNovel/blob/main/writing_guidance.json) as the source StoryBuilder actually uses to populate Scene Idea / Author Notes. Before asking Tony to edit an idea, verify the active chapter/scene has a saved `scene_idea` entry in the proper `chapter_plans` structure. If a confirmed plan exists only in `STORY_PLAN.md`, discuss and copy the agreed idea into `writing_guidance.json` rather than asking him to paste it manually. After any external guidance-file update, synchronize and reload the local novel package so the open app reads the new data.
 4. Read the accepted scene file(s) needed for the next task, especially the complete immediately preceding scene and its ending. Read related before-state/after-state files and relevant character cards when required by that scene. Do not rely on remembered excerpts.
 5. Reconcile the current files before acting. If the plan, handoff, state, and accepted prose conflict, stop before making changes and report the exact conflict. Do not silently choose which version is right.
 6. Preserve all accepted scene prose unless Tony explicitly requests a rewrite. Keep unapproved ideas marked **PROPOSED** or **OPEN**, not as canon.
@@ -14,6 +15,8 @@
 Always fetch these files from the current `main` branch when resuming. Do not assume an old in-chat copy is current.
 
 ## Scene and chapter workflow: author controls chapter endings
+- **Scene Idea loading:** Scene Contract populates its editable Scene Idea from `writing_guidance.json`, not directly from `STORY_PLAN.md`. Ensure each agreed upcoming scene has an entry under the correct `chapter_plans[chapter].scene_plan[scene].scene_idea`. Never direct Tony to manually retype a scene plan that should have been preloaded. After an externally committed guidance change, synchronize and reopen/reload the local novel package before expecting the running app to display it.
+
 
 - Scene plans are guidance, not a cap on how many scenes a chapter may contain. The author may keep advancing to additional scenes as the story needs them, including scenes not already listed in the structured plan.
 - Do not infer that a chapter has ended merely because the existing scene plan runs out. The author decides when the actual final scene is complete.
