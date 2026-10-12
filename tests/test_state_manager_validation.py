@@ -128,6 +128,82 @@ class StateUpdateValidationTests(unittest.TestCase):
 
         self.assertEqual(restored, state)
 
+    def test_retries_once_when_character_knowledge_is_put_under_location(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            model = root / "writer.gguf"
+            llama = root / "llama-cli"
+            model.touch()
+            llama.touch()
+
+            current_state = {
+                "chapter": 2,
+                "scene": 2,
+                "location": {
+                    "primary": "Tony's bedroom",
+                    "Tony": "Holding Maya close",
+                    "Maya": "Curled against Tony's chest",
+                },
+                "current_situation": "Maya is distressed.",
+                "scene_cast": ["Maya", "Tony"],
+                "character_knowledge": {
+                    "Tony": ["Tony knows Tiffany is gone."],
+                    "Maya": [],
+                },
+            }
+            invalid_output = json.dumps({
+                "location": {
+                    "Tony": ["Tony now knows the man hit Maya."],
+                }
+            })
+            corrected_patch = {
+                "character_knowledge": {
+                    "Tony": [
+                        "Tony knows Tiffany is gone.",
+                        "Tony knows the man hit Maya.",
+                    ]
+                },
+                "current_situation": (
+                    "Maya has begun telling Tony what she witnessed, but remains shaken."
+                ),
+            }
+            valid_output = json.dumps(corrected_patch)
+
+            class FakeProcess:
+                returncode = 0
+
+                def __init__(self, output):
+                    self.output = output
+
+                def communicate(self, timeout=None):
+                    return self.output, None
+
+            with (
+                patch.object(state_manager_module, "DEFAULT_LLAMA", llama),
+                patch.object(
+                    state_manager_module.subprocess,
+                    "Popen",
+                    side_effect=[
+                        FakeProcess(invalid_output),
+                        FakeProcess(valid_output),
+                    ],
+                ) as popen,
+                patch.object(StateManager, "_detect_accelerator", return_value=None),
+                patch.object(StateManager, "_propose_knowledge_delta", return_value={}),
+            ):
+                result = StateManager.propose(
+                    model,
+                    current_state,
+                    "Maya tells Tony she witnessed the man take Tiffany, but remains shaken.",
+                )
+
+            self.assertEqual(result, corrected_patch)
+            self.assertEqual(popen.call_count, 2)
+            second_args = popen.call_args_list[1].args[0]
+            repair_prompt = second_args[second_args.index("--prompt") + 1]
+            self.assertIn("AUTOMATIC CORRECTION REQUIRED", repair_prompt)
+            self.assertIn("Character knowledge belongs only under character_knowledge", repair_prompt)
+
     def test_planned_end_state_hint_does_not_override_state_from_completed_prose(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
