@@ -75,6 +75,17 @@ class ManuscriptManager:
             return None
         return data if isinstance(data, dict) else None
 
+    def load_state_after(self, chapter: int, scene: int) -> dict | None:
+        """Load the saved ending-state snapshot for an accepted scene."""
+        path = self.state_after_path(chapter, scene)
+        if not path.is_file():
+            return None
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None
+        return data if isinstance(data, dict) else None
+
     @staticmethod
     def scene_numbers(path: Path) -> tuple[int, int] | None:
         match = re.search(
