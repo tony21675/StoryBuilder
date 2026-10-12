@@ -4343,7 +4343,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                 "check Current State and try again.",
             )
             return
-        if live_scene == latest_scene:
+        if current_scene == latest_scene and live_scene == latest_scene:
             end_state = json.loads(json.dumps(live_state, ensure_ascii=False))
 
         self.package.current_state = json.loads(json.dumps(end_state, ensure_ascii=False))
