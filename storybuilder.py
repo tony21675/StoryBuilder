@@ -3937,13 +3937,13 @@ Rules:
             self.writer_thread.start()
 
         except Exception as exc:
-            messagebox.showerror("State Recovery", str(exc))
+            self._show_copyable_error("State Recovery", str(exc))
             self._update_saved_state_buttons()
 
     def _finish_saved_state_analysis(self, result):
         error = result.get("error")
         if error:
-            messagebox.showerror("State Recovery", error)
+            self._show_copyable_error("State Recovery", error)
             self._update_saved_state_buttons()
             return
 
