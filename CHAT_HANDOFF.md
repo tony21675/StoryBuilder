@@ -1,4 +1,18 @@
-# StoryBuilder Chat Handoff
+
+## Mandatory startup reading: do this at the start of every new session
+
+**Do not begin drafting, changing story canon, editing state, or modifying project files until these reads are complete.** This handoff is a map, not a substitute for reading the current source files.
+
+1. Read the full, current [MyNovel HANDOFF.md](https://github.com/tony21675/MyNovel/blob/main/HANDOFF.md). It identifies the saved manuscript position, next task, and project-state cautions.
+2. Read the full, current [MyNovel STORY_PLAN.md](https://github.com/tony21675/MyNovel/blob/main/STORY_PLAN.md). It is the central planning source for chapter and scene outlines, confirmed beats, constraints, and unresolved ideas.
+3. Read [MyNovel current_state.json](https://github.com/tony21675/MyNovel/blob/main/current_state.json) to establish the actual writing pointer and status. Do not infer the current scene from handoff prose alone.
+4. Read the accepted scene file(s) needed for the next task, especially the complete immediately preceding scene and its ending. Read related before-state/after-state files and relevant character cards when required by that scene. Do not rely on remembered excerpts.
+5. Reconcile the current files before acting. If the plan, handoff, state, and accepted prose conflict, stop before making changes and report the exact conflict. Do not silently choose which version is right.
+6. Preserve all accepted scene prose unless Tony explicitly requests a rewrite. Keep unapproved ideas marked **PROPOSED** or **OPEN**, not as canon.
+7. After an agreed planning change, update `STORY_PLAN.md`. Update `HANDOFF.md` when the next task or manuscript position changes, and update this `CHAT_HANDOFF.md` whenever needed so the next session follows this same startup-reading procedure.
+
+Always fetch these files from the current `main` branch when resuming. Do not assume an old in-chat copy is current.
+
 
 ## Current Session: 2026-10-12
 
