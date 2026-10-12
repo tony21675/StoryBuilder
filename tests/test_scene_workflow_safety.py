@@ -59,6 +59,38 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         app._chat = lambda *_args, **_kwargs: None
         return app
 
+    def test_sync_failure_uses_copyable_error_dialog(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+            app.package = SimpleNamespace(
+                path=Path(tmp),
+                save=lambda: None,
+            )
+            app.dirty = False
+            app._apply_all_edits = lambda: True
+            app._update_path_label = lambda: None
+            captured_errors = []
+            app._show_copyable_error = lambda *args, **kwargs: captured_errors.append(
+                (args, kwargs)
+            )
+
+            with patch.object(
+                storybuilder_app,
+                "sync_novel_repository",
+                side_effect=storybuilder_app.NovelSyncError("simulated rebase conflict"),
+            ):
+                storybuilder_app.StoryBuilderApp._sync_current_novel(app)
+
+            self.assertEqual(len(captured_errors), 1)
+            args, kwargs = captured_errors[0]
+            self.assertEqual(args[0], "Sync Novel")
+            self.assertIn("saved locally", args[1])
+            self.assertIn("simulated rebase conflict", args[1])
+            self.assertIn(
+                "GitHub synchronization did not complete",
+                kwargs["summary"],
+            )
+
     def test_unfinished_writer_text_is_saved_to_origin_scene_not_current_selection(self):
         with tempfile.TemporaryDirectory() as tmp:
             app = self.make_app(tmp, "Scene 1 draft text", context=(2, 1))
