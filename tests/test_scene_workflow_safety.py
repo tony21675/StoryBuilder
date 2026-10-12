@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import storybuilder as storybuilder_app
 from builder.scene_contract import CONTRACT_BUILDER_SYSTEM_PROMPT, SceneContract
@@ -143,9 +143,9 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
     def test_copyable_error_dialog_uses_main_window_clipboard(self):
         FakePopupWidget.instances.clear()
         app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
-        app.clipboard_clear = __import__("unittest").mock.Mock()
-        app.clipboard_append = __import__("unittest").mock.Mock()
-        app.update_idletasks = __import__("unittest").mock.Mock()
+        app.clipboard_clear = Mock()
+        app.clipboard_append = Mock()
+        app.update_idletasks = Mock()
 
         with (
             patch.object(storybuilder_app.tk, "Toplevel", FakePopupWidget),
