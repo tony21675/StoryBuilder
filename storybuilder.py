@@ -6127,14 +6127,17 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             scene = int(self.package.current_state.get("scene", 1) or 1)
             final_scene = self._final_planned_scene_for_chapter(chapter)
 
-            if final_scene is not None and scene >= final_scene:
-                messagebox.showinfo(
-                    "Advance Scene",
-                    f"Scene {scene} is the final planned scene for Chapter {chapter}.",
-                )
-                return
-
             next_scene = scene + 1
+            if final_scene is not None and scene >= final_scene:
+                proceed = self._ask_yes_no(
+                    "Advance Beyond Planned Scenes",
+                    f"Scene {scene} is the last planned scene for Chapter {chapter}.\\n\\n"
+                    f"Advance to Scene {next_scene} anyway? This will create an unplanned scene slot. "
+                    "You can define the new scene's idea and contract on the Scene Contract tab after advancing.\\n\\n"
+                    "The current scene's prose and ending state will be preserved.",
+                )
+                if not proceed:
+                    return
             if not self._prepare_for_scene_change(chapter, next_scene):
                 return
             next_cast = self._scene_plan_cast(chapter, next_scene)
