@@ -26,6 +26,7 @@ from builder.writer_notes import (
 from builder.validator import validate_package
 from builder.writer_engine import WriterEngine
 from builder.manuscript import ManuscriptManager
+from builder.scene_flow import review_chapter_flow
 from builder.novel_sync import NovelSyncError, sync_novel_repository
 from builder.state_manager import StateManager, remove_prior_chapter_opening_markers
 from builder.scene_contract import SceneContract
@@ -71,6 +72,8 @@ class StoryBuilderApp(tk.Tk):
         self.pending_state_patch = None
         self.selected_manuscript_path = None
         self.saved_state_candidate = None
+        self.scene_flow_review_in_progress = False
+        self.scene_flow_review_thread = None
         self.interview_active = False
         self.interview_index = 0
         self.interview_pending_patch = None
@@ -995,11 +998,26 @@ class StoryBuilderApp(tk.Tk):
             command=self._assemble_current_chapter,
         ).pack(fill="x", pady=(6, 0))
 
+        self.manuscript_review_flow_button = ttk.Button(
+            manuscript_button_row,
+            text="Review Scene Flow",
+            command=self._review_scene_flow,
+        )
+        self.manuscript_review_flow_button.pack(fill="x", pady=(6, 0))
+
         ttk.Button(
             manuscript_button_row,
             text="Assemble Entire Novel",
             command=self._assemble_entire_novel,
         ).pack(fill="x", pady=(6, 0))
+
+        self.manuscript_flow_status = ttk.Label(
+            left,
+            text="Review accepted scenes for transition problems without changing the manuscript.",
+            wraplength=230,
+            justify="left",
+        )
+        self.manuscript_flow_status.pack(fill="x", pady=(0, 8))
 
         self.manuscript_list = tk.Listbox(
             left,
@@ -4146,6 +4164,169 @@ Rules:
         self.manuscript_recovery_status.configure(
             text=f"Chapter {chapter} finalized. It remains at Scene {scene} until the next chapter is started."
         )
+
+    def _review_scene_flow(self):
+        if self.package is None or self.package.path is None:
+            return
+        if self.scene_flow_review_in_progress:
+            return
+
+        active_thread = getattr(self, "writer_thread", None)
+        if (
+            (active_thread is not None and active_thread.is_alive())
+            or self.writer_generation_in_progress
+            or self.scene_contract_building
+            or self.writer_notes_update_in_progress
+        ):
+            self.manuscript_flow_status.configure(
+                text="Please let the current writing or state-analysis operation finish before reviewing scene flow."
+            )
+            return
+
+        chapter = self._manuscript_target_chapter()
+        manager = ManuscriptManager(self.package.path)
+        paths = manager.chapter_scene_paths(chapter)
+        if len(paths) < 2:
+            messagebox.showinfo(
+                "Review Scene Flow",
+                f"Chapter {chapter} needs at least two accepted scenes before its transitions can be reviewed.",
+            )
+            return
+
+        try:
+            model = self._selected_writer_model_for_analysis()
+        except Exception as exc:
+            self._show_copyable_error("Review Scene Flow", str(exc))
+            return
+
+        self.scene_flow_review_in_progress = True
+        self.manuscript_review_flow_button.configure(state="disabled")
+        self.manuscript_flow_status.configure(
+            text=f"Preparing to review {len(paths) - 1} transition(s) in Chapter {chapter}..."
+        )
+
+        def update_progress(done: int, total: int, message: str) -> None:
+            try:
+                self.after(
+                    0,
+                    lambda d=done, t=total, m=message: self.manuscript_flow_status.configure(
+                        text=f"Scene-flow review {d}/{t}: {m}"
+                    ),
+                )
+            except tk.TclError:
+                pass
+
+        def work():
+            try:
+                report = review_chapter_flow(
+                    model,
+                    paths,
+                    progress=update_progress,
+                )
+                result = {"report": report, "error": None}
+            except Exception as exc:
+                result = {"report": None, "error": str(exc)}
+
+            try:
+                self.after(
+                    0,
+                    lambda r=result, ch=chapter: self._finish_scene_flow_review(ch, r),
+                )
+            except tk.TclError:
+                pass
+
+        self.scene_flow_review_thread = threading.Thread(
+            target=work,
+            daemon=True,
+        )
+        self.scene_flow_review_thread.start()
+
+    def _finish_scene_flow_review(self, chapter: int, result: dict):
+        self.scene_flow_review_in_progress = False
+        self.manuscript_review_flow_button.configure(state="normal")
+        error = result.get("error")
+        if error:
+            self.manuscript_flow_status.configure(
+                text=f"Scene-flow review failed for Chapter {chapter}."
+            )
+            self._show_copyable_error("Review Scene Flow", error)
+            return
+
+        self.manuscript_flow_status.configure(
+            text=f"Scene-flow review finished for Chapter {chapter}. Accepted scenes were not changed."
+        )
+        self._show_scene_flow_report(chapter, result.get("report", ""))
+
+    def _show_scene_flow_report(self, chapter: int, report: str):
+        dialog = tk.Toplevel(self)
+        dialog.title(f"Chapter {chapter}: Scene Flow Review")
+        dialog.transient(self)
+        dialog.resizable(True, True)
+
+        screen_width = dialog.winfo_screenwidth()
+        screen_height = dialog.winfo_screenheight()
+        width = min(980, max(500, screen_width - 48))
+        height = min(760, max(360, screen_height - 80))
+        dialog.geometry(
+            f"{width}x{height}+{max(0, (screen_width-width)//2)}+"
+            f"{max(0, (screen_height-height)//2)}"
+        )
+
+        outer = ttk.Frame(dialog, padding=12)
+        outer.pack(fill="both", expand=True)
+        ttk.Label(
+            outer,
+            text=(
+                "Review the findings and optional targeted suggestions below. "
+                "This report does not change accepted scenes."
+            ),
+            wraplength=900,
+            justify="left",
+        ).pack(anchor="w", pady=(0, 8))
+
+        text_frame = ttk.Frame(outer)
+        text_frame.pack(fill="both", expand=True)
+        scrollbar = ttk.Scrollbar(text_frame, orient="vertical")
+        report_text = tk.Text(
+            text_frame,
+            wrap="word",
+            yscrollcommand=scrollbar.set,
+            padx=8,
+            pady=8,
+        )
+        scrollbar.configure(command=report_text.yview)
+        report_text.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        report_text.insert("1.0", report or "No review report was returned.")
+        report_text.configure(state="disabled")
+
+        status = ttk.Label(outer, text="The accepted manuscript remains unchanged.")
+        status.pack(anchor="w", pady=(6, 0))
+
+        def copy_report():
+            try:
+                dialog.clipboard_clear()
+                dialog.clipboard_append(report or "")
+                dialog.update_idletasks()
+                status.configure(text="Full report copied to the clipboard.")
+            except tk.TclError as exc:
+                status.configure(text=f"Clipboard copy failed: {exc}")
+
+        buttons = ttk.Frame(outer)
+        buttons.pack(fill="x", pady=(8, 0))
+        ttk.Button(
+            buttons,
+            text="Copy Full Report",
+            command=copy_report,
+        ).pack(side="left")
+        ttk.Button(
+            buttons,
+            text="Close",
+            command=dialog.destroy,
+        ).pack(side="right")
+
+        dialog.bind("<Escape>", lambda _event: dialog.destroy())
+        dialog.focus_force()
 
     def _assemble_current_chapter(self):
         if self.package is None or self.package.path is None:
