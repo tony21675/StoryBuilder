@@ -3438,33 +3438,10 @@ Rules:
         completed_chapter = int(current_state.get("chapter", 1) or 1)
         completed_scene = int(current_state.get("scene", 1) or 1)
         contract = self._scene_contract(completed_chapter, completed_scene)
-        fixed_state_after = contract.get("state_after") if isinstance(contract, dict) else None
-
-        if isinstance(fixed_state_after, dict):
-            try:
-                StateManager.validate_patch(current_state, fixed_state_after)
-            except (TypeError, ValueError) as exc:
-                messagebox.showerror(
-                    "State Update",
-                    "The authored state update is malformed and was rejected. "
-                    "No state changes were applied.\n\n" + str(exc),
-                )
-                self._update_writer_buttons()
-                return
-            self.pending_state_patch = json.loads(
-                json.dumps(fixed_state_after, ensure_ascii=False)
-            )
-            self.writer_state_preview.delete("1.0", "end")
-            self.writer_state_preview.insert(
-                "1.0",
-                json.dumps(self.pending_state_patch, indent=2, ensure_ascii=False),
-            )
-            self.writer_status.configure(
-                text="Scene contract state loaded. No AI state reconstruction is needed."
-            )
-            self._update_writer_buttons()
-            return
-
+        # A planned state_after is an expected-ending hint, not proof that
+        # those events occurred. Always analyze the accepted prose itself, even
+        # when a scene has authored state guidance. StateManager receives that
+        # hint for context but must return only changes supported by the prose.
         if not self.writer_engine.model_path:
             return
 

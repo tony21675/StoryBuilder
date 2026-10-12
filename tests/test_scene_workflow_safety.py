@@ -210,6 +210,59 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             )
             self.assertEqual(app.package.current_state["scene"], 2)
 
+    def test_authored_state_after_is_a_hint_and_does_not_bypass_prose_analysis(self):
+        class ImmediateThread:
+            def __init__(self, target, daemon=False):
+                self.target = target
+
+            def start(self):
+                self.target()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            state = {
+                "chapter": 2,
+                "scene": 1,
+                "status": "in_progress",
+                "scene_completed": False,
+                "current_situation": "Maya has reached Tony.",
+                "scene_cast": ["Maya", "Tony"],
+            }
+            app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+            app.package = SimpleNamespace(path=Path(tmp), current_state=state)
+            app.accepted_scene = "Maya tells Tony the man hit her, then remains too shaken to say more."
+            app.writer_engine = SimpleNamespace(model_path=Path("/tmp/fake-writer.gguf"))
+            app.writer_analyze_button = FakeButton()
+            app.writer_apply_state_button = FakeButton()
+            app.writer_state_preview = FakeText()
+            app.writer_status = SimpleLabel()
+            app._scene_contract = lambda *_args: {
+                "state_after": {
+                    "current_situation": "PLANNED BUT NOT PROVEN: Maya gives a full account."
+                }
+            }
+            app._scene_end_guidance = lambda *_args: (
+                "EXPECTED END STATE HINT:\n"
+                "{\"current_situation\": \"PLANNED BUT NOT PROVEN: Maya gives a full account.\"}"
+            )
+            app._update_writer_buttons = lambda: None
+            app.after = lambda _delay, callback: callback()
+            analysis_patch = {
+                "current_situation": (
+                    "Maya has told Tony the man hit her but remains too shaken to explain more."
+                )
+            }
+
+            with (
+                patch.object(storybuilder_app.threading, "Thread", ImmediateThread),
+                patch.object(storybuilder_app.StateManager, "propose", return_value=analysis_patch) as propose,
+            ):
+                storybuilder_app.StoryBuilderApp._analyze_accepted_scene(app)
+
+            propose.assert_called_once()
+            self.assertIn("EXPECTED END STATE HINT", propose.call_args.kwargs["scene_end_guidance"])
+            self.assertEqual(app.pending_state_patch, analysis_patch)
+            self.assertNotIn("PLANNED BUT NOT PROVEN", app.writer_state_preview.get("1.0", "end"))
+
     def test_scene_switch_is_blocked_until_accepted_scene_state_is_applied(self):
         with tempfile.TemporaryDirectory() as tmp:
             app = self.make_app(
