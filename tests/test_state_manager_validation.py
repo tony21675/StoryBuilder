@@ -204,6 +204,78 @@ class StateUpdateValidationTests(unittest.TestCase):
             self.assertIn("AUTOMATIC CORRECTION REQUIRED", repair_prompt)
             self.assertIn("Character knowledge belongs only under character_knowledge", repair_prompt)
 
+    def test_drops_malformed_location_values_after_retry_and_preserves_baseline(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            model = root / "writer.gguf"
+            llama = root / "llama-cli"
+            model.touch()
+            llama.touch()
+
+            current_state = {
+                "chapter": 2,
+                "scene": 2,
+                "location": {
+                    "primary": "Tony's bedroom",
+                    "Tony": "Holding Maya close",
+                    "Maya": "Curled against Tony's chest",
+                },
+                "current_situation": "Maya is distressed.",
+                "scene_cast": ["Maya", "Tony"],
+                "character_knowledge": {
+                    "Tony": ["Tony knows Tiffany is gone."],
+                    "Maya": [],
+                },
+            }
+            malformed_output = json.dumps({
+                "location": {
+                    "Tony": [
+                        {"event": "Tony continues comforting Maya."},
+                        {"event": "Maya begins describing the van."},
+                    ],
+                },
+                "physical_state": {
+                    "Maya": {
+                        "posture": "crying against Tony",
+                    },
+                },
+                "current_situation": (
+                    "Maya has begun describing the abduction but remains shaken."
+                ),
+            })
+
+            class FakeProcess:
+                returncode = 0
+
+                def communicate(self, timeout=None):
+                    return malformed_output, None
+
+            with (
+                patch.object(state_manager_module, "DEFAULT_LLAMA", llama),
+                patch.object(
+                    state_manager_module.subprocess,
+                    "Popen",
+                    return_value=FakeProcess(),
+                ) as popen,
+                patch.object(StateManager, "_detect_accelerator", return_value=None),
+                patch.object(StateManager, "_propose_knowledge_delta", return_value={}),
+            ):
+                result = StateManager.propose(
+                    model,
+                    current_state,
+                    "Maya tells Tony what she witnessed, but remains shaken.",
+                )
+
+            self.assertEqual(popen.call_count, 2)
+            self.assertNotIn("location", result)
+            self.assertEqual(
+                result["current_situation"],
+                "Maya has begun describing the abduction but remains shaken.",
+            )
+            self.assertIn("physical_state", result)
+            merged = StateManager.merge_patch(current_state, result)
+            self.assertEqual(merged["location"], current_state["location"])
+
     def test_planned_end_state_hint_does_not_override_state_from_completed_prose(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
