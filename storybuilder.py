@@ -226,9 +226,8 @@ class StoryBuilderApp(tk.Tk):
         return content
 
     def _build_chat_tab(self):
-        page = ttk.Frame(self.notebook.pages)
-        self.notebook.add(page, text="Talk to Builder")
-        tab = self._make_scrollable_tab(page)
+        tab = ttk.Frame(self.notebook.pages, padding=12)
+        self.notebook.add(tab, text="Talk to Builder")
 
         ttk.Label(tab, text="Tell the builder what to change", font=("", 14, "bold")).pack(anchor="w")
         ttk.Label(
@@ -236,8 +235,13 @@ class StoryBuilderApp(tk.Tk):
             text='Examples:  Change Maya\'s age to 22   •   Set the current chapter to 2   •   Change the story title to The Long Road',
         ).pack(anchor="w", pady=(4, 12))
 
-        self.chat_log = tk.Text(tab, wrap="word", height=24, state="disabled")
-        self.chat_log.pack(fill="both", expand=True)
+        chat_frame = ttk.Frame(tab)
+        chat_frame.pack(fill="both", expand=True)
+        self.chat_log = tk.Text(chat_frame, wrap="word", height=24, state="disabled")
+        chat_scrollbar = ttk.Scrollbar(chat_frame, orient="vertical", command=self.chat_log.yview)
+        self.chat_log.configure(yscrollcommand=chat_scrollbar.set)
+        chat_scrollbar.pack(side="right", fill="y")
+        self.chat_log.pack(side="left", fill="both", expand=True)
 
         row = ttk.Frame(tab)
         row.pack(fill="x", pady=(10, 0))
