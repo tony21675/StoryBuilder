@@ -51,6 +51,7 @@ Treat the plan as sturdy guardrails, not instructions for every sentence. Keep t
 - **Secret-letter security:** Both letters, metadata, and private-key material remain local-only outside GitHub. The safe verification of both letters was successful without displaying or saving plaintext.
 - **Environment/model:** Linux Mint, Python 3; use the tested model `~/Documents/Models/01 gemma-4-E4B_q4_0-it.gguf`. Laptop cleanup remains paused.
 - **Current StoryBuilder code:** Recent `main` commits added vertically scrollable tabs, author-controlled chapter completion, confirmed advance into an unplanned scene, and compact dropdown navigation. Do not start unrelated app work unless asked.
+- **Copyable sync failure dialog (2026-10-12):** `Sync Novel` now uses `_show_copyable_error` instead of native `messagebox.showerror`, so GitHub sync failures are scrollable/selectable and include **Copy Full Error**. Its summary clarifies that the novel was saved locally but the remote sync did not complete. Regression test added in `tests/test_scene_workflow_safety.py`; tests have not yet been run in this environment.
 
 ## Previous Session: 2026-10-11
 
