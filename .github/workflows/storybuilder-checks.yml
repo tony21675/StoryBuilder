@@ -3,7 +3,7 @@ name: StoryBuilder checks
 on:
   push:
     branches:
-      - fix/build-contract-from-idea-test
+      - main
   pull_request:
   workflow_dispatch:
 
