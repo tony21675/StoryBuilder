@@ -6881,16 +6881,21 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         error_text.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
         error_text.insert("1.0", str(message))
-        error_text.configure(state="disabled")
+        # Keep the text selectable/focusable, but block edits below so keyboard
+        # selection and copy work reliably in both local desktop and RustDesk.
+        error_text.configure(state="normal", takefocus=True)
 
         status = ttk.Label(outer, text="Select text to copy, or copy the full error.")
         status.pack(anchor="w", pady=(6, 0))
 
         def copy_text(value: str) -> None:
             try:
-                dialog.clipboard_clear()
-                dialog.clipboard_append(value)
-                dialog.update_idletasks()
+                # Give clipboard ownership to the main application window,
+                # not this temporary dialog. Destroying the dialog must not
+                # destroy the copied text before it can be pasted elsewhere.
+                self.clipboard_clear()
+                self.clipboard_append(value)
+                self.update_idletasks()
                 status.configure(text="Error text copied. Paste it wherever you need it.")
             except tk.TclError as exc:
                 status.configure(text=f"Clipboard copy failed: {exc}")
@@ -6903,10 +6908,33 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             copy_text(selected)
             return "break"
 
+        def select_all(_event=None):
+            error_text.tag_add("sel", "1.0", "end-1c")
+            error_text.mark_set("insert", "1.0")
+            error_text.see("insert")
+            return "break"
+
+        # This is a read-only error viewer: allow selection and copy shortcuts,
+        # but prevent accidental edits to the diagnostic text.
         error_text.bind("<Control-c>", copy_selection)
         error_text.bind("<Control-C>", copy_selection)
         error_text.bind("<Control-Insert>", copy_selection)
         error_text.bind("<<Copy>>", copy_selection)
+        error_text.bind("<Control-a>", select_all)
+        error_text.bind("<Control-A>", select_all)
+        error_text.bind("<Key>", lambda _event: "break")
+
+        context_menu = tk.Menu(dialog, tearoff=False)
+        context_menu.add_command(label="Copy", command=copy_selection)
+        context_menu.add_command(label="Select All", command=select_all)
+
+        def show_context_menu(event):
+            try:
+                context_menu.tk_popup(event.x_root, event.y_root)
+            finally:
+                context_menu.grab_release()
+
+        error_text.bind("<Button-3>", show_context_menu)
 
         buttons = ttk.Frame(outer)
         buttons.pack(fill="x", pady=(8, 0))
