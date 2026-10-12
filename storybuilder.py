@@ -4304,7 +4304,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         if saved_end_state is None:
             messagebox.showwarning(
                 "Finalize Chapter",
-                f"Chapter {chapter}, Scene {latest_scene} has no saved ending-state snapshot.\\n\\n"
+                f"Chapter {chapter}, Scene {latest_scene} has no saved ending-state snapshot.\n\n"
                 "Open Manuscript, select that accepted scene, click Analyze Saved Section, "
                 "then click Restore Reconstructed State. Return here and finalize the chapter.",
             )
@@ -4320,7 +4320,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
 
         if not self._ask_yes_no(
             "Finalize Chapter",
-            f"Finalize Chapter {chapter} at its last accepted scene, Scene {latest_scene}?\\n\\n"
+            f"Finalize Chapter {chapter} at its last accepted scene, Scene {latest_scene}?\n\n"
             "This marks the chapter complete, restores that scene's ending state, and prepares "
             "StoryBuilder for Start Next Chapter. The scene plan will not decide chapter length, "
             "and accepted manuscript prose will not be changed.",
@@ -4329,6 +4329,22 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
 
         if not self._save_unsaved_writer_draft():
             return
+        # Apply any pending edits before refreshing the form, so canon, character,
+        # location, and scene-idea edits are not silently discarded by finalization.
+        if not self._apply_all_edits():
+            return
+        live_state = self.package.current_state
+        live_chapter = int(live_state.get("chapter", 1) or 1)
+        live_scene = int(live_state.get("scene", 1) or 1)
+        if live_chapter != chapter:
+            messagebox.showwarning(
+                "Finalize Chapter",
+                "The active chapter changed while saving pending edits. No chapter was finalized; "
+                "check Current State and try again.",
+            )
+            return
+        if live_scene == latest_scene:
+            end_state = json.loads(json.dumps(live_state, ensure_ascii=False))
 
         self.package.current_state = json.loads(json.dumps(end_state, ensure_ascii=False))
         self.package.current_state["chapter"] = chapter
