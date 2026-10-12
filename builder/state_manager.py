@@ -608,7 +608,7 @@ class StateManager:
 
             if proc.returncode not in (0, None):
                 raise RuntimeError(
-                    "Continuity analysis failed.\\n"
+                    "Continuity analysis failed.\n"
                     + (output or "")[-3000:]
                 )
             return output or ""
@@ -671,21 +671,21 @@ class StateManager:
                     excerpt = (output or "")[-1800:]
                     raise ValueError(
                         "The continuity model returned an invalid state update even after one "
-                        "automatic correction attempt. No state changes were applied.\\n\\n"
-                        f"Validation detail: {exc}\\n\\nLast model response:\\n{excerpt}"
+                        "automatic correction attempt. No state changes were applied.\n\n"
+                        f"Validation detail: {exc}\n\nLast model response:\n{excerpt}"
                     ) from exc
 
                 repair_prompt = (
                     prompt
-                    + "\\n\\nAUTOMATIC CORRECTION REQUIRED: your previous JSON proposal was "
+                    + "\n\nAUTOMATIC CORRECTION REQUIRED: your previous JSON proposal was "
                     "rejected by the application's state validator. Correct the same proposal "
-                    "using only facts supported by the completed prose. Do not invent new events.\\n"
-                    + f"VALIDATION ERROR: {exc}\\n"
+                    "using only facts supported by the completed prose. Do not invent new events.\n"
+                    + f"VALIDATION ERROR: {exc}\n"
                     + "SCHEMA REMINDER: location must be an object whose primary and per-character "
                     "entries are plain text strings only. Character knowledge belongs only under "
                     "character_knowledge, an object mapping character names to lists of text facts. "
-                    "Never put lists or knowledge facts under location. Return corrected partial JSON only.\\n"
-                    + "PREVIOUS INVALID RESPONSE TO CORRECT:\\n"
+                    "Never put lists or knowledge facts under location. Return corrected partial JSON only.\n"
+                    + "PREVIOUS INVALID RESPONSE TO CORRECT:\n"
                     + (output or "")[-3000:]
                 )
                 output = run_model(repair_prompt)
