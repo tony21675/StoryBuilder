@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 from copy import deepcopy
+from datetime import datetime
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
@@ -27,6 +29,7 @@ class StoryPackage:
         self.characters: dict[str, dict] = {}
         self.extra_json: dict[str, dict] = {}
         self.writer_notes: dict = default_writer_notes()
+        self.last_backup_path: Path | None = None
 
     @classmethod
     def new(cls, title: str = "Untitled") -> "StoryPackage":
@@ -37,6 +40,7 @@ class StoryPackage:
             "version": "1.0",
             "status": "active",
             "premise": "",
+            "canon_rules": [],
             "character_cards": [],
             "relationships": {},
             "locations": {},
@@ -167,10 +171,18 @@ class StoryPackage:
         self.story_bible["story_format_version"] = FORMAT_VERSION
         self.current_state["story_format_version"] = FORMAT_VERSION
         self.story_bible["character_cards"] = sorted(self.characters)
+        self.writer_notes = normalize_writer_notes(self.writer_notes)
+        desired_data = {
+            "story_bible.json": self.story_bible,
+            "current_state.json": self.current_state,
+            WRITER_NOTES_FILENAME: self.writer_notes,
+            **self.characters,
+            **self.extra_json,
+        }
+        self.last_backup_path = self._backup_changed_json_files(target, desired_data)
 
         self._write_json_atomic(target / "story_bible.json", self.story_bible)
         self._write_json_atomic(target / "current_state.json", self.current_state)
-        self.writer_notes = normalize_writer_notes(self.writer_notes)
         self._write_json_atomic(target / WRITER_NOTES_FILENAME, self.writer_notes)
 
         active = set(self.characters)
@@ -189,6 +201,50 @@ class StoryPackage:
                 pass
 
         return target
+
+    @staticmethod
+    def _json_text(data: dict) -> str:
+        return json.dumps(data, indent=2, ensure_ascii=False) + "\n"
+
+    @classmethod
+    def _backup_changed_json_files(cls, target: Path, desired_data: dict[str, dict]) -> Path | None:
+        """Back up root JSON files this save will change or remove."""
+        existing = {path.name: path for path in target.glob("*.json") if path.is_file()}
+        desired_names = set(desired_data)
+        changed = []
+        for filename, path in existing.items():
+            if filename not in desired_names:
+                changed.append(path)
+                continue
+            try:
+                old_text = path.read_text(encoding="utf-8")
+            except OSError as exc:
+                raise OSError(f"Cannot read {path} before saving; no files were changed.") from exc
+            if old_text != cls._json_text(desired_data[filename]):
+                changed.append(path)
+
+        if not changed:
+            return None
+        backup_root = target / ".storybuilder_backups"
+        backup_folder = backup_root / datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        backup_folder.mkdir(parents=True, exist_ok=False)
+        try:
+            for path in changed:
+                shutil.copy2(path, backup_folder / path.name)
+        except OSError:
+            shutil.rmtree(backup_folder, ignore_errors=True)
+            raise
+        try:
+            snapshots = sorted(
+                (entry for entry in backup_root.iterdir() if entry.is_dir()),
+                key=lambda entry: entry.stat().st_mtime,
+                reverse=True,
+            )
+        except OSError:
+            snapshots = []
+        for old_snapshot in snapshots[20:]:
+            shutil.rmtree(old_snapshot, ignore_errors=True)
+        return backup_folder
 
     @staticmethod
     def _write_json_atomic(path: Path, data: dict) -> None:

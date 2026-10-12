@@ -12,6 +12,12 @@ from tkinter import filedialog, messagebox, simpledialog, ttk
 from builder.conversation import apply_command
 from builder.guided_setup import GuidedSetupSession
 from builder.story_package import StoryPackage
+from builder.change_assistant import (
+    apply_change_request_patch,
+    normalize_change_patch,
+    render_change_preview,
+    structure_change_request,
+)
 from builder.writer_notes import (
     WRITER_NOTES_FILENAME,
     WRITER_NOTES_SYSTEM_PROMPT,
@@ -79,6 +85,11 @@ class StoryBuilderApp(tk.Tk):
         self.interview_index = 0
         self.interview_pending_patch = None
         self.interview_pending_answer = ""
+        self.change_pending_patch = None
+        self.change_pending_request = ""
+        self.change_pending_snapshot = None
+        self.change_request_in_progress = False
+        self.change_request_thread = None
         self.selected_manuscript_path = None
         self.saved_state_candidate = None
 
@@ -108,6 +119,8 @@ class StoryBuilderApp(tk.Tk):
 
         self._build_chat_tab()
         self._build_story_tab()
+        self._build_canon_tab()
+        self._build_change_assistant_tab()
         self._build_characters_tab()
         self._build_relationships_tab()
         self._build_locations_tab()
@@ -166,6 +179,62 @@ class StoryBuilderApp(tk.Tk):
         tab.columnconfigure(1, weight=1)
         tab.rowconfigure(3, weight=1)
 
+    def _build_canon_tab(self):
+        tab = ttk.Frame(self.notebook, padding=12)
+        self.notebook.add(tab, text="Canon & Rules")
+        ttk.Label(tab, text="Canon and Story Rules", font=("", 14, "bold")).pack(anchor="w")
+        ttk.Label(
+            tab,
+            text=("Enter permanent story facts and rules, one per line. These guide future generated scenes. "
+                  "Use Change Assistant for natural-language requests that update rules, characters, supporting people, "
+                  "relationships, locations, or planning."),
+            wraplength=900, justify="left",
+        ).pack(anchor="w", pady=(4, 8))
+        self.canon_rules_text = tk.Text(tab, wrap="word", undo=True, height=20)
+        self.canon_rules_text.pack(fill="both", expand=True, pady=(0, 8))
+        row = ttk.Frame(tab)
+        row.pack(fill="x")
+        ttk.Button(row, text="Review and Save Rules", command=self._review_and_save_canon_rules).pack(side="left")
+        ttk.Button(row, text="Reload Working Canon", command=self._reload_canon_rules_editor).pack(side="left", padx=(8, 0))
+        self.canon_rules_status = ttk.Label(row, text="Review changes before they become canon.", wraplength=600, justify="left")
+        self.canon_rules_status.pack(side="left", fill="x", expand=True, padx=(12, 0))
+
+    def _build_change_assistant_tab(self):
+        tab = ttk.Frame(self.notebook, padding=12)
+        self.notebook.add(tab, text="Change Assistant")
+        ttk.Label(tab, text="Plain-English Change Assistant", font=("", 14, "bold")).pack(anchor="w")
+        ttk.Label(
+            tab,
+            text=("Describe the change as if talking to a writing partner. The selected local model prepares a readable proposal. "
+                  "Nothing changes until you approve it. Stop the Writer first so StoryBuilder does not load two copies of the model."),
+            wraplength=900, justify="left",
+        ).pack(anchor="w", pady=(4, 8))
+        ttk.Label(tab, text="What would you like to change?", font=("", 11, "bold")).pack(anchor="w")
+        self.change_request_text = tk.Text(tab, height=5, wrap="word", undo=True)
+        self.change_request_text.pack(fill="x", pady=(4, 8))
+        ttk.Label(
+            tab,
+            text=("Example: Make Jessica the computer expert. Rick served in the regular Army, not Special Forces. "
+                  "Beth will use her neighborhood connections to help."),
+            wraplength=900, justify="left",
+        ).pack(anchor="w", pady=(0, 8))
+        actions = ttk.Frame(tab)
+        actions.pack(fill="x", pady=(0, 8))
+        self.change_propose_button = ttk.Button(actions, text="Prepare Proposal", command=self._prepare_change_request)
+        self.change_propose_button.pack(side="left")
+        self.change_approve_button = ttk.Button(actions, text="Approve and Save Changes", command=self._approve_change_request, state="disabled")
+        self.change_approve_button.pack(side="left", padx=(8, 0))
+        self.change_reject_button = ttk.Button(actions, text="Reject Proposal", command=self._reject_change_request, state="disabled")
+        self.change_reject_button.pack(side="left", padx=(8, 0))
+        ttk.Label(tab, text="Review the proposed changes", font=("", 11, "bold")).pack(anchor="w")
+        self.change_proposal_text = tk.Text(tab, wrap="word", height=15, state="disabled")
+        self.change_proposal_text.pack(fill="both", expand=True, pady=(4, 8))
+        self.change_assistant_status = ttk.Label(
+            tab, text="No proposal pending. Preparing a proposal does not change your novel.",
+            wraplength=900, justify="left",
+        )
+        self.change_assistant_status.pack(anchor="w")
+
     def _build_characters_tab(self):
         tab = ttk.Frame(self.notebook, padding=12)
         self.notebook.add(tab, text="Characters")
@@ -190,6 +259,8 @@ class StoryBuilderApp(tk.Tk):
         self.supporting_people_list = tk.Listbox(left, width=28, height=8, exportselection=False)
         self.supporting_people_list.pack(fill="y")
         self.supporting_people_list.bind("<<ListboxSelect>>", self._select_supporting_person)
+        ttk.Button(left, text="Add Supporting Person", command=self._add_supporting_person).pack(fill="x", pady=(4, 3))
+        ttk.Button(left, text="Remove Supporting Person", command=self._remove_supporting_person).pack(fill="x")
 
         right = ttk.Frame(tab)
         right.pack(side="left", fill="both", expand=True)
@@ -1329,6 +1400,15 @@ class StoryBuilderApp(tk.Tk):
                 json.dumps(supporting_context, indent=2, ensure_ascii=False),
             ))
 
+        # Author-defined canon rules are always supplied as hard constraints.
+        canon_rules = self.package.story_bible.get("canon_rules", [])
+        if isinstance(canon_rules, str):
+            canon_rules = [line.strip() for line in canon_rules.splitlines() if line.strip()]
+        if isinstance(canon_rules, list):
+            normalized_rules = [str(rule).strip() for rule in canon_rules if str(rule).strip()]
+            if normalized_rules:
+                files.append(("author_defined_canon_rules.txt", "\n".join(f"- {rule}" for rule in normalized_rules)))
+
         # Do not place recent manuscript prose or active module plans into the
         # persistent system prompt. Those belong in the per-scene direction
         # and short continuation handoff.
@@ -2024,6 +2104,8 @@ class StoryBuilderApp(tk.Tk):
         base = """You write natural prose for an ongoing fictional novel.
 
 Rules:
+Author-defined canon rules supplied in the scene reference are hard constraints across the novel. Do not contradict, discard, or weaken them unless the author explicitly revises canon. They outrank improvisation and optional planning guidance.
+
 1. Current scene state and scene direction are authoritative.
 2. The current_situation in scene_state.json is the exact narrative and physical starting point for this scene. Treat statements that are already completed there as already true before writing begins. Do not replay them as new events.
 3. Treat explicit knowledge transfers already completed in current_situation as established knowledge at scene start. If it says one character has told, informed, warned, shown, or otherwise communicated a fact to another character, the receiving character already knows that fact.
@@ -5372,6 +5454,265 @@ Rules:
         if hasattr(self, "_refresh_scene_contract_editor"):
             self._refresh_scene_contract_editor()
         self._build_scene_direction()
+    def _reload_canon_rules_editor(self):
+        if self.package is None:
+            return
+        rules = self.package.story_bible.get("canon_rules", [])
+        if isinstance(rules, str):
+            rules = [line.strip() for line in rules.splitlines() if line.strip()]
+        if not isinstance(rules, list):
+            rules = []
+        self.canon_rules_text.delete("1.0", "end")
+        self.canon_rules_text.insert("1.0", "\n".join(str(rule) for rule in rules if str(rule).strip()))
+        self.canon_rules_status.configure(text="Editor reloaded from the current working canon.")
+
+    def _review_and_save_canon_rules(self):
+        if self.package is None:
+            return
+        proposed, seen = [], set()
+        for line in self.canon_rules_text.get("1.0", "end-1c").splitlines():
+            rule = line.strip()
+            if rule and rule.casefold() not in seen:
+                proposed.append(rule)
+                seen.add(rule.casefold())
+        current = self.package.story_bible.get("canon_rules", [])
+        if isinstance(current, str):
+            current = current.splitlines()
+        if not isinstance(current, list):
+            current = []
+        current = [str(rule).strip() for rule in current if str(rule).strip()]
+        current_keys = {rule.casefold() for rule in current}
+        proposed_keys = {rule.casefold() for rule in proposed}
+        added = [rule for rule in proposed if rule.casefold() not in current_keys]
+        removed = [rule for rule in current if rule.casefold() not in proposed_keys]
+        if not added and not removed:
+            self.canon_rules_status.configure(text="No canon changes to save.")
+            messagebox.showinfo("Canon & Rules", "There are no changes to save.")
+            return
+        review = []
+        if added:
+            review.extend(["RULES TO ADD", *[f"+ {rule}" for rule in added]])
+        if removed:
+            if review:
+                review.append("")
+            review.extend(["RULES TO REMOVE", *[f"- {rule}" for rule in removed]])
+        review.extend(["", "These rules guide future generated scenes.", "Accepted manuscript prose will not be edited."])
+        if not self._ask_yes_no("Review Canon Changes", "\n".join(review)):
+            self.canon_rules_status.configure(text="No changes applied.")
+            return
+        self.package.story_bible["canon_rules"] = proposed
+        self.dirty = True
+        self._update_path_label()
+        self.canon_rules_status.configure(text="Canon rules approved. Saving now.")
+        self._save()
+
+    def _current_change_data(self):
+        state = self.package.current_state if self.package is not None else {}
+        summary = {
+            key: state.get(key)
+            for key in ("chapter", "scene", "current_situation", "character_knowledge", "continuity_requirements")
+            if key in state
+        }
+        return {
+            "story_bible": json.loads(json.dumps(self.package.story_bible, ensure_ascii=False)),
+            "characters": json.loads(json.dumps(self.package.characters, ensure_ascii=False)),
+            "current_state_summary": summary,
+        }
+
+    def _change_assistant_source_signature(self):
+        if self.package is None:
+            return ""
+        return json.dumps({
+            "story_bible": self.package.story_bible,
+            "characters": self.package.characters,
+            "current_state": self.package.current_state,
+        }, sort_keys=True, ensure_ascii=False)
+
+    def _prepare_change_request(self):
+        if self.package is None:
+            messagebox.showerror("Change Assistant", "Open or create a novel first.")
+            return
+        if self.change_request_in_progress:
+            return
+        request = self.change_request_text.get("1.0", "end-1c").strip()
+        if not request:
+            messagebox.showwarning("Change Assistant", "Describe the change you want to make.")
+            return
+        writer_running = self.writer_engine.child is not None and self.writer_engine.child.isalive()
+        if writer_running:
+            messagebox.showwarning("Change Assistant", "Stop the Writer before preparing a proposal.")
+            return
+        if not self._apply_all_edits():
+            return
+        selected = self.writer_model_var.get().strip()
+        model = self.writer_engine.model_path
+        try:
+            if selected:
+                model = WriterEngine.validate_model(selected)
+            elif model is not None:
+                model = WriterEngine.validate_model(model)
+            else:
+                raise ValueError("Select a local GGUF model in the Writer tab first.")
+        except Exception as exc:
+            messagebox.showerror("Change Assistant", str(exc))
+            return
+
+        existing_data = self._current_change_data()
+        signature = self._change_assistant_source_signature()
+        self.change_pending_patch = None
+        self.change_pending_snapshot = None
+        self.change_pending_request = request
+        self.change_request_in_progress = True
+        self.change_propose_button.configure(state="disabled")
+        self.change_approve_button.configure(state="disabled")
+        self.change_reject_button.configure(state="disabled")
+        self.change_assistant_status.configure(text="The local model is preparing a proposal. No changes have been applied.")
+        self.change_proposal_text.configure(state="normal")
+        self.change_proposal_text.delete("1.0", "end")
+        self.change_proposal_text.insert("1.0", "Preparing a proposal with the selected local model...")
+        self.change_proposal_text.configure(state="disabled")
+
+        def work():
+            try:
+                patch = structure_change_request(model, request=request, existing_data=existing_data)
+                error = None
+            except Exception as exc:
+                patch, error = None, str(exc)
+            self.after(
+                0,
+                lambda patch=patch, error=error, request=request, signature=signature:
+                    self._finish_change_request_proposal(patch, error, request, signature),
+            )
+
+        self.change_request_thread = threading.Thread(target=work, daemon=True)
+        self.change_request_thread.start()
+
+    def _finish_change_request_proposal(self, patch, error, request, signature):
+        self.change_request_in_progress = False
+        self.change_propose_button.configure(state="normal")
+        if error:
+            messagebox.showerror("Change Assistant", error)
+            self.change_assistant_status.configure(text="Proposal failed. Nothing was changed.")
+            self.change_proposal_text.configure(state="normal")
+            self.change_proposal_text.delete("1.0", "end")
+            self.change_proposal_text.insert("1.0", "No changes were applied.")
+            self.change_proposal_text.configure(state="disabled")
+            return
+        try:
+            normalized = normalize_change_patch(patch, self.package, request)
+            preview = render_change_preview(self.package, normalized)
+        except Exception as exc:
+            messagebox.showerror("Change Assistant", "The response could not be used safely. Nothing was changed.\n\n" + str(exc))
+            self.change_assistant_status.configure(text="No proposal applied. Try rewording the request.")
+            return
+        self.change_pending_patch = normalized
+        self.change_pending_request = request
+        self.change_pending_snapshot = signature
+        self.change_proposal_text.configure(state="normal")
+        self.change_proposal_text.delete("1.0", "end")
+        self.change_proposal_text.insert("1.0", preview)
+        self.change_proposal_text.configure(state="disabled")
+        self.change_approve_button.configure(state="normal")
+        self.change_reject_button.configure(state="normal")
+        self.change_assistant_status.configure(text="Review the proposed changes. Nothing has been applied yet.")
+
+    def _approve_change_request(self):
+        if self.package is None or not isinstance(self.change_pending_patch, dict):
+            return
+        if not self._apply_all_edits():
+            return
+        if self.change_pending_snapshot != self._change_assistant_source_signature():
+            if not self._ask_yes_no(
+                "Novel Changed Since Proposal",
+                "Some working story data changed after this proposal was prepared. "
+                "Review the proposal and choose Yes only if it still fits the current novel.",
+            ):
+                return
+        conflicts = self.change_pending_patch.get("potential_conflicts", [])
+        if conflicts:
+            details = "The local model flagged these possible canon conflicts:\n\n"
+            details += "\n".join(f"! {item}" for item in conflicts)
+            details += "\n\nApprove the proposal anyway?"
+            if not self._ask_yes_no("Potential Canon Conflicts", details):
+                return
+        try:
+            summary = apply_change_request_patch(
+                self.package, self.change_pending_patch, request_text=self.change_pending_request
+            )
+        except Exception as exc:
+            messagebox.showerror("Change Assistant", "No changes were applied.\n\n" + str(exc))
+            return
+        self.dirty = True
+        self.change_pending_patch = None
+        self.change_pending_snapshot = None
+        self.change_pending_request = ""
+        self._refresh_all()
+        self.change_approve_button.configure(state="disabled")
+        self.change_reject_button.configure(state="disabled")
+        self.change_assistant_status.configure(text="Approved. Saving changes and backing up replaced JSON files.")
+        self._chat("Builder", f"Approved plain-English changes: {summary}")
+        self._save()
+
+    def _reject_change_request(self):
+        self.change_pending_patch = None
+        self.change_pending_snapshot = None
+        self.change_pending_request = ""
+        self.change_approve_button.configure(state="disabled")
+        self.change_reject_button.configure(state="disabled")
+        self.change_assistant_status.configure(text="Proposal rejected. Your story data was not changed.")
+        self.change_proposal_text.configure(state="normal")
+        self.change_proposal_text.delete("1.0", "end")
+        self.change_proposal_text.insert("1.0", "No changes were applied.")
+        self.change_proposal_text.configure(state="disabled")
+
+    def _add_supporting_person(self):
+        if self.package is None:
+            return
+        name = simpledialog.askstring("Add Supporting Person", "Name:", parent=self)
+        if name is None:
+            return
+        name = name.strip()
+        if not name:
+            return
+        if self.package.character_by_name(name) is not None:
+            messagebox.showwarning("Add Supporting Person", f"{name} already has a full character card. Select that character instead.")
+            return
+        people = self.package.story_bible.setdefault("supporting_people", {})
+        if not isinstance(people, dict):
+            people = {}
+            self.package.story_bible["supporting_people"] = people
+        if any(str(existing).casefold() == name.casefold() for existing in people):
+            messagebox.showwarning("Add Supporting Person", f"{name} is already listed.")
+            return
+        people[name] = ""
+        self.dirty = True
+        self._refresh_supporting_people(select_name=name)
+        self._update_path_label()
+        self._chat("Builder", f"Added supporting person {name}. Add details, then save.")
+
+    def _remove_supporting_person(self):
+        if self.package is None:
+            return
+        selection = self.supporting_people_list.curselection()
+        if not selection:
+            messagebox.showinfo("Remove Supporting Person", "Select a supporting person first.")
+            return
+        people = self.package.story_bible.get("supporting_people", {})
+        if not isinstance(people, dict):
+            return
+        names = sorted((str(name) for name in people if str(name).strip()), key=str.casefold)
+        index = selection[0]
+        if index < 0 or index >= len(names):
+            return
+        name = names[index]
+        if not self._ask_yes_no("Remove Supporting Person", f"Remove {name} from the supporting-people list?"):
+            return
+        people.pop(name, None)
+        self.dirty = True
+        self._refresh_supporting_people()
+        self._update_path_label()
+        self._chat("Builder", f"Removed supporting person {name} from the working story data.")
+
     def _apply_all_edits(self):
         # Current Situation is an editable part of the active story state too.
         # Apply it through its guarded handler before saving any other fields,
@@ -5581,6 +5922,14 @@ Rules:
         self.story_vars["status"].set(bible.get("status", "active"))
         self.premise_text.delete("1.0", "end")
         self.premise_text.insert("1.0", bible.get("premise", ""))
+
+        canon_rules = bible.get("canon_rules", [])
+        if isinstance(canon_rules, str):
+            canon_rules = [line.strip() for line in canon_rules.splitlines() if line.strip()]
+        if not isinstance(canon_rules, list):
+            canon_rules = []
+        self.canon_rules_text.delete("1.0", "end")
+        self.canon_rules_text.insert("1.0", "\n".join(str(rule) for rule in canon_rules if str(rule).strip()))
 
         planning = bible.get("story_planning", {})
         if not isinstance(planning, dict):
@@ -6022,6 +6371,8 @@ Rules:
     def _install_spellchecking(self):
         self._spellcheck_text_widgets = [
             self.premise_text,
+            self.canon_rules_text,
+            self.change_request_text,
             *self.character_texts.values(),
             self.cast_text,
             self.notes_text,
