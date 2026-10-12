@@ -641,6 +641,13 @@ class StateManager:
                     ):
                         try:
                             recovered = extract_json_object(output)
+                            # Normalize legacy top-level location keys FIRST.
+                            # Otherwise a malformed top-level Maya/Tony value can
+                            # be moved under location after that field was cleaned.
+                            recovered = normalize_location_patch(
+                                current_state,
+                                recovered,
+                            )
                             raw_location = recovered.get("location")
                             if isinstance(raw_location, dict):
                                 clean_location = {
@@ -655,10 +662,6 @@ class StateManager:
                             else:
                                 recovered.pop("location", None)
 
-                            recovered = normalize_location_patch(
-                                current_state,
-                                recovered,
-                            )
                             StateManager.validate_patch(current_state, recovered)
                             patch = recovered
                             break
