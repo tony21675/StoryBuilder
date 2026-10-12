@@ -586,15 +586,16 @@ class StoryBuilderApp(tk.Tk):
 
         ttk.Label(
             content,
-            text="Author-Controlled Scene Contract",
+            text="Scene Idea and Generated Contract",
             font=("", 14, "bold"),
         ).pack(anchor="w")
         ttk.Label(
             content,
             text=(
-                "Give Builder a plain-language idea for the scene. It will draft the "
-                "minimum contract needed to protect that idea while leaving the writer room to breathe. "
-                "Forbidden fields are left empty for you to add manually when needed."
+                "The Scene Idea is the part you edit. Review it, correct the story beats or ending, "
+                "then click Build Contract from Scene Idea. StoryBuilder fills in the other fields. "
+                "If the generated result is not right, revise the Scene Idea and build again; "
+                "the generated fields below are read-only."
             ),
             wraplength=900,
             justify="left",
@@ -633,18 +634,6 @@ class StoryBuilderApp(tk.Tk):
         )
         self.scene_contract_scene_label.pack(side="left")
 
-        self.scene_contract_load_button = ttk.Button(
-            header,
-            text="Reload Saved Contract",
-            command=self._load_current_scene_contract,
-        )
-        self.scene_contract_load_button.pack(side="right")
-        self.scene_contract_reset_button = ttk.Button(
-            header,
-            text="Reset Contract",
-            command=self._reset_current_scene_contract,
-        )
-        self.scene_contract_reset_button.pack(side="right", padx=(0, 8))
 
         start_frame = ttk.LabelFrame(content, text="Beginning / Current State")
         start_frame.pack(fill="x", pady=(0, 8))
@@ -667,14 +656,18 @@ class StoryBuilderApp(tk.Tk):
         form = ttk.Frame(content)
         form.pack(fill="both", expand=True)
 
-        self.scene_contract_direction_text = tk.Text(form, height=4, wrap="word", undo=True)
-        self.scene_contract_end_text = tk.Text(form, height=4, wrap="word", undo=True)
+        self.scene_contract_direction_text = tk.Text(
+            form, height=4, wrap="word", state="disabled"
+        )
+        self.scene_contract_end_text = tk.Text(
+            form, height=4, wrap="word", state="disabled"
+        )
         self.scene_contract_texts = {
-            "required_beats": tk.Text(form, height=5, wrap="word", undo=True),
-            "required_facts": tk.Text(form, height=4, wrap="word", undo=True),
-            "required_sequence": tk.Text(form, height=4, wrap="word", undo=True),
-            "forbidden": tk.Text(form, height=4, wrap="word", undo=True),
-            "forbidden_details": tk.Text(form, height=4, wrap="word", undo=True),
+            "required_beats": tk.Text(form, height=5, wrap="word", state="disabled"),
+            "required_facts": tk.Text(form, height=4, wrap="word", state="disabled"),
+            "required_sequence": tk.Text(form, height=4, wrap="word", state="disabled"),
+            "forbidden": tk.Text(form, height=4, wrap="word", state="disabled"),
+            "forbidden_details": tk.Text(form, height=4, wrap="word", state="disabled"),
         }
 
         fields = [
@@ -711,35 +704,21 @@ class StoryBuilderApp(tk.Tk):
             to=5,
             textvariable=self.scene_contract_attempts_var,
             width=6,
+            state="readonly",
         ).pack(side="left", padx=(8, 12))
         ttk.Label(
             attempts_row,
-            text="The validator rejects failed drafts and automatically retries up to this limit.",
+            text="Set by StoryBuilder from the generated contract.",
         ).pack(side="left")
 
         action_row = ttk.Frame(content)
         action_row.pack(fill="x", pady=(10, 0))
-        ttk.Button(
-            action_row,
-            text="Validate Contract",
-            command=self._validate_scene_contract,
-        ).pack(side="left")
-        ttk.Button(
-            action_row,
-            text="Apply Contract",
-            command=self._apply_scene_contract_from_button,
-        ).pack(side="left", padx=(8, 0))
-        ttk.Button(
-            action_row,
-            text="Build Writer Direction",
-            command=self._build_writer_direction_from_contract,
-        ).pack(side="left", padx=(8, 0))
         self.scene_contract_status = ttk.Label(
             action_row,
-            text="",
+            text="Edit the Scene Idea, then build the contract.",
             anchor="w",
         )
-        self.scene_contract_status.pack(side="left", fill="x", expand=True, padx=(12, 0))
+        self.scene_contract_status.pack(side="left", fill="x", expand=True)
 
     def _build_state_tab(self):
         tab = ttk.Frame(self.notebook, padding=12)
@@ -2841,16 +2820,42 @@ Rules:
             return []
         return [str(item).strip() for item in value if str(item).strip()]
 
+    @staticmethod
+    def _set_generated_contract_text(widget, value: str) -> None:
+        """Update a display-only contract field without making it user-editable."""
+        widget.configure(state="normal")
+        widget.delete("1.0", "end")
+        if value:
+            widget.insert("1.0", value)
+        widget.configure(state="disabled")
+
+    @staticmethod
+    def _clear_stale_generated_scene_contract_fields(entry: dict) -> None:
+        """Drop obsolete hidden contract/state hints after the author rebuilds from the idea."""
+        for key in (
+            "required_beats",
+            "required_facts",
+            "required_sequence",
+            "forbidden",
+            "forbidden_details",
+            "required_events",
+            "do_not_advance",
+            "hard_stop",
+            "max_attempts",
+            "state_after",
+        ):
+            entry.pop(key, None)
+
     def _clear_scene_contract_editor(self):
-        """Clear editable scene-contract fields so loading/generation is visible."""
+        """Clear the idea and generated fields while keeping generated fields read-only."""
         if hasattr(self, "scene_idea_text"):
             self.scene_idea_text.delete("1.0", "end")
         if hasattr(self, "scene_contract_direction_text"):
-            self.scene_contract_direction_text.delete("1.0", "end")
+            self._set_generated_contract_text(self.scene_contract_direction_text, "")
         if hasattr(self, "scene_contract_end_text"):
-            self.scene_contract_end_text.delete("1.0", "end")
+            self._set_generated_contract_text(self.scene_contract_end_text, "")
         for widget in getattr(self, "scene_contract_texts", {}).values():
-            widget.delete("1.0", "end")
+            self._set_generated_contract_text(widget, "")
         if hasattr(self, "scene_contract_attempts_var"):
             self.scene_contract_attempts_var.set("3")
 
@@ -2982,22 +2987,19 @@ Rules:
             contract = {}
             contract_error = str(exc)
 
-        self.scene_contract_direction_text.delete("1.0", "end")
-        self.scene_contract_direction_text.insert(
-            "1.0",
+        self._set_generated_contract_text(
+            self.scene_contract_direction_text,
             str(entry.get("direction", "") or ""),
         )
 
-        self.scene_contract_end_text.delete("1.0", "end")
-        self.scene_contract_end_text.insert(
-            "1.0",
+        self._set_generated_contract_text(
+            self.scene_contract_end_text,
             str(contract.get("hard_stop") or entry.get("end_condition") or ""),
         )
 
         for key, widget in self.scene_contract_texts.items():
-            widget.delete("1.0", "end")
-            widget.insert(
-                "1.0",
+            self._set_generated_contract_text(
+                widget,
                 "\n".join(self._contract_list(contract, key)),
             )
 
@@ -3122,8 +3124,28 @@ Rules:
         self._update_path_label()
         return entry
 
+    def _save_scene_idea(self, chapter: int, scene: int, idea: str) -> dict:
+        """Persist only the author-editable Scene Idea, never the generated contract display."""
+        if self.package is None:
+            raise ValueError("No novel package is open.")
+        entry = self._editable_scene_guidance_entry(chapter, scene, create=True)
+        if entry is None:
+            raise ValueError(f"Could not save the Scene Idea for Chapter {chapter}, Scene {scene}.")
+        if idea:
+            entry["scene_idea"] = idea
+        else:
+            entry.pop("scene_idea", None)
+
+        self.dirty = True
+        if self.package.path is not None:
+            self.package.save()
+            self.dirty = False
+        self._update_path_label()
+        return entry
+
     def _apply_scene_contract_edits(self):
-        if self.package is None or not hasattr(self, "scene_contract_direction_text"):
+        """Save only the editable Scene Idea; all other contract fields are generated."""
+        if self.package is None or not hasattr(self, "scene_idea_text"):
             return
 
         scene_key = getattr(self, "scene_contract_editor_key", None)
@@ -3133,17 +3155,10 @@ Rules:
             chapter = int(self.package.current_state.get("chapter", 1) or 1)
             scene = int(self.package.current_state.get("scene", 1) or 1)
 
-        scene_idea, direction, end_text, contract = self._collect_scene_contract_editor()
-        self._store_scene_contract_entry(
-            chapter,
-            scene,
-            scene_idea,
-            direction,
-            end_text,
-            contract,
-        )
+        idea = self.scene_idea_text.get("1.0", "end-1c").strip()
+        self._save_scene_idea(chapter, scene, idea)
         self.scene_contract_status.configure(
-            text=f"Saved author contract for Chapter {chapter}, Scene {scene}.",
+            text=f"Saved Scene Idea for Chapter {chapter}, Scene {scene}.",
         )
     def _build_contract_from_scene_idea(self):
         if self.__dict__.get("writer_notes_update_in_progress", False):
@@ -3175,10 +3190,11 @@ Rules:
             return
 
         try:
-            # Save the current editor under its own scene before starting the
-            # model call. Do not apply unrelated State-tab fields implicitly.
-            self._apply_scene_contract_edits()
+            # The Scene Idea is the only author-editable input in this tab.
+            # Persist it first, but never validate or save the generated display
+            # fields as if they were hand-authored contract instructions.
             chapter, scene = active_key
+            self._save_scene_idea(chapter, scene, idea)
             current_state = json.loads(json.dumps(self.package.current_state, ensure_ascii=False))
             model = self._selected_writer_model_for_analysis()
 
@@ -3264,6 +3280,15 @@ Rules:
             if lint_errors:
                 raise ValueError("Generated contract needs attention:\n- " + "\n- ".join(lint_errors))
 
+            entry = self._editable_scene_guidance_entry(chapter, scene, create=True)
+            if entry is None:
+                raise ValueError(
+                    f"Could not create guidance for Chapter {chapter}, Scene {scene}."
+                )
+            # A rebuilt idea may change the intended ending. Remove legacy
+            # generated rules and any hidden expected state from the old build
+            # so those values cannot leak into the new contract or state analysis.
+            self._clear_stale_generated_scene_contract_fields(entry)
             self._store_scene_contract_entry(
                 chapter, scene, idea, direction, end_text, contract
             )

@@ -20,6 +20,11 @@ class FakeButton:
 class FakeText:
     def __init__(self, value=""):
         self.value = value
+        self.state = "normal"
+
+    def configure(self, **kwargs):
+        if "state" in kwargs:
+            self.state = kwargs["state"]
 
     def get(self, _start, _end):
         return self.value
@@ -262,6 +267,64 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             self.assertIn("EXPECTED END STATE HINT", propose.call_args.kwargs["scene_end_guidance"])
             self.assertEqual(app.pending_state_patch, analysis_patch)
             self.assertNotIn("PLANNED BUT NOT PROVEN", app.writer_state_preview.get("1.0", "end"))
+
+    def test_generated_contract_text_is_read_only_after_each_programmatic_update(self):
+        widget = FakeText("old generated text")
+
+        storybuilder_app.StoryBuilderApp._set_generated_contract_text(
+            widget, "new generated text"
+        )
+
+        self.assertEqual(widget.value, "new generated text")
+        self.assertEqual(widget.state, "disabled")
+
+    def test_saving_scene_idea_does_not_overwrite_generated_contract_fields(self):
+        entry = {
+            "scene_idea": "old idea",
+            "direction": "generated direction",
+            "end_condition": "generated hard stop",
+            "scene_contract": {"required_beats": ["generated beat"]},
+        }
+        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+        app.package = SimpleNamespace(
+            path=None,
+            current_state={"chapter": 2, "scene": 2},
+        )
+        app.scene_contract_editor_key = (2, 2)
+        app.scene_idea_text = FakeText("revised author idea")
+        app.scene_contract_status = SimpleLabel()
+        app.dirty = False
+        app._editable_scene_guidance_entry = lambda *_args, **_kwargs: entry
+        app._update_path_label = lambda: None
+
+        storybuilder_app.StoryBuilderApp._apply_scene_contract_edits(app)
+
+        self.assertEqual(entry["scene_idea"], "revised author idea")
+        self.assertEqual(entry["direction"], "generated direction")
+        self.assertEqual(entry["end_condition"], "generated hard stop")
+        self.assertEqual(
+            entry["scene_contract"],
+            {"required_beats": ["generated beat"]},
+        )
+
+    def test_rebuilding_contract_clears_legacy_rules_and_stale_state_hint(self):
+        entry = {
+            "scene_idea": "author idea",
+            "cast": ["Maya", "Tony"],
+            "required_beats": ["old beat"],
+            "required_events": ["old event"],
+            "do_not_advance": ["old boundary"],
+            "state_after": {"current_situation": "old ending"},
+        }
+
+        storybuilder_app.StoryBuilderApp._clear_stale_generated_scene_contract_fields(entry)
+
+        self.assertEqual(entry["scene_idea"], "author idea")
+        self.assertEqual(entry["cast"], ["Maya", "Tony"])
+        self.assertNotIn("required_beats", entry)
+        self.assertNotIn("required_events", entry)
+        self.assertNotIn("do_not_advance", entry)
+        self.assertNotIn("state_after", entry)
 
     def test_scene_switch_is_blocked_until_accepted_scene_state_is_applied(self):
         with tempfile.TemporaryDirectory() as tmp:
