@@ -228,8 +228,8 @@ class SceneContractTests(unittest.TestCase):
         self.assertIn(idea, writer_context)
         self.assertIn("COMPACT SUPPORTING CONTRACT (SECONDARY):", writer_context)
         self.assertLess(
+            writer_context.index("COMPACT SUPPORTING CONTRACT"),
             writer_context.index("AUTHOR'S ORIGINAL PLAIN-ENGLISH SCENE IDEA"),
-            len(writer_context),
         )
         self.assertIn("kitchen table", writer_context)
         self.assertIn("Barnaby", writer_context)
