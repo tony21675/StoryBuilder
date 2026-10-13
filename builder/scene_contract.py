@@ -11,12 +11,12 @@ from builder.state_manager import extract_json_object
 from builder.workspace import LLAMA as DEFAULT_LLAMA
 
 
-VALIDATOR_SYSTEM_PROMPT = """Review scene intent and starting state.
+VALIDATOR_SYSTEM_PROMPT = """Review original idea, scene intent, and starting state.
 
 Return only JSON:
 {"pass": true, "missed_beats": [], "violations": [], "notes": ""}
 
-Original idea leads; hints are secondary. Check continuity, character knowledge; if no transition explains a mismatch, flag it. Check opening position and contact, central movement, Required Beats, and endpoint. Treat Required Beats as narrative-level goals, not a word-for-word checklist. Fail only when a core action or outcome is absent or materially wrong. If the main action occurs but a secondary detail is missing, do not fail for that alone; optionally note it. Ignore incidental omissions from free-form prose unless central development or the endpoint suffers. Accept paraphrases and neutral familial comfort. Do not nitpick style or invent requirements.
+Original idea leads; hints are secondary. Check continuity, character knowledge; if no transition explains a mismatch, flag it. Check opening position and contact, central movement, Required Beats, and endpoint. Treat Required Beats as narrative-level goals, not a checklist. Fail only when a core action or outcome is absent or materially wrong. If the main action occurs but a secondary detail is missing, do not fail for that alone; optionally note it. Ignore incidental omissions from free-form prose unless central development or the endpoint suffers. Accept paraphrases and neutral familial comfort. Do not nitpick style or invent requirements.
 """
 
 
