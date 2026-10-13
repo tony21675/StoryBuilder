@@ -9,9 +9,34 @@ Read the current versions on GitHub `main` before acting:
 4. [MyNovel writing_guidance.json](https://github.com/tony21675/MyNovel/blob/main/writing_guidance.json)
 5. The complete accepted immediately preceding scene and its saved before/after-state files, from the active local novel package.
 
-**Use the "Current Checkpoint" below as the session handoff. Older conversation context or stale repository copies do not overrule the current author-confirmed checkpoint.**
+**Use the newest checkpoint below as the session handoff. Older conversation context or stale repository copies do not overrule the current author-confirmed checkpoint.**
 
-## Current Checkpoint: October 12, 2026 (synchronized and verified)
+## Latest Checkpoint: October 13, 2026 (end of session; sync repair complete)
+
+Tony is tired and frustrated after resolving the novel sync problem. The application was closed at the end of this session. Keep tomorrow's restart gentle and do not reopen Git troubleshooting unless a new failure appears.
+
+### Novel sync incident: resolved
+
+- MyNovel's local commit `4c433ca` and reconciliation merge `e224163` were pushed to `tony21675/MyNovel` `main`. The successful push was `40f59a0..e224163 main -> main`, and the local repository showed `## main...origin/main` with no working-tree changes immediately afterward.
+- The precise conflict was `writing_guidance.json`. The merged JSON validated. The merged Scene 4 guidance preserves the local `direction`, `end_condition`, `scene_contract`, and all seven Required Beats, while combining the two Scene Ideas and retaining GitHub's additional instruction to make small, focused revisions.
+- A local backup remains at `/home/tony/writing_guidance.json.before-sync-repair.bak`. Do not delete it as part of routine work.
+- StoryBuilder had been refreshed through `./start.sh` before the diagnostic sync. The corrected error dialog displayed the actual conflicting filename. A regression fix now preserves both stdout and stderr from Git rebase failures: [commit `89fd515`](https://github.com/tony21675/StoryBuilder/commit/89fd515cc5b1305566750734b4027546d07ae113), with the conflict-output regression test at [commit `cd540e56`](https://github.com/tony21675/StoryBuilder/commit/cd540e56c948b1dc7f27e1b7c8284bb67f37c13d). The full suite passed on [GitHub Actions run 38399044839](https://github.com/tony21675/StoryBuilder/actions/runs/38399044839), latest inspected code commit [`1515a76`](https://github.com/tony21675/StoryBuilder/commit/1515a76bb61f2a7c2aadc5570c7271fc344fc6cd).
+- The underlying sync error handler and copyable Close & Sync dialog fixes are already on `main`; there is no need to re-run the same repair or make further code changes tonight.
+- Branch cleanup was verified after the earlier accidental temporary branches: both `tony21675/StoryBuilder` and `tony21675/MyNovel` have only the permanent `main` branch. No temporary branches or open PRs are part of the desired workflow.
+
+### Tomorrow's safe pickup sequence
+
+1. From `~/Documents/StoryBuilder`, run `./start.sh` to fast-forward the StoryBuilder handoff update and confirm the source sync succeeds.
+2. Before editing the novel, ensure the MyNovel checkout is clean and on `main`, then fast-forward the handoff-only updates that are being added to GitHub now. Do not use hard resets, force-pulls, or another diagnostic Close & Sync attempt. If the repository is dirty or diverged, stop and inspect first.
+3. Reopen `Taken_at_Dusk` and continue Chapter 2, Scene 4, “Care and memory.” Scene 4 is still unaccepted; accepted Scenes 1–3 are unchanged.
+4. Use StoryBuilder's own **revision workflow** on the existing unaccepted Scene 4 draft. Do not rerun the initial manual generation just to repeat the test. If its loaded idea/contract is stale, use **Clear & Reload Scene Idea**, then **Build Contract from Scene Idea**, and revise the existing draft.
+
+### Scene 4 editing checkpoint
+
+The first manual draft had a gentle flow that Tony liked and correctly described Barnaby as Tiffany's stuffed rabbit. The focused revision should address four known misses: call Beth rather than texting her; also call Jessica and invite Jessica, Chloe, and Rick together; get Maya's clean clothes from Tiffany's bedroom rather than the utility closet; and have Tony hug Barnaby and privately vow to bring Tiffany home. Keep the prose natural and preserve all working passages. The scene ends with Tony making chamomile tea and sitting with Maya at the kitchen table as she begins to settle, before bedtime or rescue planning.
+
+Do not develop Scene Planner until Chapter 2 is complete and the author explicitly finalizes it.
+## Previous Checkpoint: October 12, 2026 (historical)
 
 ### Author-confirmed workflow state
 
@@ -36,7 +61,7 @@ Both repairs are generic, not hard-coded to this novel. The latest compile and f
 
 **Important Talk to Builder limitation:** the chat command path calls a small pattern-based `apply_command` parser and recognizes simple structured edits such as changing a character field. It is not a natural-language manuscript revision tool. Do not direct the author to use Talk to Builder for prose edits; it returns the generic “did not recognize” message.
 
-Next: sync/start StoryBuilder, reopen/reload `Taken_at_Dusk`, use **Clear & Reload Scene Idea** to load the saved Scene 4 idea, then **Build Contract from Scene Idea** and generate one test draft. Review the actual Writer output before deciding whether another change is needed. Do not add another long rule list or touch accepted Scenes 1–3. Scene 4 remains unaccepted until the author chooses to accept it.
+Next: after resting, sync/start StoryBuilder, fast-forward the clean MyNovel checkout for the handoff-only updates, then reopen/reload `Taken_at_Dusk`. Use StoryBuilder's own revision workflow on the existing unaccepted Scene 4 draft; do not regenerate a new draft just to repeat the first manual test. Use **Clear & Reload Scene Idea** and **Build Contract from Scene Idea** only if the loaded idea or contract is stale. Review the actual revised Writer output and make only focused corrections. Accepted Scenes 1–3 remain untouched. Do not use Talk to Builder for prose revisions.
 
 ### Novel and manuscript status
 
@@ -191,7 +216,7 @@ The author's instruction was to discuss future significant changes before making
 
 ## Branch audit and cleanup (October 13, 2026)
 
-The stale remote branch refs from already-merged PRs were identified: `feature/compact-tab-navigation`, `feature/confirm-unplanned-next-scene`, `feature/manual-chapter-finalization`, `feature/story-bible-canon-editor`, `fix/scrollable-content-across-tabs`, `gentle-scene-guidance`, and `repair-author-idea-priority`. PRs #10–16 show these changes were merged. Remove those branch refs so only `main` remains on GitHub, then verify with the GitHub branches page/API. Do not create replacements.
+Completed. The stale refs from already-merged PRs #10–16 were removed, and the live GitHub branch lists were verified to contain only `main` for both repositories. No replacements should be created.
 
 ## Permanent repository and sync safety rules
 
@@ -202,9 +227,9 @@ The stale remote branch refs from already-merged PRs were identified: `feature/c
 - **Recurring sync failure fixed on October 13, 2026:** `builder/novel_sync.py` previously left Git mid-rebase when a local/remote content conflict occurred. The handler now detects and safely aborts an interrupted rebase before asking for the branch name (because rebase can show detached HEAD), preserves the local commit, rejects non-`main` branches, and aborts a newly failed rebase with a clear message instead of leaving the repository stuck. See [`ddffffa`](https://github.com/tony21675/StoryBuilder/commit/ddffffadb018c73edfc5e21234a5ca161061b94c), [`24b4951`](https://github.com/tony21675/StoryBuilder/commit/24b4951d13852b4fb166dcc9d3ae4b76360ec58e), and the recovery-order test in [`d3776c7`](https://github.com/tony21675/StoryBuilder/commit/d3776c7afb7e992bdf317f7a2ae65b68cba6cab4). `sync.sh` now rejects non-`main` StoryBuilder checkouts. The complete suite passed on the latest source in [run 38398226025](https://github.com/tony21675/StoryBuilder/actions/runs/38398226025).
 - **Branch cleanup verified:** the seven stale StoryBuilder branches were all from merged PRs and have been removed. The live GitHub branch lists for both `tony21675/StoryBuilder` and `tony21675/MyNovel` now show exactly one branch each: `main`. A one-time cleanup job was removed after it completed successfully; no permanent branch-deletion automation remains.
 - **Close & Sync error popup fixed on October 13, 2026:** `_sync_current_novel()` already used the copyable error window, but `_close_and_sync()` still used Tkinter's ordinary `messagebox.showerror` for `NovelSyncError` and OS/subprocess failures. Both Close & Sync error paths now call `_show_copyable_error()`; the complete details can be selected or copied using **Copy Full Error**. Regression test: [`c55c0e6`](https://github.com/tony21675/StoryBuilder/commit/c55c0e6de01c61ebbc1f2d0d1f69b0499c3b9230). Compile and full tests passed in [run 38398631770](https://github.com/tony21675/StoryBuilder/actions/runs/38398631770).
-- **Current MyNovel sync conflict (October 13, 2026):** Tony's laptop has local commit `4c433ca` (`Sync novel changes 2026-10-13 06:20:10`) preserved on local `main`. After the safe rebase abort, Git reported `main...origin/main [ahead 1, behind 11]`. Nothing was pushed or overwritten. The failure is a real overlap between that local commit and later GitHub `main` history. The first traceback did not show the conflicting filename because `novel_sync.py` preferred stderr over stdout; Git can put the `CONFLICT (content): <file>` line on stdout and the final `could not apply` message on stderr. This is fixed in [`89fd515`](https://github.com/tony21675/StoryBuilder/commit/89fd515cc5b1305566750734b4027546d07ae113); the regression suite passes in [run 38398904714](https://github.com/tony21675/StoryBuilder/actions/runs/38398904714).
-- **The error popup traceback shows the laptop was still running the old `storybuilder.py`:** it reached `messagebox.showerror` in `_close_and_sync`, while current `main` uses `_show_copyable_error`. Before another diagnostic sync, Tony must close the currently running app, run `./start.sh` from `~/Documents/StoryBuilder`, and confirm it reports the StoryBuilder sync succeeded. Then one controlled Close & Sync attempt may be used only to capture the filename list in the new copyable popup; it should safely abort again until the overlap is reconciled. Paste **Copy Full Error** output. Do not hard-reset, force-pull, skip the local commit, or repeatedly sync.
-- **Stop making direct remote commits to MyNovel files while the laptop has unpushed local novel commits.** In particular, repeated remote edits to `MyNovel/HANDOFF.md` can create extra divergence and conflict with a local novel commit that includes that file. Once the specific overlap is reconciled and both sides are synchronized, keep novel handoff updates coordinated with the active local checkout rather than making serial direct GitHub edits during an unresolved sync.
+- **Resolved MyNovel sync conflict (October 13, 2026):** the conflict was `writing_guidance.json`. Tony's local commit `4c433ca` was preserved, reconciled in local merge commit `e224163`, validated, and pushed to GitHub `main`. The final post-push local status was clean and synchronized. This supersedes the earlier `ahead 1, behind 11/12` diagnostic state.
+- **Historical app-version diagnosis (resolved):** the earlier traceback showed the old, non-copyable error dialog because the app had been launched before the latest source refresh. Tony refreshed StoryBuilder with `./start.sh`, then the corrected dialog exposed `writing_guidance.json`. No further diagnostic sync attempt is needed.
+- **Handoff update coordination:** never update MyNovel handoff files directly on GitHub while the laptop has unpushed novel changes. This session's novel content is now pushed and clean; the handoff-only documentation updates being made now may leave the laptop a few commits behind, but they should be fast-forward-only. At the next session, synchronize these documentation-only updates while the local working tree is clean before editing novel content.
 
 ## StoryBuilder changes and verification notes
 
