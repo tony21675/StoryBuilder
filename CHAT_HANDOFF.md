@@ -22,43 +22,24 @@ Read the current versions on GitHub `main` before acting:
 - Do not ask the author to accept, re-analyze, regenerate, or rewrite Scene 3. Continue from Scene 4 after verifying the app has reloaded the synchronized package.
 - If you cannot inspect the local checkout directly, walk the author through one small, read-only diagnostic step at a time. Do not ask them to re-explain the story or redo Scene 3.
 
-### Latest Scene 4 generation and revision checkpoint (October 13, 2026)
+### Scene 4 status and Writer prompt repair (October 13, 2026)
 
-The author tested a Scene 4 generation after the plain-English Scene Idea was passed directly into the Writer. The author reported it was **“Much much better”** and later summarized the lesson: **less is better, with a little guidance**. This is an encouraging manual result, not proof that every scene will behave correctly.
+The current unaccepted Scene 4 draft supplied by the author has a gentle flow he likes. Barnaby is now correctly described as Tiffany's stuffed rabbit. The draft still uses texts to Beth instead of a phone call, omits the call to Jessica, sends Tony to the utility closet for Maya's clothes instead of Tiffany's bedroom, and misses Tony hugging Barnaby and privately vowing to bring Tiffany home. The saved novel Scene Idea was subsequently clarified on MyNovel `main` to state those requested beats directly. Do not change accepted Scenes 1–3.
 
-The generation followed substantially more of the requested idea: Tony offered a warm bubble bath; he made calls to Beth and to Jessica/Rick/Chloe; Barnaby appeared; Tony retrieved clothes; he prepared chamomile tea; and the scene reached the kitchen table. Several execution errors remained:
-- The opening repeated some of Scene 3's account/reassurance instead of continuing cleanly from the accepted ending.
-- The call timing/invitations were inconsistent: “later this morning,” “Sunday,” and “tomorrow”/coffee drifted together instead of one clear invitation to breakfast the next morning.
-- Barnaby was picked up from a laundry-room shelf rather than his established place in Tiffany's bedroom.
-- Maya appeared in a towel and apparently did not dress privately before coming to the kitchen.
-- The final sentence was outline-like rather than finished scene prose.
+**Source issue found and fixed in a test branch:** the Writer's high-priority system prompt said the generated scene direction was authoritative, while the lower-level writing prompt said the original Scene Idea was primary. The original Scene Idea was also placed after generated context and the supporting contract. Those contradictory instructions could cause Writer to follow the generated summary instead of the author's idea.
 
-The author clarified that Tony may use affectionate, familiar nicknames such as “sunshine” with Beth or Jessica. They have been friends and neighbors for years; this is natural familiarity, not a characterization error.
+The repair in [PR #15](https://github.com/tony21675/StoryBuilder/pull/15) makes one hierarchy consistent throughout the Writer path:
+- The original plain-English Scene Idea appears first and controls requested actions, their order, and the endpoint.
+- Current story state controls what has already happened, physical continuity, and character knowledge.
+- Generated direction and the compact contract are supporting hints only and cannot override the idea.
 
-**Revision workflow rule:** Correct the generated scene *through StoryBuilder*, using a short plain-English revision instruction. Do not replace the draft with prose written by ChatGPT or silently repair the scene on the author's behalf. The point is to test and improve StoryBuilder's own ability to revise its work. Keep the parts that succeeded, request only the necessary corrections, then inspect the app's actual revised output. Do not turn each miss into another long checklist or add validator gates after one sample.
+The regression suite and compile checks passed on the PR branch in [GitHub Actions run 38396032427](https://github.com/tony21675/StoryBuilder/actions/runs/38396032427). This is a generic prompt repair, not novel-specific story logic.
 
-Revision intent for this test: continue from Scene 3 without replaying its account; keep the bath as a bubble bath; invite Beth to the same breakfast the next morning, then invite Jessica, Rick, and Chloe together to that same breakfast; keep both calls casual and disclose nothing about the abduction; get clothes from Tiffany's bedroom; briefly pick up Barnaby and return him to his usual place there; let Maya dress privately; prepare chamomile tea and finish in natural prose with Tony and Maya at the kitchen table. Do not add bedtime or rescue planning.
+**Important Talk to Builder limitation:** the chat command path calls the small pattern-based `apply_command` parser and only recognizes simple structured edits such as changing a character field. It is not a natural-language manuscript revision tool. Do not direct the author to use Talk to Builder to revise a scene; it will return the generic “did not recognize” message for prose-edit requests.
 
-**Current status:** A natural-language revision instruction was provided, and the author reported StoryBuilder's revised output on October 13, 2026. See **Second Scene 4 revision result** below. The result remains an unaccepted draft and still contains important canon/continuity errors; the next step is a focused correction in StoryBuilder, not a ChatGPT-written replacement. The initial prompt-path fix is helping, but another app-code change is not justified by this draft alone.
+Next, after the tested prompt repair is on `main`, sync/start StoryBuilder, reopen/reload `Taken_at_Dusk`, use **Clear & Reload Scene Idea** to load the saved Scene 4 idea, then **Build Contract from Scene Idea** and generate one test draft. Review Writer output against the saved idea before accepting. Keep Scene 4 unaccepted until the author decides it is right. Do not add a long list of rules or regenerate accepted Scenes 1–3.
 
-### Second Scene 4 revision result (October 13, 2026)
-
-The author supplied StoryBuilder's revised draft. It maintained some improvements: it offered a bubble bath, invited Beth to breakfast the next morning, invited Jessica/Rick/Chloe together, showed Maya dressed before the kitchen-table ending, and included chamomile tea. However, notable errors remain:
-- **Major canon error:** Barnaby is described as “the family dog” curled on a rug. Barnaby is Tiffany's worn stuffed rabbit, given to her after Sarah died.
-- Tony still picks up and returns the wrong imagined object, and the scene omits his brief private vow to bring Tiffany home.
-- The draft offers a bubble bath but later says Maya “showered.”
-- Tony seems to retrieve clothes near the laundry, rather than selecting Maya's clean clothes from Tiffany's bedroom.
-- The calls include “Rough afternoon here,” “after today,” and “we're all feeling a little low this evening,” which can hint something is wrong. Keep these as ordinary neighborly breakfast invitations and do not raise suspicion before the Chapter 3 breakfast.
-- The opening repeats some of the prior reassurance rather than moving cleanly into the bath beat.
-
-The author has explicitly asked that StoryBuilder do its own revisions. **Do not rewrite the scene in ChatGPT.** The next revision should target only the remaining errors, preserve the portions that worked, and keep the prompt natural and reasonably short. Do not respond to a single generation error by adding a new validator gate or expanding the whole Scene Idea.
-
-Suggested brief in-app revision direction:
-“Keep the parts that are working and correct these details: Barnaby is Tiffany's stuffed rabbit, not a dog. Tony gave him to her after Sarah died. Tony picks him up for a brief private moment, renews his determination to bring Tiffany home, and returns the rabbit to its usual place in Tiffany's bedroom. Maya takes the bubble bath already offered, not a shower. Tony gets her clean clothes from Tiffany's bedroom and leaves her privacy to dress. Keep both breakfast calls casual and ordinary; remove hints that something is wrong, and don't let either household suspect the abduction. Trim the repeated Scene 3 reassurance and finish naturally with Tony and Maya at the kitchen table over chamomile tea. Preserve the good material and do not add bedtime or rescue planning.”
-
-**Status:** Revised draft has been seen, but remains unaccepted. Next, test this focused revision in StoryBuilder and review the returned output. Do not touch accepted Scenes 1–3.
-
-### Novel and manuscript status### Novel and manuscript status
+### Novel and manuscript status
 
 - Repositories: `tony21675/StoryBuilder` and `tony21675/MyNovel`, each on `main` only. Do not recreate old reset/archive branches.
 - Active novel package on the author's laptop: `~/Documents/MyNovel/Taken_at_Dusk`.

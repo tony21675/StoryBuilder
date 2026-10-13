@@ -803,6 +803,32 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             CONTRACT_BUILDER_SYSTEM_PROMPT,
         )
 
+
+    def test_writer_system_prompt_prioritizes_scene_idea_over_generated_summaries(self):
+        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+        prompt = app._writer_system_prompt([])
+
+        self.assertIn(
+            "The original plain-English Scene Idea is authoritative for the scene's requested actions",
+            prompt,
+        )
+        self.assertIn(
+            "Generated scene direction and compact contract are supporting context only",
+            prompt,
+        )
+        self.assertIn(
+            "Follow the original Scene Idea for requested actions and their order",
+            prompt,
+        )
+        self.assertIn(
+            "Respect the endpoint in the original Scene Idea",
+            prompt,
+        )
+        self.assertNotIn(
+            "Current scene state and scene direction are authoritative",
+            prompt,
+        )
+
     def test_writer_prompt_preserves_uncontradicted_physical_continuity(self):
         app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
         prompt = app._writer_system_prompt([])

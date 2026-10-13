@@ -577,11 +577,21 @@ class SceneContract:
 
     @staticmethod
     def writer_prompt_context(direction: str, contract: dict[str, Any]) -> str:
-        """Build compact writer context while keeping the original idea authoritative."""
+        """Put the author's Scene Idea first; generated summaries only support it."""
         parts = []
+        author_idea = str(contract.get("author_idea", "") or "").strip()
+        if author_idea:
+            parts.append(
+                "AUTHOR'S ORIGINAL PLAIN-ENGLISH SCENE IDEA (PRIMARY INTENT):\n"
+                + author_idea
+            )
+
         direction_text = str(direction or "").strip()
         if direction_text:
-            parts.append("SCENE CONTEXT AND CONTINUITY:\n" + direction_text)
+            parts.append(
+                "CURRENT SCENE CONTEXT AND CONTINUITY (SUPPORTING ONLY):\n"
+                + direction_text
+            )
 
         supporting_contract = {
             key: contract[key]
@@ -594,15 +604,10 @@ class SceneContract:
                 + json.dumps(supporting_contract, ensure_ascii=False, separators=(",", ":"))
             )
 
-        author_idea = str(contract.get("author_idea", "") or "").strip()
         if author_idea:
             parts.append(
-                "AUTHOR'S ORIGINAL PLAIN-ENGLISH SCENE IDEA (PRIMARY INTENT):\n"
-                + author_idea
-            )
-            parts.append(
-                "Priority: Follow the original idea for requested events and ending. "
-                "The generated direction and compact contract may be incomplete; they must not "
+                "Priority: The original idea controls requested events, their order, and ending. "
+                "The generated direction and compact contract are supporting hints only; they must not "
                 "replace, omit, or contradict the original idea."
             )
         return "\n\n".join(parts)
