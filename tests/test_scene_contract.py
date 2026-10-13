@@ -103,10 +103,16 @@ class SceneContractTests(unittest.TestCase):
         engine = FakeEngine()
 
         with patch.object(scene_contract, "_run_validator", side_effect=fake_validator):
-            result = scene_contract.SceneContract.validate_with_engine(
+            result = SceneContract.validate_with_engine(
                 engine,
                 self.contract,
-                {"chapter": 2, "scene": 1, "current_situation": "Tony and Maya are together."},
+                {
+                    "chapter": 2,
+                    "scene": 1,
+                    "current_situation": "Tony and Maya are together.",
+                    "physical_state": {"Tony": {"position": "sitting on the bed"}},
+                    "unrelated_archive_blob": "This old material must not enter validation.",
+                },
                 prose,
             )
 
@@ -114,8 +120,15 @@ class SceneContractTests(unittest.TestCase):
         self.assertEqual(captured["model"], engine.model_path)
         self.assertIn("required_beats", captured["prompt"])
         self.assertIn("hard_stop", captured["prompt"])
+        self.assertIn("physical_state", captured["prompt"])
+        self.assertIn("sitting on the bed", captured["prompt"])
+        self.assertNotIn("unrelated_archive_blob", captured["prompt"])
+        self.assertNotIn("This old material must not enter validation.", captured["prompt"])
+        self.assertNotIn('"state_after"', captured["prompt"])
         self.assertNotIn('"local_hard_checks"', captured["prompt"])
         self.assertNotIn("Old wording gate", captured["prompt"])
+        self.assertLess(len(captured["prompt"]), 2500)
+        self.assertLess(len(scene_contract.VALIDATOR_SYSTEM_PROMPT), 800)
 
 
     def test_validator_string_false_is_treated_as_false(self):
