@@ -795,11 +795,15 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             CONTRACT_BUILDER_SYSTEM_PROMPT,
         )
         self.assertIn(
-            "When the scene idea explicitly asks for reassurance",
+            "Do not turn the idea into a checklist",
             CONTRACT_BUILDER_SYSTEM_PROMPT,
         )
         self.assertIn(
-            "capture it as one concise required beat",
+            "Normally leave required_beats empty",
+            CONTRACT_BUILDER_SYSTEM_PROMPT,
+        )
+        self.assertIn(
+            "Never convert every action mentioned in ordinary scene prose into a separate requirement",
             CONTRACT_BUILDER_SYSTEM_PROMPT,
         )
 
@@ -809,7 +813,7 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         prompt = app._writer_system_prompt([])
 
         self.assertIn(
-            "The original plain-English Scene Idea is authoritative for the scene's requested actions",
+            "The original plain-English Scene Idea gives the intended direction, key intentions, and endpoint",
             prompt,
         )
         self.assertIn(
@@ -817,11 +821,15 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             prompt,
         )
         self.assertIn(
-            "Follow the original Scene Idea for requested actions and their order",
+            "do not treat every sentence of the idea as a checklist",
             prompt,
         )
         self.assertIn(
-            "Respect the endpoint in the original Scene Idea",
+            "Use the Scene Idea to understand the intended movement of the scene",
+            prompt,
+        )
+        self.assertIn(
+            "Respect the intended endpoint in the original Scene Idea",
             prompt,
         )
         self.assertNotIn(
