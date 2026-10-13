@@ -1,3 +1,5 @@
+import json
+import os
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -252,8 +254,8 @@ Required Beats
             "direction": "Tony comforts Maya patiently.",
             "hard_stop": "Tony finishes the comforting gesture.",
             "required_beats": [],
-            "required_facts": [],
-            "required_sequence": [],
+            "required_facts": ["This extra requirement should be ignored."],
+            "required_sequence": ["This extra sequence gate should be ignored."],
             "max_attempts": 3,
         }
 
@@ -282,6 +284,110 @@ Required Beats
             "Maya tells Tony that the man hit her.",
             contract["required_beats"],
         )
+        self.assertEqual(contract["required_facts"], [])
+        self.assertEqual(contract["required_sequence"], [])
+
+    def test_live_writer_engine_is_reused_for_contract_build(self):
+        generated = {
+            "direction": "Tony comforts Maya.",
+            "hard_stop": "They reach the kitchen table.",
+            "required_beats": ["Tony offers Maya a warm bubble bath."],
+            "required_facts": ["Ignore auxiliary facts."],
+            "required_sequence": ["Ignore auxiliary sequence."],
+            "max_attempts": 3,
+        }
+
+        class LiveEngine:
+            class Child:
+                def isalive(self):
+                    return True
+
+            def __init__(self):
+                self.child = self.Child()
+                self.model_path = Path("/tmp/test-model.gguf")
+                self.calls = []
+
+            def reset_context(self, model, system_prompt):
+                self.calls.append(("reset", str(model), system_prompt,
+                    os.environ.get("STORY_WRITER_CONTEXT"),
+                    os.environ.get("STORY_WRITER_MAX_TOKENS")))
+
+            def generate(self, prompt, timeout=None):
+                self.calls.append(("generate", prompt, timeout))
+                return json.dumps(generated)
+
+        engine = LiveEngine()
+        old_context = os.environ.get("STORY_WRITER_CONTEXT")
+        old_tokens = os.environ.get("STORY_WRITER_MAX_TOKENS")
+        with patch.object(Path, "is_file", return_value=True):
+            contract = SceneContract.generate_from_idea(
+                "/tmp/test-model.gguf",
+                {"chapter": 2, "scene": 4, "current_situation": "Maya is with Tony."},
+                "Tony comforts Maya and offers a warm bubble bath. End when they sit together at the kitchen table.",
+                engine=engine,
+            )
+
+        self.assertEqual(len(engine.calls), 2)
+        self.assertEqual(engine.calls[0][3], "6144")
+        self.assertEqual(engine.calls[0][4], "700")
+        self.assertEqual(engine.calls[1][2], 300)
+        self.assertEqual(contract["required_facts"], [])
+        self.assertEqual(contract["required_sequence"], [])
+        self.assertEqual(contract["required_beats"], ["Tony offers Maya a warm bubble bath."])
+        self.assertEqual(os.environ.get("STORY_WRITER_CONTEXT"), old_context)
+        self.assertEqual(os.environ.get("STORY_WRITER_MAX_TOKENS"), old_tokens)
+
+    def test_live_writer_engine_is_reused_for_validation(self):
+        validator_result = {
+            "pass": True,
+            "missed_beats": [],
+            "violations": [],
+            "notes": "",
+        }
+
+        class LiveEngine:
+            class Child:
+                def isalive(self):
+                    return True
+
+            def __init__(self):
+                self.child = self.Child()
+                self.model_path = Path("/tmp/test-model.gguf")
+                self.calls = []
+
+            def reset_context(self, model, system_prompt):
+                self.calls.append(("reset", system_prompt,
+                    os.environ.get("STORY_WRITER_CONTEXT"),
+                    os.environ.get("STORY_WRITER_MAX_TOKENS")))
+
+            def generate(self, prompt, timeout=None):
+                self.calls.append(("generate", prompt, timeout))
+                return json.dumps(validator_result)
+
+        engine = LiveEngine()
+        old_context = os.environ.get("STORY_WRITER_CONTEXT")
+        old_tokens = os.environ.get("STORY_WRITER_MAX_TOKENS")
+        result = SceneContract.validate_with_engine(
+            engine,
+            self.contract,
+            {
+                "chapter": 2,
+                "scene": 1,
+                "current_situation": "Tony and Maya are together.",
+                "physical_state": {"Tony": {"position": "sitting on the bed"}},
+                "unrelated_archive_blob": "Do not send old archive data to validation.",
+            },
+            "Tony and Maya are together.",
+        )
+
+        self.assertTrue(result["pass"])
+        self.assertEqual(engine.calls[0][2], "6144")
+        self.assertEqual(engine.calls[0][3], "220")
+        self.assertEqual(engine.calls[1][2], 300)
+        self.assertIn("sitting on the bed", engine.calls[1][1])
+        self.assertNotIn("unrelated_archive_blob", engine.calls[1][1])
+        self.assertEqual(os.environ.get("STORY_WRITER_CONTEXT"), old_context)
+        self.assertEqual(os.environ.get("STORY_WRITER_MAX_TOKENS"), old_tokens)
 
 
 if __name__ == "__main__":
