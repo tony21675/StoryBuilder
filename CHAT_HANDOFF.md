@@ -189,6 +189,10 @@ Writer validation errors use the copyable dialog. If a draft was generated but v
 
 The author's instruction was to discuss future significant changes before making them. The core simplification above was later explicitly approved and implemented. Continue to favor the shortest prompt that preserves the intended beats and boundary. Do not add more fields or more verbose rules just to compensate for a single bad generation. Test the generic path and use actual model output as evidence.
 
+## Branch audit and cleanup (October 13, 2026)
+
+The stale remote branch refs from already-merged PRs were identified: `feature/compact-tab-navigation`, `feature/confirm-unplanned-next-scene`, `feature/manual-chapter-finalization`, `feature/story-bible-canon-editor`, `fix/scrollable-content-across-tabs`, `gentle-scene-guidance`, and `repair-author-idea-priority`. PRs #10–16 show these changes were merged. Remove those branch refs so only `main` remains on GitHub, then verify with the GitHub branches page/API. Do not create replacements.
+
 ## Permanent repository and sync safety rules
 
 - Keep exactly one remote branch per repository: `main`. Never create temporary branches or pull requests during ordinary work. Commit verified changes directly on `main`.
