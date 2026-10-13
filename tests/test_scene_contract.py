@@ -231,16 +231,23 @@ class SceneContractTests(unittest.TestCase):
         self.assertIn("natural prose rather than", prompt)
         self.assertNotIn("Rewrite the scene from the beginning", prompt)
 
-    def test_validator_prompt_distinguishes_required_beats_from_incidental_details(self):
-        self.assertIn("Judge the whole scene, not incidental details", scene_contract.VALIDATOR_SYSTEM_PROMPT)
-        self.assertIn("Every item in required_beats is mandatory", scene_contract.VALIDATOR_SYSTEM_PROMPT)
-        self.assertIn("set pass=false", scene_contract.VALIDATOR_SYSTEM_PROMPT)
-        self.assertIn("Ignore incidental omissions from free-form prose", scene_contract.VALIDATOR_SYSTEM_PROMPT)
+    def test_validator_treats_required_beats_as_narrative_goals(self):
+        prompt = scene_contract.VALIDATOR_SYSTEM_PROMPT
+        self.assertIn("Treat Required Beats as narrative-level goals", prompt)
+        self.assertIn("not a word-for-word checklist", prompt)
+        self.assertIn("Fail only when a core action or outcome is absent or materially wrong", prompt)
+        self.assertIn("do not fail for that alone", prompt)
+        self.assertIn("Ignore incidental omissions from free-form prose", prompt)
+        self.assertLess(len(prompt), 800)
 
     def test_validator_checks_whole_scene_before_calling_a_beat_missing(self):
         prose = (
-            "Tony offers Maya a warm bubble bath. While she bathes, he calls Beth "
-            "to say Maya is safe, then calls Jessica to confirm breakfast tomorrow."
+            "Tony offers Maya a warm bath, makes sure she has privacy, and leaves her "
+            "to bathe. While she is in the bathroom, he calls Beth about breakfast, "
+            "then calls Jessica, who confirms that she, Chloe, and Rick will attend "
+            "breakfast tomorrow. Later, Tony retrieves clean clothes, hugs Barnaby "
+            "in Tiffany's room and vows to bring her home, then drinks chamomile tea "
+            "with Maya at the kitchen table."
         )
         captured = {}
         validator_result = {
@@ -266,16 +273,75 @@ class SceneContractTests(unittest.TestCase):
 
         self.assertTrue(result["pass"], result)
         self.assertIn(
-            "Before marking a beat missing, search the entire scene for equivalent actions",
+            "Treat Required Beats as narrative-level goals, not a word-for-word checklist",
             captured["prompt"],
         )
         self.assertIn(
-            "If the action occurs but lacks a required detail, report only that detail, not the whole event as absent.",
+            "If the main action occurs but a secondary detail is missing, do not put the beat in missed_beats or fail for that alone",
+            captured["prompt"],
+        )
+        self.assertIn(
+            "Search the entire scene for equivalent actions, including paraphrases or later paragraphs",
+            captured["prompt"],
+        )
+        self.assertIn(
+            "Do not fail for a minor descriptive or phrasing omission when the intended event, character knowledge, and endpoint remain intact",
             captured["prompt"],
         )
         self.assertIn(prose, captured["prompt"])
         self.assertLess(len(captured["prompt"]), 2500)
 
+
+    def test_minor_secondary_detail_can_be_reported_without_failing_scene(self):
+        idea = (
+            "Tony helps Maya bathe privately, makes ordinary breakfast calls while "
+            "she bathes, gets her clean clothes and hugs Barnaby, then ends with "
+            "chamomile tea at the kitchen table."
+        )
+        contract = {
+            "author_idea": idea,
+            "required_beats": [
+                "Tony gives Maya a private opportunity to bathe.",
+                "Tony handles breakfast arrangements with Beth and Jessica for tomorrow.",
+                "Tony retrieves clean clothes, hugs Barnaby, and privately vows to bring Tiffany home.",
+                "The scene ends with quiet tea with Maya at the kitchen table.",
+            ],
+            "hard_stop": "Tony and Maya begin to settle over tea at the kitchen table.",
+        }
+        prose = (
+            "Tony offers Maya a warm bath and leaves her in private. While she bathes, "
+            "he calls Beth about breakfast, then calls Jessica, who confirms that she, "
+            "Chloe, and Rick will join tomorrow. He fetches clean clothes, hugs Barnaby "
+            "in Tiffany's room and silently vows to bring his daughter home. He then "
+            "makes chamomile tea and sits with Maya at the kitchen table."
+        )
+        validator_result = {
+            "pass": True,
+            "missed_beats": [],
+            "violations": [],
+            "notes": "The reassurance to Beth could be a little more explicit.",
+        }
+        captured = {}
+
+        def fake_validator(_model, prompt):
+            captured["prompt"] = prompt
+            return validator_result
+
+        with patch.object(
+            scene_contract, "_run_validator", side_effect=fake_validator
+        ):
+            result = SceneContract.validate_with_engine(
+                FakeEngine(),
+                contract,
+                {"chapter": 2, "scene": 4, "current_situation": "Tony is comforting Maya."},
+                prose,
+            )
+
+        self.assertTrue(result["pass"], result)
+        self.assertEqual(result["missed_beats"], [])
+        self.assertIn("could be a little more explicit", result["notes"])
+        self.assertIn("secondary detail is missing", captured["prompt"])
+        self.assertIn(prose, captured["prompt"])
 
     def test_guidance_builds_contract_from_legacy_fields_and_active_modules(self):
         guidance = {

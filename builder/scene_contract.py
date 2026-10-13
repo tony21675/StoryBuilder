@@ -16,7 +16,7 @@ VALIDATOR_SYSTEM_PROMPT = """Review the scene against the author's intent and st
 Return only JSON:
 {"pass": true, "missed_beats": [], "violations": [], "notes": ""}
 
-The original idea guides intent; hints are secondary. Judge the whole scene, not incidental details. Check continuity, character knowledge, opening position and contact, central movement, Required Beats, and endpoint; if no transition explains a mismatch, flag it. Every item in required_beats is mandatory: if missing or incomplete, list it in missed_beats and set pass=false. Accept paraphrases and neutral familial comfort. Ignore incidental omissions from free-form prose unless central development or the endpoint suffers. Fail for material omissions, contradictions, or wrong ending. Do not nitpick style or invent requirements.
+The original idea guides intent; hints are secondary. Check continuity, character knowledge, opening position and contact, central movement, Required Beats, and endpoint. Treat Required Beats as narrative-level goals, not a word-for-word checklist. Fail only when a core action or outcome is absent or materially wrong. If the main action occurs but a secondary detail is missing, do not fail for that alone; optionally note it. Ignore incidental omissions from free-form prose unless central development or the endpoint suffers. Accept paraphrases and neutral familial comfort. Do not nitpick style or invent requirements.
 """
 
 
@@ -850,11 +850,11 @@ class SceneContract:
 
         prompt = (
             "Validate this scene against the author's original idea and starting state. "
-            "The idea is primary; generated hints are secondary. Every item in required_beats is mandatory: "
-            "if any is missing in substance, set pass=false and list it in missed_beats. "
-            "Before marking a beat missing, search the entire scene for equivalent actions, including paraphrases or later paragraphs. "
-            "If the action occurs but lacks a required detail, report only that detail, not the whole event as absent. "
-            "Do not turn incidental details into requirements. "
+            "The idea is primary; generated hints are secondary. Treat Required Beats as narrative-level goals, not a word-for-word checklist. "
+            "Fail only when a core action or outcome is absent or materially wrong. "
+            "If the main action occurs but a secondary detail is missing, do not put the beat in missed_beats or fail for that alone; optional details may go in notes. "
+            "Search the entire scene for equivalent actions, including paraphrases or later paragraphs, before declaring an action absent. "
+            "Do not fail for a minor descriptive or phrasing omission when the intended event, character knowledge, and endpoint remain intact. "
             "Return JSON only in this shape: "
             '{"pass": true, "missed_beats": [], "violations": [], "notes": ""}\n\n'
             "SCENE INTENT AND SUPPORTING CONTRACT:\n"
