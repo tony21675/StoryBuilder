@@ -1249,6 +1249,54 @@ class NovelSyncSafetyTests(unittest.TestCase):
             self.assertIn(("rebase", "--abort"), calls)
             self.assertNotIn(("push", "origin", "main"), calls)
 
+    def test_recovers_preexisting_rebase_before_branch_detection(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            calls = []
+            status_checks = 0
+
+            def fake_git(_root, *args):
+                nonlocal status_checks
+                calls.append(args)
+                if args == ("rev-parse", "--show-toplevel"):
+                    return SimpleNamespace(returncode=0, stdout=str(root), stderr="")
+                if args == ("status",):
+                    status_checks += 1
+                    if status_checks == 1:
+                        return SimpleNamespace(
+                            returncode=0,
+                            stdout="interactive rebase in progress; onto abc123",
+                            stderr="",
+                        )
+                    return SimpleNamespace(
+                        returncode=0,
+                        stdout="On branch main\nnothing to commit, working tree clean",
+                        stderr="",
+                    )
+                if args == ("rebase", "--abort"):
+                    return SimpleNamespace(returncode=0, stdout="", stderr="")
+                if args == ("branch", "--show-current"):
+                    return SimpleNamespace(returncode=0, stdout="main", stderr="")
+                if args == ("diff", "--name-only", "--diff-filter=U"):
+                    return SimpleNamespace(returncode=0, stdout="", stderr="")
+                if args == ("status", "--porcelain"):
+                    return SimpleNamespace(returncode=0, stdout="", stderr="")
+                if args == ("fetch", "--prune", "origin"):
+                    return SimpleNamespace(returncode=0, stdout="", stderr="")
+                if args == ("pull", "--rebase", "origin", "main"):
+                    return SimpleNamespace(returncode=0, stdout="Already up to date.", stderr="")
+                if args == ("push", "origin", "main"):
+                    return SimpleNamespace(returncode=0, stdout="Everything up-to-date", stderr="")
+                if args == ("status", "-sb"):
+                    return SimpleNamespace(returncode=0, stdout="## main...origin/main", stderr="")
+                raise AssertionError(f"Unexpected git command: {args}")
+
+            with patch.object(novel_sync, "_run_git", side_effect=fake_git):
+                result = novel_sync.sync_novel_repository(root)
+
+            self.assertIn("Novel synchronized successfully", result)
+            self.assertLess(calls.index(("rebase", "--abort")), calls.index(("branch", "--show-current")))
+
     def test_novel_sync_rejects_non_main_branch(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -1256,6 +1304,12 @@ class NovelSyncSafetyTests(unittest.TestCase):
             def fake_git(_root, *args):
                 if args == ("rev-parse", "--show-toplevel"):
                     return SimpleNamespace(returncode=0, stdout=str(root), stderr="")
+                if args == ("status",):
+                    return SimpleNamespace(
+                        returncode=0,
+                        stdout="On branch feature/test\nnothing to commit, working tree clean",
+                        stderr="",
+                    )
                 if args == ("branch", "--show-current"):
                     return SimpleNamespace(returncode=0, stdout="feature/test", stderr="")
                 raise AssertionError(f"Unexpected git command: {args}")
