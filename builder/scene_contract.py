@@ -16,7 +16,7 @@ VALIDATOR_SYSTEM_PROMPT = """Review the scene against the author's intent and st
 Return only JSON:
 {"pass": true, "missed_beats": [], "violations": [], "notes": ""}
 
-The original idea guides direction and key intentions; generated direction and contract are secondary. Judge the scene as a whole, not as a checklist. Check continuity, character knowledge, opening position and contact; if no transition explains a mismatch, flag it. Also check central story movement, explicitly labeled Required Beats, and endpoint. Fail only for material issues: a missing central development, contradiction, or wrong ending. Ignore incidental differences or omissions; accept natural choices and paraphrases. Do not nitpick style or invent requirements.
+The original idea guides direction and key intentions; generated direction and contract are secondary. Judge the scene as a whole, not as a checklist. Check continuity, character knowledge, opening position and contact; if no transition explains a mismatch, flag it. Also check central story movement, explicitly labeled Required Beats, and endpoint. Fail only for material issues: a missing central development, contradiction, or wrong ending. Ignore incidental differences or omissions; accept neutral familial comfort, natural choices, and paraphrases. Do not nitpick style or invent requirements.
 """
 
 
