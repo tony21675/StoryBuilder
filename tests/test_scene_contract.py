@@ -172,7 +172,7 @@ class SceneContractTests(unittest.TestCase):
 
     def test_validator_prompt_checks_scene_as_a_whole_not_a_checklist(self):
         self.assertIn("Judge the scene as a whole, not as a checklist", scene_contract.VALIDATOR_SYSTEM_PROMPT)
-        self.assertIn("Do not fail a scene because an incidental action", scene_contract.VALIDATOR_SYSTEM_PROMPT)
+        self.assertIn("Ignore incidental differences or omissions", scene_contract.VALIDATOR_SYSTEM_PROMPT)
 
 
     def test_guidance_builds_contract_from_legacy_fields_and_active_modules(self):
