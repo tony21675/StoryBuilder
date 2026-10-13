@@ -31,6 +31,7 @@ After reviewing a new Chapter 2, Scene 4 draft that omitted several planned acti
 - [STORY_PLAN.md commit b2508ef](https://github.com/tony21675/MyNovel/commit/b2508efd6904d9f28bffd2a2188da99d42442ae6) aligns the confirmed order: warm bubble bath; ordinary breakfast call to Beth; then a call to Jessica inviting Jessica, Chloe, and Rick together; clothes from Tiffany's bedroom; Barnaby's hug and Tony's private vow; quiet tea with Maya at the kitchen table. No extra rescue planning or bedtime in Scene 4.
 - The Scene Idea remains plain English, not a replacement checklist. Accepted Scenes 1–3 remain untouched.
 - **Confirmed October 13, 2026:** Tony calls Beth “Honey” and Jessica “Jessabelle.” The seven-person core group share a close extended-family bond and innocent, nonsexual flirtatious banter; it is friendly group personality, not automatic proof of romantic intent. Canon is recorded in MyNovel's `STORY_PLAN.md`, `story_bible.json`, and relevant character/writing guidance.
+- **Confirmed relationship progression:** Maya's feelings for Tony and Chloe's still-uncertain feelings may become visible through natural, cumulative behavior over time. Neither directly confesses these feelings to Tony in Chapter 3. Maya knows what she feels; Chloe is still unsure how to interpret hers. Tony's awareness develops only through what he plausibly notices. Keep this separate from ordinary group banter; see MyNovel `STORY_PLAN.md`, `relationship_dynamics.json`, and `story_bible.json`.
 
 ### Safe next pickup
 
