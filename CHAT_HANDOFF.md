@@ -101,6 +101,16 @@ Target workflow:
 
 This describes the desired workflow; it is **not yet implemented** as a full Scene Planner / plain-English idea-generation change. The just-completed contract/prompt simplification remains in place. First test its behavior on the laptop, then improve the Scene Idea input/generation path if needed.
 
+### Manual proof-of-concept test before app changes
+
+The author will first try a short, ordinary-English Scene Idea manually in the current app. This is intentionally a concept test; do not alter app code just yet.
+
+Evaluate two separate things:
+1. **Contract result:** Does Build Contract from Scene Idea take the plain-English paragraph and produce a concise direction, a sensible hard stop, and only a few essential positive beats, without rebuilding it into a long checklist?
+2. **Written scene:** Does the local model continue from the accepted previous scene, preserve canon and the author-selected specifics, and end where requested without replaying events or inventing consequential facts?
+
+If the manual test works, use it as evidence that the concept is viable, then inspect the existing app path and propose a generic change so StoryBuilder can automatically draft a similar plain-English Scene Idea from the established chapter/scene plan, current state, canon, and immediately preceding accepted scene. The author should be able to make small natural-language edits before contract building. Keep the app-generated idea as concise as the successful example. Do not hard-code Scene 4 or the bubble-bath example; those are examples of the general workflow, not permanent special cases. Discuss the smallest implementation and get agreement before changing code. If the manual test does not work, capture the contract and result/error first instead of changing several things at once.
+
 ### Test status
 The GitHub Actions check **passed** on [commit 1e68f8f](https://github.com/tony21675/StoryBuilder/commit/1e68f8f75a79855516ff3c13f8f74edc1781305d): compile checks and the full unit suite passed (79 tests). [View the passing workflow run](https://github.com/tony21675/StoryBuilder/actions/runs/38364175575). This is CI coverage only; it does not prove the local model now generates or validates scenes well on the author's 8 GB laptop.
 
