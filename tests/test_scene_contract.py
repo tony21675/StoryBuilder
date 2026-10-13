@@ -288,8 +288,10 @@ Required Beats
             "Maya tells Tony that the man hit her.",
             contract["required_beats"],
         )
-        self.assertEqual(contract["required_facts"], [])
-        self.assertEqual(contract["required_sequence"], [])
+        self.assertNotIn("required_facts", contract)
+        self.assertNotIn("required_sequence", contract)
+        self.assertNotIn("forbidden", contract)
+        self.assertNotIn("forbidden_details", contract)
 
     def test_live_writer_engine_is_reused_for_contract_build(self):
         generated = {
@@ -335,8 +337,10 @@ Required Beats
         self.assertEqual(engine.calls[0][3], "6144")
         self.assertEqual(engine.calls[0][4], "700")
         self.assertEqual(engine.calls[1][2], 300)
-        self.assertEqual(contract["required_facts"], [])
-        self.assertEqual(contract["required_sequence"], [])
+        self.assertNotIn("required_facts", contract)
+        self.assertNotIn("required_sequence", contract)
+        self.assertNotIn("forbidden", contract)
+        self.assertNotIn("forbidden_details", contract)
         self.assertEqual(contract["required_beats"], ["Tony offers Maya a warm bubble bath."])
         self.assertEqual(os.environ.get("STORY_WRITER_CONTEXT"), old_context)
         self.assertEqual(os.environ.get("STORY_WRITER_MAX_TOKENS"), old_tokens)
