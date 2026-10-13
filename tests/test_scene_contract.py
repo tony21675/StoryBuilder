@@ -214,16 +214,43 @@ class SceneContractTests(unittest.TestCase):
         self.assertIn("Ignore incidental omissions from free-form prose", scene_contract.VALIDATOR_SYSTEM_PROMPT)
 
     def test_validator_checks_whole_scene_before_calling_a_beat_missing(self):
-        prompt = scene_contract.VALIDATOR_SYSTEM_PROMPT
+        prose = (
+            "Tony offers Maya a warm bubble bath. While she bathes, he calls Beth "
+            "to say Maya is safe, then calls Jessica to confirm breakfast tomorrow."
+        )
+        captured = {}
+        validator_result = {
+            "pass": True,
+            "missed_beats": [],
+            "violations": [],
+            "notes": "",
+        }
+
+        def fake_validator(model, prompt):
+            captured["prompt"] = prompt
+            return validator_result
+
+        with patch.object(
+            scene_contract, "_run_validator", side_effect=fake_validator
+        ):
+            result = SceneContract.validate_with_engine(
+                FakeEngine(),
+                self.contract,
+                {"chapter": 2, "scene": 4, "current_situation": "Tony is holding Maya."},
+                prose,
+            )
+
+        self.assertTrue(result["pass"], result)
         self.assertIn(
-            "Search the whole scene for each beat's equivalent action",
-            prompt,
+            "Before marking a beat missing, search the entire scene for equivalent actions",
+            captured["prompt"],
         )
         self.assertIn(
-            "If an action occurs but a detail is missing, report only that detail, not the beat as absent.",
-            prompt,
+            "If the action occurs but lacks a required detail, report only that detail, not the whole event as absent.",
+            captured["prompt"],
         )
-        self.assertLess(len(prompt), 800)
+        self.assertIn(prose, captured["prompt"])
+        self.assertLess(len(captured["prompt"]), 2500)
 
 
     def test_guidance_builds_contract_from_legacy_fields_and_active_modules(self):

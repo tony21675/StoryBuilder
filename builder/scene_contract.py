@@ -11,9 +11,12 @@ from builder.state_manager import extract_json_object
 from builder.workspace import LLAMA as DEFAULT_LLAMA
 
 
-VALIDATOR_SYSTEM_PROMPT = """Review scene intent and state. Return JSON only: {"pass": true, "missed_beats": [], "violations": [], "notes": ""}
+VALIDATOR_SYSTEM_PROMPT = """Review the scene against the author's intent and starting state.
 
-The original idea guides intent; hints are secondary. Judge the whole scene, not incidental details. Check continuity and endpoint. Search the whole scene for each beat's equivalent action, even paraphrased or elsewhere. If an action occurs but a detail is missing, report only that detail, not the beat as absent. Every item in required_beats is mandatory: if missing or incomplete, list it in missed_beats and set pass=false. Accept paraphrases and neutral familial comfort. Ignore incidental omissions from free-form prose unless central development or endpoint suffers. Fail for material omissions, contradictions, or wrong ending. Do not nitpick style or invent requirements.
+Return only JSON:
+{"pass": true, "missed_beats": [], "violations": [], "notes": ""}
+
+The original idea guides intent; hints are secondary. Judge the whole scene, not incidental details. Check continuity, character knowledge, opening position and contact, central movement, Required Beats, and endpoint; if no transition explains a mismatch, flag it. Every item in required_beats is mandatory: if missing or incomplete, list it in missed_beats and set pass=false. Accept paraphrases and neutral familial comfort. Ignore incidental omissions from free-form prose unless central development or the endpoint suffers. Fail for material omissions, contradictions, or wrong ending. Do not nitpick style or invent requirements.
 """
 
 
@@ -815,6 +818,8 @@ class SceneContract:
             "Validate this scene against the author's original idea and starting state. "
             "The idea is primary; generated hints are secondary. Every item in required_beats is mandatory: "
             "if any is missing in substance, set pass=false and list it in missed_beats. "
+            "Before marking a beat missing, search the entire scene for equivalent actions, including paraphrases or later paragraphs. "
+            "If the action occurs but lacks a required detail, report only that detail, not the whole event as absent. "
             "Do not turn incidental details into requirements. "
             "Return JSON only in this shape: "
             '{"pass": true, "missed_beats": [], "violations": [], "notes": ""}\n\n'
