@@ -868,10 +868,10 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
                 "Tony sat on the edge of the bed and held Maya.",
             )
 
-        self.assertIn("compare the prose opening with the supplied current story state", captured["prompt"])
-        self.assertIn("does not show a transition that explains the change", captured["prompt"])
+        self.assertIn("opening position and contact", scene_contract.VALIDATOR_SYSTEM_PROMPT)
+        self.assertIn("no transition explains it", scene_contract.VALIDATOR_SYSTEM_PROMPT)
         self.assertIn("sitting upright against the headboard", captured["prompt"])
-        self.assertIn("sensualized or lingering body-focused wording", captured["prompt"])
+        self.assertIn("neutral familial comfort", scene_contract.VALIDATOR_SYSTEM_PROMPT)
         self.assertIn("Tony provides a familiar fatherly comfort gesture.", captured["prompt"])
 
     def make_save_app(self, package_path, situation, writer_generation=False):
