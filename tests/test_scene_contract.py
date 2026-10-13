@@ -104,11 +104,12 @@ class SceneContractTests(unittest.TestCase):
             return validator_result
 
         engine = FakeEngine()
+        idea = "The original plain-English idea says Tony comforts Maya and they end at the kitchen table."
 
         with patch.object(scene_contract, "_run_validator", side_effect=fake_validator):
             result = SceneContract.validate_with_engine(
                 engine,
-                self.contract,
+                dict(self.contract, author_idea=idea),
                 {
                     "chapter": 2,
                     "scene": 1,
@@ -123,6 +124,7 @@ class SceneContractTests(unittest.TestCase):
         self.assertEqual(captured["model"], engine.model_path)
         self.assertIn("required_beats", captured["prompt"])
         self.assertIn("hard_stop", captured["prompt"])
+        self.assertIn(idea, captured["prompt"])
         self.assertIn("physical_state", captured["prompt"])
         self.assertIn("sitting on the bed", captured["prompt"])
         self.assertNotIn("unrelated_archive_blob", captured["prompt"])
@@ -193,6 +195,88 @@ class SceneContractTests(unittest.TestCase):
         self.assertNotIn("forbidden", contract)
         self.assertNotIn("forbidden_details", contract)
         self.assertEqual(contract["hard_stop"], "Stop when they reach the house.")
+
+    def test_plain_english_idea_survives_as_primary_writer_intent(self):
+        idea = (
+            "Continue from the accepted scene without repeating Maya's account. "
+            "Tony offers her a warm bubble bath and gives her privacy. While she has time "
+            "to herself, he invites Beth to breakfast, then invites Jessica, Chloe, and Rick "
+            "together without revealing the abduction. He gets Maya clean clothes, briefly "
+            "holds Barnaby in Tiffany's room and returns the rabbit to its usual place. "
+            "Later he makes chamomile tea and sits with Maya at the kitchen table. End there, "
+            "before bedtime or rescue planning."
+        )
+        guidance = {
+            "scene_idea": idea,
+            "direction": "Tony takes care of Maya and handles arrangements.",
+            "end_condition": "Before bedtime or rescue planning begins.",
+            "scene_contract": {
+                "required_beats": [],
+                "hard_stop": "Before bedtime or rescue planning begins.",
+                "max_attempts": 3,
+            },
+        }
+
+        contract = SceneContract.from_guidance(guidance)
+        writer_context = SceneContract.writer_prompt_context(
+            "Chapter 2, Scene 4. Maya is curled against Tony on the bed.",
+            contract,
+        )
+
+        self.assertEqual(contract["author_idea"], idea)
+        self.assertIn("AUTHOR'S ORIGINAL PLAIN-ENGLISH SCENE IDEA (PRIMARY INTENT):", writer_context)
+        self.assertIn(idea, writer_context)
+        self.assertIn("COMPACT SUPPORTING CONTRACT (SECONDARY):", writer_context)
+        self.assertLess(
+            writer_context.index("AUTHOR'S ORIGINAL PLAIN-ENGLISH SCENE IDEA"),
+            len(writer_context),
+        )
+        self.assertIn("kitchen table", writer_context)
+        self.assertIn("Barnaby", writer_context)
+        self.assertIn("must not replace, omit, or contradict the original idea", writer_context)
+
+    def test_validator_receives_original_plain_english_idea(self):
+        idea = (
+            "Tony offers Maya a warm bubble bath, makes the breakfast calls without revealing "
+            "the abduction, returns Barnaby to Tiffany's room, and ends at the kitchen table "
+            "with chamomile tea."
+        )
+        captured = {}
+
+        def fake_validator(_model, prompt):
+            captured["prompt"] = prompt
+            return {
+                "pass": True,
+                "missed_beats": [],
+                "violations": [],
+                "notes": "",
+            }
+
+        contract = {
+            "author_idea": idea,
+            "direction": "Tony takes care of Maya.",
+            "hard_stop": "Before bedtime.",
+            "required_beats": [],
+        }
+        with patch.object(
+            scene_contract, "_run_validator", side_effect=fake_validator
+        ):
+            result = SceneContract.validate_with_engine(
+                FakeEngine(),
+                contract,
+                {
+                    "chapter": 2,
+                    "scene": 4,
+                    "current_situation": "Maya is curled against Tony on the bed.",
+                },
+                "Tony remained beside Maya in the bedroom.",
+            )
+
+        self.assertTrue(result["pass"])
+        self.assertIn(idea, captured["prompt"])
+        self.assertIn('"author_idea"', captured["prompt"])
+        self.assertIn("The idea is primary", captured["prompt"])
+        self.assertIn("original idea", scene_contract.VALIDATOR_SYSTEM_PROMPT)
 
     def test_max_attempts_is_safe_and_configurable(self):
         self.assertEqual(scene_contract.SceneContract.max_attempts({}), 3)
