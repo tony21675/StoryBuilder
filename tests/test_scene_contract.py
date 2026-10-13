@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from builder import scene_contract
+from builder.scene_contract import SceneContract
 
 
 class FakeEngine:
