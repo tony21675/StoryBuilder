@@ -16,7 +16,7 @@ VALIDATOR_SYSTEM_PROMPT = """Check a completed scene against the author's origin
 Return only JSON:
 {"pass": true, "missed_beats": [], "violations": [], "notes": ""}
 
-The original plain-English idea is primary. Generated direction, required beats, and hard_stop are supporting hints and may be incomplete; if they conflict with the idea, follow the idea. Check its major requested events and intended endpoint, plus character knowledge and opening physical continuity. Accept natural paraphrases. Do not demand every incidental detail verbatim, nitpick style, or invent requirements. Report only clear, material failures.
+The original plain-English idea is primary. Generated direction, required beats, and hard_stop are supporting hints and may be incomplete; if they conflict with the idea, follow the idea. Check major requested events and the intended endpoint, character knowledge, and opening position and contact. Accept natural paraphrases. Do not demand every incidental detail verbatim, nitpick style, or invent requirements. Report only clear, material failures.
 """
 
 
@@ -30,7 +30,7 @@ CONTRACT_BUILDER_SYSTEM_PROMPT = """Create a small supporting contract from the 
 Return only JSON:
 {"direction":"","hard_stop":"","required_beats":[],"max_attempts":3}
 
-Use current_situation as the authoritative narrative snapshot for what has already happened. If they conflict, follow current_situation and preserve physical_state details not contradicted. The original plain-English idea is also passed directly to the Writer and remains primary. When the idea asks for reassurance, capture it as one concise required beat. Include a few major concrete actions in required_beats when the author names them; do not leave the list empty if the idea names several important events. If the idea specifies the final moment, hard_stop should name that moment, not just something that must happen later. Do not invent events or rules. Leave ordinary dialogue, gestures, pacing, and transitions to the writer. max_attempts is 3. Output JSON only.
+Use current_situation as the authoritative narrative snapshot for what has already happened. If they conflict, follow current_situation and preserve physical_state details not contradicted. The original plain-English idea is also passed directly to the Writer and remains primary. When the scene idea explicitly asks for reassurance, capture it as one concise required beat. Include a few major concrete actions in required_beats when the author names them; do not leave the list empty if the idea names several important events. If the idea specifies the final moment, hard_stop should name that moment, not just something that must happen later. Do not invent events or rules. Leave ordinary dialogue, gestures, pacing, and transitions to the writer. max_attempts is 3. Output JSON only.
 """
 
 
@@ -749,7 +749,7 @@ class SceneContract:
         # generated auxiliary fields so they cannot become extra validation gates.
         contract = {
             key: contract[key]
-            for key in ("direction", "required_beats", "hard_stop", "max_attempts")
+            for key in ("author_idea", "direction", "required_beats", "hard_stop", "max_attempts")
             if key in contract
         }
         if not contract:
