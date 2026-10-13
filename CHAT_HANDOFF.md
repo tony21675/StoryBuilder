@@ -84,6 +84,20 @@ Inspect the actual current Scene Idea builder, writing_guidance.json loading, Sc
 
 The larger generation settings were made permanent in start.sh on October 13, 2026, commit [51b0fc3](https://github.com/tony21675/StoryBuilder/commit/51b0fc311d2a1ca1b19cf7ed433b281995e93adb): default STORY_WRITER_CONTEXT=16384 and STORY_WRITER_MAX_TOKENS=4000, while allowing environment-variable overrides. The author reported the next Scene 4 generation was much better and reached the intended ending; keep these defaults and verify local startup sync picks them up.
 
+### Follow-up observation: over-prescribed Scene Ideas can worsen scene coherence
+
+On October 13, 2026, the author reviewed a longer generated draft for Chapter 2, Scene 4 and observed that too much direction appears to make the model muddle staging and continuity. The draft included Tony watching/helping adult Maya bathe and dress, duplicate/unclear clothing movements, "You're home" when Maya is at Tony's house, an overconfident promise about an unidentified kidnapper, and an ending before Maya settles at the table.
+
+Treat this as a core product-design signal for the generic Scene Idea → Contract → writer prompt work:
+- Keep Scene Ideas concise, with a small number of meaningful beats, canon facts, and hard boundaries.
+- Do not expand an author's short idea into a rigid step-by-step script that prescribes every gesture, transition, or line of dialogue.
+- Separate true non-negotiable constraints from optional prose suggestions. Preserve the former faithfully; let the model invent coherent ordinary actions and connective tissue for the latter.
+- Maintain physical staging, privacy/autonomy, known facts, and scene endpoint, but avoid repeating the same constraint in multiple ways if repetition makes the prompt noisy.
+- Regression tests should check that essential constraints survive without testing for one exact phrasing or hard-coding Chapter 2 scene logic into generic behavior.
+- For Scene 4 specifically, preserve the bath (not shower), Maya's adult privacy, Tony returning the rabbit to Tiffany's room, clothes being made available so Maya dresses privately, routine breakfast calls, and the quiet kitchen-table endpoint. Avoid dictating every motion between these beats.
+
+The current scene's defects are evidence to inspect the actual prompt-building path and identify where an idea becomes over-specified or contradictory, not a reason to add more and more rules to the same Scene Idea.
+
 ## StoryBuilder changes and verification notes
 
 - Reusable scene-contract reassurance handling was committed in `builder/scene_contract.py` at [`b52b1c9`](https://github.com/tony21675/StoryBuilder/commit/b52b1c98ce786cb676a862b5bd8db0e7a5cb17d5).
