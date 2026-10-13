@@ -128,6 +128,10 @@ class SceneContractTests(unittest.TestCase):
         self.assertNotIn("This old material must not enter validation.", captured["prompt"])
         self.assertNotIn('"state_after"', captured["prompt"])
         self.assertNotIn('"local_hard_checks"', captured["prompt"])
+        self.assertNotIn('"required_facts"', captured["prompt"])
+        self.assertNotIn('"required_sequence"', captured["prompt"])
+        self.assertNotIn('"forbidden"', captured["prompt"])
+        self.assertNotIn('"forbidden_details"', captured["prompt"])
         self.assertNotIn("Old wording gate", captured["prompt"])
         self.assertLess(len(captured["prompt"]), 2500)
         self.assertLess(len(scene_contract.VALIDATOR_SYSTEM_PROMPT), 800)
@@ -170,10 +174,10 @@ class SceneContractTests(unittest.TestCase):
             contract["required_beats"],
             ["They leave the store.", "A dog barks."],
         )
-        self.assertEqual(
-            contract["forbidden"],
-            ["Do not enter the next scene.", "Do not introduce a second dog."],
-        )
+        self.assertNotIn("required_facts", contract)
+        self.assertNotIn("required_sequence", contract)
+        self.assertNotIn("forbidden", contract)
+        self.assertNotIn("forbidden_details", contract)
         self.assertEqual(contract["hard_stop"], "Stop when they reach the house.")
 
     def test_max_attempts_is_safe_and_configurable(self):
