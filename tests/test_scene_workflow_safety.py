@@ -108,6 +108,69 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         app._chat = lambda *_args, **_kwargs: None
         return app
 
+    def make_scene_idea_reload_app(self, saved_idea, current_idea, confirm=True):
+        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+        app.package = SimpleNamespace(
+            current_state={"chapter": 2, "scene": 4},
+            extra_json={
+                "writing_guidance.json": {
+                    "chapter_plans": {
+                        "2": {
+                            "scene_plan": {
+                                "4": {"scene_idea": saved_idea}
+                            }
+                        }
+                    }
+                }
+            },
+        )
+        app.scene_contract_editor_key = (2, 4)
+        app.scene_idea_text = FakeText(current_idea)
+        app.scene_contract_status = FakeButton()
+        app.scene_contract_building = False
+        app.writer_generation_in_progress = False
+        app._ask_yes_no = Mock(return_value=confirm)
+        app._refresh_scene_contract_editor = Mock()
+        return app
+
+    def test_reload_saved_scene_idea_replaces_unsaved_text_only_after_confirmation(self):
+        app = self.make_scene_idea_reload_app(
+            "Saved scene beats.", "Unsaved revised beats.", confirm=True
+        )
+        app.scene_contract_direction_text = FakeText("Existing generated direction.")
+
+        app._reload_saved_scene_idea()
+
+        self.assertEqual(app.scene_idea_text.value, "Saved scene beats.")
+        self.assertEqual(
+            app.scene_contract_direction_text.value,
+            "Existing generated direction.",
+        )
+        app._ask_yes_no.assert_called_once()
+        self.assertIn("Discard the current unsaved Scene Idea edits", app._ask_yes_no.call_args.args[1])
+        self.assertIn("Reloaded the saved Scene Idea", app.scene_contract_status.options["text"])
+
+    def test_reload_saved_scene_idea_cancel_keeps_editor_text(self):
+        app = self.make_scene_idea_reload_app(
+            "Saved scene beats.", "Unsaved revised beats.", confirm=False
+        )
+
+        app._reload_saved_scene_idea()
+
+        self.assertEqual(app.scene_idea_text.value, "Unsaved revised beats.")
+        app._ask_yes_no.assert_called_once()
+        self.assertEqual(app.scene_contract_status.options, {})
+
+    def test_reload_saved_scene_idea_without_changes_needs_no_confirmation(self):
+        app = self.make_scene_idea_reload_app(
+            "Saved scene beats.", "Saved scene beats.", confirm=False
+        )
+
+        app._reload_saved_scene_idea()
+
+        self.assertEqual(app.scene_idea_text.value, "Saved scene beats.")
+        app._ask_yes_no.assert_not_called()
+
     def test_sync_failure_uses_copyable_error_dialog(self):
         with tempfile.TemporaryDirectory() as tmp:
             app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
