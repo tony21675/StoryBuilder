@@ -2126,19 +2126,13 @@ class StoryBuilderApp(tk.Tk):
                 scene_contract = guidance.get("scene_contract", {})
                 if isinstance(scene_contract, dict) and scene_contract:
                     required = scene_contract.get("required_beats", [])
-                    forbidden = scene_contract.get("forbidden", [])
                     if isinstance(required, list) and required:
                         lines.append("Required story beats: " + " | ".join(
                             str(item).strip() for item in required if str(item).strip()
                         ))
-                    if isinstance(forbidden, list) and forbidden:
-                        lines.append("Do not: " + " | ".join(
-                            str(item).strip() for item in forbidden if str(item).strip()
-                        ))
 
         module_endings = []
         module_beats = []
-        module_do_not = []
 
         for module in self.package.story_bible.get("optional_story_modules", []):
             if not isinstance(module, dict):
@@ -2169,13 +2163,6 @@ class StoryBuilderApp(tk.Tk):
                     if event_text:
                         module_beats.append(event_text)
 
-                no_advance = guidance.get("do_not_advance", [])
-                if isinstance(no_advance, list):
-                    for item in no_advance:
-                        item_text = str(item).strip()
-                        if item_text:
-                            module_do_not.append(item_text)
-
         # Prefer one authoritative endpoint. The recurring scene plan and
         # active module often express the same boundary in different words;
         # showing both only makes the compact direction noisier and can look
@@ -2195,8 +2182,6 @@ class StoryBuilderApp(tk.Tk):
 
         if module_beats:
             lines.append("Beats: " + " | ".join(module_beats))
-        if module_do_not:
-            lines.append("Do not: " + " | ".join(module_do_not))
 
         lines.append(
             "Write natural prose only. Current state and this scene direction are authoritative."
