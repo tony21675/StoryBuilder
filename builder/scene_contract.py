@@ -534,8 +534,7 @@ class SceneContract:
         if "max_attempts" not in contract and "max_attempts" in source:
             contract["max_attempts"] = source["max_attempts"]
 
-        modules_to_merge = [] if isinstance(explicit, dict) else (module_guidance or [])
-        for module in modules_to_merge:
+        for module in module_guidance or []:
             if not isinstance(module, dict):
                 continue
 
