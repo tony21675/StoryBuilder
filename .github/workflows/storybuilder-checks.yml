@@ -23,28 +23,3 @@ jobs:
         run: python -m compileall -q storybuilder.py builder tests
       - name: Run unit tests
         run: python -m unittest discover -s tests -v
-
-  prune-merged-branches:
-    if: github.event_name == 'push' && startsWith(github.event.head_commit.message, 'Housekeeping')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Delete merged non-main branches
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          branches=(
-            "feature/compact-tab-navigation"
-            "feature/confirm-unplanned-next-scene"
-            "feature/manual-chapter-finalization"
-            "feature/story-bible-canon-editor"
-            "fix/scrollable-content-across-tabs"
-            "gentle-scene-guidance"
-            "repair-author-idea-priority"
-          )
-          for branch in "${branches[@]}"; do
-            echo "Deleting merged stale branch: ${branch}"
-            gh api --method DELETE --silent "repos/${GITHUB_REPOSITORY}/git/refs/heads/${branch}"
-          done
