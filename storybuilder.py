@@ -2269,28 +2269,29 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
 
         notes_updating = bool(self.__dict__.get("writer_notes_update_in_progress", False))
         acceptance_validating = bool(self.__dict__.get("acceptance_validation_in_progress", False))
+        contract_building = bool(getattr(self, "scene_contract_building", False))
         self.writer_start_button.configure(
-            state="disabled" if running or notes_updating or acceptance_validating else "normal"
+            state="disabled" if running or notes_updating or acceptance_validating or contract_building else "normal"
         )
         self.writer_stop_button.configure(
-            state="normal" if running and not notes_updating and not acceptance_validating else "disabled"
+            state="normal" if running and not notes_updating and not acceptance_validating and not contract_building else "disabled"
         )
         self.writer_write_button.configure(
-            state="normal" if running and self.package and not notes_updating and not acceptance_validating else "disabled"
+            state="normal" if running and self.package and not notes_updating and not acceptance_validating and not contract_building else "disabled"
         )
         self.writer_save_draft_button.configure(
             state="normal" if has_scene and self.package and not acceptance_validating else "disabled"
         )
         validation_failed = bool(getattr(self, "writer_validation_failed", False))
         self.writer_accept_button.configure(
-            state="normal" if has_scene and not has_accepted and self.package and not acceptance_validating and not validation_failed else "disabled"
+            state="normal" if has_scene and not has_accepted and self.package and not acceptance_validating and not contract_building and not validation_failed else "disabled"
         )
         self.writer_reject_button.configure(
             state="normal" if has_scene and not has_accepted and self.package and not acceptance_validating else "disabled"
         )
         if hasattr(self, "writer_clear_context_button"):
             self.writer_clear_context_button.configure(
-                state="normal" if running and self.package and not notes_updating and not acceptance_validating else "disabled"
+                state="normal" if running and self.package and not notes_updating and not acceptance_validating and not contract_building else "disabled"
             )
         self.writer_analyze_button.configure(
             state="normal" if has_accepted and self.package and not notes_updating else "disabled"
@@ -2300,6 +2301,8 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         )
         if acceptance_validating:
             status_text = "Validating edited prose against the active scene contract..."
+        elif contract_building:
+            status_text = "Using the local model to build the Scene Contract..."
         elif notes_updating:
             status_text = "Updating this novel's temporary writing notes from accepted scenes..."
         elif running and self.writer_engine.model_path:
@@ -2309,6 +2312,8 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         self.writer_status.configure(text=status_text)
 
     def _start_writer(self, skip_notes_seed=False):
+        if getattr(self, "scene_contract_building", False):
+            return
         if self.__dict__.get("writer_notes_update_in_progress", False):
             return
         if self.package is None:
@@ -2519,6 +2524,11 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         self._update_writer_buttons()
 
     def _write_next_scene(self):
+        if getattr(self, "scene_contract_building", False):
+            self.writer_status.configure(
+                text="Wait for Scene Contract generation to finish before writing the next scene."
+            )
+            return
         if self.__dict__.get("writer_notes_update_in_progress", False):
             self.writer_status.configure(
                 text="The novel's writing notes are being updated from the last accepted scene."
@@ -3499,6 +3509,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                 text=f"Building contract for Chapter {chapter}, Scene {scene}...",
             )
             self.scene_contract_building = True
+            self._update_writer_buttons()
             if hasattr(self, "scene_contract_build_button"):
                 self.scene_contract_build_button.configure(state="disabled")
             if hasattr(self, "scene_contract_reload_idea_button"):
@@ -3524,6 +3535,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             threading.Thread(target=work, daemon=True).start()
         except Exception as exc:
             self.scene_contract_building = False
+            self._update_writer_buttons()
             if hasattr(self, "scene_contract_build_button"):
                 self.scene_contract_build_button.configure(state="normal")
             if hasattr(self, "scene_contract_reload_idea_button"):
@@ -3531,6 +3543,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             self._show_copyable_error("Scene Contract", str(exc))
     def _finish_contract_from_scene_idea(self, idea, result, error, chapter=None, scene=None):
         self.scene_contract_building = False
+        self._update_writer_buttons()
         if hasattr(self, "scene_contract_build_button"):
             self.scene_contract_build_button.configure(state="normal")
         if hasattr(self, "scene_contract_reload_idea_button"):
