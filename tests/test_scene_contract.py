@@ -159,6 +159,22 @@ class SceneContractTests(unittest.TestCase):
 
         self.assertFalse(result["pass"])
 
+    def test_scene_revision_prompt_keeps_previous_draft_and_limits_changes(self):
+        draft = "The dialogue and the quiet ending already work."
+        feedback = "Barnaby is Tiffany's stuffed rabbit, not a dog."
+        prompt = SceneContract.revision_prompt("BASE IDEA", draft, feedback)
+
+        self.assertIn(draft, prompt)
+        self.assertIn(feedback, prompt)
+        self.assertIn("Use the previous draft below as your starting point", prompt)
+        self.assertIn("Do not rewrite unaffected passages", prompt)
+        self.assertNotIn("Rewrite the scene from the beginning", prompt)
+
+    def test_validator_prompt_checks_scene_as_a_whole_not_a_checklist(self):
+        self.assertIn("Judge the scene as a whole, not as a checklist", scene_contract.VALIDATOR_SYSTEM_PROMPT)
+        self.assertIn("Ignore incidental differences or omissions", scene_contract.VALIDATOR_SYSTEM_PROMPT)
+
+
     def test_guidance_builds_contract_from_legacy_fields_and_active_modules(self):
         guidance = {
             "direction": "Let the characters talk naturally.",
@@ -237,7 +253,8 @@ class SceneContractTests(unittest.TestCase):
         )
         self.assertIn("kitchen table", writer_context)
         self.assertIn("Barnaby", writer_context)
-        self.assertIn("must not replace, omit, or contradict the original idea", writer_context)
+        self.assertIn("not as a line-by-line checklist", writer_context)
+        self.assertIn("must not overrule or contradict the author's intent", writer_context)
 
     def test_validator_receives_original_plain_english_idea(self):
         idea = (
