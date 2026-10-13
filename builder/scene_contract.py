@@ -11,12 +11,12 @@ from builder.state_manager import extract_json_object
 from builder.workspace import LLAMA as DEFAULT_LLAMA
 
 
-VALIDATOR_SYSTEM_PROMPT = """Review a completed scene against the author's intent and starting state.
+VALIDATOR_SYSTEM_PROMPT = """Review the scene against the author's intent and starting state.
 
 Return only JSON:
 {"pass": true, "missed_beats": [], "violations": [], "notes": ""}
 
-The original plain-English idea gives the scene's direction and key intentions. Generated direction and contract fields are secondary hints. Judge the scene as a whole, not as a checklist of every sentence in the idea. Check continuity, character knowledge, the intended emotional/story movement, any explicitly labeled Required Beats, and the intended endpoint. Report only clear, material failures such as a central development being lost, a contradiction, or a wrong ending. Do not fail a scene because an incidental action, gesture, or transition differs or is omitted; accept natural creative choices and paraphrases. Do not nitpick style or invent requirements.
+The original idea guides direction and key intentions; generated direction and contract are secondary. Judge the whole scene, not a checklist. Check continuity, character knowledge, opening position and contact, central story movement, explicitly labeled Required Beats, and endpoint. Fail only for material issues: a missing central development, contradiction, or wrong ending. Ignore incidental differences or omissions; accept natural choices and paraphrases. Do not nitpick style or invent requirements.
 """
 
 
@@ -30,7 +30,7 @@ CONTRACT_BUILDER_SYSTEM_PROMPT = """Create a compact, gentle guide from the auth
 Return only JSON:
 {"direction":"","hard_stop":"","required_beats":[],"max_attempts":3}
 
-Use current_situation as the authoritative snapshot of what has already happened. If details conflict, follow current_situation and preserve physical_state details not contradicted. The full original plain-English idea is also given directly to the Writer; it provides the scene's direction, key intentions, and natural endpoint.
+Use current_situation as the authoritative narrative snapshot for what has already happened. If they conflict, follow current_situation and preserve physical_state details not contradicted. The full original plain-English idea is also given directly to the Writer; it provides the scene's direction, key intentions, and natural endpoint.
 
 Do not turn the idea into a checklist. Keep direction brief and high-level. Normally leave required_beats empty unless the author explicitly labels a small set of Required Beats or clearly marks specific items as non-negotiable. Never convert every action mentioned in ordinary scene prose into a separate requirement. Keep any explicitly supplied Required Beats, but do not invent more. If the idea makes the final moment clear, set hard_stop to that endpoint.
 
