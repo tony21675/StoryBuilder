@@ -124,7 +124,14 @@ def sync_novel_repository(novel_path: Path) -> str:
 
     pull = _run_git(root, "pull", "--rebase", "origin", branch)
     if pull.returncode != 0:
-        details = pull.stderr.strip() or pull.stdout.strip()
+        # Git may write the actionable CONFLICT/file list to stdout and the
+        # final "could not apply" summary to stderr. Never discard either stream.
+        output_parts = []
+        if pull.stdout.strip():
+            output_parts.append("Git output (stdout):\n" + pull.stdout.strip())
+        if pull.stderr.strip():
+            output_parts.append("Git output (stderr):\n" + pull.stderr.strip())
+        details = "\n\n".join(output_parts)
         if "CONFLICT" in details or "conflict" in details or "could not apply" in details:
             abort = _run_git(root, "rebase", "--abort")
             if abort.returncode == 0:
@@ -138,7 +145,12 @@ def sync_novel_repository(novel_path: Path) -> str:
                     + details
                     + ("\n\nRepository status after safe abort:\n" + status_line if status_line else "")
                 )
-            abort_details = abort.stderr.strip() or abort.stdout.strip()
+            abort_parts = []
+            if abort.stdout.strip():
+                abort_parts.append(abort.stdout.strip())
+            if abort.stderr.strip():
+                abort_parts.append(abort.stderr.strip())
+            abort_details = "\n".join(abort_parts)
             raise NovelSyncError(
                 "GitHub and this laptop changed overlapping novel content. Git could not safely abort "
                 "the incomplete rebase, so do not retry Close & Sync. Your local commit should remain in Git.\n\n"
