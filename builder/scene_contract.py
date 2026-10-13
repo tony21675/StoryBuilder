@@ -11,39 +11,12 @@ from builder.state_manager import extract_json_object
 from builder.workspace import LLAMA as DEFAULT_LLAMA
 
 
-VALIDATOR_SYSTEM_PROMPT = """You are a strict scene-contract validator for an ongoing fictional novel.
+VALIDATOR_SYSTEM_PROMPT = """You check a completed fictional scene against its authored scene contract and starting state.
 
-Return ONLY valid JSON in this exact shape:
-{
-  "pass": true,
-  "missed_beats": [],
-  "violations": [],
-  "notes": ""
-}
+Return only JSON in this shape:
+{"pass": true, "missed_beats": [], "violations": [], "notes": ""}
 
-Validation standard:
-- Treat the authored scene contract as a hard specification for the scene's story facts, event order, character knowledge, and stopping point.
-- Treat the supplied current story state as authoritative for the scene's starting situation.
-- Creative variation is allowed ONLY in wording, dialogue phrasing, gestures, harmless sensory detail, ordinary emotion, and other details that do not change or weaken a required fact or event.
-- Do not require exact wording when the same required fact or event is clearly and explicitly established.
-- Do not accept a required fact merely because it is vaguely implied, suggested, or replaced by a broader statement.
-- When a required fact names a specific action, cause, object, injury, person, location, or sequence, that specific element must be explicitly established.
-- Do not silently substitute a different action that feels similar. For example, "tried to stop him" does not automatically satisfy a requirement that a character struck the attacker from behind.
-- When a contract gives a specific physical result, do not treat a materially different physical result as an equivalent. For example, a temporary red mark is not equivalent to bleeding, a scrape, a cut, a handprint, or a lasting wound unless the contract explicitly allows those variations.
-- Required sequence matters. A scene can fail even when all individual events appear somewhere in the prose if they happen in the wrong order.
-- The hard stop matters. The scene must stop at the authored ending state. Do not pass a scene that jumps beyond the stopping point, even if the required ending state also appears earlier.
-- A required action or disclosure is not satisfied merely because the character starts, considers, or struggles to do it. Verify that the specific authored action or information is actually completed in the prose.
-- Preserve the emotional cause-and-effect established by the scene contract and supplied continuity. If a familiar, trusted gesture is established as reassuring, do not treat the gesture itself as the cause of distress unless the prose and author direction explicitly establish that response. Evaluate the stated cause of the character's reaction, not just whether the emotion appears.
-- Character knowledge matters. Do not allow a character to know a fact before the character learns it in the scene.
-- If a forbidden detail or contradiction occurs, mark a violation even when the rest of the scene is good.
-- If a required beat, required fact, sequence step, or hard-stop condition is missing or only weakly implied, mark it as missed.
-- If the contract specifies a character's established wording or address preferences, treat violations as contract violations when they materially contradict the supplied character guidance.
-- Do not penalize harmless creative detail that is not constrained by the contract.
-- When the authored direction or required beats establish a fatherly or familial comfort gesture, flag prose that turns it into lingering, sensualized body-focused description (for example, framing the touch as a caress or dwelling on anatomy). Accept neutral descriptions of where a hand rests as part of ordinary comfort; do not infer sexual intent from the gesture itself.
-- Flag an unsupported hidden motive only when the prose states it as fact and materially reframes the character. Ordinary emotional inference is allowed.
-- Pass ONLY when every required beat and required fact is explicitly satisfied, the required sequence is preserved, the hard stop is satisfied, and no forbidden or contradictory detail appears.
-- Keep missed_beats and violations concise and specific. Name the missing fact or wrong event rather than giving generic criticism.
-- Output JSON only. No markdown or explanation outside the JSON.
+Check only what matters: required actions and facts, required order, explicit prohibitions, character knowledge, the opening physical situation, and the actual ending against hard_stop. Accept natural paraphrases. Do not demand exact wording, invent requirements, nitpick style, or penalize harmless creative details. Do not infer hidden motives or sexual intent from neutral caring gestures. Report only clear, material failures, briefly. Output JSON only.
 """
 
 
@@ -187,14 +160,14 @@ def _run_validator(model: Path, prompt: str) -> dict[str, Any]:
         args.extend(["-ngl", "0", "--device", "none"])
 
     args.extend([
-        "-c", "8192",
+        "-c", os.environ.get("STORY_VALIDATOR_CONTEXT", "6144"),
         "--reasoning", "off",
         "--temp", "0.05",
         "--top-k", "10",
         "--top-p", "0.70",
-        "--repeat-last-n", "256",
+        "--repeat-last-n", "128",
         "--repeat-penalty", "1.08",
-        "--n-predict", "350",
+        "--n-predict", "220",
         "--system-prompt", VALIDATOR_SYSTEM_PROMPT,
         "--prompt", prompt,
         "--color", "off",
@@ -212,12 +185,16 @@ def _run_validator(model: Path, prompt: str) -> dict[str, Any]:
         encoding="utf-8",
         errors="replace",
     )
+    timeout_seconds = max(60, int(os.environ.get("STORY_VALIDATOR_TIMEOUT", "300")))
     try:
-        output, _ = proc.communicate(timeout=300)
+        output, _ = proc.communicate(timeout=timeout_seconds)
     except subprocess.TimeoutExpired as exc:
         proc.kill()
         output, _ = proc.communicate()
-        raise TimeoutError("Scene contract validation timed out.") from exc
+        raise TimeoutError(
+            f"Scene contract validation timed out after {timeout_seconds} seconds. "
+            "The draft remains unaccepted; you can save it and retry."
+        ) from exc
 
     if proc.returncode not in (0, None):
         raise RuntimeError(
@@ -753,55 +730,41 @@ class SceneContract:
                 "forbidden",
                 "forbidden_details",
                 "hard_stop",
-                "state_after",
             )
             if key in contract
         }
 
+        # Keep only state fields needed to verify opening continuity and knowledge.
+        # Large unrelated state/history payloads make local validation slower.
+        validation_state = {
+            key: current_state[key]
+            for key in (
+                "chapter",
+                "scene",
+                "status",
+                "scene_completed",
+                "location",
+                "time",
+                "time_of_day",
+                "scene_cast",
+                "current_situation",
+                "physical_state",
+                "character_knowledge",
+                "active_objectives",
+            )
+            if key in current_state
+        }
+
         prompt = (
-            "VALIDATION MODE. Judge the completed prose against the authored "
-            "scene contract. Do not rewrite the scene.\n\n"
-            "Return ONLY valid JSON in this exact shape:\n"
-            '{"pass": true, "missed_beats": [], "violations": [], "notes": ""}\n\n'
-            "IMPORTANT VALIDATION PRINCIPLES:\n"
-            "- The writer has creative freedom over wording, dialogue phrasing, "
-            "gestures, sensory detail, pacing, and ordinary interaction.\n"
-            "- Accept clear paraphrases and natural variations when they preserve "
-            "the required story fact or event.\n"
-            "- Do NOT require exact wording or a particular sentence structure.\n"
-            "- Do NOT treat deterministic regex hints as required wording.\n"
-            "- Reject genuine missing requirements, contradictions, knowledge "
-            "leaks, sequence errors, an incorrect hard stop, or clearly incompatible "
-            "relationship framing that undermines the dynamic explicitly stated in the scene direction.\n"
-            "- When the authored direction or required beats establish a fatherly or familial "
-            "comfort gesture, flag lingering sensualized body-focused descriptions that recast "
-            "it as a caress or dwell on anatomy. Accept neutral descriptions of where a hand "
-            "rests during ordinary comfort; do not infer sexual intent from the gesture itself.\n"
-            "- Flag unsupported hidden motives only when stated as fact and materially reframing "
-            "a character. Do not over-police ordinary emotional inference.\n"
-            "- If the scene direction explicitly calls a gesture fatherly or familial, flag "
-            "sensualized or lingering body-focused wording that recasts the gesture as a caress "
-            "or dwells on anatomy. Accept neutral descriptions of where a hand rests as part of "
-            "ordinary comfort; do not infer sexual intent from the gesture itself.\n"
-            "- Flag a speculative hidden motive only when the prose states it as fact and it "
-            "materially reframes a character without support from the supplied state or direction. "
-            "Do not over-police ordinary emotional inference.\n"
-            "- Also compare the prose opening with the supplied current story state. Preserve "
-            "established opening location, position, posture, contact, and movement unless an "
-            "explicit scene action changes them. Physical details in current_situation and "
-            "physical_state remain binding unless they genuinely conflict; do not assume a "
-            "physical detail is stale merely because another field is silent about it.\n"
-            "- If the prose opens with a different position or posture and does not show a "
-            "transition that explains the change, report a continuity violation so the writer "
-            "can correct it on a retry. Do not require exact wording.\n\n"
-            "SCENE CONTRACT:\n"
-            + json.dumps(semantic_contract, indent=2, ensure_ascii=False)
-            + "\n\nCURRENT STORY STATE AT SCENE START:\n"
-            + json.dumps(current_state, indent=2, ensure_ascii=False)
-            + "\n\nCOMPLETED STORY PROSE TO VALIDATE:\n"
+            "Validate this completed scene against the supplied contract and starting state. "
+            "Return JSON only in this shape: "
+            '{"pass": true, "missed_beats": [], "violations": [], "notes": ""}\\n\\n'
+            "SCENE CONTRACT:\\n"
+            + json.dumps(semantic_contract, ensure_ascii=False, separators=(",", ":"))
+            + "\\n\\nSTARTING STATE (relevant fields only):\\n"
+            + json.dumps(validation_state, ensure_ascii=False, separators=(",", ":"))
+            + "\\n\\nCOMPLETED SCENE:\\n"
             + prose.strip()
-            + "\n\n"
-            "Validate the prose now. Output JSON only."
         )
 
         model = getattr(engine, "model_path", None)
