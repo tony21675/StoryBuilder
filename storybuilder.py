@@ -2564,24 +2564,14 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         system_prompt = self._writer_system_prompt(files)
         model = self.writer_engine.model_path
 
+        writer_context = SceneContract.writer_prompt_context(direction, contract)
         prompt_parts = [
-            "AUTHOR DIRECTION:\n",
-            direction,
+            writer_context,
             "\n\n",
-        ]
-
-        if contract:
-            prompt_parts.extend([
-                "AUTHORITATIVE SCENE CONTRACT:\n",
-                json.dumps(contract, indent=2, ensure_ascii=False),
-                "\n\n",
-            ])
-
-        prompt_parts.extend([
             "SCENE BOUNDARY:\n",
-            "Follow the scene contract and current story state. Continue from the established opening without replaying completed events. Preserve character knowledge and opening position/contact unless this scene changes them. Reach the hard stop without inventing consequential facts. Write natural prose with creative freedom in dialogue, gestures, pacing, and transitions.\n\n",
+            "The original plain-English Scene Idea is primary for requested events and ending; the compact generated contract is secondary. Continue from the established opening without replaying completed events. Preserve character knowledge and opening position/contact unless this scene changes them. Write natural prose with freedom in dialogue, gestures, pacing, and transitions.\n\n",
             "Write the scene now. Output only the prose."
-        ])
+        ]
         base_prompt = "".join(prompt_parts)
 
         def work():
