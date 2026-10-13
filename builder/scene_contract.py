@@ -906,17 +906,37 @@ class SceneContract:
         notes = str(result.get("notes", "") or "").strip()
 
         lines = [
-            "The previous draft may need a small adjustment.",
-            "Make only the smallest necessary correction for a clear, important omission or contradiction. Preserve the prose, dialogue, pacing, and creative choices that already work.",
-            "Do not turn incidental details into new requirements or rewrite the whole scene unless the draft cannot be repaired with a focused change.",
+            "The draft needs a focused revision.",
+            "Address only the clear, material issue(s) listed below. Keep the parts of the draft that already work, including its voice, dialogue, pacing, and creative choices.",
+            "Do not expand the request into a checklist or rewrite unaffected passages.",
         ]
         if missed:
-            lines.append("Missed required beats or facts:")
+            lines.append("Important omission(s) to address:")
             lines.extend(f"- {item}" for item in missed)
         if violations:
-            lines.append("Contract violations:")
+            lines.append("Material continuity issue(s) to correct:")
             lines.extend(f"- {item}" for item in violations)
         if notes:
             lines.append("Validator note:")
             lines.append(notes)
         return "\n".join(lines)
+
+
+    @staticmethod
+    def revision_prompt(base_prompt: str, previous_draft: str, feedback: str) -> str:
+        """Build a focused revision prompt that preserves the previous draft as source material."""
+        draft = str(previous_draft or "").strip()
+        if not draft:
+            return base_prompt.rstrip() + "\n\n" + str(feedback or "").strip()
+        return (
+            base_prompt.rstrip()
+            + "\n\nFOCUSED REVISION\n"
+            "Use the previous draft below as your starting point. Keep its successful prose, "
+            "dialogue, pacing, and natural creative choices. Change only what is needed to fix "
+            "the clear material issue(s) described after the draft. Do not rewrite unaffected "
+            "passages or add a checklist of extra actions. Return the complete revised scene only.\n\n"
+            "PREVIOUS DRAFT:\n"
+            + draft
+            + "\n\nREVISION GUIDANCE:\n"
+            + str(feedback or "").strip()
+        )
