@@ -68,6 +68,22 @@ At the Chapter 3 breakfast, Tony first tells Beth, Chloe, Jessica, and Rick abou
 - Sensitive Sarah-related letters, their contents, passphrases, ciphertext, metadata, and keys are local-only. Never place them in GitHub, story prompts, or handoffs. One letter's author/recipient direction remains unresolved; do not decide it without the author's approval.
 - Laptop storage cleanup was paused by the author; do not resume unless asked.
 
+## Next development task: make Scene Idea generation generic and durable
+
+The author wants StoryBuilder itself to produce the novel prose. Do not default to writing/replacing full scene passages in ChatGPT; help improve the Scene Idea, contract/prompt logic, and tests so StoryBuilder reliably writes the intended scene. The author should not need to correct the same kind of mistake by hand every time.
+
+**Improve the generic path from Scene Idea to Scene Contract/writer prompt** so it carries author-specified constraints through without weakening, contradicting, or inventing alternatives. Preserve the meaning and ordering of concrete beats, required props/actions, destination/location changes, who has what object, privacy, and scene boundaries. Treat negative constraints as real constraints, not suggestions. Keep the prose flexible between the required beats: guardrails, not rails.
+
+Use the current Chapter 2, Scene 4 corrections as regression examples for generic behavior, not as permanent hard-coded special cases:
+- The author specified a **warm bubble bath**. Do not change it into a shower or invent a bath-versus-shower choice.
+- Tony briefly holds Tiffany's stuffed rabbit in her room, then returns it to its original place. He must not carry it away with the clean clothes.
+- Tony brings the clean clothes back to Maya and leaves them for her to dress privately before she comes to the kitchen table.
+- Preserve the causal/order sequence and keep the planned endpoint at quiet recovery at the table; do not skip ahead to later scene beats.
+
+Inspect the actual current Scene Idea builder, writing_guidance.json loading, Scene Contract construction/validation, and writer prompt path before changing code. Identify where constraints are being diluted or contradicted; prefer a reusable prompt/contract improvement plus focused regression tests rather than scene-specific patches. Test that concrete constraints survive from idea through final writer instructions and that the model still has creative freedom for natural dialogue and connective prose. Update this handoff with implementation commits and actual test results; do not claim tests passed unless run.
+
+The larger generation settings were made permanent in start.sh on October 13, 2026, commit [51b0fc3](https://github.com/tony21675/StoryBuilder/commit/51b0fc311d2a1ca1b19cf7ed433b281995e93adb): default STORY_WRITER_CONTEXT=16384 and STORY_WRITER_MAX_TOKENS=4000, while allowing environment-variable overrides. The author reported the next Scene 4 generation was much better and reached the intended ending; keep these defaults and verify local startup sync picks them up.
+
 ## StoryBuilder changes and verification notes
 
 - Reusable scene-contract reassurance handling was committed in `builder/scene_contract.py` at [`b52b1c9`](https://github.com/tony21675/StoryBuilder/commit/b52b1c98ce786cb676a862b5bd8db0e7a5cb17d5).
