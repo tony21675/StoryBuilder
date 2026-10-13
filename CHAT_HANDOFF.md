@@ -86,6 +86,21 @@ The author approved proceeding with the agreed simplification on October 13, 202
 - When the Writer is already running, Scene Contract generation and validation reuse that same WriterEngine process with a smaller context/output budget, avoiding a second concurrent copy of the model. Writer tasks are serialized while a contract is being built.
 - Timeouts kill the stalled model process. If prose exists but validation fails, the draft remains visible and saveable, remains unaccepted, and cannot be accepted until a successful validation. Writer and Scene Contract errors use the copyable dialog.
 
+### Confirmed Scene Idea workflow: plain-English author conversation
+
+On October 13, 2026, the author clarified the intended product workflow. The Scene Idea is supposed to be a natural, plain-English conversation with the model, not a staged scene outline or a miniature script. We drifted into formal Beginning/Middle/End/Required Beats structures and over-prescriptive lists; do not treat those as the author's ideal input experience.
+
+Target workflow:
+- A future Scene Planner (or the prior-scene/chapter planning step) proposes a **rough projected Scene Idea** based on what the chapter and scene are already meant to establish, canon, the current state, and the immediately preceding accepted scene.
+- The author reviews that draft and makes small, natural-language refinements instead of writing a scene specification from scratch. Example: if the proposed idea says Tony runs a bath or shower for Maya, the author changes it to “Tony runs a bubble bath for Maya.” That correction is intentional and authoritative; do not dilute it back to a choice between bath and shower.
+- The Scene Idea should read like the author talking to a writing partner: what the scene is generally about, a few things they want to happen, and where they want it to finish. Do not force the author to provide staged paragraphs, ordered micro-actions, or a long checklist of ordinary gestures and dialogue.
+- The model should interpret that plain-English idea together with the current story state and established canon, then write the scene. It should invent ordinary dialogue, reactions, gestures, pacing, transitions, and connective details itself.
+- Preserve clear author choices, essential plot events, and the scene boundary. Do not turn every preference into another validator gate or repeat constraints in several prompt sections.
+- Keep the internal contract and Writer prompt short. The contract builder is an implementation detail that helps the model follow the idea, not a reason to make the author write in a rigid format.
+- On future code changes, inspect how the Scene Idea is proposed, saved, loaded, and converted into a contract. Propose the smallest generic improvement and agree with the author before making that next code change. Do not change the saved Scene 4 idea merely to match an example or overwrite the author's edits.
+
+This describes the desired workflow; it is **not yet implemented** as a full Scene Planner / plain-English idea-generation change. The just-completed contract/prompt simplification remains in place. First test its behavior on the laptop, then improve the Scene Idea input/generation path if needed.
+
 ### Test status
 The GitHub Actions check **passed** on [commit 1e68f8f](https://github.com/tony21675/StoryBuilder/commit/1e68f8f75a79855516ff3c13f8f74edc1781305d): compile checks and the full unit suite passed (79 tests). [View the passing workflow run](https://github.com/tony21675/StoryBuilder/actions/runs/38364175575). This is CI coverage only; it does not prove the local model now generates or validates scenes well on the author's 8 GB laptop.
 
