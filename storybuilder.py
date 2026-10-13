@@ -850,20 +850,12 @@ class StoryBuilderApp(tk.Tk):
         )
         self.scene_contract_texts = {
             "required_beats": tk.Text(form, height=5, wrap="word", state="disabled"),
-            "required_facts": tk.Text(form, height=4, wrap="word", state="disabled"),
-            "required_sequence": tk.Text(form, height=4, wrap="word", state="disabled"),
-            "forbidden": tk.Text(form, height=4, wrap="word", state="disabled"),
-            "forbidden_details": tk.Text(form, height=4, wrap="word", state="disabled"),
         }
 
         fields = [
-            ("direction", "Middle / Scene Direction", self.scene_contract_direction_text),
-            ("end", "Ending / Hard Stop", self.scene_contract_end_text),
+            ("direction", "Beginning / Middle Direction", self.scene_contract_direction_text),
+            ("end", "End / Hard Stop", self.scene_contract_end_text),
             ("required_beats", "Required Beats (one per line)", self.scene_contract_texts["required_beats"]),
-            ("required_facts", "Required Facts (one per line)", self.scene_contract_texts["required_facts"]),
-            ("required_sequence", "Required Sequence (one per line, in order)", self.scene_contract_texts["required_sequence"]),
-            ("forbidden", "Forbidden / Do Not Advance (one per line)", self.scene_contract_texts["forbidden"]),
-            ("forbidden_details", "Forbidden Details (one per line)", self.scene_contract_texts["forbidden_details"]),
         ]
 
         for row, (_key, label, widget) in enumerate(fields):
@@ -3378,9 +3370,6 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             (
                 f"Chapter {chapter}, Scene {scene} contract is valid.\n\n"
                 f"Required beats: {len(contract.get('required_beats', []))}\n"
-                f"Required facts: {len(contract.get('required_facts', []))}\n"
-                f"Sequence steps: {len(contract.get('required_sequence', []))}\n"
-                f"Forbidden rules: {len(contract.get('forbidden', []))}\n"
                 f"Ending defined: {'yes' if end_text else 'no'}\n"
                 f"Automatic attempts: {SceneContract.max_attempts(contract)}"
             ),
