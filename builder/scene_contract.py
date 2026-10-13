@@ -123,14 +123,14 @@ def _run_contract_builder(model: Path, prompt: str, engine: Any = None) -> dict[
         args.extend(["-ngl", "0", "--device", "none"])
 
     args.extend([
-        "-c", os.environ.get("STORY_WRITER_CONTEXT", "8192"),
+        "-c", os.environ.get("STORY_CONTRACT_CONTEXT", "6144"),
         "--reasoning", "off",
         "--temp", "0.15",
         "--top-k", "10",
         "--top-p", "0.80",
-        "--repeat-last-n", "256",
+        "--repeat-last-n", "128",
         "--repeat-penalty", "1.08",
-        "--n-predict", "700",
+        "--n-predict", os.environ.get("STORY_CONTRACT_MAX_TOKENS", "700"),
         "--system-prompt", CONTRACT_BUILDER_SYSTEM_PROMPT,
         "--prompt", prompt,
         "--color", "off",
