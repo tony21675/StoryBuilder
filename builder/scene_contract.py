@@ -16,7 +16,7 @@ VALIDATOR_SYSTEM_PROMPT = """You check a completed fictional scene against its a
 Return only JSON in this shape:
 {"pass": true, "missed_beats": [], "violations": [], "notes": ""}
 
-Check only the required beats, relevant character knowledge, opening physical situation, and actual ending against hard_stop. Accept natural paraphrases. Do not demand exact wording, invent requirements, nitpick style, or penalize harmless creative details. Report only clear, material failures, briefly. Output JSON only.
+Check only the required beats, relevant character knowledge, opening physical situation, and actual ending against hard_stop. Compare the prose opening with the supplied current story state, especially position and contact. Accept natural paraphrases. Do not demand exact wording, invent requirements, nitpick style, or penalize harmless creative details. Report only clear, material failures, briefly. Output JSON only.
 """
 
 
@@ -30,7 +30,7 @@ CONTRACT_BUILDER_SYSTEM_PROMPT = """Create a minimal scene contract from the aut
 Return only JSON:
 {"direction":"","hard_stop":"","required_beats":[],"max_attempts":3}
 
-Use the current state as the opening snapshot. Write one concise direction, one clear ending, and only the few concrete actions the author requires. Preserve Beginning/Middle/End and Required Beats intent. Do not invent events or rules. Leave ordinary dialogue, gestures, pacing, and transitions to the writer. max_attempts is 3. Output JSON only.
+Use current_situation as the authoritative narrative snapshot for what has already happened; preserve physical_state details that do not conflict. Write one concise direction, one clear ending, and only the few concrete actions the author requires. Preserve Beginning/Middle/End and Required Beats intent. Do not invent events or rules. Leave ordinary dialogue, gestures, pacing, and transitions to the writer. max_attempts is 3. Output JSON only.
 """
 
 
@@ -487,6 +487,10 @@ class SceneContract:
             raise ValueError("Scene guidance 'scene_contract' must be an object.")
 
         contract = dict(explicit) if isinstance(explicit, dict) else {}
+        if isinstance(contract.get("required_beats"), list):
+            # Avoid mutating the author's saved list when active module beats
+            # are merged into this working copy.
+            contract["required_beats"] = list(contract["required_beats"])
 
         # Auxiliary fields are intentionally ignored by the runtime contract.
         # Shorter prompts with one set of positive beats have worked better with
