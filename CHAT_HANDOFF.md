@@ -22,22 +22,21 @@ Read the current versions on GitHub `main` before acting:
 - Do not ask the author to accept, re-analyze, regenerate, or rewrite Scene 3. Continue from Scene 4 after verifying the app has reloaded the synchronized package.
 - If you cannot inspect the local checkout directly, walk the author through one small, read-only diagnostic step at a time. Do not ask them to re-explain the story or redo Scene 3.
 
-### Scene 4 status and Writer prompt repair (October 13, 2026)
+### Scene 4 status and prompt-design repairs (October 13, 2026)
 
-The current unaccepted Scene 4 draft supplied by the author has a gentle flow he likes. Barnaby is now correctly described as Tiffany's stuffed rabbit. The draft still uses texts to Beth instead of a phone call, omits the call to Jessica, sends Tony to the utility closet for Maya's clothes instead of Tiffany's bedroom, and misses Tony hugging Barnaby and privately vowing to bring Tiffany home. The saved novel Scene Idea was subsequently clarified on MyNovel `main` to state those requested beats directly. Do not change accepted Scenes 1–3.
+The current unaccepted Scene 4 draft supplied by the author has a gentle flow he likes. Barnaby is now correctly described as Tiffany's stuffed rabbit. The draft still used texts to Beth instead of a phone call, omitted the call to Jessica, sent Tony to the utility closet for Maya's clothes instead of Tiffany's bedroom, and missed Tony hugging Barnaby and privately vowing to bring Tiffany home. The saved novel Scene Idea specifies the intended actions. Do not change accepted Scenes 1–3.
 
-**Source issue found and fixed in a test branch:** the Writer's high-priority system prompt said the generated scene direction was authoritative, while the lower-level writing prompt said the original Scene Idea was primary. The original Scene Idea was also placed after generated context and the supporting contract. Those contradictory instructions could cause Writer to follow the generated summary instead of the author's idea.
+Two generic repairs have been merged to StoryBuilder `main`:
 
-The repair in [PR #15](https://github.com/tony21675/StoryBuilder/pull/15) makes one hierarchy consistent throughout the Writer path:
-- The original plain-English Scene Idea appears first and controls requested actions, their order, and the endpoint.
-- Current story state controls what has already happened, physical continuity, and character knowledge.
-- Generated direction and the compact contract are supporting hints only and cannot override the idea.
+- [PR #15](https://github.com/tony21675/StoryBuilder/pull/15), commit [`2d06f2f`](https://github.com/tony21675/StoryBuilder/commit/2d06f2fc70a6863c8e30f220e8f1531a0594f4c8), fixes a prompt hierarchy conflict. The original Scene Idea is primary; current story state governs what has already happened, physical continuity, and character knowledge; generated direction and the contract are supporting hints.
+- [PR #16](https://github.com/tony21675/StoryBuilder/pull/16), commit [`f09aad7`](https://github.com/tony21675/StoryBuilder/commit/f09aad728b2f206c2e800af1f0af7840f7370b6a), reinforces the author's desired style: **more creative freedom with gentle guidance, not a checklist**. Contract generation should normally leave `required_beats` empty unless the author explicitly marks a small set as Required Beats/non-negotiable. The original Scene Idea should guide the scene's direction, important moments, emotional movement, and endpoint without making each sentence a separate hard task. Leave natural actions, dialogue, gestures, pacing, and transitions to the Writer. Validation should judge the scene holistically and report only material failures.
+- If validation finds a real issue and a retry is needed, StoryBuilder now passes the previous draft into the retry and asks for a focused revision that preserves working prose instead of regenerating blindly from scratch.
 
-The regression suite and compile checks passed on the PR branch in [GitHub Actions run 38396032427](https://github.com/tony21675/StoryBuilder/actions/runs/38396032427). This is a generic prompt repair, not novel-specific story logic.
+Both repairs are generic, not hard-coded to this novel. The latest compile and full unit-test suite passed (85 tests) in [GitHub Actions run 38397176767](https://github.com/tony21675/StoryBuilder/actions/runs/38397176767).
 
-**Important Talk to Builder limitation:** the chat command path calls the small pattern-based `apply_command` parser and only recognizes simple structured edits such as changing a character field. It is not a natural-language manuscript revision tool. Do not direct the author to use Talk to Builder to revise a scene; it will return the generic “did not recognize” message for prose-edit requests.
+**Important Talk to Builder limitation:** the chat command path calls a small pattern-based `apply_command` parser and recognizes simple structured edits such as changing a character field. It is not a natural-language manuscript revision tool. Do not direct the author to use Talk to Builder for prose edits; it returns the generic “did not recognize” message.
 
-Now that the tested prompt repair is on `main`, sync/start StoryBuilder, reopen/reload `Taken_at_Dusk`, use **Clear & Reload Scene Idea** to load the saved Scene 4 idea, then **Build Contract from Scene Idea** and generate one test draft. Review Writer output against the saved idea before accepting. Keep Scene 4 unaccepted until the author decides it is right. Do not add a long list of rules or regenerate accepted Scenes 1–3.
+Next: sync/start StoryBuilder, reopen/reload `Taken_at_Dusk`, use **Clear & Reload Scene Idea** to load the saved Scene 4 idea, then **Build Contract from Scene Idea** and generate one test draft. Review the actual Writer output before deciding whether another change is needed. Do not add another long rule list or touch accepted Scenes 1–3. Scene 4 remains unaccepted until the author chooses to accept it.
 
 ### Novel and manuscript status
 
