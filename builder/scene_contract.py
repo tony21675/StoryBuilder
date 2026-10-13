@@ -16,7 +16,7 @@ VALIDATOR_SYSTEM_PROMPT = """Review the scene against the author's intent and st
 Return only JSON:
 {"pass": true, "missed_beats": [], "violations": [], "notes": ""}
 
-The original idea guides direction and key intentions; generated direction and contract are secondary. Judge the scene as a whole, not as a checklist. Check continuity, character knowledge, opening position and contact; if no transition explains a mismatch, flag it. Also check central story movement, explicitly labeled Required Beats, and endpoint. Fail only for material issues: a missing central development, contradiction, or wrong ending. Ignore incidental differences or omissions; accept neutral familial comfort, natural choices, and paraphrases. Do not nitpick style or invent requirements.
+The original idea guides direction; generated hints are secondary. Judge the whole scene, not incidental details. Check continuity, character knowledge, opening position, central movement, Required Beats, and endpoint. Every item in required_beats is mandatory: if its action/event is missing in substance or not clearly completed, list it in missed_beats and set pass=false. Accept paraphrases, not exact wording. Ignore incidental omissions from free-form prose unless they remove a central development or defeat the endpoint. Fail for material omissions, contradictions, or a wrong ending. Do not nitpick style or invent requirements.
 """
 
 
@@ -816,8 +816,9 @@ class SceneContract:
 
         prompt = (
             "Validate this scene against the author's original idea and starting state. "
-            "The idea is primary; generated contract fields are secondary and may be incomplete. "
-            "Check major requested events and the intended ending without requiring every incidental detail. "
+            "The idea is primary; generated hints are secondary. Every item in required_beats is mandatory: "
+            "if any is missing in substance, set pass=false and list it in missed_beats. "
+            "Do not turn incidental details into requirements. "
             "Return JSON only in this shape: "
             '{"pass": true, "missed_beats": [], "violations": [], "notes": ""}\n\n'
             "SCENE INTENT AND SUPPORTING CONTRACT:\n"
@@ -856,11 +857,23 @@ class SceneContract:
         if not isinstance(violations, list):
             raise ValueError("Scene contract validator returned invalid violations data.")
 
+        normalized_missed = [str(item).strip() for item in missed if str(item).strip()]
+        normalized_violations = [str(item).strip() for item in violations if str(item).strip()]
+        notes = str(raw_result.get("notes", "") or "").strip()
+
+        # A validator response is internally inconsistent if it reports material
+        # omissions/violations but still says pass=true. Never allow that result
+        # to bypass the focused-revision loop.
+        if passed and (normalized_missed or normalized_violations):
+            passed = False
+            consistency_note = "The validator reported material omissions or violations, so this draft cannot pass yet."
+            notes = f"{notes} {consistency_note}".strip()
+
         return {
             "pass": passed,
-            "missed_beats": [str(item).strip() for item in missed if str(item).strip()],
-            "violations": [str(item).strip() for item in violations if str(item).strip()],
-            "notes": str(raw_result.get("notes", "") or "").strip(),
+            "missed_beats": normalized_missed,
+            "violations": normalized_violations,
+            "notes": notes,
         }
 
 
@@ -908,7 +921,7 @@ class SceneContract:
         lines = [
             "The draft needs a focused revision.",
             "Address only the clear, material issue(s) listed below. Keep the parts of the draft that already work, including its voice, dialogue, pacing, and creative choices.",
-            "Do not expand the request into a checklist or rewrite unaffected passages.",
+            "Weave listed omissions into natural prose; do not turn the scene into an outline, add unrelated actions, or rewrite unaffected passages.",
         ]
         if missed:
             lines.append("Important omission(s) to address:")
@@ -933,8 +946,10 @@ class SceneContract:
             + "\n\nFOCUSED REVISION\n"
             "Use the previous draft below as your starting point. Keep its successful prose, "
             "dialogue, pacing, and natural creative choices. Change only what is needed to fix "
-            "the clear material issue(s) described after the draft. Do not rewrite unaffected "
-            "passages or add a checklist of extra actions. Return the complete revised scene only.\n\n"
+            "the clear material issue(s) described after the draft. Add any missing explicit "
+            "Required Beats named in the revision guidance, woven into natural prose rather than "
+            "an outline or checklist. Do not rewrite unaffected passages. Return the complete "
+            "revised scene only.\n\n"
             "PREVIOUS DRAFT:\n"
             + draft
             + "\n\nREVISION GUIDANCE:\n"
