@@ -513,42 +513,52 @@ class SceneContract:
         guidance: dict[str, Any] | None,
         module_guidance: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
-        """Build a contract from scene guidance and active story modules."""
+        """Build the small runtime contract from positive beats and one ending."""
         source = guidance if isinstance(guidance, dict) else {}
         explicit = source.get("scene_contract")
         if "scene_contract" in source and explicit is not None and not isinstance(explicit, dict):
             raise ValueError("Scene guidance 'scene_contract' must be an object.")
+
         contract = dict(explicit) if isinstance(explicit, dict) else {}
 
-        def add_list(target_key: str, *candidate_keys: str) -> None:
-            existing = contract.get(target_key)
-            merged = [str(item).strip() for item in existing if str(item).strip()] if isinstance(existing, list) else []
-            seen = {item.casefold() for item in merged}
-            for candidate in candidate_keys:
-                value = source.get(candidate)
-                if not isinstance(value, list):
-                    continue
-                for item in value:
-                    item_text = str(item).strip()
-                    if item_text and item_text.casefold() not in seen:
-                        merged.append(item_text)
-                        seen.add(item_text.casefold())
-            if merged:
-                contract[target_key] = merged
+        # Auxiliary fields are intentionally ignored by the runtime contract.
+        # Shorter prompts with one set of positive beats have worked better with
+        # the author's local model than multiple overlapping validation gates.
+        for key in (
+            "required_facts",
+            "required_sequence",
+            "forbidden",
+            "forbidden_details",
+            "state_after",
+            "local_hard_checks",
+        ):
+            contract.pop(key, None)
 
-        add_list("required_beats", "required_beats", "required_events")
-        add_list("required_facts", "required_facts")
-        add_list("required_sequence", "required_sequence")
-        add_list("forbidden", "forbidden", "do_not_advance")
-        add_list("forbidden_details", "forbidden_details")
+        def append_beats(values: Any) -> None:
+            if not isinstance(values, list):
+                return
+            existing = contract.setdefault("required_beats", [])
+            if not isinstance(existing, list):
+                existing = []
+                contract["required_beats"] = existing
+            seen = {
+                str(item).strip().casefold()
+                for item in existing
+                if str(item).strip()
+            }
+            for value in values:
+                item = str(value).strip()
+                if item and item.casefold() not in seen:
+                    existing.append(item)
+                    seen.add(item.casefold())
+
+        append_beats(source.get("required_beats"))
+        append_beats(source.get("required_events"))
 
         if not contract.get("hard_stop"):
             end_condition = source.get("hard_stop") or source.get("end_condition")
             if end_condition:
                 contract["hard_stop"] = str(end_condition).strip()
-
-        if "state_after" not in contract and isinstance(source.get("state_after"), dict):
-            contract["state_after"] = source["state_after"]
 
         if "max_attempts" not in contract and "max_attempts" in source:
             contract["max_attempts"] = source["max_attempts"]
@@ -556,65 +566,34 @@ class SceneContract:
         for module in module_guidance or []:
             if not isinstance(module, dict):
                 continue
+
             nested = module.get("scene_contract")
             if isinstance(nested, dict):
-                for key in ("required_beats", "required_facts", "required_sequence", "forbidden"):
-                    value = nested.get(key)
-                    if isinstance(value, list) and value:
-                        existing = contract.get(key, [])
-                        if not isinstance(existing, list):
-                            existing = []
-                        seen = {str(item).strip().casefold() for item in existing if str(item).strip()}
-                        for item in value:
-                            item_text = str(item).strip()
-                            if item_text and item_text.casefold() not in seen:
-                                existing.append(item_text)
-                                seen.add(item_text.casefold())
-                        contract[key] = existing
+                append_beats(nested.get("required_beats"))
                 if not contract.get("hard_stop") and nested.get("hard_stop"):
                     contract["hard_stop"] = str(nested["hard_stop"]).strip()
 
-            events = module.get("required_events")
-            if isinstance(events, list) and events:
-                existing = contract.get("required_beats", [])
-                if not isinstance(existing, list):
-                    existing = []
-                seen = {str(item).strip().casefold() for item in existing if str(item).strip()}
-                for item in events:
-                    item_text = str(item).strip()
-                    if item_text and item_text.casefold() not in seen:
-                        existing.append(item_text)
-                        seen.add(item_text.casefold())
-                contract["required_beats"] = existing
-
-            forbidden = module.get("forbidden") or module.get("do_not_advance")
-            if isinstance(forbidden, list) and forbidden:
-                existing = contract.get("forbidden", [])
-                if not isinstance(existing, list):
-                    existing = []
-                seen = {str(item).strip().casefold() for item in existing if str(item).strip()}
-                for item in forbidden:
-                    item_text = str(item).strip()
-                    if item_text and item_text.casefold() not in seen:
-                        existing.append(item_text)
-                        seen.add(item_text.casefold())
-                contract["forbidden"] = existing
-
+            # Active modules may contribute positive events, but their
+            # forbidden/do_not_advance and auxiliary fields are not gates.
+            append_beats(module.get("required_events"))
             if not contract.get("hard_stop"):
                 end_condition = module.get("hard_stop") or module.get("end_condition")
                 if end_condition:
                     contract["hard_stop"] = str(end_condition).strip()
 
-            if "state_after" not in contract and isinstance(module.get("state_after"), dict):
-                contract["state_after"] = module["state_after"]
-
+        # Keep only the fields that are useful for the writer and validator.
+        contract = {
+            key: contract[key]
+            for key in ("direction", "required_beats", "hard_stop", "max_attempts")
+            if key in contract
+        }
         if not contract:
             return {}
 
         errors = SceneContract.lint(contract)
         if errors:
             raise ValueError(
-                "Invalid scene contract:\n- " + "\n- ".join(errors)
+                "Invalid scene contract:\\n- " + "\\n- ".join(errors)
             )
         return contract
 
@@ -756,6 +735,16 @@ class SceneContract:
         if not isinstance(contract, dict) or not contract:
             return {"pass": True, "missed_beats": [], "violations": [], "notes": ""}
 
+        # The active contract is deliberately minimal. Ignore legacy or
+        # generated auxiliary fields so they cannot become extra validation gates.
+        contract = {
+            key: contract[key]
+            for key in ("direction", "required_beats", "hard_stop", "max_attempts")
+            if key in contract
+        }
+        if not contract:
+            return {"pass": True, "missed_beats": [], "violations": [], "notes": ""}
+
         SceneContract.validate_shape(contract)
         lint_errors = SceneContract.lint(contract)
         if lint_errors:
@@ -771,24 +760,15 @@ class SceneContract:
                 "notes": "Generation returned an empty scene.",
             }
 
-        local_result = SceneContract._local_hard_checks(contract, prose)
-        if not local_result.get("pass"):
-            return local_result
+        # Automatic validation is intentionally limited to the minimal
+        # contract fields above. No auxiliary regex or prohibition gates run.
 
         # Only semantic requirements belong in the validator prompt. The
         # local_hard_checks section is implementation detail, not prose
         # wording that the model should be forced to reproduce.
         semantic_contract = {
             key: contract[key]
-            for key in (
-                "direction",
-                "required_beats",
-                "required_facts",
-                "required_sequence",
-                "forbidden",
-                "forbidden_details",
-                "hard_stop",
-            )
+            for key in ("direction", "required_beats", "hard_stop")
             if key in contract
         }
 
