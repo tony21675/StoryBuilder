@@ -16,7 +16,7 @@ VALIDATOR_SYSTEM_PROMPT = """Check a completed scene against the author's origin
 Return only JSON:
 {"pass": true, "missed_beats": [], "violations": [], "notes": ""}
 
-The original plain-English idea is primary. Generated direction, required beats, and hard_stop are supporting hints and may be incomplete; if they conflict with the idea, follow the idea. Check major requested events and the intended endpoint, character knowledge, and opening position and contact; if no transition explains it, flag the mismatch. Accept natural paraphrases. Do not demand every incidental detail verbatim, nitpick style, or invent requirements. Report only clear, material failures.
+The original plain-English idea is primary. Generated direction, required beats, and hard_stop are supporting hints and may be incomplete; if they conflict with the idea, follow the idea. Check major requested events and the intended endpoint, character knowledge, and opening position and contact; if no transition explains it, flag the mismatch. Accept natural paraphrases and neutral familial comfort. Do not demand every incidental detail verbatim, nitpick style, or invent requirements. Report only clear, material failures.
 """
 
 
