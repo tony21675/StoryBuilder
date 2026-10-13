@@ -99,36 +99,35 @@ Target workflow:
 - Keep the internal contract and Writer prompt short. The contract builder is an implementation detail that helps the model follow the idea, not a reason to make the author write in a rigid format.
 - On future code changes, inspect how the Scene Idea is proposed, saved, loaded, and converted into a contract. Propose the smallest generic improvement and agree with the author before making that next code change. Do not change the saved Scene 4 idea merely to match an example or overwrite the author's edits.
 
-This describes the desired workflow; it is **not yet implemented** as a full Scene Planner / plain-English idea-generation change. The just-completed contract/prompt simplification remains in place. First test its behavior on the laptop, then improve the Scene Idea input/generation path if needed.
+The app still does not automatically draft a plain-English Scene Idea from chapter plans; that future planning improvement is separate. The current fix preserves the author-edited idea exactly when passing it to the Writer and validator, so the summarizing contract can no longer replace it.
 
-### Manual proof-of-concept test before app changes
+### Manual plain-English Scene Idea test and code fix
 
-The author will first try a short, ordinary-English Scene Idea manually in the current app. This is intentionally a concept test; do not alter app code just yet.
+On October 13, 2026, the author tested a short conversational Scene Idea for Chapter 2, Scene 4. The generated scene missed most named events, stayed in the bedroom, and replayed or extended the preceding scene. Its generated contract had a broad direction, a hard stop of “Before bedtime or rescue planning begins,” and an empty Required Beats list.
 
-Evaluate two separate things:
-1. **Contract result:** Does Build Contract from Scene Idea take the plain-English paragraph and produce a concise direction, a sensible hard stop, and only a few essential positive beats, without rebuilding it into a long checklist?
-2. **Written scene:** Does the local model continue from the accepted previous scene, preserve canon and the author-selected specifics, and end where requested without replaying events or inventing consequential facts?
+Source inspection identified the structural cause: `scene_idea` was saved, then sent to the contract builder for summarization. The Writer prompt was assembled from generated direction and contract but did **not** include the original plain-English Scene Idea. The contract therefore became a lossy bottleneck before the Writer ever saw the instructions.
 
-If the manual test works, use it as evidence that the concept is viable, then inspect the existing app path and propose a generic change so StoryBuilder can automatically draft a similar plain-English Scene Idea from the established chapter/scene plan, current state, canon, and immediately preceding accepted scene. The author should be able to make small natural-language edits before contract building. Keep the app-generated idea as concise as the successful example. Do not hard-code Scene 4 or the bubble-bath example; those are examples of the general workflow, not permanent special cases. Discuss the smallest implementation and get agreement before changing code. If the manual test does not work, capture the contract and result/error first instead of changing several things at once.
+The fix is committed on main:
+- `SceneContract.from_guidance` now carries the saved `scene_idea` through runtime as `author_idea`, unchanged.
+- `SceneContract.writer_prompt_context` builds a concise context: continuity first, only the compact supporting beats/ending next, then the **full original Scene Idea as primary intent** with an explicit priority statement. The serialized supporting contract no longer redundantly repeats generated direction or retry count.
+- `storybuilder.py::_write_next_scene` uses this helper. The raw user paragraph is passed directly to the Writer. If the model-generated direction or contract is vague or disagrees with the original idea, the original idea is explicitly authoritative.
+- `SceneContract.validate_with_engine` retains `author_idea` instead of filtering it out, and the validator's instructions/prompt use the same priority. It checks major requested actions and the intended endpoint without demanding every incidental detail word-for-word.
+- The contract builder is also instructed to capture a few major named actions when present and to name a specific final moment instead of substituting a vague “before X” condition. This is supplemental; the original idea is no longer dependent on the contract summary to reach the Writer.
+- No novel JSON migration is needed. Existing saved `scene_idea` text is reused; no specific Scene 4 instructions were hard-coded into the runtime path.
 
-### Manual plain-English Scene Idea test: failure traced to contract generation
+Regression coverage added:
+- Original plain-English idea survives even when the contract summary is vague and Required Beats is empty.
+- Writer context puts the original idea after the supporting contract and labels it primary.
+- Validator receives the exact original idea and is told it supersedes incomplete generated hints.
+- The actual app runtime contract loader retrieves the saved idea from the active scene and passes it through unchanged.
 
-The author tested a short, conversational Scene Idea for Chapter 2, Scene 4 on October 13, 2026. The resulting scene mostly stayed in the bedroom, repeated/extended the prior-scene material, and did not include the bath, breakfast invitations, Barnaby, clean clothes, or the kitchen-table ending.
+**Verification:** [GitHub Actions passed](https://github.com/tony21675/StoryBuilder/actions/runs/38373611359) on [commit 358890a](https://github.com/tony21675/StoryBuilder/commit/358890adebc5873101f462ccc7c294adec757e4f). The full suite compiled the application and passed **82 unit tests**. This proves the generic prompt/data path is wired correctly, but it does not yet prove how the local GGUF model behaves at runtime on the author's laptop.
 
-The generated contract exposed the cause:
-- **Beginning / Current State** had only the loaded scene snapshot, which is appropriate as state context but not the requested scene outline.
-- **Beginning / Middle Direction:** “Tony moves to comfort and take care of both Maya’s immediate needs and external arrangements before settling into quiet companionship with Maya.” This abstracted away nearly all concrete events.
-- **End / Hard Stop:** “Before bedtime or rescue planning begins.” This fails to name the author's intended endpoint at the kitchen table with tea.
-- **Required Beats:** empty.
+### Next test on the laptop
 
-Conclusion: this run does **not** establish that the plain-English approach itself fails. It shows that the current contract-builder reduces the plain-English idea to an overly vague direction, drops its clear ending, and emits no required beats. The writer then has no contract-level reason to complete the specified sequence. Do not respond by making the author's Scene Idea longer or returning to a staged script.
+Save any current draft, use **Close & Sync Novel**, then start StoryBuilder so it pulls main. Rebuild the Scene 4 contract from the short plain-English Scene Idea and try one generation. Check whether the Writer now includes the bubble bath, both breakfast invitations, Barnaby returned to Tiffany's room, Maya's private dressing, chamomile tea, and the kitchen-table endpoint. If anything is still missed, capture the generated contract and result; do not lengthen the idea or add rules until we can distinguish a writer behavior issue from another data-path issue.
 
-No code was changed for this diagnosis. Before changing code, agree on a small generic adjustment to the Scene Idea → contract path: retain the plain-English idea's explicitly named major events and concrete endpoint in a short contract, without restating every step or generating auxiliary validation fields. A subsequent experiment should verify both that the contract preserves those essentials and that the Writer follows them.
-
-**Additional source-path finding:** The Writer prompt is assembled from the Writer Direction text and the generated scene contract; it does not directly include the raw Scene Idea paragraph. Therefore, once the contract builder compresses the paragraph into a vague direction and an incorrect/general hard stop, the Writer loses the concrete intent the author originally supplied. The manual test mainly tested this lossy conversion path, not whether the writer can follow a plain-English idea when it actually receives that idea.
-
-When discussing the next fix, consider a single generic principle: preserve the author's plain-English Scene Idea as direct Writer guidance, with a compact contract supplementing it for the scene boundary and only essential beats. The contract should not replace the original author idea. Avoid duplicating the idea into multiple long instructions; make the original paragraph authoritative and test whether the model can follow it. This is a proposal only; get the author's agreement before implementing.
-
+After this input-to-writing path is confirmed, the next separate improvement can be an automatic **rough Scene Idea drafter** based on the chapter/scene plan, current state, canon, and immediately preceding accepted scene. The author should only need to make small plain-English corrections before writing begins. Keep that future work generic, do not hard-code the bath/bubble-bath example, and inspect/discuss the design before beginning it.
 
 ### Test status
 The GitHub Actions check **passed** on [commit 1e68f8f](https://github.com/tony21675/StoryBuilder/commit/1e68f8f75a79855516ff3c13f8f74edc1781305d): compile checks and the full unit suite passed (79 tests). [View the passing workflow run](https://github.com/tony21675/StoryBuilder/actions/runs/38364175575). This is CI coverage only; it does not prove the local model now generates or validates scenes well on the author's 8 GB laptop.
