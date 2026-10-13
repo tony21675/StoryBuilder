@@ -110,6 +110,17 @@ On October 13, 2026, added a **Clear & Reload Scene Idea** button beside **Build
 - Added regression tests covering replacement after confirmation, cancellation without losing edits, and reload without confirmation when the idea already matches the saved value: [cd311f5](https://github.com/tony21675/StoryBuilder/commit/cd311f5f3bac607a22f2c32fe9ef1c16afbc4af9).
 - The tests were committed but **not executed in this environment**. Run `python3 -m pytest -q tests/test_scene_workflow_safety.py` after pulling on the laptop and fix any failures before claiming verification.
 
+### Validator timeout and prompt-size reduction
+
+The author reported **"Scene contract validation timed out in the Writer tab"** on October 13, 2026. Code inspection confirmed `builder/scene_contract.py::_run_validator` runs a second local llama-cli process with a 300-second timeout, CPU-only by default unless `STORY_LLM_DEVICE` is set. The validation system prompt repeated rules already present in the user prompt, including two duplicate instructions about familial comfort, and the validator received the full current-state object and contract `state_after` payload.
+
+Changes committed for a generic, lighter review:
+- [a165a30](https://github.com/tony21675/StoryBuilder/commit/a165a30821b05c6c2c6df6e3955c829634fa4399) shortened the validator system prompt, reduced the validator token budget from 350 to 220, default validation context from 8192 to 6144 (override with `STORY_VALIDATOR_CONTEXT`), compacted the scene-start state to fields relevant to continuity/knowledge, and removed the potentially large `state_after` from the validation prompt.
+- [fec364b](https://github.com/tony21675/StoryBuilder/commit/fec364bcf04ee8880a58d599172376c632970fa5) corrected newline separators in the compact prompt.
+- [779ae8c](https://github.com/tony21675/StoryBuilder/commit/779ae8c2ba4a5235e456d51966005410786a85ad) added a regression assertion that relevant physical continuity remains in the prompt while unrelated state data does not.
+
+The timeout remains 300 seconds by default; it can be overridden with `STORY_VALIDATOR_TIMEOUT` (minimum 60 seconds). On timeout the writer reports the duration and explicitly says the draft remains unaccepted. **Tests have been committed but not executed in this environment.** After pulling, run `python3 -m pytest -q tests/test_scene_contract.py` and `python3 -m pytest -q tests/test_scene_workflow_safety.py`. Do not mark them as passing until actually run. If it still times out, investigate model startup/RAM contention and whether validation should be opt-in or share resources more efficiently, rather than adding more contract rules.
+
 ## StoryBuilder changes and verification notes
 
 - Reusable scene-contract reassurance handling was committed in `builder/scene_contract.py` at [`b52b1c9`](https://github.com/tony21675/StoryBuilder/commit/b52b1c98ce786cb676a862b5bd8db0e7a5cb17d5).
