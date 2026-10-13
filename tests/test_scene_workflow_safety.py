@@ -171,19 +171,25 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         self.assertEqual(app.scene_idea_text.value, "Saved scene beats.")
         app._ask_yes_no.assert_not_called()
 
-    def test_writer_validation_error_uses_copyable_error_dialog(self):
+    def test_writer_validation_error_uses_copyable_popup_and_preserves_unaccepted_draft(self):
         app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
         error_text = (
-            "Scene contract validation timed out after 300 seconds. "
+            "Local model turn timed out after 300 seconds. "
             "The draft remains unaccepted; you can save it and retry."
         )
+        draft = "A complete scene that could not finish validation."
+        app.package = SimpleNamespace(current_state={"chapter": 2, "scene": 4})
+        app.generated_scene = ""
+        app.accepted_scene = ""
         app.writer_generation_context = (2, 4)
         app.writer_generation_start_state = {"chapter": 2, "scene": 4}
         app.writer_generation_in_progress = True
+        app.writer_output_text = FakeText()
+        app.writer_status = FakeButton()
         app._show_copyable_error = Mock()
         app._update_writer_buttons = Mock()
 
-        app._finish_generated_scene("", error_text)
+        app._finish_generated_scene(draft, error_text)
 
         app._show_copyable_error.assert_called_once_with(
             "Writer",
@@ -191,6 +197,10 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             summary="Scene generation or contract validation failed. The draft was not accepted.",
         )
         self.assertFalse(app.writer_generation_in_progress)
+        self.assertEqual(app.generated_scene, draft)
+        self.assertEqual(app.writer_output_text.value, draft)
+        self.assertTrue(app.writer_validation_failed)
+        self.assertIn("remains unaccepted", app.writer_status.options["text"])
         app._update_writer_buttons.assert_called_once_with()
 
     def test_sync_failure_uses_copyable_error_dialog(self):
