@@ -102,7 +102,7 @@ On October 13, 2026, added a **Clear & Reload Scene Idea** button beside **Build
 
 - Source commits: [c759667](https://github.com/tony21675/StoryBuilder/commit/c75966792d556d71a0d7baa727a950c67c5524e8) and [c15ae58](https://github.com/tony21675/StoryBuilder/commit/c15ae58ba96d34b37cc07928f94b5cf863bb09ef).
 - Added regression tests covering replacement after confirmation, cancellation without losing edits, and reload without confirmation when the idea already matches the saved value: [cd311f5](https://github.com/tony21675/StoryBuilder/commit/cd311f5f3bac607a22f2c32fe9ef1c16afbc4af9).
-- The tests were committed but **not executed in this environment**. Run `python3 -m pytest -q tests/test_scene_workflow_safety.py` after pulling on the laptop and fix any failures before claiming verification.
+- The Clear & Reload regression tests are included in the full GitHub Actions unit suite, which passed on [commit 1e68f8f](https://github.com/tony21675/StoryBuilder/commit/1e68f8f75a79855516ff3c13f8f74edc1781305d). The local Tkinter/RustDesk clipboard behavior still merits a quick desktop check.
 
 ### Validator timeout and prompt-size reduction
 
