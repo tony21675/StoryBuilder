@@ -2281,8 +2281,9 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         self.writer_save_draft_button.configure(
             state="normal" if has_scene and self.package and not acceptance_validating else "disabled"
         )
+        validation_failed = bool(getattr(self, "writer_validation_failed", False))
         self.writer_accept_button.configure(
-            state="normal" if has_scene and not has_accepted and self.package and not acceptance_validating else "disabled"
+            state="normal" if has_scene and not has_accepted and self.package and not acceptance_validating and not validation_failed else "disabled"
         )
         self.writer_reject_button.configure(
             state="normal" if has_scene and not has_accepted and self.package and not acceptance_validating else "disabled"
@@ -2642,7 +2643,8 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
 
                 error = None
             except Exception as exc:
-                answer = ""
+                # If prose was produced and validation later failed, preserve that
+                # unaccepted draft so the author can save it rather than lose it.
                 error = str(exc)
             self.after(0, lambda: self._finish_generated_scene(answer, error))
 
@@ -2656,6 +2658,21 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         self.writer_generation_start_state = None
 
         if error:
+            # Preserve generated prose if validation timed out or otherwise failed.
+            # The scene remains unaccepted; the author can save the draft for review.
+            if str(answer or "").strip():
+                self.generated_scene = str(answer).strip()
+                self.generated_scene_context = target or (
+                    int(self.package.current_state.get("chapter", 1) or 1),
+                    int(self.package.current_state.get("scene", 1) or 1),
+                )
+                self.generated_scene_start_state = start_state
+                self.writer_validation_failed = True
+                self.writer_output_text.delete("1.0", "end")
+                self.writer_output_text.insert("1.0", self.generated_scene)
+                self.writer_status.configure(
+                    text="Draft generated, but contract validation failed. The draft is preserved and remains unaccepted; save it or retry."
+                )
             # Preserve copy/paste for full model and validation errors.
             self._show_copyable_error(
                 "Writer",
@@ -2665,6 +2682,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             self._update_writer_buttons()
             return
 
+        self.writer_validation_failed = False
         self.generated_scene = answer.strip()
         self.generated_scene_context = target or (
             int(self.package.current_state.get("chapter", 1) or 1),
@@ -2693,6 +2711,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             return
 
         self.generated_scene = ""
+        self.writer_validation_failed = False
         self.writer_output_text.delete("1.0", "end")
         if not self.accepted_scene.strip():
             self.generated_scene_context = None
