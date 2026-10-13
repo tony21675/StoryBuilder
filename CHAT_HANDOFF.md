@@ -98,6 +98,10 @@ Treat this as a core product-design signal for the generic Scene Idea → Contra
 
 The current scene's defects are evidence to inspect the actual prompt-building path and identify where an idea becomes over-specified or contradictory, not a reason to add more and more rules to the same Scene Idea.
 
+
+Additional continuity correction from the author: Scene 4 begins directly from the accepted Scene 3 position, with Maya curled against Tony as he holds her on the bed. Do not casually relocate Tony to a chair or invent a different starting arrangement. For the bath and dressing, Tony may offer help and make it available **if Maya chooses**; he should respect her adult privacy and must not assume she wants him to help her bathe or dress. Preserve the offer and her agency without scripting an elaborate consent dialogue or over-explaining it.
+
+
 ## StoryBuilder changes and verification notes
 
 - Reusable scene-contract reassurance handling was committed in `builder/scene_contract.py` at [`b52b1c9`](https://github.com/tony21675/StoryBuilder/commit/b52b1c98ce786cb676a862b5bd8db0e7a5cb17d5).
