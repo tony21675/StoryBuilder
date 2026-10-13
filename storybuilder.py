@@ -4837,20 +4837,29 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             try:
                 sync_novel_repository(self.package.path)
             except NovelSyncError as exc:
-                messagebox.showerror(
+                self._show_copyable_error(
                     "Close & Sync",
                     "The novel was saved locally, but GitHub sync failed.\n\n"
                     + str(exc)
                     + "\n\nThe app will remain open so you can resolve the problem.",
+                    summary=(
+                        "The novel is saved locally, but GitHub synchronization did not complete. "
+                        "Use Copy Full Error or select the text and press Ctrl+C, then paste the details into chat."
+                    ),
                 )
                 self._closing = False
                 return
 
             self.destroy()
         except (OSError, subprocess.SubprocessError) as exc:
-            messagebox.showerror(
+            self._show_copyable_error(
                 "Close & Sync",
-                f"The novel was saved locally, but the GitHub sync could not be completed.\n\n{exc}\n\nThe app will remain open."
+                "The novel was saved locally, but the GitHub sync could not be completed.\n\n"
+                f"{exc}\n\nThe app will remain open.",
+                summary=(
+                    "The novel is saved locally, but GitHub synchronization did not complete. "
+                    "Use Copy Full Error or select the text and press Ctrl+C, then paste the details into chat."
+                ),
             )
             self._closing = False
     def _load_startup_novel(self):
