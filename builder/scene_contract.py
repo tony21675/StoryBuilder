@@ -758,12 +758,12 @@ class SceneContract:
         prompt = (
             "Validate this completed scene against the supplied contract and starting state. "
             "Return JSON only in this shape: "
-            '{"pass": true, "missed_beats": [], "violations": [], "notes": ""}\\n\\n'
-            "SCENE CONTRACT:\\n"
+            '{"pass": true, "missed_beats": [], "violations": [], "notes": ""}\n\n'
+            "SCENE CONTRACT:\n"
             + json.dumps(semantic_contract, ensure_ascii=False, separators=(",", ":"))
-            + "\\n\\nSTARTING STATE (relevant fields only):\\n"
+            + "\n\nSTARTING STATE (relevant fields only):\n"
             + json.dumps(validation_state, ensure_ascii=False, separators=(",", ":"))
-            + "\\n\\nCOMPLETED SCENE:\\n"
+            + "\n\nCOMPLETED SCENE:\n"
             + prose.strip()
         )
 
