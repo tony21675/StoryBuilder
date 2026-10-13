@@ -127,6 +127,7 @@ class SceneContractTests(unittest.TestCase):
         self.assertIn(idea, captured["prompt"])
         self.assertIn("physical_state", captured["prompt"])
         self.assertIn("sitting on the bed", captured["prompt"])
+        self.assertIn(prose, captured["prompt"])
         self.assertNotIn("unrelated_archive_blob", captured["prompt"])
         self.assertNotIn("This old material must not enter validation.", captured["prompt"])
         self.assertNotIn('"state_after"', captured["prompt"])
@@ -211,6 +212,18 @@ class SceneContractTests(unittest.TestCase):
         self.assertIn("Every item in required_beats is mandatory", scene_contract.VALIDATOR_SYSTEM_PROMPT)
         self.assertIn("set pass=false", scene_contract.VALIDATOR_SYSTEM_PROMPT)
         self.assertIn("Ignore incidental omissions from free-form prose", scene_contract.VALIDATOR_SYSTEM_PROMPT)
+
+    def test_validator_checks_whole_scene_before_calling_a_beat_missing(self):
+        prompt = scene_contract.VALIDATOR_SYSTEM_PROMPT
+        self.assertIn(
+            "Search the whole scene for each beat's equivalent action",
+            prompt,
+        )
+        self.assertIn(
+            "If an action occurs but a detail is missing, report only that detail, not the beat as absent.",
+            prompt,
+        )
+        self.assertLess(len(prompt), 800)
 
 
     def test_guidance_builds_contract_from_legacy_fields_and_active_modules(self):
