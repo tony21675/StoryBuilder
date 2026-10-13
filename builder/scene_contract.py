@@ -25,13 +25,9 @@ def _detect_accelerator() -> str | None:
     return override or None
 
 
-CONTRACT_BUILDER_SYSTEM_PROMPT = """You are an authoring assistant for a fictional novel scene.
+CONTRACT_BUILDER_SYSTEM_PROMPT = """Create a concise scene contract for a fictional novel using the author's scene idea and current story state.
 
-The author will give you a short scene idea and the exact current story state at the start of the scene.
-
-Create a MINIMAL scene contract that protects the author's intent without over-constraining the writer.
-
-Return ONLY valid JSON in exactly this shape:
+Return only valid JSON in this shape:
 {
   "direction": "",
   "hard_stop": "",
@@ -44,47 +40,15 @@ Return ONLY valid JSON in exactly this shape:
 }
 
 Rules:
-- Use the current story state as the starting point. Do not replay facts or events already completed before the scene starts.
-- Treat current_situation as the authoritative narrative snapshot at the scene opening. It describes what has already happened and where the scene should begin.
-- Stored physical_state and per-character location details are supporting continuity data, not a higher authority than current_situation. If they conflict, follow current_situation and do not repeat or recreate the conflicting older position as though it were current.
-- Do not combine contradictory snapshots into one opening. If the situation says a character has just arrived, do not also begin with that character already settled into a later position unless the scene idea explicitly requests that transition.
-- The author's scene idea is the primary creative instruction.
-- Treat the scene idea as a boundary, not just a suggestion. Do not add new story events, revelations, character actions, future developments, or ending conditions that are not directly supported by the author's idea.
-- If the idea uses labeled sections such as Beginning, Middle, End, Required, Required Beats, or Must Include, preserve their distinct purposes. Beginning anchors the intended opening; Middle preserves the important action and emotional progression; End defines the actual intended terminal state; Required/Required Beats lists explicit requirements that must not be silently omitted.
-- Do not replace the authored End with the last small gesture that happens before it. The hard_stop must describe the complete intended ending state from the author's End section when one is supplied.
-- Preserve every explicit item in a Required/Required Beats section. Keep each supplied beat, combining only genuinely inseparable items; do not drop an item in the name of minimalism. Minimal means no speculative extras, not omission of author requirements.
-- Write a concise "direction" that tells the writer what the scene is about and how it should unfold naturally, using only the actions and intent supported by the author's idea and current state.
-- Write a concise "hard_stop" that names ONE clear stopping point directly supported by the author's idea. Do not invent a new event just to create an ending.
-- Choose a useful endpoint that completes a small step of the scene's intended action, rather than stopping at the instant that action is about to begin.
-- For a conversation meant to draw out information, normally allow the other character to give an initial response or first small piece of information before stopping. Do not require a complete account or resolution unless the author asks for it.
-- Respect explicit boundaries between adjacent scenes. If the author intends a limited disclosure now and a fuller account in a later scene, make the hard_stop end at the limited disclosure and do not pull later-scene revelations into the current contract. Preserve explicitly stated starting positions and relationships unless the author directs a change.
-- Preserve concrete actions the author explicitly names in the scene idea. Include them in the direction, and add a concise required beat when an action is central to the intended progression or easy to omit. Do not omit a named action just to keep the contract minimal. Combine related actions naturally rather than splitting them into micro-beats.
-- Respect an author-requested cliffhanger or ending on a question when that is clearly the intended endpoint.
-- The hard stop must name ONE clear stopping point. Do not offer alternatives, choices, or "or" conditions.
-- Use the FEWEST contract requirements necessary.
-- Use required_beats for the small number of concrete actions or turning points the author clearly intends to happen in this scene. Do not leave beats empty when the idea explicitly names important actions. Keep related actions together and avoid checklist-like micro-beats.
-- Leave required_facts empty unless a specific fact must be explicitly established for continuity or the author's idea.
-- Do not create a required fact that merely repeats an emotional state or behavior already stated in the direction.
-- Do not use required_facts to restate the scene's premise or ordinary character reactions.
-- Leave required_sequence empty unless the author clearly requires a specific order.
-- Do not generate entries for "forbidden" or "forbidden_details". Leave both arrays empty.
-- These prohibition fields are author-controlled and may be filled manually after generation when needed.
-- Do not invent major plot developments, characters, clues, motives, backstory, injuries, revelations, or future events that the author did not request.
-- Do not turn plausible implications into mandatory requirements.
-- Do not turn plausible scene variations into prohibitions. If the author did not say "do not do X", do not add "do not do X" merely because X seems less appropriate.
-- Do not infer default drama or closure beats such as falling asleep, leaving the room, ending comfort, calling the police, starting a pursuit, discovering a clue, or becoming fully calm unless the author explicitly requests them.
-- Do not repeat the entire current state in the contract.
-- Preserve creative freedom for dialogue, gestures, pacing, sensory details, and harmless everyday interaction.
-- Preserve the emotional intensity and pacing explicitly requested by the author. If the idea describes someone as deeply shaken, trembling, struggling to speak, or unable to settle, retain that intensity in the concise direction instead of flattening it into generic sadness or worry. Preserve the emotional progression described by the author, allowing the initial reaction, hesitation, pauses, and changes in emotion room to unfold before advancing to the next event. Avoid compressing a central emotional moment into a quick exchange; keep the direction concise and natural rather than adding a checklist of micro-beats. When the emotional struggle is central to the scene, allow it to unfold through pauses, repeated attempts to speak, and changing reactions rather than jumping straight to the explanation or resolution. Do not turn this into a long checklist of required beats.
-- When the scene idea explicitly asks for reassurance, patience, or comfort in response to a character's pause or distress, preserve that support clearly in the direction. If the support is central to the scene or easy to omit, capture it as one concise required beat. Leave the actual dialogue and gestures to the writer; do not invent a reassurance requirement when the author did not ask for one.
-- When established character history or relationships provide a natural way to deepen the moment, leave room for the writer to use familiar habits, gestures of care, welcome physical comfort, shared memories, inside jokes, routines, or other small lived-in details without requiring the author to spell them out. These details should fit the characters' trust and relationship, and should be shown naturally rather than over-explained or treated as inherently inappropriate. Use them only when they fit the current moment and do not invent consequential backstory or contradict canon. Do not turn them into mandatory checklist items.
-- Prefer a small number of broad requirements over many narrow checklist items.
-- When a scene idea is broad, prefer one or two broad beats rather than several detailed beats.
-- A minimal contract may contain only direction and hard_stop. That is preferable to adding speculative beats, facts, sequence steps, or prohibitions.
-- Required beats, facts, and sequence steps should only be added when genuinely necessary. Keep them few.
-- Prohibitions are never generated automatically. Leave them empty.
-- max_attempts must be 3 unless the author clearly asks otherwise.
-- Output JSON only. No markdown or explanation.
+- Current state is the opening snapshot. Preserve the actual starting situation and do not replay completed events.
+- The author's idea controls what happens. Preserve the intended endpoint in one clear hard_stop.
+- Use a concise direction, not a scene script.
+- Put the few important concrete actions in required_beats, in natural order. Combine related actions instead of splitting them into small checklist items.
+- Leave required_facts, required_sequence, forbidden, and forbidden_details empty. Keep all positive must-haves together in required_beats; do not create extra validation gates.
+- Do not add events, gestures, motives, revelations, dialogue requirements, or prohibitions the author did not request.
+- Leave dialogue, gestures, pacing, and ordinary transitions to the writer. Preserve creative freedom between the required beats.
+- max_attempts is 3.
+- Output JSON only.
 """
 
 
@@ -405,7 +369,10 @@ class SceneContract:
             + "\n\nCreate the contract now. Keep it minimal.\n"
         )
 
-        raw = _run_contract_builder(model, prompt, engine=engine)
+        if engine is not None and _engine_is_running(engine):
+            raw = _run_contract_builder(model, prompt, engine=engine)
+        else:
+            raw = _run_contract_builder(model, prompt)
 
         authored_sections = extract_authored_scene_sections(idea)
         result = {
@@ -845,7 +812,10 @@ class SceneContract:
         if model is None:
             raise RuntimeError("The active writer model is unavailable for scene validation.")
 
-        raw_result = _run_validator(Path(model), prompt, engine=engine)
+        if _engine_is_running(engine):
+            raw_result = _run_validator(Path(model), prompt, engine=engine)
+        else:
+            raw_result = _run_validator(Path(model), prompt)
         # Keep the public API stable even when validators are mocked or an
         # alternate engine returns JSON booleans as strings.
         if not isinstance(raw_result, dict):
