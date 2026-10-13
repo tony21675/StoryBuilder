@@ -12,6 +12,34 @@ Read the current versions on GitHub `main` before acting:
 **Use the newest checkpoint below as the session handoff. Older conversation context or stale repository copies do not overrule the current author-confirmed checkpoint.**
 
 
+## Latest Checkpoint: October 13, 2026 (explicit-beat revision mechanics committed; CI passed)
+
+### Generic StoryBuilder revision and validation repair
+
+After reviewing a new Chapter 2, Scene 4 draft that omitted several planned actions, Tony approved a generic mechanics repair rather than repeatedly patching the scene prompt.
+
+- builder/scene_contract.py now tells semantic validation that every item in required_beats is mandatory. The validator should accept paraphrases but fail when a required action is missing or incomplete. Incidental omissions from ordinary scene prose remain non-blocking unless they remove a central development or defeat the scene's endpoint.
+- The result normalizer now forces pass=false if the validator reports any missed_beats or material violations alongside pass=true; such contradictory output must not bypass the revision loop.
+- Focused-revision feedback and SceneContract.revision_prompt now explicitly tell the model to weave missing Required Beats into natural prose, while preserving successful dialogue, pacing, and unaffected passages instead of turning the scene into an outline or checklist.
+- Regression coverage was added for inconsistent validator results and for the distinction between mandatory Required Beats and incidental detail. Existing compact-prompt and physical-continuity assertions were retained.
+- Latest verified source commit: [e9479f0](https://github.com/tony21675/StoryBuilder/commit/e9479f0076ddc9996894ab19907a8ed56a256405). [GitHub Actions passed](https://github.com/tony21675/StoryBuilder/actions/runs/38466770124). The intermediate commits in this sequence had compatibility-test failures; the latest commit restored the required continuity/compatibility wording. Do not treat the intermediate failures as the current result.
+- The passing automated suite verifies the source and regression behavior, not the local GGUF model's runtime performance. A fresh local model test is still required.
+
+### MyNovel Scene 4 planning files updated on GitHub
+
+- [writing_guidance.json commit 16cd1d9](https://github.com/tony21675/MyNovel/commit/16cd1d9995afac02233e3c6505c76b98d6d3eebb) updates the saved Scene Idea and five major Required Beats.
+- [STORY_PLAN.md commit b2508ef](https://github.com/tony21675/MyNovel/commit/b2508efd6904d9f28bffd2a2188da99d42442ae6) aligns the confirmed order: warm bubble bath; ordinary breakfast call to Beth; then a call to Jessica inviting Jessica, Chloe, and Rick together; clothes from Tiffany's bedroom; Barnaby's hug and Tony's private vow; quiet tea with Maya at the kitchen table. No extra rescue planning or bedtime in Scene 4.
+- The Scene Idea remains plain English, not a replacement checklist. Accepted Scenes 1–3 remain untouched.
+- Tony has been offered, but has not yet approved, distinct nickname suggestions for Beth and Jessica. Do not write those nicknames into canon or the Scene Idea until he confirms them.
+
+### Safe next pickup
+
+1. On the laptop, verify the MyNovel checkout is clean and on main. If clean, fast-forward the GitHub Scene 4 planning updates with git pull --ff-only; if dirty or diverged, stop and inspect rather than reset.
+2. From ~/Documents/StoryBuilder, run ./start.sh to sync the verified source and launch the app.
+3. Reload Taken_at_Dusk. Verify the Writer, current state, and Scene Contract show Chapter 2, Scene 4 and the updated saved Scene Idea. If stale, use Clear & Reload Scene Idea and Build Contract from Scene Idea.
+4. Test a fresh draft through the updated writer/validator path. The test is not complete until missing required actions are detected and the focused revision repairs them while preserving the prose that works. Review before acceptance; do not touch accepted Scenes 1–3.
+5. Do not begin Scene Planner development until Chapter 2 is accepted through Scene 5 and Tony explicitly finalizes the chapter.
+
 ## Permanent collaboration rule: discuss before changing anything
 
 Before making changes for Tony **or changes to my own project work/process**, stop and explain the proposed change first. Say what I want to change, why, and the likely effect or risk, then discuss it with Tony and wait for his explicit approval before editing, implementing, committing, pushing, merging, or changing story canon, prompts, code, UI, workflow, files, or handoff notes.
@@ -21,7 +49,7 @@ A request to inspect, diagnose, review, or make a recommendation is not permissi
 This rule applies equally to changes in Tony's projects and to my own proposed fixes, refactors, tests, documentation, and handoff/process notes. Only proceed without another approval for the specific action Tony has already explicitly requested.
 
 
-## Latest Checkpoint: October 13, 2026 (end of session; sync repair complete)
+## Previous Checkpoint: October 13, 2026 (initial end-of-session sync repair; historical)
 
 Tony is tired and frustrated after resolving the novel sync problem. The application was closed at the end of this session. Keep tomorrow's restart gentle and do not reopen Git troubleshooting unless a new failure appears.
 
