@@ -182,6 +182,10 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         app.accepted_scene = ""
         app.pending_state_patch = None
         app.writer_validation_failed = True
+        app.scene_contract_building = False
+        app.__dict__["writer_generation_in_progress"] = False
+        app.__dict__["writer_notes_update_in_progress"] = False
+        app.__dict__["acceptance_validation_in_progress"] = False
         for name in (
             "writer_start_button",
             "writer_stop_button",
