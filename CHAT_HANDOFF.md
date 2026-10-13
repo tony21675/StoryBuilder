@@ -121,6 +121,24 @@ Changes committed for a generic, lighter review:
 
 The timeout remains 300 seconds by default; it can be overridden with `STORY_VALIDATOR_TIMEOUT` (minimum 60 seconds). On timeout the writer reports the duration and explicitly says the draft remains unaccepted. **Tests have been committed but not executed in this environment.** After pulling, run `python3 -m pytest -q tests/test_scene_contract.py` and `python3 -m pytest -q tests/test_scene_workflow_safety.py`. Do not mark them as passing until actually run. If it still times out, investigate model startup/RAM contention and whether validation should be opt-in or share resources more efficiently, rather than adding more contract rules.
 
+### Low-RAM model serialization and minimal contract fields
+
+The author clarified that the active laptop has **8 GB RAM**, and loading a second copy of the local GGUF model while Writer is already running causes significant slowdown. The follow-up code path now reuses the existing `WriterEngine` process for Scene Contract generation and validation whenever it is active: stop/restart the same engine with a task-specific prompt, a 6144-token context, and a small output budget, instead of launching a concurrent second llama-cli process. Contract building is blocked while writing is active, and Writer actions that could start another model task are disabled while a contract is being built. If the Writer isn't running, the contract tools use a single standalone model process with a 6144 context.
+
+Automatic contract generation now puts positive requirements in `required_beats` and intentionally leaves `required_facts`, `required_sequence`, `forbidden`, and `forbidden_details` empty. The builder system prompt was shortened. This targets the author's repeated observation that adding generated material beneath Required Beats caused the validator to reject scenes. Existing explicit contract fields still remain part of the validator when present in stored contracts, so rebuild a stale generated contract if it contains unwanted auxiliary rules.
+
+Writer validation/build errors now use the existing copyable error dialog. If prose was generated but validation times out/fails, StoryBuilder keeps the draft visible and saveable but disables Accept until a successful generation/validation; timed-out model processes are killed to release RAM.
+
+Relevant commits:
+- Single-engine contract/validator path and smaller task settings: [d8e8935](https://github.com/tony21675/StoryBuilder/commit/d8e893542407c7c00c2023f4a64e14c717b4203d), [e2490bb](https://github.com/tony21675/StoryBuilder/commit/e2490bb6662c74cd3b3b211264e4b72c14238d71), [c9a3771](https://github.com/tony21675/StoryBuilder/commit/c9a377131c023d437d37049ccc772e00f7bb52b0), [e52f9b8](https://github.com/tony21675/StoryBuilder/commit/e52f9b8c7a0d80db77e0f1338d5e57b3a1d588ea).
+- Writer UI serialized while building and copyable errors: [bc7b49a](https://github.com/tony21675/StoryBuilder/commit/bc7b49a3461dbcf8c2197397caf0a30ad9ba283e), [fd1c278](https://github.com/tony21675/StoryBuilder/commit/fd1c2781fdaee7ceb5f57b9e22fb611f4b97c586), [d94181d](https://github.com/tony21675/StoryBuilder/commit/d94181d35da07cce041c6d1c197a1d64b73df81f).
+- Timeout behavior and task-specific generation timeout: [19a73ae](https://github.com/tony21675/StoryBuilder/commit/19a73aedadb93533aed9fd3daf6eb4daedfa8032), [cd21b70](https://github.com/tony21675/StoryBuilder/commit/cd21b7078ecf274055056b736f78d2cf82fa0d0a), [a38153a](https://github.com/tony21675/StoryBuilder/commit/a38153a8d417a64863c6ab4baed0578fe8f554ae).
+- Regression tests added/updated: [a3d0ab0](https://github.com/tony21675/StoryBuilder/commit/a3d0ab020f414c49b864a096f6cee90f98d6eb5d), [ddf2fad](https://github.com/tony21675/StoryBuilder/commit/ddf2fadf9c073d41b257a69a6d6df690aa65a967), [af49583](https://github.com/tony21675/StoryBuilder/commit/af49583cf83696929b257ab25ef1f6f9786016be), and [7836856](https://github.com/tony21675/StoryBuilder/commit/7836856d9aa38bfbdd0bd4a8ac91933947cacd56).
+
+Tests were **not executed**. The current container could not connect directly to GitHub to create a local checkout, so do not claim they pass. After syncing on the laptop, run:
+`python3 -m pytest -q tests/test_scene_contract.py tests/test_scene_workflow_safety.py`
+Fix failures before further model behavior changes. Verify the timeout still preserves a saveable draft and that only one llama-cli process is resident during contract build/validation.
+
 ## StoryBuilder changes and verification notes
 
 - Reusable scene-contract reassurance handling was committed in `builder/scene_contract.py` at [`b52b1c9`](https://github.com/tony21675/StoryBuilder/commit/b52b1c98ce786cb676a862b5bd8db0e7a5cb17d5).
