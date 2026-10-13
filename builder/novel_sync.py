@@ -50,6 +50,41 @@ def sync_novel_repository(novel_path: Path) -> str:
     """
     root = _git_root(novel_path)
     branch = _branch(root)
+    if branch != "main":
+        raise NovelSyncError(
+            f"This novel must use its single permanent 'main' branch, not '{branch}'. "
+            "No changes were pushed. Do not create or switch to feature branches for novel work."
+        )
+
+    # A previous sync may have left Git paused in a rebase after a remote conflict.
+    # Restore the saved local branch commit before attempting another sync.
+    initial_status = _run_git(root, "status")
+    if initial_status.returncode != 0:
+        raise NovelSyncError(
+            initial_status.stderr.strip() or "Could not inspect the novel repository state."
+        )
+    status_text = (initial_status.stdout + "\n" + initial_status.stderr).casefold()
+    if "rebase in progress" in status_text or "currently rebasing" in status_text or "you are currently rebasing" in status_text:
+        abort = _run_git(root, "rebase", "--abort")
+        if abort.returncode != 0:
+            details = abort.stderr.strip() or abort.stdout.strip()
+            raise NovelSyncError(
+                "The novel repository is stuck in a previous rebase, and Git could not abort it safely. "
+                "Do not click Close & Sync repeatedly. Your committed local changes have not been intentionally discarded.\n\n"
+                + (details or "Git did not provide an abort error.")
+            )
+
+    unmerged = _run_git(root, "diff", "--name-only", "--diff-filter=U")
+    if unmerged.returncode != 0:
+        raise NovelSyncError(
+            unmerged.stderr.strip() or "Could not check for unresolved conflict files."
+        )
+    if unmerged.stdout.strip():
+        raise NovelSyncError(
+            "The novel repository contains unresolved conflict files. No push was attempted. "
+            "Please report this message before trying another sync.\n\n"
+            + unmerged.stdout.strip()
+        )
 
     status = _run_git(root, "status", "--porcelain")
     if status.returncode != 0:
@@ -89,10 +124,24 @@ def sync_novel_repository(novel_path: Path) -> str:
     if pull.returncode != 0:
         details = pull.stderr.strip() or pull.stdout.strip()
         if "CONFLICT" in details or "conflict" in details or "could not apply" in details:
+            abort = _run_git(root, "rebase", "--abort")
+            if abort.returncode == 0:
+                final_status = _run_git(root, "status", "-sb")
+                status_line = final_status.stdout.strip()
+                raise NovelSyncError(
+                    "GitHub and this laptop changed overlapping novel content, so sync stopped safely. "
+                    "I automatically aborted the incomplete rebase to keep Git from remaining stuck. "
+                    "Your local commit is preserved on main, and nothing was pushed or overwritten. "
+                    "Do not keep clicking Close & Sync; the specific content conflict must be reconciled first.\n\n"
+                    + details
+                    + ("\n\nRepository status after safe abort:\n" + status_line if status_line else "")
+                )
+            abort_details = abort.stderr.strip() or abort.stdout.strip()
             raise NovelSyncError(
-                "GitHub and this laptop changed the same novel content. "
-                "The repository was left in the rebase state so nothing was overwritten.\n\n"
+                "GitHub and this laptop changed overlapping novel content. Git could not safely abort "
+                "the incomplete rebase, so do not retry Close & Sync. Your local commit should remain in Git.\n\n"
                 + details
+                + ("\n\nAbort details:\n" + abort_details if abort_details else "")
             )
         raise NovelSyncError(details or "Could not rebase the novel repository.")
 
