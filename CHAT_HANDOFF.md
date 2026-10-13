@@ -125,6 +125,11 @@ Conclusion: this run does **not** establish that the plain-English approach itse
 
 No code was changed for this diagnosis. Before changing code, agree on a small generic adjustment to the Scene Idea → contract path: retain the plain-English idea's explicitly named major events and concrete endpoint in a short contract, without restating every step or generating auxiliary validation fields. A subsequent experiment should verify both that the contract preserves those essentials and that the Writer follows them.
 
+**Additional source-path finding:** The Writer prompt is assembled from the Writer Direction text and the generated scene contract; it does not directly include the raw Scene Idea paragraph. Therefore, once the contract builder compresses the paragraph into a vague direction and an incorrect/general hard stop, the Writer loses the concrete intent the author originally supplied. The manual test mainly tested this lossy conversion path, not whether the writer can follow a plain-English idea when it actually receives that idea.
+
+When discussing the next fix, consider a single generic principle: preserve the author's plain-English Scene Idea as direct Writer guidance, with a compact contract supplementing it for the scene boundary and only essential beats. The contract should not replace the original author idea. Avoid duplicating the idea into multiple long instructions; make the original paragraph authoritative and test whether the model can follow it. This is a proposal only; get the author's agreement before implementing.
+
+
 ### Test status
 The GitHub Actions check **passed** on [commit 1e68f8f](https://github.com/tony21675/StoryBuilder/commit/1e68f8f75a79855516ff3c13f8f74edc1781305d): compile checks and the full unit suite passed (79 tests). [View the passing workflow run](https://github.com/tony21675/StoryBuilder/actions/runs/38364175575). This is CI coverage only; it does not prove the local model now generates or validates scenes well on the author's 8 GB laptop.
 
