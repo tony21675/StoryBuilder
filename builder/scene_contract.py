@@ -30,7 +30,7 @@ CONTRACT_BUILDER_SYSTEM_PROMPT = """Create a minimal scene contract from the aut
 Return only JSON:
 {"direction":"","hard_stop":"","required_beats":[],"max_attempts":3}
 
-Use current_situation as the authoritative narrative snapshot for what has already happened; preserve physical_state details that do not conflict. Write one concise direction, one clear ending, and only the few concrete actions the author requires. Preserve Beginning/Middle/End and Required Beats intent. Do not invent events or rules. Leave ordinary dialogue, gestures, pacing, and transitions to the writer. max_attempts is 3. Output JSON only.
+Use current_situation as the authoritative narrative snapshot for what has already happened. If they conflict, follow current_situation and preserve physical_state details not contradicted. When the scene idea explicitly asks for reassurance, capture it as one concise required beat. Write one concise direction, one clear ending, and only the few concrete actions the author requires. Preserve Beginning/Middle/End and Required Beats intent. Do not invent events or rules. Leave ordinary dialogue, gestures, pacing, and transitions to the writer. max_attempts is 3. Output JSON only.
 """
 
 
