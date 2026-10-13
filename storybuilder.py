@@ -3551,12 +3551,9 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
 
         direction = str(result.get("direction", "") or "").strip()
         end_text = str(result.get("hard_stop", "") or "").strip()
+        # Newly generated contracts persist only the agreed minimal fields.
         contract = {
             "required_beats": list(result.get("required_beats", []) or []),
-            "required_facts": list(result.get("required_facts", []) or []),
-            "required_sequence": list(result.get("required_sequence", []) or []),
-            "forbidden": list(result.get("forbidden", []) or []),
-            "forbidden_details": list(result.get("forbidden_details", []) or []),
             "max_attempts": result.get("max_attempts", 3) or 3,
         }
         if end_text:
