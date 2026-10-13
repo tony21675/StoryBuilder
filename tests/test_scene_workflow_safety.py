@@ -744,6 +744,47 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
                 self.assertFalse(app._prepare_for_scene_change(2, 2))
             warning.assert_called_once()
 
+    def test_runtime_contract_keeps_saved_plain_english_scene_idea(self):
+        idea = (
+            "Tony offers Maya a warm bubble bath. He invites Beth to breakfast, then "
+            "Jessica, Chloe, and Rick together without revealing the abduction. He returns "
+            "Barnaby to Tiffany's room and later sits with Maya at the kitchen table with tea."
+        )
+        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+        app.package = SimpleNamespace(
+            extra_json={
+                "writing_guidance.json": {
+                    "chapter_plans": {
+                        "2": {
+                            "scene_plan": {
+                                "4": {
+                                    "scene_idea": idea,
+                                    "direction": "Tony cares for Maya.",
+                                    "end_condition": "Before bedtime.",
+                                    "scene_contract": {
+                                        "required_beats": [],
+                                        "hard_stop": "Before bedtime.",
+                                        "max_attempts": 3,
+                                    },
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            story_bible={"optional_story_modules": []},
+        )
+
+        contract = app._scene_contract(2, 4)
+        prompt_context = SceneContract.writer_prompt_context(
+            "Chapter 2, Scene 4. Maya is at Tony's home.",
+            contract,
+        )
+
+        self.assertEqual(contract["author_idea"], idea)
+        self.assertIn(idea, prompt_context)
+        self.assertIn("AUTHOR'S ORIGINAL PLAIN-ENGLISH SCENE IDEA (PRIMARY INTENT)", prompt_context)
+
     def test_contract_builder_prioritizes_current_situation_over_stale_physical_state(self):
         self.assertIn(
             "current_situation as the authoritative narrative snapshot",
