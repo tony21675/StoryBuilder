@@ -2184,7 +2184,10 @@ class StoryBuilderApp(tk.Tk):
             lines.append("Beats: " + " | ".join(module_beats))
 
         lines.append(
-            "Write natural prose only. Current state controls what has already happened, physical continuity, and character knowledge. The original plain-English Scene Idea controls requested events, order, and ending; generated direction is supporting context only."
+            "Write natural prose only. Current state controls what has already happened, "
+            "physical continuity, and character knowledge. The original plain-English "
+            "Scene Idea controls requested events, order, and ending; generated direction "
+            "is supporting context only."
         )
 
         self.writer_direction_text.delete("1.0", "end")
