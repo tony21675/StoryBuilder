@@ -161,11 +161,24 @@ class SceneContractTests(unittest.TestCase):
             "direction": "Let the characters talk naturally.",
             "end_condition": "Stop when they reach the house.",
             "required_events": ["They leave the store."],
-            "do_not_advance": ["Do not enter the next scene."],
+            "required_facts": ["Ignore this legacy fact gate."],
+            "required_sequence": ["Ignore this legacy sequence gate."],
+            "forbidden_details": ["Ignore this legacy forbidden detail."],
+            "do_not_advance": ["Ignore this legacy do-not-advance gate."],
+            "scene_contract": {
+                "required_facts": ["Ignore nested facts."],
+                "required_sequence": ["Ignore nested sequence."],
+                "forbidden": ["Ignore nested prohibition."],
+                "forbidden_details": ["Ignore nested details."],
+            },
         }
         modules = [{
             "required_events": ["A dog barks."],
             "do_not_advance": ["Do not introduce a second dog."],
+            "scene_contract": {
+                "required_sequence": ["Ignore module sequence."],
+                "forbidden": ["Ignore module prohibition."],
+            },
         }]
 
         contract = scene_contract.SceneContract.from_guidance(guidance, modules)
