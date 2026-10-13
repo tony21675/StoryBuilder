@@ -11,12 +11,12 @@ from builder.state_manager import extract_json_object
 from builder.workspace import LLAMA as DEFAULT_LLAMA
 
 
-VALIDATOR_SYSTEM_PROMPT = """You check a completed fictional scene against its authored scene contract and starting state.
+VALIDATOR_SYSTEM_PROMPT = """Check a completed scene against its contract and starting state.
 
-Return only JSON in this shape:
+Return only JSON:
 {"pass": true, "missed_beats": [], "violations": [], "notes": ""}
 
-Check only the required beats, relevant character knowledge, opening physical situation, and actual ending against hard_stop. Compare the prose opening with the supplied current story state, especially position and contact. Accept natural paraphrases. Do not demand exact wording, invent requirements, nitpick style, or penalize harmless creative details. Report only clear, material failures, briefly. Output JSON only.
+Check required beats and hard_stop. Compare opening position and contact with the starting state; flag a change only when no transition explains it. Keep character knowledge consistent. Accept natural paraphrases and neutral familial comfort. Do not nitpick style or infer sexual intent from ordinary care. Report only clear, material failures. Output JSON only.
 """
 
 
