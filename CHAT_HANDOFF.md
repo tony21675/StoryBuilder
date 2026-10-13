@@ -111,6 +111,20 @@ Evaluate two separate things:
 
 If the manual test works, use it as evidence that the concept is viable, then inspect the existing app path and propose a generic change so StoryBuilder can automatically draft a similar plain-English Scene Idea from the established chapter/scene plan, current state, canon, and immediately preceding accepted scene. The author should be able to make small natural-language edits before contract building. Keep the app-generated idea as concise as the successful example. Do not hard-code Scene 4 or the bubble-bath example; those are examples of the general workflow, not permanent special cases. Discuss the smallest implementation and get agreement before changing code. If the manual test does not work, capture the contract and result/error first instead of changing several things at once.
 
+### Manual plain-English Scene Idea test: failure traced to contract generation
+
+The author tested a short, conversational Scene Idea for Chapter 2, Scene 4 on October 13, 2026. The resulting scene mostly stayed in the bedroom, repeated/extended the prior-scene material, and did not include the bath, breakfast invitations, Barnaby, clean clothes, or the kitchen-table ending.
+
+The generated contract exposed the cause:
+- **Beginning / Current State** had only the loaded scene snapshot, which is appropriate as state context but not the requested scene outline.
+- **Beginning / Middle Direction:** “Tony moves to comfort and take care of both Maya’s immediate needs and external arrangements before settling into quiet companionship with Maya.” This abstracted away nearly all concrete events.
+- **End / Hard Stop:** “Before bedtime or rescue planning begins.” This fails to name the author's intended endpoint at the kitchen table with tea.
+- **Required Beats:** empty.
+
+Conclusion: this run does **not** establish that the plain-English approach itself fails. It shows that the current contract-builder reduces the plain-English idea to an overly vague direction, drops its clear ending, and emits no required beats. The writer then has no contract-level reason to complete the specified sequence. Do not respond by making the author's Scene Idea longer or returning to a staged script.
+
+No code was changed for this diagnosis. Before changing code, agree on a small generic adjustment to the Scene Idea → contract path: retain the plain-English idea's explicitly named major events and concrete endpoint in a short contract, without restating every step or generating auxiliary validation fields. A subsequent experiment should verify both that the contract preserves those essentials and that the Writer follows them.
+
 ### Test status
 The GitHub Actions check **passed** on [commit 1e68f8f](https://github.com/tony21675/StoryBuilder/commit/1e68f8f75a79855516ff3c13f8f74edc1781305d): compile checks and the full unit suite passed (79 tests). [View the passing workflow run](https://github.com/tony21675/StoryBuilder/actions/runs/38364175575). This is CI coverage only; it does not prove the local model now generates or validates scenes well on the author's 8 GB laptop.
 
