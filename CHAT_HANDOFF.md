@@ -11,6 +11,16 @@ Read the current versions on GitHub `main` before acting:
 
 **Use the newest checkpoint below as the session handoff. Older conversation context or stale repository copies do not overrule the current author-confirmed checkpoint.**
 
+
+## Permanent collaboration rule: discuss before changing anything
+
+Before making changes for Tony **or changes to my own project work/process**, stop and explain the proposed change first. Say what I want to change, why, and the likely effect or risk, then discuss it with Tony and wait for his explicit approval before editing, implementing, committing, pushing, merging, or changing story canon, prompts, code, UI, workflow, files, or handoff notes.
+
+A request to inspect, diagnose, review, or make a recommendation is not permission to modify. Start with read-only investigation when useful, explain the recommendation, and ask before carrying it out. Do not assume a change is harmless, obvious, urgent, or implied. If the approved scope changes or a new issue calls for additional changes, stop and discuss again. Always preserve existing work and avoid destructive actions.
+
+This rule applies equally to changes in Tony's projects and to my own proposed fixes, refactors, tests, documentation, and handoff/process notes. Only proceed without another approval for the specific action Tony has already explicitly requested.
+
+
 ## Latest Checkpoint: October 13, 2026 (end of session; sync repair complete)
 
 Tony is tired and frustrated after resolving the novel sync problem. The application was closed at the end of this session. Keep tomorrow's restart gentle and do not reopen Git troubleshooting unless a new failure appears.
