@@ -49,15 +49,10 @@ def sync_novel_repository(novel_path: Path) -> str:
     pushed. A rebase conflict is reported without silently choosing either side.
     """
     root = _git_root(novel_path)
-    branch = _branch(root)
-    if branch != "main":
-        raise NovelSyncError(
-            f"This novel must use its single permanent 'main' branch, not '{branch}'. "
-            "No changes were pushed. Do not create or switch to feature branches for novel work."
-        )
 
-    # A previous sync may have left Git paused in a rebase after a remote conflict.
-    # Restore the saved local branch commit before attempting another sync.
+    # Inspect recovery state before requiring a branch name. During a conflicted
+    # rebase, Git may temporarily report a detached HEAD, but the original branch
+    # and commit are recoverable with rebase --abort.
     initial_status = _run_git(root, "status")
     if initial_status.returncode != 0:
         raise NovelSyncError(
@@ -73,6 +68,13 @@ def sync_novel_repository(novel_path: Path) -> str:
                 "Do not click Close & Sync repeatedly. Your committed local changes have not been intentionally discarded.\n\n"
                 + (details or "Git did not provide an abort error.")
             )
+
+    branch = _branch(root)
+    if branch != "main":
+        raise NovelSyncError(
+            f"This novel must use its single permanent 'main' branch, not '{branch}'. "
+            "No changes were pushed. Do not create or switch to feature branches for novel work."
+        )
 
     unmerged = _run_git(root, "diff", "--name-only", "--diff-filter=U")
     if unmerged.returncode != 0:
