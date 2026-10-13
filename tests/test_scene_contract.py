@@ -234,7 +234,7 @@ class SceneContractTests(unittest.TestCase):
     def test_validator_treats_required_beats_as_narrative_goals(self):
         prompt = scene_contract.VALIDATOR_SYSTEM_PROMPT
         self.assertIn("Treat Required Beats as narrative-level goals", prompt)
-        self.assertIn("not a word-for-word checklist", prompt)
+        self.assertIn("not a checklist", prompt)
         self.assertIn("Fail only when a core action or outcome is absent or materially wrong", prompt)
         self.assertIn("do not fail for that alone", prompt)
         self.assertIn("Ignore incidental omissions from free-form prose", prompt)
