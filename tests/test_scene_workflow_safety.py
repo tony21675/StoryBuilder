@@ -171,6 +171,28 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         self.assertEqual(app.scene_idea_text.value, "Saved scene beats.")
         app._ask_yes_no.assert_not_called()
 
+    def test_writer_validation_error_uses_copyable_error_dialog(self):
+        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+        error_text = (
+            "Scene contract validation timed out after 300 seconds. "
+            "The draft remains unaccepted; you can save it and retry."
+        )
+        app.writer_generation_context = (2, 4)
+        app.writer_generation_start_state = {"chapter": 2, "scene": 4}
+        app.writer_generation_in_progress = True
+        app._show_copyable_error = Mock()
+        app._update_writer_buttons = Mock()
+
+        app._finish_generated_scene("", error_text)
+
+        app._show_copyable_error.assert_called_once_with(
+            "Writer",
+            error_text,
+            summary="Scene generation or contract validation failed. The draft was not accepted.",
+        )
+        self.assertFalse(app.writer_generation_in_progress)
+        app._update_writer_buttons.assert_called_once_with()
+
     def test_sync_failure_uses_copyable_error_dialog(self):
         with tempfile.TemporaryDirectory() as tmp:
             app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
