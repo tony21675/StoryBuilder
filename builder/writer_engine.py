@@ -173,12 +173,18 @@ class WriterEngine:
             turn_timeout = WRITER_TIMEOUT if timeout is None else max(1, int(timeout))
             try:
                 self.child.expect(r"(?m)^> ", timeout=turn_timeout)
-            except Exception:
+            except pexpect.TIMEOUT as exc:
+                output = self.child.before or ""
+                raise TimeoutError(
+                    f"Local model turn timed out after {turn_timeout} seconds.\n"
+                    + str(output)[-2000:]
+                ) from exc
+            except Exception as exc:
                 output = self.child.before or ""
                 raise RuntimeError(
                     "The writer failed while generating the scene.\n"
                     + str(output)[-3000:]
-                )
+                ) from exc
 
             answer = str(self.child.before or "")
             answer = answer.replace("\r", "").strip()
