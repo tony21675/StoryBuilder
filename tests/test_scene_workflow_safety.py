@@ -945,7 +945,7 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             )
 
         self.assertIn("opening position and contact", scene_contract.VALIDATOR_SYSTEM_PROMPT)
-        self.assertIn("no transition explains it", scene_contract.VALIDATOR_SYSTEM_PROMPT)
+        self.assertIn("if no transition explains a mismatch", scene_contract.VALIDATOR_SYSTEM_PROMPT)
         self.assertIn("sitting upright against the headboard", captured["prompt"])
         self.assertIn("neutral familial comfort", scene_contract.VALIDATOR_SYSTEM_PROMPT)
         self.assertIn("Tony provides a familiar fatherly comfort gesture.", captured["prompt"])
