@@ -2578,16 +2578,8 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             ])
 
         prompt_parts.extend([
-            "IMPORTANT SCENE BOUNDARY:\n",
-            "The scene contract and current story state are authoritative. "
-            "Do not replay the previous scene. Do not reveal information to a character before that "
-            "character naturally learns it in this scene. Do not invent consequential facts. "
-            "Complete the required beats and reach the contract's ending without adding a different plot. "
-            "Creative variation is allowed in dialogue, gestures, reactions, pacing, and harmless details. "
-            "Preserve the emotional intensity and progression the author requests, but let them emerge naturally "
-            "from the scene. Small creative details are welcome when they fit; do not invent consequential facts "
-            "or state unsupported motives as fact. "
-            "At the scene opening, preserve stored location, position, posture, contact, and movement details unless current_situation or the scene direction directly contradicts or changes them. Current_situation wins only in a genuine conflict; do not assume physical continuity is stale merely because current_situation is silent about a detail.\n\n"
+            "SCENE BOUNDARY:\n",
+            "Follow the scene contract and current story state. Continue from the established opening without replaying completed events. Preserve character knowledge and opening position/contact unless this scene changes them. Reach the hard stop without inventing consequential facts. Write natural prose with creative freedom in dialogue, gestures, pacing, and transitions.\n\n",
             "Write the scene now. Output only the prose."
         ])
         base_prompt = "".join(prompt_parts)
