@@ -23,6 +23,14 @@ if [[ -z "$BRANCH" ]]; then
   exit 1
 fi
 
+if [[ "$BRANCH" != "main" ]]; then
+  echo "ERROR: StoryBuilder uses one permanent branch: main."
+  echo "Current branch is: $BRANCH"
+  echo "Do not sync or create feature branches from this checkout."
+  echo "No branch switch or deletion was attempted, to protect local work."
+  exit 1
+fi
+
 restore_stash() {
   if [[ "${STASHED:-0}" != "1" ]]; then
     return 0
