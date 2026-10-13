@@ -102,6 +102,14 @@ The current scene's defects are evidence to inspect the actual prompt-building p
 Additional continuity correction from the author: Scene 4 begins directly from the accepted Scene 3 position, with Maya curled against Tony as he holds her on the bed. Do not casually relocate Tony to a chair or invent a different starting arrangement. For the bath and dressing, Tony may offer help and make it available **if Maya chooses**; he should respect her adult privacy and must not assume she wants him to help her bathe or dress. Preserve the offer and her agency without scripting an elaborate consent dialogue or over-explaining it.
 
 
+### Completed UI request: Clear & Reload Scene Idea
+
+On October 13, 2026, added a **Clear & Reload Scene Idea** button beside **Build Contract from Scene Idea** in the Scene Contract tab. It reloads only the saved Scene Idea for the current scene, leaving generated contract fields and novel data untouched. If the editor differs from the saved idea, it asks before discarding unsaved edits. It blocks reload during contract building or writer generation and warns/reloads the displayed scene if the editor is out of sync with current state.
+
+- Source commits: [c759667](https://github.com/tony21675/StoryBuilder/commit/c75966792d556d71a0d7baa727a950c67c5524e8) and [c15ae58](https://github.com/tony21675/StoryBuilder/commit/c15ae58ba96d34b37cc07928f94b5cf863bb09ef).
+- Added regression tests covering replacement after confirmation, cancellation without losing edits, and reload without confirmation when the idea already matches the saved value: [cd311f5](https://github.com/tony21675/StoryBuilder/commit/cd311f5f3bac607a22f2c32fe9ef1c16afbc4af9).
+- The tests were committed but **not executed in this environment**. Run `python3 -m pytest -q tests/test_scene_workflow_safety.py` after pulling on the laptop and fix any failures before claiming verification.
+
 ## StoryBuilder changes and verification notes
 
 - Reusable scene-contract reassurance handling was committed in `builder/scene_contract.py` at [`b52b1c9`](https://github.com/tony21675/StoryBuilder/commit/b52b1c98ce786cb676a862b5bd8db0e7a5cb17d5).
