@@ -360,13 +360,30 @@ class SceneContract:
         if not model.is_file() or model.suffix.casefold() != ".gguf":
             raise ValueError("The selected model is not a valid GGUF file.")
 
+        contract_state = {
+            key: current_state[key]
+            for key in (
+                "chapter",
+                "scene",
+                "status",
+                "scene_completed",
+                "location",
+                "time",
+                "time_of_day",
+                "scene_cast",
+                "current_situation",
+                "physical_state",
+                "character_knowledge",
+            )
+            if key in current_state
+        }
         prompt = (
-            "BUILD A MINIMAL SCENE CONTRACT.\n\n"
-            "AUTHOR SCENE IDEA:\n"
+            "BUILD A MINIMAL SCENE CONTRACT.\\n\\n"
+            "AUTHOR SCENE IDEA:\\n"
             + idea
-            + "\n\nCURRENT STORY STATE AT SCENE START:\n"
-            + json.dumps(current_state, indent=2, ensure_ascii=False)
-            + "\n\nCreate the contract now. Keep it minimal.\n"
+            + "\\n\\nCURRENT STORY STATE AT SCENE START:\\n"
+            + json.dumps(contract_state, ensure_ascii=False, separators=(",", ":"))
+            + "\\n\\nCreate the contract now. Keep it minimal.\\n"
         )
 
         if engine is not None and _engine_is_running(engine):
