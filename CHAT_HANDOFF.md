@@ -68,39 +68,33 @@ At the Chapter 3 breakfast, Tony first tells Beth, Chloe, Jessica, and Rick abou
 - Sensitive Sarah-related letters, their contents, passphrases, ciphertext, metadata, and keys are local-only. Never place them in GitHub, story prompts, or handoffs. One letter's author/recipient direction remains unresolved; do not decide it without the author's approval.
 - Laptop storage cleanup was paused by the author; do not resume unless asked.
 
-## Next development task: make Scene Idea generation generic and durable
+## Completed implementation: simplify Scene Idea and Scene Contract
 
-The author wants StoryBuilder itself to produce the novel prose. Do not default to writing/replacing full scene passages in ChatGPT; help improve the Scene Idea, contract/prompt logic, and tests so StoryBuilder reliably writes the intended scene. The author should not need to correct the same kind of mistake by hand every time.
+The author approved proceeding with the agreed simplification on October 13, 2026. The goal is to make the local model write the novel, using fewer instructions and fewer generated checks instead of micromanaging every action.
 
-**Improve the generic path from Scene Idea to Scene Contract/writer prompt** so it carries author-specified constraints through without weakening, contradicting, or inventing alternatives. Preserve the meaning and ordering of concrete beats, required props/actions, destination/location changes, who has what object, privacy, and scene boundaries. Treat negative constraints as real constraints, not suggestions. Keep the prose flexible between the required beats: guardrails, not rails.
+**The core change is implemented on main.** The observed pattern from the author's experiments is recorded as product guidance:
+- Beginning, Middle, End, and Required Beats are the useful author-planning structure.
+- Populating Required Facts, Required Sequence, Forbidden / Do Not Advance, or Forbidden Details has repeatedly correlated with failed validation.
+- Shorter prompts and fewer rules work better with the current local model. Do not add replacement rules just to cover every conceivable failure.
 
-Use the current Chapter 2, Scene 4 corrections as regression examples for generic behavior, not as permanent hard-coded special cases:
-- The author specified a **warm bubble bath**. Do not change it into a shower or invent a bath-versus-shower choice.
-- Tony briefly holds Tiffany's stuffed rabbit in her room, then returns it to its original place. He must not carry it away with the clean clothes.
-- Tony brings the clean clothes back to Maya and leaves them for her to dress privately before she comes to the kitchen table.
-- Preserve the causal/order sequence and keep the planned endpoint at quiet recovery at the table; do not skip ahead to later scene beats.
+### Implemented behavior
+- The Scene Contract tab now shows the current starting state, Middle / Scene Direction, End / Hard Stop, and Required Beats. The auxiliary fields are no longer shown.
+- Contract generation uses a small JSON shape containing only direction, hard stop, required beats, and retry count. Beginning/Middle/End/Required Beats from the author's idea remain authoritative; explicit Required Beats are preserved.
+- Newly generated contracts save only Required Beats and retry count inside the contract, alongside the direction and hard stop.
+- At runtime, old novel packages remain loadable, but Required Facts, Required Sequence, Forbidden / Do Not Advance, Forbidden Details, hidden state-after hints, and regex gates are ignored by the active scene contract. Positive story events can still become required beats. Do not reintroduce auxiliary gates without discussing the behavior with the author first.
+- The Writer prompt's repeated scene-boundary paragraph is shorter. It keeps the useful boundaries: start from current state, preserve character knowledge and opening position/contact unless changed in-scene, reach the hard stop, and leave prose choices to the writer.
+- When the Writer is already running, Scene Contract generation and validation reuse that same WriterEngine process with a smaller context/output budget, avoiding a second concurrent copy of the model. Writer tasks are serialized while a contract is being built.
+- Timeouts kill the stalled model process. If prose exists but validation fails, the draft remains visible and saveable, remains unaccepted, and cannot be accepted until a successful validation. Writer and Scene Contract errors use the copyable dialog.
 
-Inspect the actual current Scene Idea builder, writing_guidance.json loading, Scene Contract construction/validation, and writer prompt path before changing code. Identify where constraints are being diluted or contradicted; prefer a reusable prompt/contract improvement plus focused regression tests rather than scene-specific patches. Test that concrete constraints survive from idea through final writer instructions and that the model still has creative freedom for natural dialogue and connective prose. Update this handoff with implementation commits and actual test results; do not claim tests passed unless run.
+### Test status
+The GitHub Actions check **passed** on [commit 1e68f8f](https://github.com/tony21675/StoryBuilder/commit/1e68f8f75a79855516ff3c13f8f74edc1781305d): compile checks and the full unit suite passed (79 tests). [View the passing workflow run](https://github.com/tony21675/StoryBuilder/actions/runs/38364175575). This is CI coverage only; it does not prove the local model now generates or validates scenes well on the author's 8 GB laptop.
 
-The larger generation settings were made permanent in start.sh on October 13, 2026, commit [51b0fc3](https://github.com/tony21675/StoryBuilder/commit/51b0fc311d2a1ca1b19cf7ed433b281995e93adb): default STORY_WRITER_CONTEXT=16384 and STORY_WRITER_MAX_TOKENS=4000, while allowing environment-variable overrides. The author reported the next Scene 4 generation was much better and reached the intended ending; keep these defaults and verify local startup sync picks them up.
+Relevant implementation commits include [c480b99](https://github.com/tony21675/StoryBuilder/commit/c480b994832c43e0b46255729e881868761774fa), [837dd49](https://github.com/tony21675/StoryBuilder/commit/837dd491b2bbc2ce356ad5ab82458b8686b9dd2d), [3d04cd7](https://github.com/tony21675/StoryBuilder/commit/3d04cd7b74f6ea965fed371e95f538b87e83bcd9), [8c3518a](https://github.com/tony21675/StoryBuilder/commit/8c3518ab42ecf0aeecc53fa5ee25fa06e875a9d7), [b493e37](https://github.com/tony21675/StoryBuilder/commit/b493e37aa69d62583e989d2e2f92caad3492dfb0), and [1e68f8f](https://github.com/tony21675/StoryBuilder/commit/1e68f8f75a79855516ff3c13f8f74edc1781305d). Regression tests for prompt size, auxiliary-field omission, process reuse, copyable errors, and draft preservation are included in the passing suite.
 
-### Follow-up observation: over-prescribed Scene Ideas can worsen scene coherence
+### Immediate laptop verification
+Once the author has saved any draft, Close & Sync Novel, then start StoryBuilder normally so it pulls main. Rebuild the current Scene 4 contract from the saved Scene Idea, then test one generation. Check whether validation finishes and whether the draft is natural and coherent. Do not blindly regenerate or add new rules if it fails; capture the copyable error and address that specific cause.
 
-On October 13, 2026, the author reviewed a longer generated draft for Chapter 2, Scene 4 and observed that too much direction appears to make the model muddle staging and continuity. The draft included Tony watching/helping adult Maya bathe and dress, duplicate/unclear clothing movements, "You're home" when Maya is at Tony's house, an overconfident promise about an unidentified kidnapper, and an ending before Maya settles at the table.
-
-Treat this as a core product-design signal for the generic Scene Idea → Contract → writer prompt work:
-- Keep Scene Ideas concise, with a small number of meaningful beats, canon facts, and hard boundaries.
-- Do not expand an author's short idea into a rigid step-by-step script that prescribes every gesture, transition, or line of dialogue.
-- Separate true non-negotiable constraints from optional prose suggestions. Preserve the former faithfully; let the model invent coherent ordinary actions and connective tissue for the latter.
-- Maintain physical staging, privacy/autonomy, known facts, and scene endpoint, but avoid repeating the same constraint in multiple ways if repetition makes the prompt noisy.
-- Regression tests should check that essential constraints survive without testing for one exact phrasing or hard-coding Chapter 2 scene logic into generic behavior.
-- For Scene 4 specifically, preserve the bath (not shower), Maya's adult privacy, Tony returning the rabbit to Tiffany's room, clothes being made available so Maya dresses privately, routine breakfast calls, and the quiet kitchen-table endpoint. Avoid dictating every motion between these beats.
-
-The current scene's defects are evidence to inspect the actual prompt-building path and identify where an idea becomes over-specified or contradictory, not a reason to add more and more rules to the same Scene Idea.
-
-
-Additional continuity correction from the author: Scene 4 begins directly from the accepted Scene 3 position, with Maya curled against Tony as he holds her on the bed. Do not casually relocate Tony to a chair or invent a different starting arrangement. For the bath and dressing, Tony may offer help and make it available **if Maya chooses**; he should respect her adult privacy and must not assume she wants him to help her bathe or dress. Preserve the offer and her agency without scripting an elaborate consent dialogue or over-explaining it.
-
+Scene 4 remains the reusable regression example, not a hard-coded special case: Tony offers a warm bubble bath; Maya chooses whether she wants help and retains her privacy; Tony returns Tiffany's rabbit to its original place; Maya dresses privately in the clothes he brings; Tony invites Beth, then invites Jessica, Chloe, and Rick together because they share a household; the scene ends in quiet recovery at the kitchen table. The accepted Scene 3 opening position remains Maya curled against Tony as he holds her on the bed.
 
 ### Completed UI request: Clear & Reload Scene Idea
 
@@ -119,43 +113,19 @@ Changes committed for a generic, lighter review:
 - [fec364b](https://github.com/tony21675/StoryBuilder/commit/fec364bcf04ee8880a58d599172376c632970fa5) corrected newline separators in the compact prompt.
 - [779ae8c](https://github.com/tony21675/StoryBuilder/commit/779ae8c2ba4a5235e456d51966005410786a85ad) added a regression assertion that relevant physical continuity remains in the prompt while unrelated state data does not.
 
-The timeout remains 300 seconds by default; it can be overridden with `STORY_VALIDATOR_TIMEOUT` (minimum 60 seconds). On timeout the writer reports the duration and explicitly says the draft remains unaccepted. **Tests have been committed but not executed in this environment.** After pulling, run `python3 -m pytest -q tests/test_scene_contract.py` and `python3 -m pytest -q tests/test_scene_workflow_safety.py`. Do not mark them as passing until actually run. If it still times out, investigate model startup/RAM contention and whether validation should be opt-in or share resources more efficiently, rather than adding more contract rules.
+This first validator-prompt reduction was superseded by the low-RAM implementation below, which also reuses the existing WriterEngine and drops auxiliary contract gates. The final code and unit tests passed GitHub Actions on commit [1e68f8f](https://github.com/tony21675/StoryBuilder/commit/1e68f8f75a79855516ff3c13f8f74edc1781305d). Local-model runtime behavior still needs the laptop check described in the completed-implementation section above.
 
-### Low-RAM model serialization and minimal contract fields
+### Low-RAM behavior and contract simplification
 
-The author clarified that the active laptop has **8 GB RAM**, and loading a second copy of the local GGUF model while Writer is already running causes significant slowdown. The follow-up code path now reuses the existing `WriterEngine` process for Scene Contract generation and validation whenever it is active: stop/restart the same engine with a task-specific prompt, a 6144-token context, and a small output budget, instead of launching a concurrent second llama-cli process. Contract building is blocked while writing is active, and Writer actions that could start another model task are disabled while a contract is being built. If the Writer isn't running, the contract tools use a single standalone model process with a 6144 context.
+The active laptop has 8 GB RAM. Contract generation and validation reuse the WriterEngine when running; the engine is restarted sequentially with a smaller 6144-token context and task-specific output budget so two concurrent copies of the model are not resident. Writer operations that compete for the local model are disabled during contract creation. If Writer is stopped, contract generation starts one standalone process.
 
-Automatic contract generation now puts positive requirements in `required_beats` and intentionally leaves `required_facts`, `required_sequence`, `forbidden`, and `forbidden_details` empty. The builder system prompt was shortened. This targets the author's repeated observation that adding generated material beneath Required Beats caused the validator to reject scenes. Existing explicit contract fields still remain part of the validator when present in stored contracts, so rebuild a stale generated contract if it contains unwanted auxiliary rules.
+Runtime and newly generated contracts use only direction, Required Beats, and Hard Stop (plus retry count). Older data may still physically contain the auxiliary fields, but `SceneContract.from_guidance` and semantic validation discard them, and writer direction no longer emits auxiliary prohibition rules. Rebuilding the current contract is still recommended so the displayed saved contract matches the new schema.
 
-Writer validation/build errors now use the existing copyable error dialog. If prose was generated but validation times out/fails, StoryBuilder keeps the draft visible and saveable but disables Accept until a successful generation/validation; timed-out model processes are killed to release RAM.
+Writer validation errors use the copyable dialog. If a draft was generated but validation timed out/failed, it stays visible and saveable but unaccepted; Accept stays disabled. A timed-out model process is killed to release memory. See the completed implementation section above for the passing CI result and laptop verification plan.
 
-Relevant commits:
-- Single-engine contract/validator path and smaller task settings: [d8e8935](https://github.com/tony21675/StoryBuilder/commit/d8e893542407c7c00c2023f4a64e14c717b4203d), [e2490bb](https://github.com/tony21675/StoryBuilder/commit/e2490bb6662c74cd3b3b211264e4b72c14238d71), [c9a3771](https://github.com/tony21675/StoryBuilder/commit/c9a377131c023d437d37049ccc772e00f7bb52b0), [e52f9b8](https://github.com/tony21675/StoryBuilder/commit/e52f9b8c7a0d80db77e0f1338d5e57b3a1d588ea).
-- Writer UI serialized while building and copyable errors: [bc7b49a](https://github.com/tony21675/StoryBuilder/commit/bc7b49a3461dbcf8c2197397caf0a30ad9ba283e), [fd1c278](https://github.com/tony21675/StoryBuilder/commit/fd1c2781fdaee7ceb5f57b9e22fb611f4b97c586), [d94181d](https://github.com/tony21675/StoryBuilder/commit/d94181d35da07cce041c6d1c197a1d64b73df81f).
-- Timeout behavior and task-specific generation timeout: [19a73ae](https://github.com/tony21675/StoryBuilder/commit/19a73aedadb93533aed9fd3daf6eb4daedfa8032), [cd21b70](https://github.com/tony21675/StoryBuilder/commit/cd21b7078ecf274055056b736f78d2cf82fa0d0a), [a38153a](https://github.com/tony21675/StoryBuilder/commit/a38153a8d417a64863c6ab4baed0578fe8f554ae).
-- Regression tests added/updated: [a3d0ab0](https://github.com/tony21675/StoryBuilder/commit/a3d0ab020f414c49b864a096f6cee90f98d6eb5d), [ddf2fad](https://github.com/tony21675/StoryBuilder/commit/ddf2fadf9c073d41b257a69a6d6df690aa65a967), [af49583](https://github.com/tony21675/StoryBuilder/commit/af49583cf83696929b257ab25ef1f6f9786016be), and [7836856](https://github.com/tony21675/StoryBuilder/commit/7836856d9aa38bfbdd0bd4a8ac91933947cacd56).
+### Durable design rule
 
-Tests were **not executed**. The current container could not connect directly to GitHub to create a local checkout, so do not claim they pass. After syncing on the laptop, run:
-`python3 -m pytest -q tests/test_scene_contract.py tests/test_scene_workflow_safety.py`
-Fix failures before further model behavior changes. Verify the timeout still preserves a saveable draft and that only one llama-cli process is resident during contract build/validation.
-
-### Proposed next contract-design change: agree before implementation
-
-**Author explicitly said not to change code for this proposal until we discuss it and agree.** Keep this section as a durable design note only; do not begin implementation automatically at the next session.
-
-The author's repeated local-model experiments suggest that **shorter prompts and fewer rules produce better results with the current model**. The author reports the following pattern:
-- Scene Idea sections **Beginning, Middle, End, and Required Beats** work well, and scenes pass validation with those instructions.
-- If content is populated under **Required Facts, Required Sequence, Forbidden / Do Not Advance, or Forbidden Details**, the scene tends to fail validation. These fields appear to add extra gates that the current model struggles to satisfy consistently.
-- The current goal is not to add stricter instructions or more validators. Simplify the author-facing workflow and the prompt/validation contract to match what has actually worked.
-
-When the author is ready to discuss implementation, propose a concise, generic design for approval first. The likely direction to discuss is:
-1. Keep Beginning, Middle, End, and Required Beats as the useful author planning structure.
-2. Translate Beginning/Middle into a short direction, End into one clear hard stop, and Required Beats into a small set of meaningful requirements.
-3. Avoid populating or enforcing Required Facts, Required Sequence, Forbidden / Do Not Advance, and Forbidden Details in the generation/validation path unless the author explicitly chooses and approves a specific future use. Do not simply rename the same extra gates or move them into another verbose prompt.
-4. Keep continuity anchored to the actual current state and the immediately preceding accepted scene; do not compensate for weak continuity with long duplicated rules.
-5. Make the shortest prompt that preserves the author's intended beats and scene boundary the default. Keep natural dialogue, physical transitions, gestures, and connective prose under the writer's creative control.
-
-This is a proposal for discussion, not approval to implement. At the next development session, read the current code and test results, present the smallest practical design, discuss tradeoffs with the author, and make no code changes until they agree. Keep regression tests focused on the agreed generic behavior rather than one specific novel scene.
+The author's instruction was to discuss future significant changes before making them. The core simplification above was later explicitly approved and implemented. Continue to favor the shortest prompt that preserves the intended beats and boundary. Do not add more fields or more verbose rules just to compensate for a single bad generation. Test the generic path and use actual model output as evidence.
 
 ## StoryBuilder changes and verification notes
 
