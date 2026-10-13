@@ -11,12 +11,12 @@ from builder.state_manager import extract_json_object
 from builder.workspace import LLAMA as DEFAULT_LLAMA
 
 
-VALIDATOR_SYSTEM_PROMPT = """Check a completed scene against its contract and starting state.
+VALIDATOR_SYSTEM_PROMPT = """Check a completed scene against the author's original idea and starting state.
 
 Return only JSON:
 {"pass": true, "missed_beats": [], "violations": [], "notes": ""}
 
-Check required beats and hard_stop. Compare opening position and contact with the starting state; flag a change only when no transition explains it. Keep character knowledge consistent. Accept natural paraphrases and neutral familial comfort. Do not nitpick style or infer sexual intent from ordinary care. Report only clear, material failures. Output JSON only.
+The original plain-English idea is primary. Generated direction, required beats, and hard_stop are supporting hints and may be incomplete; if they conflict with the idea, follow the idea. Check its major requested events and intended endpoint, plus character knowledge and opening physical continuity. Accept natural paraphrases. Do not demand every incidental detail verbatim, nitpick style, or invent requirements. Report only clear, material failures.
 """
 
 
@@ -25,12 +25,12 @@ def _detect_accelerator() -> str | None:
     return override or None
 
 
-CONTRACT_BUILDER_SYSTEM_PROMPT = """Create a minimal scene contract from the author's scene idea and current story state.
+CONTRACT_BUILDER_SYSTEM_PROMPT = """Create a small supporting contract from the author's plain-English scene idea and current story state.
 
 Return only JSON:
 {"direction":"","hard_stop":"","required_beats":[],"max_attempts":3}
 
-Use current_situation as the authoritative narrative snapshot for what has already happened. If they conflict, follow current_situation and preserve physical_state details not contradicted. When the scene idea explicitly asks for reassurance, capture it as one concise required beat. Write one concise direction, one clear ending, and only the few concrete actions the author requires. Preserve Beginning/Middle/End and Required Beats intent. Do not invent events or rules. Leave ordinary dialogue, gestures, pacing, and transitions to the writer. max_attempts is 3. Output JSON only.
+Use current_situation as the authoritative narrative snapshot for what has already happened. If they conflict, follow current_situation and preserve physical_state details not contradicted. The original plain-English idea is also passed directly to the Writer and remains primary. When the idea asks for reassurance, capture it as one concise required beat. Include a few major concrete actions in required_beats when the author names them; do not leave the list empty if the idea names several important events. If the idea specifies the final moment, hard_stop should name that moment, not just something that must happen later. Do not invent events or rules. Leave ordinary dialogue, gestures, pacing, and transitions to the writer. max_attempts is 3. Output JSON only.
 """
 
 
@@ -502,8 +502,15 @@ class SceneContract:
             "forbidden_details",
             "state_after",
             "local_hard_checks",
+            "author_idea",
         ):
             contract.pop(key, None)
+
+        # Preserve the author's exact plain-English paragraph as source material
+        # for the Writer and validator. Never rely on the model's summary to carry it.
+        author_idea = str(source.get("scene_idea", "") or "").strip()
+        if author_idea:
+            contract["author_idea"] = author_idea
 
         def append_beats(values: Any) -> None:
             if not isinstance(values, list):
@@ -555,7 +562,7 @@ class SceneContract:
         # Keep only the fields that are useful for the writer and validator.
         contract = {
             key: contract[key]
-            for key in ("direction", "required_beats", "hard_stop", "max_attempts")
+            for key in ("author_idea", "direction", "required_beats", "hard_stop", "max_attempts")
             if key in contract
         }
         if not contract:
@@ -567,6 +574,38 @@ class SceneContract:
                 "Invalid scene contract:\n- " + "\n- ".join(errors)
             )
         return contract
+
+    @staticmethod
+    def writer_prompt_context(direction: str, contract: dict[str, Any]) -> str:
+        """Build compact writer context while keeping the original idea authoritative."""
+        parts = []
+        direction_text = str(direction or "").strip()
+        if direction_text:
+            parts.append("SCENE CONTEXT AND CONTINUITY:\n" + direction_text)
+
+        supporting_contract = {
+            key: contract[key]
+            for key in ("required_beats", "hard_stop")
+            if key in contract and contract[key] not in (None, "", [])
+        }
+        if supporting_contract:
+            parts.append(
+                "COMPACT SUPPORTING CONTRACT (SECONDARY):\n"
+                + json.dumps(supporting_contract, ensure_ascii=False, separators=(",", ":"))
+            )
+
+        author_idea = str(contract.get("author_idea", "") or "").strip()
+        if author_idea:
+            parts.append(
+                "AUTHOR'S ORIGINAL PLAIN-ENGLISH SCENE IDEA (PRIMARY INTENT):\n"
+                + author_idea
+            )
+            parts.append(
+                "Priority: Follow the original idea for requested events and ending. "
+                "The generated direction and compact contract may be incomplete; they must not "
+                "replace, omit, or contradict the original idea."
+            )
+        return "\n\n".join(parts)
 
     @staticmethod
     def lint(contract: dict[str, Any]) -> list[str]:
@@ -739,7 +778,7 @@ class SceneContract:
         # wording that the model should be forced to reproduce.
         semantic_contract = {
             key: contract[key]
-            for key in ("direction", "required_beats", "hard_stop")
+            for key in ("author_idea", "direction", "required_beats", "hard_stop")
             if key in contract
         }
 
@@ -765,10 +804,12 @@ class SceneContract:
         }
 
         prompt = (
-            "Validate this completed scene against the supplied contract and starting state. "
+            "Validate this scene against the author's original idea and starting state. "
+            "The idea is primary; generated contract fields are secondary and may be incomplete. "
+            "Check major requested events and the intended ending without requiring every incidental detail. "
             "Return JSON only in this shape: "
             '{"pass": true, "missed_beats": [], "violations": [], "notes": ""}\n\n'
-            "SCENE CONTRACT:\n"
+            "SCENE INTENT AND SUPPORTING CONTRACT:\n"
             + json.dumps(semantic_contract, ensure_ascii=False, separators=(",", ":"))
             + "\n\nSTARTING STATE (relevant fields only):\n"
             + json.dumps(validation_state, ensure_ascii=False, separators=(",", ":"))
