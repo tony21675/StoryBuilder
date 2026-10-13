@@ -11,15 +11,15 @@ Read the current versions on GitHub `main` before acting:
 
 **Use the "Current Checkpoint" below as the session handoff. Older conversation context or stale repository copies do not overrule the current author-confirmed checkpoint.**
 
-## Current Checkpoint: October 12, 2026
+## Current Checkpoint: October 12, 2026 (synchronized and verified)
 
 ### Author-confirmed workflow state
 
 - Chapter 2, Scene 3 was **accepted**, and the author clicked **Apply State Update**.
 - After applying, the author confirmed the Writer, current state, and Scene Contract all showed **Chapter 2, Scene 4**.
-- The last assistant then told the author to use **Save Novel** and normal **Close**, specifically not Sync Novel / Close and Sync. So the local package may have saved Scene 3 and advanced to Scene 4, while GitHub remains stale. At the last direct inspection, GitHub `current_state.json` still pointed at Chapter 2, Scene 3.
-- This remote/local mismatch is an expected consequence of the prior instruction not to sync yet. It is **not** evidence that Scene 3 was not accepted. Do not ask the author to accept it again, re-run its analysis, regenerate it, or defend the established decision.
-- On resuming, inspect the local package and Git state first, comparing accepted Scene 3 prose, current state, and scene before/after-state files. Preserve the newer local Scene 4 pointer. Do not blindly pull the stale remote state over local work or overwrite either version before comparing. Reconcile and sync the actual saved package safely; then continue from Scene 4.
+- The initial local/GitHub discrepancy is **resolved**. On October 12, 2026, local commit [`eb05527`](https://github.com/tony21675/MyNovel/commit/eb05527) pushed the accepted Scene 3 prose, its before/after-state files, saved draft, current state, writer notes, and reconciled writing guidance. The push succeeded; local and GitHub `current_state.json` both reported Chapter 2, Scene 4, and `git status -sb` was clean.
+- A safety backup remains at `~/MyNovel_scene4_recovery_20261012_205345`, and stash `54651b3` remains available. Keep them until the author confirms the reopened StoryBuilder package works. Don't run recovery/rebase/pull procedures again unless a new concrete issue appears.
+- Do not ask the author to accept, re-analyze, regenerate, or rewrite Scene 3. Continue from Scene 4 after verifying the app has reloaded the synchronized package.
 - If you cannot inspect the local checkout directly, walk the author through one small, read-only diagnostic step at a time. Do not ask them to re-explain the story or redo Scene 3.
 
 ### Novel and manuscript status
@@ -27,7 +27,7 @@ Read the current versions on GitHub `main` before acting:
 - Repositories: `tony21675/StoryBuilder` and `tony21675/MyNovel`, each on `main` only. Do not recreate old reset/archive branches.
 - Active novel package on the author's laptop: `~/Documents/MyNovel/Taken_at_Dusk`.
 - Scenes 1, 2, and 3 of Chapter 2 are accepted and must remain untouched unless the author explicitly asks for a rewrite.
-- **Next scene: Chapter 2, Scene 4, "Care and memory."** Its saved idea is in `writing_guidance.json`; Scene Contract reads from that file. Do not ask the author to copy/retype the idea, and don't modify Scene 4's idea unless a genuine issue is found.
+- **Next scene: Chapter 2, Scene 4, "Care and memory."** Its saved idea is in `writing_guidance.json`; Scene Contract reads from that file. The accepted Scene 3 and Scene 4 state are now pushed to GitHub in MyNovel commit `eb05527`. On resume, open/reload the existing novel package and verify the Writer, current state, and Scene Contract show Scene 4. Do not ask the author to copy/retype the idea or modify it unless a genuine issue is found.
 
 ### Scene 3 continuity and eyewitness rule
 
