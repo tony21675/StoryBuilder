@@ -37,7 +37,7 @@ The regression suite and compile checks passed on the PR branch in [GitHub Actio
 
 **Important Talk to Builder limitation:** the chat command path calls the small pattern-based `apply_command` parser and only recognizes simple structured edits such as changing a character field. It is not a natural-language manuscript revision tool. Do not direct the author to use Talk to Builder to revise a scene; it will return the generic “did not recognize” message for prose-edit requests.
 
-Next, after the tested prompt repair is on `main`, sync/start StoryBuilder, reopen/reload `Taken_at_Dusk`, use **Clear & Reload Scene Idea** to load the saved Scene 4 idea, then **Build Contract from Scene Idea** and generate one test draft. Review Writer output against the saved idea before accepting. Keep Scene 4 unaccepted until the author decides it is right. Do not add a long list of rules or regenerate accepted Scenes 1–3.
+Now that the tested prompt repair is on `main`, sync/start StoryBuilder, reopen/reload `Taken_at_Dusk`, use **Clear & Reload Scene Idea** to load the saved Scene 4 idea, then **Build Contract from Scene Idea** and generate one test draft. Review Writer output against the saved idea before accepting. Keep Scene 4 unaccepted until the author decides it is right. Do not add a long list of rules or regenerate accepted Scenes 1–3.
 
 ### Novel and manuscript status
 
