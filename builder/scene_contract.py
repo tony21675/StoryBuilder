@@ -378,12 +378,12 @@ class SceneContract:
             if key in current_state
         }
         prompt = (
-            "BUILD A MINIMAL SCENE CONTRACT.\\n\\n"
-            "AUTHOR SCENE IDEA:\\n"
+            "BUILD A MINIMAL SCENE CONTRACT.\n\n"
+            "AUTHOR SCENE IDEA:\n"
             + idea
-            + "\\n\\nCURRENT STORY STATE AT SCENE START:\\n"
+            + "\n\nCURRENT STORY STATE AT SCENE START:\n"
             + json.dumps(contract_state, ensure_ascii=False, separators=(",", ":"))
-            + "\\n\\nCreate the contract now. Keep it minimal.\\n"
+            + "\n\nCreate the contract now. Keep it minimal.\n"
         )
 
         if engine is not None and _engine_is_running(engine):
