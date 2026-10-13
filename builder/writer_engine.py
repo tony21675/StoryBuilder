@@ -154,7 +154,8 @@ class WriterEngine:
         """Restart llama-cli with a fresh conversation context."""
         self.start(model_path, system_prompt)
 
-    def generate(self, prompt: str) -> str:
+    def generate(self, prompt: str, timeout: int | None = None) -> str:
+        """Generate one turn, optionally using a task-specific timeout."""
         with self.lock:
             if self.child is None or not self.child.isalive():
                 raise RuntimeError(
@@ -169,8 +170,9 @@ class WriterEngine:
             )
             self.child.sendline(single_line_prompt)
 
+            turn_timeout = WRITER_TIMEOUT if timeout is None else max(1, int(timeout))
             try:
-                self.child.expect(r"(?m)^> ", timeout=WRITER_TIMEOUT)
+                self.child.expect(r"(?m)^> ", timeout=turn_timeout)
             except Exception:
                 output = self.child.before or ""
                 raise RuntimeError(
