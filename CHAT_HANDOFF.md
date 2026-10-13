@@ -39,7 +39,7 @@ Maya recounted Tiffany's resistance: two elbow strikes to the solar plexus, a ki
 
 Follow this established sequence, allowing natural dialogue and quiet moments:
 1. Tony offers Maya a **warm bubble bath, not a shower**, and respects her adult autonomy, privacy, and choice about help.
-2. While she bathes, he phones Beth, Chloe, Jessica, and Rick to invite them to breakfast the following morning. The calls must sound ordinary and must not reveal or hint that Tiffany was abducted. He may tell Beth only that Maya is safe at his house. Nobody else knows or suspects before the Chapter 3 breakfast.
+2. While she bathes, Tony calls Beth to invite her to breakfast and tells her only that Maya is safe at his house. He then calls Jessica to invite Jessica, Chloe, and Rick together because they all live in the same household; he does not call Chloe and Rick separately. Both calls must sound ordinary and must not reveal or hint that Tiffany was abducted. Nobody else knows or suspects before the Chapter 3 breakfast.
 3. Tony goes to Tiffany's bedroom for clean clothes for Maya. He notices the stuffed rabbit he gave Tiffany after Sarah died, which she kept all these years. He hugs it and privately vows to bring Tiffany home by any means necessary.
 4. He makes tea for Maya, and they sit together at the kitchen table to recover quietly.
 
