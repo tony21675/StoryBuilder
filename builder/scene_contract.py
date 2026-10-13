@@ -25,30 +25,12 @@ def _detect_accelerator() -> str | None:
     return override or None
 
 
-CONTRACT_BUILDER_SYSTEM_PROMPT = """Create a concise scene contract for a fictional novel using the author's scene idea and current story state.
+CONTRACT_BUILDER_SYSTEM_PROMPT = """Create a minimal scene contract from the author's scene idea and current story state.
 
-Return only valid JSON in this shape:
-{
-  "direction": "",
-  "hard_stop": "",
-  "required_beats": [],
-  "required_facts": [],
-  "required_sequence": [],
-  "forbidden": [],
-  "forbidden_details": [],
-  "max_attempts": 3
-}
+Return only JSON:
+{"direction":"","hard_stop":"","required_beats":[],"max_attempts":3}
 
-Rules:
-- Current state is the opening snapshot. Preserve the actual starting situation and do not replay completed events.
-- The author's idea controls what happens. Preserve the intended endpoint in one clear hard_stop.
-- Use a concise direction, not a scene script.
-- Put the few important concrete actions in required_beats, in natural order. Combine related actions instead of splitting them into small checklist items.
-- Leave required_facts, required_sequence, forbidden, and forbidden_details empty. Keep all positive must-haves together in required_beats; do not create extra validation gates.
-- Do not add events, gestures, motives, revelations, dialogue requirements, or prohibitions the author did not request.
-- Leave dialogue, gestures, pacing, and ordinary transitions to the writer. Preserve creative freedom between the required beats.
-- max_attempts is 3.
-- Output JSON only.
+Use the current state as the opening snapshot. Write one concise direction, one clear ending, and only the few concrete actions the author requires. Preserve Beginning/Middle/End and Required Beats intent. Do not invent events or rules. Leave ordinary dialogue, gestures, pacing, and transitions to the writer. max_attempts is 3. Output JSON only.
 """
 
 
@@ -396,25 +378,10 @@ class SceneContract:
             "direction": str(raw.get("direction", "") or "").strip(),
             "hard_stop": str(raw.get("hard_stop", "") or "").strip(),
             "required_beats": raw.get("required_beats", []),
-            # Keep generated requirements in one simple place. The model often
-            # turns auxiliary fields into brittle extra gates; concrete author
-            # requirements belong in required_beats unless the author adds an
-            # explicit structured requirement through a future UI.
-            "required_facts": [],
-            "required_sequence": [],
-            # Do not generate hidden extra prohibitions.
-            "forbidden": [],
-            "forbidden_details": [],
             "max_attempts": raw.get("max_attempts", 3),
         }
 
-        for key in (
-            "required_beats",
-            "required_facts",
-            "required_sequence",
-            "forbidden",
-            "forbidden_details",
-        ):
+        for key in ("required_beats",):
             value = result[key]
             if value is None:
                 result[key] = []
@@ -593,7 +560,7 @@ class SceneContract:
         errors = SceneContract.lint(contract)
         if errors:
             raise ValueError(
-                "Invalid scene contract:\\n- " + "\\n- ".join(errors)
+                "Invalid scene contract:\n- " + "\n- ".join(errors)
             )
         return contract
 
