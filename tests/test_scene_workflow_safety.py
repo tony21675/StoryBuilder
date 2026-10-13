@@ -1256,8 +1256,8 @@ class NovelSyncSafetyTests(unittest.TestCase):
                 if args == ("pull", "--rebase", "origin", "main"):
                     return SimpleNamespace(
                         returncode=1,
-                        stdout="",
-                        stderr="CONFLICT (content): writing_guidance.json",
+                        stdout="CONFLICT (content): writing_guidance.json",
+                        stderr="error: could not apply 4c433ca... Sync novel changes",
                     )
                 if args == ("rebase", "--abort"):
                     return SimpleNamespace(returncode=0, stdout="", stderr="")
@@ -1277,6 +1277,8 @@ class NovelSyncSafetyTests(unittest.TestCase):
                     novel_sync.sync_novel_repository(root)
 
             self.assertIn("Your local commit is preserved on main", str(caught.exception))
+            self.assertIn("CONFLICT (content): writing_guidance.json", str(caught.exception))
+            self.assertIn("error: could not apply 4c433ca", str(caught.exception))
             self.assertIn(("rebase", "--abort"), calls)
             self.assertNotIn(("push", "origin", "main"), calls)
 
