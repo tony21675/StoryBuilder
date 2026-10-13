@@ -174,7 +174,15 @@ class WriterEngine:
             try:
                 self.child.expect(r"(?m)^> ", timeout=turn_timeout)
             except pexpect.TIMEOUT as exc:
-                output = self.child.before or ""
+                child = self.child
+                output = child.before or "" if child is not None else ""
+                # A timed-out task can otherwise keep consuming CPU and RAM.
+                try:
+                    if child is not None:
+                        child.kill(1)
+                except Exception:
+                    pass
+                self.child = None
                 raise TimeoutError(
                     f"Local model turn timed out after {turn_timeout} seconds.\n"
                     + str(output)[-2000:]
