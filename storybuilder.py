@@ -788,12 +788,20 @@ class StoryBuilderApp(tk.Tk):
         ).pack(anchor="w")
         self.scene_idea_text = tk.Text(idea_frame, height=5, wrap="word", undo=True)
         self.scene_idea_text.pack(fill="x", pady=(4, 6))
+        idea_button_row = ttk.Frame(idea_frame)
+        idea_button_row.pack(anchor="w")
         self.scene_contract_build_button = ttk.Button(
-            idea_frame,
+            idea_button_row,
             text="Build Contract from Scene Idea",
             command=self._build_contract_from_scene_idea,
         )
-        self.scene_contract_build_button.pack(anchor="w")
+        self.scene_contract_build_button.pack(side="left")
+        self.scene_contract_reload_idea_button = ttk.Button(
+            idea_button_row,
+            text="Clear & Reload Scene Idea",
+            command=self._reload_saved_scene_idea,
+        )
+        self.scene_contract_reload_idea_button.pack(side="left", padx=(8, 0))
         ttk.Label(
             content,
             text=(
@@ -3101,6 +3109,56 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             text="Loaded the saved contract for the current scene. You can edit it or replace it with a new draft.",
         )
 
+    def _reload_saved_scene_idea(self):
+        """Clear local Scene Idea edits and reload only the saved idea for this scene."""
+        if self.package is None or not hasattr(self, "scene_idea_text"):
+            return
+
+        if getattr(self, "scene_contract_building", False) or getattr(
+            self, "writer_generation_in_progress", False
+        ):
+            messagebox.showwarning(
+                "Reload Scene Idea",
+                "Wait for contract building or scene generation to finish before reloading the Scene Idea.",
+            )
+            return
+
+        state = self.package.current_state
+        chapter = int(state.get("chapter", 1) or 1)
+        scene = int(state.get("scene", 1) or 1)
+        active_key = (chapter, scene)
+        editor_key = getattr(self, "scene_contract_editor_key", None) or active_key
+        if editor_key != active_key:
+            self._refresh_scene_contract_editor()
+            messagebox.showwarning(
+                "Reload Scene Idea",
+                "The current state and Scene Contract editor were out of sync. I reloaded the current scene. "
+                "Please check its Scene Idea before continuing.",
+            )
+            return
+
+        entry = self._editable_scene_guidance_entry(chapter, scene, create=False) or {}
+        saved_idea = str(entry.get("scene_idea", "") or "")
+        current_idea = self.scene_idea_text.get("1.0", "end-1c")
+        if current_idea.strip() != saved_idea.strip():
+            if not self._ask_yes_no(
+                "Clear & Reload Scene Idea",
+                f"Discard the current unsaved Scene Idea edits and reload the saved version for "
+                f"Chapter {chapter}, Scene {scene}?\\n\\n"
+                "The saved novel data and generated contract fields will not be changed.",
+            ):
+                return
+
+        self.scene_idea_text.delete("1.0", "end")
+        if saved_idea:
+            self.scene_idea_text.insert("1.0", saved_idea)
+
+        if saved_idea.strip():
+            status = f"Reloaded the saved Scene Idea for Chapter {chapter}, Scene {scene}."
+        else:
+            status = f"No saved Scene Idea exists for Chapter {chapter}, Scene {scene}. The editor is now blank."
+        self.scene_contract_status.configure(text=status)
+
     def _reset_current_scene_contract(self):
         """Clear generated contract fields for this scene while keeping its idea."""
         if self.package is None:
@@ -3212,8 +3270,8 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
 
         attempts = contract.get("max_attempts", 3)
         self.scene_contract_attempts_var.set(str(attempts))
-        if hasattr(self, "scene_contract_load_button"):
-            self.scene_contract_load_button.configure(state="normal")
+        if hasattr(self, "scene_contract_reload_idea_button"):
+            self.scene_contract_reload_idea_button.configure(state="normal")
         if hasattr(self, "scene_contract_build_button"):
             self.scene_contract_build_button.configure(state="normal")
         if contract_error:
@@ -3413,8 +3471,8 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             self.scene_contract_building = True
             if hasattr(self, "scene_contract_build_button"):
                 self.scene_contract_build_button.configure(state="disabled")
-            if hasattr(self, "scene_contract_load_button"):
-                self.scene_contract_load_button.configure(state="disabled")
+            if hasattr(self, "scene_contract_reload_idea_button"):
+                self.scene_contract_reload_idea_button.configure(state="disabled")
             self.update_idletasks()
 
             def work():
@@ -3443,8 +3501,8 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         self.scene_contract_building = False
         if hasattr(self, "scene_contract_build_button"):
             self.scene_contract_build_button.configure(state="normal")
-        if hasattr(self, "scene_contract_load_button"):
-            self.scene_contract_load_button.configure(state="normal")
+        if hasattr(self, "scene_contract_reload_idea_button"):
+            self.scene_contract_reload_idea_button.configure(state="normal")
 
         if error:
             self.scene_contract_status.configure(
