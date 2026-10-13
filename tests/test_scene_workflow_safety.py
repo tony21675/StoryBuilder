@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import storybuilder as storybuilder_app
+import builder.scene_contract as scene_contract
 from builder.scene_contract import CONTRACT_BUILDER_SYSTEM_PROMPT, SceneContract
 
 
