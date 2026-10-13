@@ -159,6 +159,40 @@ class SceneContractTests(unittest.TestCase):
 
         self.assertFalse(result["pass"])
 
+    def test_validator_cannot_pass_with_reported_omissions_or_violations(self):
+        cases = [
+            {
+                "pass": True,
+                "missed_beats": ["The required phone calls are missing."],
+                "violations": [],
+                "notes": "",
+            },
+            {
+                "pass": True,
+                "missed_beats": [],
+                "violations": ["The scene contradicts established character knowledge."],
+                "notes": "",
+            },
+        ]
+
+        for raw_result in cases:
+            with self.subTest(raw_result=raw_result):
+                with patch.object(
+                    scene_contract, "_run_validator", return_value=raw_result
+                ):
+                    result = SceneContract.validate_with_engine(
+                        FakeEngine(),
+                        self.contract,
+                        {"chapter": 2, "scene": 1},
+                        "A scene draft with prose.",
+                    )
+
+                self.assertFalse(result["pass"])
+                self.assertIn(
+                    "cannot pass yet",
+                    result["notes"],
+                )
+
     def test_scene_revision_prompt_keeps_previous_draft_and_limits_changes(self):
         draft = "The dialogue and the quiet ending already work."
         feedback = "Barnaby is Tiffany's stuffed rabbit, not a dog."
@@ -168,11 +202,15 @@ class SceneContractTests(unittest.TestCase):
         self.assertIn(feedback, prompt)
         self.assertIn("Use the previous draft below as your starting point", prompt)
         self.assertIn("Do not rewrite unaffected passages", prompt)
+        self.assertIn("missing explicit", prompt)
+        self.assertIn("natural prose rather than", prompt)
         self.assertNotIn("Rewrite the scene from the beginning", prompt)
 
-    def test_validator_prompt_checks_scene_as_a_whole_not_a_checklist(self):
-        self.assertIn("Judge the scene as a whole, not as a checklist", scene_contract.VALIDATOR_SYSTEM_PROMPT)
-        self.assertIn("Ignore incidental differences or omissions", scene_contract.VALIDATOR_SYSTEM_PROMPT)
+    def test_validator_prompt_distinguishes_required_beats_from_incidental_details(self):
+        self.assertIn("Judge the whole scene, not incidental details", scene_contract.VALIDATOR_SYSTEM_PROMPT)
+        self.assertIn("Every item in required_beats is mandatory", scene_contract.VALIDATOR_SYSTEM_PROMPT)
+        self.assertIn("set pass=false", scene_contract.VALIDATOR_SYSTEM_PROMPT)
+        self.assertIn("Ignore incidental omissions from free-form prose", scene_contract.VALIDATOR_SYSTEM_PROMPT)
 
 
     def test_guidance_builds_contract_from_legacy_fields_and_active_modules(self):
