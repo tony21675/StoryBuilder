@@ -16,7 +16,7 @@ VALIDATOR_SYSTEM_PROMPT = """You check a completed fictional scene against its a
 Return only JSON in this shape:
 {"pass": true, "missed_beats": [], "violations": [], "notes": ""}
 
-Check only what matters: required actions and facts, required order, explicit prohibitions, character knowledge, the opening physical situation, and the actual ending against hard_stop. Accept natural paraphrases. Do not demand exact wording, invent requirements, nitpick style, or penalize harmless creative details. Do not infer hidden motives or sexual intent from neutral caring gestures. Report only clear, material failures, briefly. Output JSON only.
+Check only the required beats, relevant character knowledge, opening physical situation, and actual ending against hard_stop. Accept natural paraphrases. Do not demand exact wording, invent requirements, nitpick style, or penalize harmless creative details. Report only clear, material failures, briefly. Output JSON only.
 """
 
 
@@ -698,7 +698,7 @@ class SceneContract:
         current_state: dict[str, Any],
         prose: str,
     ) -> dict[str, Any]:
-        """Validate scene semantics with a dedicated validator process."""
+        """Validate only the minimal runtime contract: beats and ending."""
         if not isinstance(contract, dict) or not contract:
             return {"pass": True, "missed_beats": [], "violations": [], "notes": ""}
 
