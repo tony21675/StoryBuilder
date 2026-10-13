@@ -1209,7 +1209,7 @@ class NovelSyncSafetyTests(unittest.TestCase):
                 if args == ("rev-parse", "--show-toplevel"):
                     return SimpleNamespace(returncode=0, stdout=str(root), stderr="")
                 if args == ("branch", "--show-current"):
-                    return SimpleNamespace(returncode=0, stdout="main\\n", stderr="")
+                    return SimpleNamespace(returncode=0, stdout="main", stderr="")
                 if args == ("status",):
                     return SimpleNamespace(
                         returncode=0,
@@ -1257,7 +1257,7 @@ class NovelSyncSafetyTests(unittest.TestCase):
                 if args == ("rev-parse", "--show-toplevel"):
                     return SimpleNamespace(returncode=0, stdout=str(root), stderr="")
                 if args == ("branch", "--show-current"):
-                    return SimpleNamespace(returncode=0, stdout="feature/test\\n", stderr="")
+                    return SimpleNamespace(returncode=0, stdout="feature/test", stderr="")
                 raise AssertionError(f"Unexpected git command: {args}")
 
             with patch.object(novel_sync, "_run_git", side_effect=fake_git):
