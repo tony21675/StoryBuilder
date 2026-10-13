@@ -139,6 +139,24 @@ Tests were **not executed**. The current container could not connect directly to
 `python3 -m pytest -q tests/test_scene_contract.py tests/test_scene_workflow_safety.py`
 Fix failures before further model behavior changes. Verify the timeout still preserves a saveable draft and that only one llama-cli process is resident during contract build/validation.
 
+### Proposed next contract-design change: agree before implementation
+
+**Author explicitly said not to change code for this proposal until we discuss it and agree.** Keep this section as a durable design note only; do not begin implementation automatically at the next session.
+
+The author's repeated local-model experiments suggest that **shorter prompts and fewer rules produce better results with the current model**. The author reports the following pattern:
+- Scene Idea sections **Beginning, Middle, End, and Required Beats** work well, and scenes pass validation with those instructions.
+- If content is populated under **Required Facts, Required Sequence, Forbidden / Do Not Advance, or Forbidden Details**, the scene tends to fail validation. These fields appear to add extra gates that the current model struggles to satisfy consistently.
+- The current goal is not to add stricter instructions or more validators. Simplify the author-facing workflow and the prompt/validation contract to match what has actually worked.
+
+When the author is ready to discuss implementation, propose a concise, generic design for approval first. The likely direction to discuss is:
+1. Keep Beginning, Middle, End, and Required Beats as the useful author planning structure.
+2. Translate Beginning/Middle into a short direction, End into one clear hard stop, and Required Beats into a small set of meaningful requirements.
+3. Avoid populating or enforcing Required Facts, Required Sequence, Forbidden / Do Not Advance, and Forbidden Details in the generation/validation path unless the author explicitly chooses and approves a specific future use. Do not simply rename the same extra gates or move them into another verbose prompt.
+4. Keep continuity anchored to the actual current state and the immediately preceding accepted scene; do not compensate for weak continuity with long duplicated rules.
+5. Make the shortest prompt that preserves the author's intended beats and scene boundary the default. Keep natural dialogue, physical transitions, gestures, and connective prose under the writer's creative control.
+
+This is a proposal for discussion, not approval to implement. At the next development session, read the current code and test results, present the smallest practical design, discuss tradeoffs with the author, and make no code changes until they agree. Keep regression tests focused on the agreed generic behavior rather than one specific novel scene.
+
 ## StoryBuilder changes and verification notes
 
 - Reusable scene-contract reassurance handling was committed in `builder/scene_contract.py` at [`b52b1c9`](https://github.com/tony21675/StoryBuilder/commit/b52b1c98ce786cb676a862b5bd8db0e7a5cb17d5).
