@@ -8,6 +8,8 @@ from unittest.mock import Mock, patch
 import storybuilder as storybuilder_app
 import builder.scene_contract as scene_contract
 from builder.scene_contract import CONTRACT_BUILDER_SYSTEM_PROMPT, SceneContract
+import builder.novel_sync as novel_sync
+
 
 
 class FakeButton:
@@ -1194,3 +1196,74 @@ class SceneResetSafetyTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class NovelSyncSafetyTests(unittest.TestCase):
+    def test_conflict_aborts_rebase_and_preserves_local_commit(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            calls = []
+
+            def fake_git(_root, *args):
+                calls.append(args)
+                if args == ("rev-parse", "--show-toplevel"):
+                    return SimpleNamespace(returncode=0, stdout=str(root), stderr="")
+                if args == ("branch", "--show-current"):
+                    return SimpleNamespace(returncode=0, stdout="main\\n", stderr="")
+                if args == ("status",):
+                    return SimpleNamespace(
+                        returncode=0,
+                        stdout="On branch main\\nnothing to commit, working tree clean",
+                        stderr="",
+                    )
+                if args == ("diff", "--name-only", "--diff-filter=U"):
+                    return SimpleNamespace(returncode=0, stdout="", stderr="")
+                if args == ("status", "--porcelain"):
+                    return SimpleNamespace(returncode=0, stdout="", stderr="")
+                if args == ("fetch", "--prune", "origin"):
+                    return SimpleNamespace(returncode=0, stdout="", stderr="")
+                if args == ("pull", "--rebase", "origin", "main"):
+                    return SimpleNamespace(
+                        returncode=1,
+                        stdout="",
+                        stderr="CONFLICT (content): writing_guidance.json",
+                    )
+                if args == ("rebase", "--abort"):
+                    return SimpleNamespace(returncode=0, stdout="", stderr="")
+                if args == ("status", "-sb"):
+                    return SimpleNamespace(
+                        returncode=0,
+                        stdout="## main...origin/main [ahead 1, behind 1]",
+                        stderr="",
+                    )
+                raise AssertionError(f"Unexpected git command: {args}")
+
+            with patch.object(novel_sync, "_run_git", side_effect=fake_git):
+                with self.assertRaisesRegex(
+                    novel_sync.NovelSyncError,
+                    "automatically aborted the incomplete rebase",
+                ) as caught:
+                    novel_sync.sync_novel_repository(root)
+
+            self.assertIn("Your local commit is preserved on main", str(caught.exception))
+            self.assertIn(("rebase", "--abort"), calls)
+            self.assertNotIn(("push", "origin", "main"), calls)
+
+    def test_novel_sync_rejects_non_main_branch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+
+            def fake_git(_root, *args):
+                if args == ("rev-parse", "--show-toplevel"):
+                    return SimpleNamespace(returncode=0, stdout=str(root), stderr="")
+                if args == ("branch", "--show-current"):
+                    return SimpleNamespace(returncode=0, stdout="feature/test\\n", stderr="")
+                raise AssertionError(f"Unexpected git command: {args}")
+
+            with patch.object(novel_sync, "_run_git", side_effect=fake_git):
+                with self.assertRaisesRegex(
+                    novel_sync.NovelSyncError,
+                    "single permanent 'main' branch",
+                ):
+                    novel_sync.sync_novel_repository(root)
+
