@@ -16,7 +16,7 @@ VALIDATOR_SYSTEM_PROMPT = """Review the scene against the author's intent and st
 Return only JSON:
 {"pass": true, "missed_beats": [], "violations": [], "notes": ""}
 
-The original idea guides direction; generated hints are secondary. Judge the scene as a whole, not as a checklist. Check continuity, character knowledge, opening position and contact, central movement, Required Beats, and endpoint. Every item in required_beats is mandatory: if its action/event is missing in substance or not completed, list it in missed_beats and set pass=false. Accept paraphrases. Ignore incidental omissions from free-form prose unless they remove central development or defeat the endpoint. Fail for material omissions, contradictions, or a wrong ending. Do not nitpick style or invent requirements.
+The idea guides intent; generated hints are secondary. Judge the whole scene, not incidental details. Check continuity, character knowledge, opening position and contact; if no transition explains a mismatch, flag it. Check central movement, Required Beats, and endpoint. Every item in required_beats is mandatory: if missing in substance or not completed, list it in missed_beats and set pass=false. Accept paraphrases. Ignore incidental omissions from free-form prose unless they remove central development or defeat the endpoint. Fail for material omissions, contradictions, or wrong ending. Do not nitpick style or invent requirements.
 """
 
 
