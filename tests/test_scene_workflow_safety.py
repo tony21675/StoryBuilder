@@ -273,6 +273,37 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
                 kwargs["summary"],
             )
 
+    def test_close_and_sync_failure_uses_copyable_error_dialog(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+            app._closing = False
+            app.package = SimpleNamespace(path=Path(tmp))
+            app.writer_engine = SimpleNamespace(stop=Mock())
+            app.dirty = False
+            app._save_unsaved_writer_draft = Mock(return_value=True)
+            app._save = Mock()
+            app._show_copyable_error = Mock()
+            app.destroy = Mock()
+
+            with (
+                patch.object(
+                    storybuilder_app,
+                    "sync_novel_repository",
+                    side_effect=storybuilder_app.NovelSyncError("simulated rebase conflict"),
+                ),
+                patch.object(storybuilder_app.messagebox, "showerror") as showerror,
+            ):
+                storybuilder_app.StoryBuilderApp._close_and_sync(app)
+
+            app._show_copyable_error.assert_called_once()
+            args, kwargs = app._show_copyable_error.call_args
+            self.assertEqual(args[0], "Close & Sync")
+            self.assertIn("simulated rebase conflict", args[1])
+            self.assertIn("Copy Full Error", kwargs["summary"])
+            self.assertFalse(app._closing)
+            app.destroy.assert_not_called()
+            showerror.assert_not_called()
+
     def test_copyable_error_dialog_uses_main_window_clipboard(self):
         FakePopupWidget.instances.clear()
         app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
