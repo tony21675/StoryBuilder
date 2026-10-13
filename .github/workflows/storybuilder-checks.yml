@@ -25,7 +25,7 @@ jobs:
         run: python -m unittest discover -s tests -v
 
   prune-merged-branches:
-    if: github.event_name == 'push' && startsWith(github.event.head_commit.message, 'Housekeeping: enforce main-only branch policy')
+    if: github.event_name == 'push' && startsWith(github.event.head_commit.message, 'Housekeeping')
     runs-on: ubuntu-latest
     permissions:
       contents: write
