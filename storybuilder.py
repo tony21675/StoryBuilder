@@ -3144,7 +3144,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             if not self._ask_yes_no(
                 "Clear & Reload Scene Idea",
                 f"Discard the current unsaved Scene Idea edits and reload the saved version for "
-                f"Chapter {chapter}, Scene {scene}?\\n\\n"
+                f"Chapter {chapter}, Scene {scene}?\n\n"
                 "The saved novel data and generated contract fields will not be changed.",
             ):
                 return
@@ -3494,8 +3494,8 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             self.scene_contract_building = False
             if hasattr(self, "scene_contract_build_button"):
                 self.scene_contract_build_button.configure(state="normal")
-            if hasattr(self, "scene_contract_load_button"):
-                self.scene_contract_load_button.configure(state="normal")
+            if hasattr(self, "scene_contract_reload_idea_button"):
+                self.scene_contract_reload_idea_button.configure(state="normal")
             messagebox.showerror("Scene Contract", str(exc))
     def _finish_contract_from_scene_idea(self, idea, result, error, chapter=None, scene=None):
         self.scene_contract_building = False
