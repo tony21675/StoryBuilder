@@ -171,6 +171,37 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         self.assertEqual(app.scene_idea_text.value, "Saved scene beats.")
         app._ask_yes_no.assert_not_called()
 
+    def test_validation_failed_draft_can_be_saved_but_not_accepted(self):
+        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+        app.writer_engine = SimpleNamespace(
+            child=SimpleNamespace(isalive=lambda: True),
+            model_path=Path("/tmp/writer.gguf"),
+        )
+        app.package = object()
+        app.generated_scene = "Complete but unvalidated prose."
+        app.accepted_scene = ""
+        app.pending_state_patch = None
+        app.writer_validation_failed = True
+        for name in (
+            "writer_start_button",
+            "writer_stop_button",
+            "writer_write_button",
+            "writer_save_draft_button",
+            "writer_accept_button",
+            "writer_reject_button",
+            "writer_analyze_button",
+            "writer_apply_state_button",
+            "writer_clear_context_button",
+            "writer_status",
+        ):
+            setattr(app, name, FakeButton())
+
+        app._update_writer_buttons()
+
+        self.assertEqual(app.writer_save_draft_button.options["state"], "normal")
+        self.assertEqual(app.writer_accept_button.options["state"], "disabled")
+        self.assertEqual(app.writer_reject_button.options["state"], "normal")
+
     def test_writer_validation_error_uses_copyable_popup_and_preserves_unaccepted_draft(self):
         app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
         error_text = (
