@@ -11,7 +11,7 @@ from builder.state_manager import extract_json_object
 from builder.workspace import LLAMA as DEFAULT_LLAMA
 
 
-VALIDATOR_SYSTEM_PROMPT = """Review the scene against the author's intent and starting state.
+VALIDATOR_SYSTEM_PROMPT = """Review scene intent and starting state.
 
 Return only JSON:
 {"pass": true, "missed_beats": [], "violations": [], "notes": ""}
