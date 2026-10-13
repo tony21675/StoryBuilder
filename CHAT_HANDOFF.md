@@ -40,7 +40,7 @@ Next: sync/start StoryBuilder, reopen/reload `Taken_at_Dusk`, use **Clear & Relo
 
 ### Novel and manuscript status
 
-- Repositories: `tony21675/StoryBuilder` and `tony21675/MyNovel`, each on `main` only. Do not recreate old reset/archive branches.
+- **Permanent branch policy:** `tony21675/StoryBuilder` has exactly one remote branch, `main`. Each novel repository (including `tony21675/MyNovel`) also has exactly one remote branch, `main`. Do not create temporary, feature, fix, experiment, or handoff branches; do not open PRs as a normal workflow. Make changes directly on `main`, verify them with tests, and commit there. If a temporary branch is ever created accidentally, merge its work, delete the branch before finishing, and verify GitHub lists only `main`. This is a standing rule, not session-specific.
 - Active novel package on the author's laptop: `~/Documents/MyNovel/Taken_at_Dusk`.
 - Scenes 1, 2, and 3 of Chapter 2 are accepted and must remain untouched unless the author explicitly asks for a rewrite.
 - **Next scene: Chapter 2, Scene 4, "Care and memory."** Its saved idea is in `writing_guidance.json`; Scene Contract reads from that file. The accepted Scene 3 and Scene 4 state are now pushed to GitHub in MyNovel commit `eb05527`. On resume, open/reload the existing novel package and verify the Writer, current state, and Scene Contract show Scene 4. Do not ask the author to copy/retype the idea or modify it unless a genuine issue is found.
@@ -188,6 +188,13 @@ Writer validation errors use the copyable dialog. If a draft was generated but v
 ### Durable design rule
 
 The author's instruction was to discuss future significant changes before making them. The core simplification above was later explicitly approved and implemented. Continue to favor the shortest prompt that preserves the intended beats and boundary. Do not add more fields or more verbose rules just to compensate for a single bad generation. Test the generic path and use actual model output as evidence.
+
+## Permanent repository and sync safety rules
+
+- Keep exactly one remote branch per repository: `main`. Never create temporary branches or pull requests during ordinary work. Commit verified changes directly on `main`.
+- The novel's **Close & Sync Novel** commits local changes before fetching. If the remote and local edits conflict, never choose a side automatically or keep clicking Sync. The app should abort the incomplete rebase safely, preserve the local commit, and show the conflicting file details. Reconcile the actual conflict before trying again.
+- If the app ever reports that a rebase is already in progress, use the updated sync handler to abort the interrupted sync safely; do not improvise with hard resets, force-pulls, or deleting local files.
+- After any sync incident, check that both repositories are on `main`, their working trees are understood, and GitHub shows only `main` before moving on to story work.
 
 ## StoryBuilder changes and verification notes
 
