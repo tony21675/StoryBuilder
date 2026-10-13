@@ -2588,9 +2588,11 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                 self.writer_engine.reset_context(model, system_prompt)
 
                 for attempt in range(1, max_attempts + 1):
-                    attempt_prompt = base_prompt
-                    if feedback:
-                        attempt_prompt += "\n\n" + feedback + "\n"
+                    attempt_prompt = (
+                        SceneContract.revision_prompt(base_prompt, answer, feedback)
+                        if feedback
+                        else base_prompt
+                    )
                     answer = self.writer_engine.generate(attempt_prompt)
 
                     if not contract:
