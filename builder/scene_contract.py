@@ -11,12 +11,12 @@ from builder.state_manager import extract_json_object
 from builder.workspace import LLAMA as DEFAULT_LLAMA
 
 
-VALIDATOR_SYSTEM_PROMPT = """Check a completed scene against the author's original idea and starting state.
+VALIDATOR_SYSTEM_PROMPT = """Review a completed scene against the author's intent and starting state.
 
 Return only JSON:
 {"pass": true, "missed_beats": [], "violations": [], "notes": ""}
 
-The original plain-English idea is primary. Generated direction, required beats, and hard_stop are supporting hints and may be incomplete; if they conflict with the idea, follow the idea. Check major requested events and the intended endpoint, character knowledge, and opening position and contact; if no transition explains it, flag the mismatch. Accept natural paraphrases and neutral familial comfort. Do not demand every incidental detail verbatim, nitpick style, or invent requirements. Report only clear, material failures.
+The original plain-English idea gives the scene's direction and key intentions. Generated direction and contract fields are secondary hints. Judge the scene as a whole, not as a checklist of every sentence in the idea. Check continuity, character knowledge, the intended emotional/story movement, any explicitly labeled Required Beats, and the intended endpoint. Report only clear, material failures such as a central development being lost, a contradiction, or a wrong ending. Do not fail a scene because an incidental action, gesture, or transition differs or is omitted; accept natural creative choices and paraphrases. Do not nitpick style or invent requirements.
 """
 
 
@@ -25,12 +25,16 @@ def _detect_accelerator() -> str | None:
     return override or None
 
 
-CONTRACT_BUILDER_SYSTEM_PROMPT = """Create a small supporting contract from the author's plain-English scene idea and current story state.
+CONTRACT_BUILDER_SYSTEM_PROMPT = """Create a compact, gentle guide from the author's plain-English scene idea and current story state.
 
 Return only JSON:
 {"direction":"","hard_stop":"","required_beats":[],"max_attempts":3}
 
-Use current_situation as the authoritative narrative snapshot for what has already happened. If they conflict, follow current_situation and preserve physical_state details not contradicted. The original plain-English idea is also passed directly to the Writer and remains primary. When the scene idea explicitly asks for reassurance, capture it as one concise required beat. Include a few major concrete actions in required_beats when the author names them; do not leave the list empty if the idea names several important events. If the idea specifies the final moment, hard_stop should name that moment, not just something that must happen later. Do not invent events or rules. Leave ordinary dialogue, gestures, pacing, and transitions to the writer. max_attempts is 3. Output JSON only.
+Use current_situation as the authoritative snapshot of what has already happened. If details conflict, follow current_situation and preserve physical_state details not contradicted. The full original plain-English idea is also given directly to the Writer; it provides the scene's direction, key intentions, and natural endpoint.
+
+Do not turn the idea into a checklist. Keep direction brief and high-level. Normally leave required_beats empty unless the author explicitly labels a small set of Required Beats or clearly marks specific items as non-negotiable. Never convert every action mentioned in ordinary scene prose into a separate requirement. Keep any explicitly supplied Required Beats, but do not invent more. If the idea makes the final moment clear, set hard_stop to that endpoint.
+
+Do not invent events or rules. Leave the Writer freedom over natural dialogue, gestures, pacing, transitions, and connective actions. max_attempts is 3. Output JSON only.
 """
 
 
@@ -606,9 +610,11 @@ class SceneContract:
 
         if author_idea:
             parts.append(
-                "Priority: The original idea controls requested events, their order, and ending. "
-                "The generated direction and compact contract are supporting hints only; they must not "
-                "replace, omit, or contradict the original idea."
+                "Priority: Treat the Scene Idea as guidance for the intended direction, key intentions, "
+                "and endpoint, not as a line-by-line checklist. Respect explicitly named Required Beats "
+                "and clearly stated boundaries. The generated direction and compact contract are hints "
+                "only; they must not overrule or contradict the author's intent. Leave natural actions, "
+                "dialogue, gestures, pacing, and transitions to the writer."
             )
         return "\n\n".join(parts)
 
@@ -900,9 +906,9 @@ class SceneContract:
         notes = str(result.get("notes", "") or "").strip()
 
         lines = [
-            "The previous draft did not satisfy the scene contract.",
-            "Rewrite the scene from the beginning. Keep the same creative freedom in wording and dialogue, but correct every missing or incorrect contract item.",
-            "Required facts must be explicit. Do not replace a specific required action, cause, injury, or ending event with a vague substitute.",
+            "The previous draft may need a small adjustment.",
+            "Make only the smallest necessary correction for a clear, important omission or contradiction. Preserve the prose, dialogue, pacing, and creative choices that already work.",
+            "Do not turn incidental details into new requirements or rewrite the whole scene unless the draft cannot be repaired with a focused change.",
         ]
         if missed:
             lines.append("Missed required beats or facts:")
