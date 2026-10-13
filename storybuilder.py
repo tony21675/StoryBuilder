@@ -2294,7 +2294,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                 state="normal" if running and self.package and not notes_updating and not acceptance_validating and not contract_building else "disabled"
             )
         self.writer_analyze_button.configure(
-            state="normal" if has_accepted and self.package and not notes_updating else "disabled"
+            state="normal" if has_accepted and self.package and not notes_updating and not contract_building else "disabled"
         )
         self.writer_apply_state_button.configure(
             state="normal" if has_patch and self.package and not notes_updating else "disabled"
