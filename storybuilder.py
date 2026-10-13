@@ -2656,8 +2656,12 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         self.writer_generation_start_state = None
 
         if error:
-            # A failed attempt must not silently replace the prior accepted text.
-            messagebox.showerror("Writer", error)
+            # Preserve copy/paste for full model and validation errors.
+            self._show_copyable_error(
+                "Writer",
+                error,
+                summary="Scene generation or contract validation failed. The draft was not accepted.",
+            )
             self._update_writer_buttons()
             return
 
@@ -3426,6 +3430,11 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             text=f"Saved Scene Idea for Chapter {chapter}, Scene {scene}.",
         )
     def _build_contract_from_scene_idea(self):
+        if getattr(self, "writer_generation_in_progress", False):
+            self.scene_contract_status.configure(
+                text="Scene generation is using the local model. Build the contract after it finishes."
+            )
+            return
         if self.__dict__.get("writer_notes_update_in_progress", False):
             self.scene_contract_status.configure(
                 text="The writing-notes review is using the local model. Build the next contract after it finishes."
@@ -3477,7 +3486,9 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
 
             def work():
                 try:
-                    result = SceneContract.generate_from_idea(model, current_state, idea)
+                    result = SceneContract.generate_from_idea(
+                        model, current_state, idea, engine=self.writer_engine
+                    )
                     error = None
                 except Exception as exc:
                     result = None
@@ -3496,7 +3507,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                 self.scene_contract_build_button.configure(state="normal")
             if hasattr(self, "scene_contract_reload_idea_button"):
                 self.scene_contract_reload_idea_button.configure(state="normal")
-            messagebox.showerror("Scene Contract", str(exc))
+            self._show_copyable_error("Scene Contract", str(exc))
     def _finish_contract_from_scene_idea(self, idea, result, error, chapter=None, scene=None):
         self.scene_contract_building = False
         if hasattr(self, "scene_contract_build_button"):
@@ -3512,7 +3523,11 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             # the form looking like its existing contract vanished.
             if self.package is not None:
                 self._refresh_scene_contract_editor()
-            messagebox.showerror("Scene Contract", error)
+            self._show_copyable_error(
+                "Scene Contract",
+                error,
+                summary="Scene Contract generation failed. The previous saved contract was kept.",
+            )
             return
 
         if self.package is None or not isinstance(result, dict):
