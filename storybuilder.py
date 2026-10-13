@@ -3699,11 +3699,9 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             return ""
 
     def _scene_contract(self, chapter: int, scene: int) -> dict:
-        """Build the reusable contract for the current scene.
+        """Build a minimal runtime contract from the scene idea and positive beats.
 
-        Explicit scene_contract data remains authoritative, while legacy
-        end_condition/required_events/do_not_advance fields and active module
-        guidance are folded in automatically.
+        Legacy auxiliary validation fields are ignored for backwards compatibility.
         """
         if not self.package:
             return {}
