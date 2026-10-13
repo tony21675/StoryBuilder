@@ -331,6 +331,40 @@ class SceneContract:
     """Validate generated prose against a reusable author-defined scene contract."""
 
     @staticmethod
+    def has_saved_contract(guidance: dict[str, Any] | None) -> bool:
+        """Return whether a guidance entry contains a meaningful saved contract.
+
+        This deliberately ignores the author Scene Idea by itself: a plain-idea
+        scene with no generated fields can be built without an overwrite warning.
+        """
+        if not isinstance(guidance, dict):
+            return False
+
+        for key in ("direction", "end_condition", "hard_stop"):
+            if str(guidance.get(key, "") or "").strip():
+                return True
+
+        contract = guidance.get("scene_contract")
+        if not isinstance(contract, dict):
+            return False
+
+        if str(contract.get("hard_stop", "") or "").strip():
+            return True
+
+        for key in (
+            "required_beats",
+            "required_facts",
+            "required_sequence",
+            "forbidden",
+            "forbidden_details",
+        ):
+            values = contract.get(key)
+            if isinstance(values, list) and any(str(value).strip() for value in values):
+                return True
+
+        return False
+
+    @staticmethod
     def generate_from_idea(
         model_path: str | Path,
         current_state: dict[str, Any],

@@ -770,10 +770,11 @@ class StoryBuilderApp(tk.Tk):
         ttk.Label(
             content,
             text=(
-                "The Scene Idea is the part you edit. Review it, correct the story beats or ending, "
-                "then click Build Contract from Scene Idea. StoryBuilder fills in the other fields. "
-                "If the generated result is not right, revise the Scene Idea and build again; "
-                "the generated fields below are read-only."
+                "The Scene Idea is the part you edit. Generate / Replace Contract asks the local model "
+                "for a new direction, ending, and Required Beats. Even with the same idea, a new build "
+                "may differ from an earlier contract. If a contract is already saved, StoryBuilder asks "
+                "before replacing it. Choose No to keep the saved contract; this button does not restore "
+                "or reload earlier generated fields."
             ),
             wraplength=900,
             justify="left",
@@ -792,7 +793,7 @@ class StoryBuilderApp(tk.Tk):
         idea_button_row.pack(anchor="w")
         self.scene_contract_build_button = ttk.Button(
             idea_button_row,
-            text="Build Contract from Scene Idea",
+            text="Generate / Replace Contract...",
             command=self._build_contract_from_scene_idea,
         )
         self.scene_contract_build_button.pack(side="left")
@@ -3457,10 +3458,37 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
 
         try:
             # The Scene Idea is the only author-editable input in this tab.
-            # Persist it first, but never validate or save the generated display
-            # fields as if they were hand-authored contract instructions.
+            # Save it first so cancelling a rebuild does not discard idea edits.
             chapter, scene = active_key
             self._save_scene_idea(chapter, scene, idea)
+
+            existing_entry = (
+                self._editable_scene_guidance_entry(chapter, scene, create=False) or {}
+            )
+            if SceneContract.has_saved_contract(existing_entry):
+                confirmed = self._ask_yes_no(
+                    "Replace Saved Scene Contract?",
+                    (
+                        f"A contract is already saved for Chapter {chapter}, Scene {scene}.\n\n"
+                        "This action asks the local model to CREATE A NEW CONTRACT. "
+                        "Even with the same Scene Idea, its direction, ending, and Required Beats "
+                        "may change. Continuing will replace the currently saved contract fields.\n\n"
+                        "Choose No to keep the existing contract. If your goal is to restore or "
+                        "reload previously saved fields, choose No; this button does not restore "
+                        "an earlier version. The Scene Idea will still be saved.\n\n"
+                        "Generate and replace the saved contract?"
+                    ),
+                )
+                if not confirmed:
+                    self._refresh_scene_contract_editor()
+                    self.scene_contract_status.configure(
+                        text=(
+                            f"Scene Idea saved. Contract rebuild canceled; the existing "
+                            f"Chapter {chapter}, Scene {scene} contract was kept."
+                        )
+                    )
+                    return
+
             current_state = json.loads(json.dumps(self.package.current_state, ensure_ascii=False))
             model = self._selected_writer_model_for_analysis()
 

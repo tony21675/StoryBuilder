@@ -55,6 +55,30 @@ class SceneContractTests(unittest.TestCase):
             },
         }
 
+    def test_has_saved_contract_detects_fields_that_a_rebuild_would_replace(self):
+        entries = [
+            {"direction": "Existing direction"},
+            {"end_condition": "Existing ending"},
+            {"scene_contract": {"hard_stop": "Existing hard stop"}},
+            {"scene_contract": {"required_beats": ["Required action"]}},
+            {"scene_contract": {"required_facts": ["Legacy content to preserve"]}},
+        ]
+        for entry in entries:
+            with self.subTest(entry=entry):
+                self.assertTrue(SceneContract.has_saved_contract(entry))
+
+    def test_has_saved_contract_ignores_scene_idea_and_empty_shell(self):
+        entries = [
+            {},
+            None,
+            {"scene_idea": "Tony cares for Maya and they drink tea."},
+            {"scene_idea": "An idea.", "scene_contract": {"required_beats": [], "max_attempts": 3}},
+            {"scene_contract": {}},
+        ]
+        for entry in entries:
+            with self.subTest(entry=entry):
+                self.assertFalse(SceneContract.has_saved_contract(entry))
+
     def test_creative_paraphrase_is_not_rejected_by_wording_regex(self):
         prose = (
             "Tony noticed a flush of color on Maya's cheek. "
