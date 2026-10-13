@@ -88,7 +88,64 @@ Rules:
 """
 
 
-def _run_contract_builder(model: Path, prompt: str) -> dict[str, Any]:
+def _run_with_existing_engine(
+    engine: Any,
+    model: Path,
+    system_prompt: str,
+    prompt: str,
+    *,
+    context_size: int,
+    max_tokens: int,
+    timeout_seconds: int,
+    task_name: str,
+) -> dict[str, Any]:
+    """Run a small model task through the existing writer process, never a second model."""
+    saved = {
+        key: os.environ.get(key)
+        for key in ("STORY_WRITER_CONTEXT", "STORY_WRITER_MAX_TOKENS")
+    }
+    os.environ["STORY_WRITER_CONTEXT"] = str(context_size)
+    os.environ["STORY_WRITER_MAX_TOKENS"] = str(max_tokens)
+    try:
+        # reset_context stops the writer child before starting the task-specific
+        # prompt, so the machine never has two GGUF processes resident together.
+        engine.reset_context(model, system_prompt)
+        output = engine.generate(prompt, timeout=timeout_seconds)
+    finally:
+        for key, value in saved.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+    result = extract_json_object(output)
+    if not isinstance(result, dict):
+        raise ValueError(f"{task_name} did not return a JSON object.")
+    return result
+
+
+def _engine_is_running(engine: Any) -> bool:
+    child = getattr(engine, "child", None)
+    try:
+        return child is not None and bool(child.isalive())
+    except Exception:
+        return False
+
+
+def _run_contract_builder(model: Path, prompt: str, engine: Any = None) -> dict[str, Any]:
+    if engine is not None and _engine_is_running(engine):
+        timeout_seconds = max(60, int(os.environ.get("STORY_CONTRACT_TIMEOUT", "300")))
+        return _run_with_existing_engine(
+            engine,
+            model,
+            CONTRACT_BUILDER_SYSTEM_PROMPT,
+            prompt,
+            context_size=int(os.environ.get("STORY_CONTRACT_CONTEXT", "6144")),
+            max_tokens=int(os.environ.get("STORY_CONTRACT_MAX_TOKENS", "700")),
+            timeout_seconds=timeout_seconds,
+            task_name="Scene contract generation",
+        )
+
     env = os.environ.copy()
     env["LD_LIBRARY_PATH"] = str(DEFAULT_LLAMA.parent) + (
         ":" + env["LD_LIBRARY_PATH"] if env.get("LD_LIBRARY_PATH") else ""
@@ -146,7 +203,20 @@ def _run_contract_builder(model: Path, prompt: str) -> dict[str, Any]:
     return result
 
 
-def _run_validator(model: Path, prompt: str) -> dict[str, Any]:
+def _run_validator(model: Path, prompt: str, engine: Any = None) -> dict[str, Any]:
+    if engine is not None and _engine_is_running(engine):
+        timeout_seconds = max(60, int(os.environ.get("STORY_VALIDATOR_TIMEOUT", "300")))
+        return _run_with_existing_engine(
+            engine,
+            model,
+            VALIDATOR_SYSTEM_PROMPT,
+            prompt,
+            context_size=int(os.environ.get("STORY_VALIDATOR_CONTEXT", "6144")),
+            max_tokens=int(os.environ.get("STORY_VALIDATOR_MAX_TOKENS", "220")),
+            timeout_seconds=timeout_seconds,
+            task_name="Scene contract validation",
+        )
+
     env = os.environ.copy()
     env["LD_LIBRARY_PATH"] = str(DEFAULT_LLAMA.parent) + (
         ":" + env["LD_LIBRARY_PATH"] if env.get("LD_LIBRARY_PATH") else ""
@@ -315,6 +385,7 @@ class SceneContract:
         model_path: str | Path,
         current_state: dict[str, Any],
         scene_idea: str,
+        engine: Any = None,
     ) -> dict[str, Any]:
         """Generate a minimal draft contract from an author scene idea."""
         idea = str(scene_idea or "").strip()
@@ -334,17 +405,20 @@ class SceneContract:
             + "\n\nCreate the contract now. Keep it minimal.\n"
         )
 
-        raw = _run_contract_builder(model, prompt)
+        raw = _run_contract_builder(model, prompt, engine=engine)
 
         authored_sections = extract_authored_scene_sections(idea)
         result = {
             "direction": str(raw.get("direction", "") or "").strip(),
             "hard_stop": str(raw.get("hard_stop", "") or "").strip(),
             "required_beats": raw.get("required_beats", []),
-            "required_facts": raw.get("required_facts", []),
-            "required_sequence": raw.get("required_sequence", []),
-            # Automatic generation deliberately leaves prohibitions empty.
-            # Author can add them manually when a specific boundary is needed.
+            # Keep generated requirements in one simple place. The model often
+            # turns auxiliary fields into brittle extra gates; concrete author
+            # requirements belong in required_beats unless the author adds an
+            # explicit structured requirement through a future UI.
+            "required_facts": [],
+            "required_sequence": [],
+            # Do not generate hidden extra prohibitions.
             "forbidden": [],
             "forbidden_details": [],
             "max_attempts": raw.get("max_attempts", 3),
@@ -771,7 +845,7 @@ class SceneContract:
         if model is None:
             raise RuntimeError("The active writer model is unavailable for scene validation.")
 
-        raw_result = _run_validator(Path(model), prompt)
+        raw_result = _run_validator(Path(model), prompt, engine=engine)
         # Keep the public API stable even when validators are mocked or an
         # alternate engine returns JSON booleans as strings.
         if not isinstance(raw_result, dict):
