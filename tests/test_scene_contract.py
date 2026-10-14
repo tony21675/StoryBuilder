@@ -544,7 +544,7 @@ Required Beats
         generated = {
             "direction": "Tony comforts Maya patiently.",
             "hard_stop": "Tony finishes the comforting gesture.",
-            "required_beats": [],
+            "required_beats": ["AI-invented checkpoint that the author never requested."],
             "required_facts": ["This extra requirement should be ignored."],
             "required_sequence": ["This extra sequence gate should be ignored."],
             "max_attempts": 3,
@@ -575,10 +575,98 @@ Required Beats
             "Maya tells Tony that the man hit her.",
             contract["required_beats"],
         )
+        self.assertEqual(
+            len(contract["required_beats"]),
+            2,
+            "Only Required Beats explicitly labeled by the author should survive.",
+        )
+        self.assertNotIn(
+            "AI-invented checkpoint that the author never requested.",
+            contract["required_beats"],
+        )
         self.assertNotIn("required_facts", contract)
         self.assertNotIn("required_sequence", contract)
         self.assertNotIn("forbidden", contract)
         self.assertNotIn("forbidden_details", contract)
+
+    def test_generated_beats_are_ignored_when_idea_has_no_required_section(self):
+        idea = (
+            "Tony cares for Maya, invites the family to breakfast, has a private "
+            "moment with Barnaby, and ends quietly with tea at the kitchen table."
+        )
+        generated = {
+            "direction": "Tony moves through the evening's care routines.",
+            "hard_stop": "Tony and Maya sit together at the kitchen table.",
+            "required_beats": [
+                "Tony opens the bathroom cabinet before calling Beth.",
+                "Tony uses the exact phrase the validator expected.",
+                "Tony hugs Barnaby for exactly two sentences.",
+            ],
+            "max_attempts": 3,
+        }
+
+        with patch.object(Path, "is_file", return_value=True), patch.object(
+            scene_contract, "_run_contract_builder", return_value=generated
+        ):
+            contract = scene_contract.SceneContract.generate_from_idea(
+                "/tmp/test-model.gguf",
+                {"chapter": 2, "scene": 4, "current_situation": "Tony is with Maya."},
+                idea,
+            )
+
+        self.assertEqual(contract["required_beats"], [])
+
+    def test_saved_generated_beats_do_not_override_plain_english_scene_idea(self):
+        idea = (
+            "Tony offers Maya a bath, calls the family about breakfast, spends a "
+            "private moment with Barnaby, and ends with tea at the kitchen table."
+        )
+        guidance = {
+            "scene_idea": idea,
+            "direction": "Tony takes care of Maya.",
+            "end_condition": "End at the kitchen table.",
+            "scene_contract": {
+                "required_beats": [
+                    "The AI-generated bath beat with added subdetails.",
+                    "The AI-generated phone call beat with an exact required sequence.",
+                    "The AI-generated Barnaby beat with extra gestures.",
+                    "The AI-generated tea beat with a mandated phrase.",
+                ],
+                "hard_stop": "End at the kitchen table.",
+                "max_attempts": 3,
+            },
+        }
+
+        contract = scene_contract.SceneContract.from_guidance(guidance)
+
+        self.assertEqual(contract["required_beats"], [])
+        self.assertEqual(contract["hard_stop"], "End at the kitchen table.")
+        self.assertEqual(contract["author_idea"], idea)
+
+    def test_saved_contract_keeps_only_author_labeled_required_beats(self):
+        idea = (
+            "Beginning: The driver leaves California.\n\n"
+            "End: The driver arrives in New York.\n\n"
+            "Required Beats\n"
+            "- Stop in Denver.\n"
+            "- Stop in Chicago.\n"
+        )
+        guidance = {
+            "scene_idea": idea,
+            "scene_contract": {
+                "required_beats": [
+                    "Stop in Denver.",
+                    "Stop in Chicago.",
+                    "AI-invented stop in Nebraska.",
+                ],
+                "hard_stop": "New York.",
+            },
+        }
+
+        contract = scene_contract.SceneContract.from_guidance(guidance)
+
+        self.assertEqual(contract["required_beats"], ["Stop in Denver.", "Stop in Chicago."])
+        self.assertNotIn("AI-invented stop in Nebraska.", contract["required_beats"])
 
     def test_live_writer_engine_is_reused_for_contract_build(self):
         generated = {
