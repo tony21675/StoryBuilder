@@ -16,7 +16,7 @@ VALIDATOR_SYSTEM_PROMPT = """Review original idea, scene intent, and starting st
 Return only JSON:
 {"pass": true, "missed_beats": [], "violations": [], "notes": ""}
 
-Original idea leads; hints are secondary. Check continuity, character knowledge; if no transition explains a mismatch, flag it. Check opening position and contact, central movement, Required Beats, and endpoint. Treat Required Beats as narrative-level goals, not a checklist. Fail only when a core action or outcome is absent or materially wrong. If the main action occurs but a secondary detail is missing, do not fail for that alone; optionally note it. Ignore incidental omissions from free-form prose unless central development or the endpoint suffers. Accept paraphrases and neutral familial comfort. Do not nitpick style or invent requirements.
+Original idea leads; hints are secondary. Check continuity, character knowledge; if no transition explains a mismatch, flag it. Check opening continuity, central movement, author-labeled Required Beats, and endpoint. Treat Required Beats as narrative-level goals, not a checklist. Fail only when a core action or outcome is absent or materially wrong. If the main action occurs but a secondary detail is missing, do not fail for that alone; optionally note it. Ignore incidental omissions from free-form prose unless central development or the endpoint suffers. Accept paraphrases and neutral familial comfort. Do not nitpick style or invent requirements.
 """
 
 
@@ -32,7 +32,7 @@ Return only JSON:
 
 Use current_situation as the authoritative narrative snapshot for what has already happened. If they conflict, follow current_situation and preserve physical_state details not contradicted. The full original plain-English idea is also given directly to the Writer; it provides the scene's direction, key intentions, and natural endpoint.
 
-Do not turn the idea into a checklist. Keep direction brief and high-level. Normally leave required_beats empty unless the author explicitly labels a small set of Required Beats or clearly marks specific items as non-negotiable. Never convert every action mentioned in ordinary scene prose into a separate requirement. Keep any explicitly supplied Required Beats, but do not invent more. If the idea makes the final moment clear, set hard_stop to that endpoint.
+Do not turn the idea into a checklist. Keep direction brief and high-level. Always return required_beats as an empty list; the application carries forward only beats the author explicitly labels in the original Scene Idea. Never turn ordinary prose or your own summary into mandatory stops. If the idea makes the final moment clear, set hard_stop to that endpoint.
 
 Do not invent events or rules. Leave the Writer freedom over natural dialogue, gestures, pacing, transitions, and connective actions. max_attempts is 3. Output JSON only.
 """
@@ -415,7 +415,9 @@ class SceneContract:
         result = {
             "direction": str(raw.get("direction", "") or "").strip(),
             "hard_stop": str(raw.get("hard_stop", "") or "").strip(),
-            "required_beats": raw.get("required_beats", []),
+            # Model-generated beat lists must never become mandatory. Only the
+            # author's clearly labeled Required Beats are carried into the contract.
+            "required_beats": list(authored_sections.get("required_beats", [])),
             "max_attempts": raw.get("max_attempts", 3),
         }
 
@@ -444,13 +446,6 @@ class SceneContract:
         )
         if authored_sections.get("end"):
             result["hard_stop"] = authored_sections["end"]
-
-        for beat in authored_sections.get("required_beats", []):
-            if beat.casefold() not in {
-                str(existing).strip().casefold()
-                for existing in result["required_beats"]
-            }:
-                result["required_beats"].append(beat)
 
         if result["max_attempts"] in (None, ""):
             result["max_attempts"] = 3
@@ -549,6 +544,12 @@ class SceneContract:
         author_idea = str(source.get("scene_idea", "") or "").strip()
         if author_idea:
             contract["author_idea"] = author_idea
+            # Previously generated contract beats are not author requirements.
+            # Re-derive the mandatory list from clearly labeled author input so
+            # old saved contracts cannot keep enforcing an AI-written checklist.
+            contract["required_beats"] = list(
+                extract_authored_scene_sections(author_idea).get("required_beats", [])
+            )
 
         def append_beats(values: Any) -> None:
             if not isinstance(values, list):
@@ -568,8 +569,12 @@ class SceneContract:
                     existing.append(item)
                     seen.add(item.casefold())
 
-        append_beats(source.get("required_beats"))
-        append_beats(source.get("required_events"))
+        # Legacy/generated event lists are usable only when there is no
+        # original Scene Idea from which to determine author intent. When an
+        # idea exists, its explicit Required Beats above are authoritative.
+        if not author_idea:
+            append_beats(source.get("required_beats"))
+            append_beats(source.get("required_events"))
 
         if not contract.get("hard_stop"):
             end_condition = source.get("hard_stop") or source.get("end_condition")
