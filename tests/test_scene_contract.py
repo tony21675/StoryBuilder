@@ -1184,7 +1184,7 @@ Required Beats
 
         self.assertTrue(result["pass"])
         self.assertEqual(engine.calls[0][2], "6144")
-        self.assertEqual(engine.calls[0][3], "700")
+        self.assertEqual(engine.calls[0][3], "1500")
         self.assertEqual(engine.calls[1][2], 300)
         self.assertIn("sitting on the bed", engine.calls[1][1])
         self.assertNotIn("unrelated_archive_blob", engine.calls[1][1])
