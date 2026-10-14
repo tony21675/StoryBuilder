@@ -203,7 +203,7 @@ class PromptTraceSyncTests(unittest.TestCase):
                     return self.Response({"sha": "new-tree"})
                 if method == "POST" and url.endswith("/git/commits"):
                     return self.Response({"sha": "new-root-commit"})
-                if method == "PATCH" and url.endswith("/git/ref/heads/main"):
+                if method == "PATCH" and url.endswith("/git/refs/heads/main"):
                     return self.Response({"ref": "refs/heads/main"})
                 raise AssertionError(f"Unexpected GitHub request: {method} {url}")
 
@@ -216,6 +216,7 @@ class PromptTraceSyncTests(unittest.TestCase):
 
             self.assertTrue(result["ok"], result)
             patch_request = next(item for item in calls if item[0] == "PATCH")
+            self.assertTrue(patch_request[1].endswith("/git/refs/heads/main"))
             self.assertTrue(patch_request[2]["force"])
             commit_payload = next(payload for method, url, payload in calls if method == "POST" and url.endswith("/git/commits"))
             self.assertEqual(commit_payload["parents"], [])
