@@ -491,7 +491,7 @@ class SceneContractTests(unittest.TestCase):
                 {
                     "requirement": "Tony offers Maya a bath and leaves her in private.",
                     "status": "met",
-                    "evidence": "Tony offers a warm bath and leaves her in private.",
+                    "evidence": "Tony offers Maya a warm bath and leaves her in private.",
                 },
                 {
                     "requirement": "Tony calls Beth and Jessica to arrange breakfast, with Jessica confirming everyone.",
