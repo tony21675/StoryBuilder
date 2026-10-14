@@ -489,7 +489,7 @@ class SceneContractTests(unittest.TestCase):
         )
         self.assertIn("kitchen table", writer_context)
         self.assertIn("Barnaby", writer_context)
-        self.assertIn("not as a line-by-line checklist", writer_context)
+        self.assertIn("It is not a word-for-word prose checklist", writer_context)
         self.assertIn("must not overrule or contradict the author's intent", writer_context)
 
     def test_validator_receives_original_plain_english_idea(self):
