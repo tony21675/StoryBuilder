@@ -459,6 +459,148 @@ class SceneContractTests(unittest.TestCase):
         self.assertIn('"checks": [{"requirement": "", "status": "met", "evidence": ""}]', run_validator.call_args_list[0].args[1])
 
 
+
+    def test_validator_prompt_puts_author_idea_first_and_compacts_guidance_and_state(self):
+        idea = (
+            "Tony offers Maya a warm bubble bath while she has privacy, calls Beth "
+            "and Jessica about breakfast, then hugs Barnaby in Tiffany's room."
+        )
+        guidance = "\n".join([
+            "- Generic unrelated guidance about distant plot arcs.",
+            "- Maya's personal belongings may carry Tiffany's familiar scent.",
+            "- Do not introduce floral scents in bath products.",
+            "- Only characters explicitly listed in the scene cast participate.",
+            "- Do not import details from discarded drafts.",
+        ] + [
+            "- Generic unrelated guidance about distant plot arcs and background lore."
+            for _ in range(20)
+        ])
+        compact_guidance = scene_contract._compact_validator_guidance(
+            guidance, idea, ["Tony", "Maya"]
+        )
+        self.assertLessEqual(len(compact_guidance), 1600)
+        self.assertIn("floral scents", compact_guidance)
+        self.assertIn("Only characters explicitly listed", compact_guidance)
+        self.assertNotIn("distant plot arcs", compact_guidance)
+
+        state = {
+            "chapter": 2,
+            "scene": 4,
+            "scene_cast": ["Tony", "Maya"],
+            "current_situation": "Maya is recounting Tiffany's abduction.",
+            "location": {
+                "primary": "Tony and Tiffany's home",
+                "Tony": "In the bedroom",
+                "Maya": "Against Tony",
+                "Tiffany": "Inside the van",
+            },
+            "physical_state": {
+                "Tony": {"position": "sitting"},
+                "Maya": {"position": "lying against Tony"},
+                "Tiffany": {"position": "inside the van"},
+            },
+            "character_knowledge": {
+                "Tony": ["Knows Maya was struck."],
+                "Maya": ["Witnessed the abduction."],
+                "Tiffany": ["Knows Tony is her father."],
+            },
+            "active_objectives": {
+                "Tony": "Protect Maya",
+                "Tiffany": "Stay safe",
+            },
+            "unrelated_history": "Do not send this to the validator.",
+        }
+        compact_state = scene_contract._compact_validation_state(
+            state, ["Tony", "Maya"], idea
+        )
+        self.assertIn("Tony", compact_state["character_knowledge"])
+        self.assertIn("Maya", compact_state["character_knowledge"])
+        self.assertNotIn("Tiffany", compact_state["character_knowledge"])
+        self.assertNotIn("unrelated_history", compact_state)
+        self.assertIn("Tiffany", compact_state["location"])
+        self.assertIn("Tiffany", compact_state["physical_state"])
+
+        captured = {}
+        prose = "Tony offers Maya a warm bubble bath. He calls Beth and Jessica, then hugs Barnaby."
+        validator_result = {
+            "pass": True,
+            "missed_beats": [],
+            "violations": [],
+            "notes": "",
+            "checks": [
+                {
+                    "requirement": "Tony offers Maya a bath.",
+                    "status": "met",
+                    "evidence": "Tony offers Maya a warm bubble bath.",
+                }
+            ],
+        }
+
+        def fake_validator(_model, prompt):
+            captured["prompt"] = prompt
+            return validator_result
+
+        with patch.object(scene_contract, "_run_validator", side_effect=fake_validator):
+            SceneContract.validate_with_engine(
+                FakeEngine(),
+                {"author_idea": idea, "direction": "A concise supporting direction."},
+                state,
+                prose,
+                author_guidance=guidance,
+            )
+
+        prompt = captured["prompt"]
+        self.assertLess(
+            prompt.index("AUTHOR'S ORIGINAL SCENE IDEA (PRIMARY VALIDATION SOURCE)"),
+            prompt.index("VALIDATOR TASK:"),
+        )
+        self.assertLess(prompt.index(idea), prompt.index("SUPPORTING SCENE DIRECTION AND CONTRACT"))
+        self.assertLess(prompt.index("STARTING STATE (relevant fields only)"), prompt.index("COMPLETED SCENE:"))
+        self.assertNotIn('"author_idea"', prompt)
+        self.assertNotIn("Do not send this to the validator.", prompt)
+        self.assertNotIn("unrelated_history", prompt)
+        self.assertLess(len(prompt), 11000)
+
+    def test_retry_explains_missing_coverage_instead_of_claiming_json_is_unreadable(self):
+        idea = "Tony offers Maya a warm bubble bath and leaves her in private."
+        old_schema = {
+            "pass": True,
+            "missed_beats": [],
+            "violations": [],
+            "notes": "",
+        }
+        valid = {
+            "pass": False,
+            "missed_beats": ["The bubble bath is not explicit."],
+            "violations": [],
+            "notes": "",
+            "checks": [
+                {
+                    "requirement": "Tony offers a warm bubble bath.",
+                    "status": "missing",
+                    "evidence": "",
+                }
+            ],
+        }
+        with patch.object(
+            scene_contract, "_run_validator", side_effect=[old_schema, valid]
+        ) as run_validator:
+            result = SceneContract.validate_with_engine(
+                FakeEngine(),
+                {"author_idea": idea},
+                {"chapter": 2, "scene": 4},
+                "Tony offers Maya a warm bath and leaves her in private.",
+            )
+
+        self.assertFalse(result["pass"])
+        retry_prompt = run_validator.call_args_list[1].args[1]
+        self.assertIn("checks", retry_prompt)
+        self.assertIn("itemized author-intent checks", retry_prompt)
+        self.assertIn("do not claim they are absent", retry_prompt)
+        self.assertNotIn("previous response was not a readable", retry_prompt)
+
+
+
     def test_minor_secondary_detail_can_be_reported_without_failing_scene(self):
         idea = (
             "Tony helps Maya bathe privately, makes ordinary breakfast calls while "
@@ -683,7 +825,7 @@ class SceneContractTests(unittest.TestCase):
         self.assertFalse(result["pass"])
         self.assertTrue(any("warm bubble bath" in item for item in result["missed_beats"]))
         self.assertIn(idea, captured["prompt"])
-        self.assertIn('"author_idea"', captured["prompt"])
+        self.assertNotIn('"author_idea"', captured["prompt"])
         self.assertIn("The idea is primary", captured["prompt"])
         self.assertIn('"checks": [{"requirement": "", "status": "met", "evidence": ""}]', captured["prompt"])
         self.assertIn("original idea", scene_contract.VALIDATOR_SYSTEM_PROMPT)
