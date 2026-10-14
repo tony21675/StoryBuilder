@@ -477,6 +477,7 @@ class SceneContractTests(unittest.TestCase):
         self.assertIn("COMPACT SUPPORTING CONTRACT (SECONDARY):", writer_context)
         self.assertIn("AUTHOR ACTION FIDELITY", writer_context)
         self.assertIn("a bubble bath is not a shower", writer_context)
+        self.assertIn("Treat wording such as 'can' or 'may' as permission", writer_context)
         self.assertIn("Natural dialogue, gestures, pacing, transitions, and connective", writer_context)
         self.assertLess(
             writer_context.index("AUTHOR'S ORIGINAL PLAIN-ENGLISH SCENE IDEA"),
