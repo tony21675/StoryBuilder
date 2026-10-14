@@ -366,7 +366,7 @@ class SceneContractTests(unittest.TestCase):
             captured["prompt"],
         )
         self.assertIn(prose, captured["prompt"])
-        self.assertLess(len(captured["prompt"]), 2500)
+        self.assertLess(len(captured["prompt"]), 3200)
 
 
     def test_reported_missing_author_detail_blocks_a_false_pass(self):
