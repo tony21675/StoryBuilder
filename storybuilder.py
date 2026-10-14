@@ -32,6 +32,7 @@ from builder.writer_notes import (
 from builder.validator import validate_package
 from builder.writer_engine import WriterEngine
 from builder.prompt_trace import PromptTrace, default_prompt_trace_path
+from builder.prompt_trace_sync import upload_prompt_trace
 from builder.manuscript import ManuscriptManager
 from builder.scene_flow import review_chapter_flow
 from builder.novel_sync import NovelSyncError, sync_novel_repository
@@ -2391,8 +2392,9 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             self.writer_trace_button.configure(text="Trace Next Scene (Armed)")
             self.writer_trace_status.configure(
                 text=(
-                    "Armed for the next scene only. One local JSON trace will be saved, "
-                    "replacing the previous trace. Nothing is uploaded."
+                    "Armed for the next scene only. One local JSON trace will be saved "
+                    "and synced to the private GitHub trace repository, replacing the "
+                    "previous trace on its branch."
                 )
             )
         else:
@@ -2773,7 +2775,10 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             )
             self.writer_trace_button.configure(text="Trace Next Scene (Off)", state="disabled")
             self.writer_trace_status.configure(
-                text="Capturing this scene only. The single local trace file will be overwritten when this finishes."
+                text=(
+                    "Capturing this scene only. The local trace will be overwritten and "
+                    "synced to the private GitHub trace repository when finished."
+                )
             )
 
         def work():
@@ -2884,9 +2889,18 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                         error=error,
                         validation_warning=validation_warning,
                     )
+                    upload_result = None
+                    if trace_path is not None and not prompt_trace.save_error:
+                        # Upload failures are diagnostic only; the local trace and
+                        # generated draft remain available even without a network.
+                        try:
+                            upload_result = upload_prompt_trace(trace_path)
+                        except Exception as exc:
+                            upload_result = {"ok": False, "error": str(exc)}
                     trace_result = {
                         "path": str(trace_path) if trace_path is not None else None,
                         "error": prompt_trace.save_error,
+                        "upload": upload_result,
                     }
                     if getattr(self.writer_engine, "prompt_trace", None) is prompt_trace:
                         self.writer_engine.prompt_trace = None
@@ -2908,9 +2922,21 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                     text="Trace Next Scene (Armed)" if getattr(self, "prompt_trace_armed", False) else "Trace Next Scene (Off)"
                 )
             if self.__dict__.get("writer_trace_status") is not None:
-                if trace_result.get("path"):
+                upload = trace_result.get("upload") or {}
+                if trace_result.get("path") and upload.get("ok"):
                     self.writer_trace_status.configure(
-                        text=f"Saved one-scene trace: {trace_result['path']} (the next capture replaces it)."
+                        text=(
+                            f"Trace saved locally and synced to private GitHub: {upload.get('url')}. "
+                            "The next trace replaces it."
+                        )
+                    )
+                elif trace_result.get("path"):
+                    upload_error = upload.get("error") or "GitHub sync did not run."
+                    self.writer_trace_status.configure(
+                        text=(
+                            f"Trace saved locally at {trace_result['path']}; "
+                            f"private GitHub sync failed: {upload_error}"
+                        )
                     )
                 else:
                     self.writer_trace_status.configure(
