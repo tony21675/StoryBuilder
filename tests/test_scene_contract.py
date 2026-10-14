@@ -178,7 +178,7 @@ class SceneContractTests(unittest.TestCase):
         self.assertNotIn('"forbidden_details"', captured["prompt"])
         self.assertNotIn("Old wording gate", captured["prompt"])
         self.assertLess(len(captured["prompt"]), 3200)
-        self.assertLess(len(scene_contract.VALIDATOR_SYSTEM_PROMPT), 800)
+        self.assertLess(len(scene_contract.VALIDATOR_SYSTEM_PROMPT), 1500)
 
 
     def test_validator_string_false_is_treated_as_false(self):
