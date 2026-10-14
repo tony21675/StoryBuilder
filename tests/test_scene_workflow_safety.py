@@ -1068,6 +1068,48 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         )
 
 
+    def test_writer_package_includes_stable_author_writing_guidance(self):
+        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+        app.package = SimpleNamespace(
+            current_state={
+                "chapter": 2,
+                "scene": 4,
+                "location": {"primary": "Tony's bedroom", "Beth": "next door"},
+                "time": "afternoon",
+                "scene_cast": ["Tony", "Maya"],
+                "current_situation": "Tony is comforting Maya.",
+                "physical_state": {},
+                "character_knowledge": {},
+            },
+            writer_notes={},
+            characters={},
+            story_bible={
+                "relationships": {"Tony-Maya": "close family-like friendship"},
+                "supporting_people": {"Beth": "Maya's mother"},
+                "canon_rules": ["Only Tony and Maya know Tiffany is missing."],
+            },
+            extra_json={
+                "writing_guidance.json": {
+                    "recurring_instructions": ["Do not introduce floral scents."],
+                    "relationship_freedom": ["Allow ordinary conversation when it fits."],
+                    "avoid": ["Do not add a second kidnapper."],
+                    "scene_plan": {"4": {"direction": "SCENE-ONLY-CONTEXT"}},
+                },
+            },
+        )
+
+        files = dict(app._writer_package_files())
+        self.assertIn("author_writing_guidance.txt", files)
+        self.assertIn("Do not introduce floral scents.", files["author_writing_guidance.txt"])
+        self.assertIn("Allow ordinary conversation when it fits.", files["author_writing_guidance.txt"])
+        self.assertIn("Do not add a second kidnapper.", files["author_writing_guidance.txt"])
+        self.assertNotIn("SCENE-ONLY-CONTEXT", files["author_writing_guidance.txt"])
+
+        prompt = app._writer_system_prompt(app._writer_package_files())
+        self.assertIn("Do not introduce floral scents.", prompt)
+        self.assertIn("Stable author writing guidance", prompt)
+        self.assertIn("do not introduce music after agreeing to keep things quiet", prompt)
+
     def test_writer_system_prompt_prioritizes_scene_idea_over_generated_summaries(self):
         app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
         prompt = app._writer_system_prompt([])

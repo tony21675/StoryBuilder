@@ -1322,6 +1322,34 @@ class StoryBuilderApp(tk.Tk):
             self.writer_model_var.set("")
         self._update_writer_buttons()
 
+    def _author_writing_guidance(self) -> str:
+        """Return stable author instructions without mixing in scene-specific planning."""
+        if self.package is None:
+            return ""
+
+        guidance = self.package.extra_json.get("writing_guidance.json", {})
+        if not isinstance(guidance, dict):
+            return ""
+
+        sections = []
+        for label, key in (
+            ("Recurring writing instructions", "recurring_instructions"),
+            ("Permitted relationship creativity", "relationship_freedom"),
+            ("Author-specified avoidances", "avoid"),
+        ):
+            values = guidance.get(key, [])
+            if isinstance(values, str):
+                values = [values]
+            if not isinstance(values, list):
+                continue
+            items = [str(value).strip() for value in values if str(value).strip()]
+            if items:
+                sections.append(
+                    label + ":\n" + "\n".join(f"- {item}" for item in items)
+                )
+
+        return "\n\n".join(sections)
+
     def _writer_package_files(self):
         if self.package is None:
             return []
@@ -1547,6 +1575,13 @@ class StoryBuilderApp(tk.Tk):
             normalized_rules = [str(rule).strip() for rule in canon_rules if str(rule).strip()]
             if normalized_rules:
                 files.append(("author_defined_canon_rules.txt", "\n".join(f"- {rule}" for rule in normalized_rules)))
+
+        # Stable author guidance is distinct from the active scene plan. The
+        # recurring rules, creative permissions, and avoidances should reach
+        # both the prose Writer and semantic validator on every scene.
+        author_guidance = self._author_writing_guidance()
+        if author_guidance:
+            files.append(("author_writing_guidance.txt", author_guidance))
 
         # Do not place recent manuscript prose or active module plans into the
         # persistent system prompt. Those belong in the per-scene direction
@@ -2286,7 +2321,7 @@ class StoryBuilderApp(tk.Tk):
         base = """You write natural prose for an ongoing fictional novel.
 
 Rules:
-Author-defined canon rules supplied in the scene reference are hard constraints across the novel. Do not contradict, discard, or weaken them unless the author explicitly revises canon. They outrank improvisation and optional planning guidance.
+Author-defined canon rules supplied in the scene reference are hard constraints across the novel. Stable author writing guidance supplied there is also binding whenever relevant. Preserve the meaning of rules, avoidances, and creative permissions without turning permissive guidance into mandatory beats. Do not contradict, discard, or weaken author-defined constraints unless the author explicitly revises them. They outrank improvisation and optional planning guidance.
 
 1. The original plain-English Scene Idea gives the intended direction, key intentions, and endpoint. Current story state controls what has already happened, physical continuity, and character knowledge. Generated scene direction and compact contract are supporting context only. Follow explicit boundaries and clearly named Required Beats, but do not treat every sentence of the idea as a checklist; use creative judgment for natural execution.
 2. The current_situation in scene_state.json is the exact narrative and physical starting point for this scene. Treat statements that are already completed there as already true before writing begins. Do not replay them as new events.
@@ -2314,7 +2349,8 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
 24. Keep relationship-specific behavior consistent with established roles and dynamics. Avoid an incongruous relationship metaphor or a diminishing label for someone being comforted unless the story establishes that framing.
 25. If temporary per-novel working writer notes are supplied, treat them as tentative craft observations learned from accepted sections. Apply them selectively when useful; they are not canon, plot instructions, or superior to current author direction, scene contract, character knowledge, or continuity. Never import note content as an in-story fact.
 26. Preserve the emotional cause-and-effect established by author direction and character continuity. When a familiar, trusted care gesture is established as reassuring, let it reassure the character unless the current scene explicitly establishes a different response. Do not invent distress caused by the gesture; connect renewed distress to the authored trigger or remembered event. Do not reverse an established emotional response just to add drama. When a character pauses to regain composure or becomes overwhelmed while trying to speak, and the scene and relationship support comfort, allow the other character to offer brief, natural reassurance, patient words, or a familiar calming gesture. Let the support respond to the person's actual distress without forcing it into every pause, repeating the same reassurance, or rushing the person past the difficult moment. Comfort may help the character continue without instantly removing their fear, grief, or struggle. Follow the scene-specific author direction and hard stop.
-27. Output only natural story prose.
+27. When a character states a direct request, preference, boundary, or need and another character acknowledges or agrees to it, keep subsequent actions consistent with it unless a clear in-story reason supports a different choice. Do not add an unmotivated contradiction as decorative atmosphere; for example, do not introduce music after agreeing to keep things quiet.
+28. Output only natural story prose.
 
 """
         parts = [base, "\nSCENE REFERENCE\n"]
@@ -2654,6 +2690,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         files = self._writer_package_files()
         system_prompt = self._writer_system_prompt(files)
         model = self.writer_engine.model_path
+        author_guidance = self._author_writing_guidance()
 
         writer_context = SceneContract.writer_prompt_context(direction, contract)
         prompt_parts = [
@@ -2693,6 +2730,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                             contract,
                             current_state,
                             answer,
+                            author_guidance=author_guidance,
                         )
                     except SceneContractValidationUnavailable as exc:
                         # Preserve the generated prose. A broken validator response
@@ -2922,6 +2960,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                 ensure_ascii=False,
             ))
             validation_contract = json.loads(json.dumps(contract, ensure_ascii=False))
+            author_guidance = self._author_writing_guidance()
             self.acceptance_validation_in_progress = True
             self._update_writer_buttons()
             self.writer_status.configure(
@@ -2936,6 +2975,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                         validation_contract,
                         validation_state,
                         prose,
+                        author_guidance=author_guidance,
                     )
                     error = None
                 except SceneContractValidationUnavailable as exc:

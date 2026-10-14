@@ -538,6 +538,48 @@ class SceneContractTests(unittest.TestCase):
         self.assertIn("The idea is primary", captured["prompt"])
         self.assertIn("original idea", scene_contract.VALIDATOR_SYSTEM_PROMPT)
 
+    def test_validator_receives_stable_author_guidance_and_checks_context_fidelity(self):
+        captured = {}
+        result_value = {
+            "pass": True,
+            "missed_beats": [],
+            "violations": [],
+            "notes": "",
+        }
+        author_guidance = (
+            "Recurring writing instructions:\n"
+            "- Do not introduce floral scents.\n"
+            "- Keep an acknowledged request for quiet consistent with later actions."
+        )
+
+        def fake_validator(_model, prompt):
+            captured["prompt"] = prompt
+            return result_value
+
+        with patch.object(
+            scene_contract, "_run_validator", side_effect=fake_validator
+        ):
+            result = SceneContract.validate_with_engine(
+                FakeEngine(),
+                {
+                    "author_idea": (
+                        "Maya asks Tony to keep things quiet. He agrees, then goes to "
+                        "Tiffany's bedroom to retrieve clean pajamas for her."
+                    ),
+                    "required_beats": [],
+                    "hard_stop": "Tony and Maya settle with tea.",
+                },
+                {"chapter": 2, "scene": 4, "current_situation": "Tony is caring for Maya."},
+                "Tony agrees to keep things quiet, then plays music. He fetches pajamas from a linen closet.",
+                author_guidance=author_guidance,
+            )
+
+        self.assertTrue(result["pass"])
+        self.assertIn(author_guidance, captured["prompt"])
+        self.assertIn("source locations", captured["prompt"])
+        self.assertIn("explicit requests, preferences, boundaries, or needs", captured["prompt"])
+        self.assertIn("Check explicit requests/preferences against later actions", scene_contract.VALIDATOR_SYSTEM_PROMPT)
+
     def test_max_attempts_is_safe_and_configurable(self):
         self.assertEqual(scene_contract.SceneContract.max_attempts({}), 3)
         self.assertEqual(scene_contract.SceneContract.max_attempts({"max_attempts": 99}), 5)
