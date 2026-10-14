@@ -2718,6 +2718,8 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         self.writer_generation_in_progress = False
         self.writer_generation_context = None
         self.writer_generation_start_state = None
+        # New generation output has not been explicitly saved as a draft yet.
+        self.writer_draft_saved_text = None
 
         if error:
             # Preserve generated prose if validation timed out or otherwise failed.
@@ -2810,6 +2812,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             path = ManuscriptManager(self.package.path).save_draft(chapter, scene, prose)
             self.generated_scene = prose
             self.generated_scene_context = (chapter, scene)
+            self.writer_draft_saved_text = prose
             self._refresh_manuscript()
             messagebox.showinfo(
                 "Writer",
@@ -5440,7 +5443,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         return str(getattr(self, "generated_scene", "") or "").strip()
 
     def _save_unsaved_writer_draft(self) -> bool:
-        """Persist unaccepted Writer text under the scene that produced it."""
+        """Ask before saving or discarding unfinished Writer prose."""
         if self.package is None:
             return True
         if getattr(self, "writer_generation_in_progress", False):
@@ -5465,6 +5468,11 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             # Accepted prose already exists in the manuscript.
             return True
 
+        # An explicit Save Draft click marks this exact text as saved. Do not
+        # ask again on close unless the author changes the Writer text afterward.
+        if getattr(self, "writer_draft_saved_text", None) == prose:
+            return True
+
         state = self.package.current_state
         fallback_key = (
             int(state.get("chapter", 1) or 1),
@@ -5476,27 +5484,87 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         except (TypeError, ValueError, IndexError):
             chapter, scene = fallback_key
 
-        if self.package.path is None:
+        choice = messagebox.askyesnocancel(
+            "Unfinished Writer Draft",
+            (
+                f"There is unfinished, unaccepted prose for Chapter {chapter}, Scene {scene}.\n\n"
+                "Choose Yes to Save Draft before continuing.\n"
+                "Choose No to discard this attempt without saving it. If an earlier saved draft "
+                "contains different text, it will be kept.\n"
+                "Choose Cancel to stay in StoryBuilder and keep the current text."
+            ),
+            parent=self,
+        )
+        if choice is None:
+            return False
+
+        manager = None
+        draft_path = None
+        if self.package.path is not None:
+            manager = ManuscriptManager(self.package.path)
+            target = manager.scene_path(chapter, scene)
+            draft_path = target.with_name(target.stem + "_draft.txt")
+
+        if choice is False:
+            # Remove a draft file only when it contains exactly the text the
+            # author is discarding. Preserve any earlier saved version with
+            # different contents.
+            if draft_path is not None and draft_path.is_file():
+                try:
+                    existing = draft_path.read_text(encoding="utf-8").strip()
+                    if existing == prose.strip():
+                        draft_path.unlink()
+                        self._refresh_manuscript()
+                except OSError as exc:
+                    messagebox.showerror(
+                        "Discard Draft",
+                        "StoryBuilder could not safely discard the matching draft file. "
+                        "The current text has been kept.\n\n"
+                        f"{exc}",
+                        parent=self,
+                    )
+                    return False
+
+            # If the scene was already accepted, restore its accepted prose;
+            # otherwise clear this unaccepted attempt from the Writer.
+            self.generated_scene = accepted
+            self.writer_draft_saved_text = None
+            if hasattr(self, "writer_output_text"):
+                self.writer_output_text.delete("1.0", "end")
+                if accepted:
+                    self.writer_output_text.insert("1.0", accepted)
+            if not accepted:
+                self.generated_scene_context = None
+                self.generated_scene_start_state = None
+            if hasattr(self, "_update_writer_buttons"):
+                self._update_writer_buttons()
+            return True
+
+        if self.package.path is None or manager is None:
             messagebox.showwarning(
                 "Save Draft",
                 "There is unfinished Writer text, but this novel has no saved project folder yet. "
-                "Use Save As / Export before changing scenes or closing, so the draft can be preserved.",
+                "Use Save As / Export before saving the draft.",
+                parent=self,
             )
             return False
 
         try:
-            path = ManuscriptManager(self.package.path).save_draft(chapter, scene, prose)
+            saved_path = manager.save_draft(chapter, scene, prose)
             self.generated_scene = prose
+            self.generated_scene_context = (chapter, scene)
+            self.writer_draft_saved_text = prose
             self._refresh_manuscript()
             self._chat(
                 "Builder",
-                f"Preserved unfinished Writer text as a draft for Chapter {chapter}, Scene {scene}: {path.name}.",
+                f"Preserved unfinished Writer text as a draft for Chapter {chapter}, Scene {scene}: {saved_path.name}.",
             )
             return True
         except Exception as exc:
             messagebox.showerror(
                 "Save Draft",
                 f"StoryBuilder could not preserve the unfinished scene. The current scene was not changed.\n\n{exc}",
+                parent=self,
             )
             return False
 
@@ -5550,6 +5618,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         self.accepted_scene = ""
         self.generated_scene_context = None
         self.generated_scene_start_state = None
+        self.writer_draft_saved_text = None
         self.writer_generation_context = None
         self.writer_generation_start_state = None
         self.pending_state_patch = None
