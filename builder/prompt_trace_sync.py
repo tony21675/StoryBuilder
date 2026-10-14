@@ -174,10 +174,9 @@ def upload_prompt_trace(
                 f"Trace upload was blocked because {repo} is not confirmed private."
             )
 
-        branch = (
-            os.environ.get("STORYBUILDER_TRACE_GITHUB_BRANCH", "").strip()
-            or str(repo_info.get("default_branch") or "main")
-        )
+        default_branch = str(repo_info.get("default_branch") or "main")
+        branch_override = os.environ.get("STORYBUILDER_TRACE_GITHUB_BRANCH", "").strip()
+        branch = branch_override or default_branch
         branch_path = quote(branch, safe="")
         ref_endpoint = f"{root}/git/ref/heads/{branch_path}"
 
@@ -185,6 +184,12 @@ def upload_prompt_trace(
             token, "GET", ref_endpoint, allow_404=True
         )
         if current_ref is None:
+            if branch != default_branch:
+                raise TraceSyncError(
+                    "The configured trace branch does not exist. For an empty trace "
+                    "repository, remove STORYBUILDER_TRACE_GITHUB_BRANCH or set it to "
+                    "the repository's default branch."
+                )
             # GitHub's Git Database API cannot create refs in an empty repository.
             # Contents API initializes the first branch and first root commit.
             initial = _api_request(
