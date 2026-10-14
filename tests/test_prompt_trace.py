@@ -220,6 +220,42 @@ class PromptTraceSyncTests(unittest.TestCase):
             commit_payload = next(payload for method, url, payload in calls if method == "POST" and url.endswith("/git/commits"))
             self.assertEqual(commit_payload["parents"], [])
 
+    def test_default_repository_is_owned_by_authenticated_github_user(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            trace_path = self.make_trace_file(tmp)
+            calls = []
+
+            def fake_urlopen(request, timeout=20):
+                method = request.get_method()
+                url = request.full_url
+                calls.append((method, url))
+                if method == "GET" and url.endswith("/user"):
+                    return self.Response({"login": "sample-owner"})
+                if method == "GET" and url.endswith("/repos/sample-owner/StoryBuilder-Traces"):
+                    return self.Response({"private": True, "default_branch": "main"})
+                if method == "GET" and url.endswith("/git/ref/heads/main"):
+                    raise self.http_404(url)
+                if method == "PUT" and url.endswith("/contents/prompt_trace.json"):
+                    return self.Response({
+                        "content": {
+                            "path": "prompt_trace.json",
+                            "html_url": "https://github.com/sample-owner/StoryBuilder-Traces/blob/main/prompt_trace.json",
+                        },
+                        "commit": {"html_url": "https://github.com/sample-owner/StoryBuilder-Traces/commit/root"},
+                    })
+                raise AssertionError(f"Unexpected GitHub request: {method} {url}")
+
+            with patch.dict(
+                os.environ,
+                {"STORYBUILDER_TRACE_GITHUB_TOKEN": "test-token"},
+                clear=True,
+            ), patch("builder.prompt_trace_sync.urlopen", side_effect=fake_urlopen):
+                result = upload_prompt_trace(trace_path)
+
+            self.assertTrue(result["ok"], result)
+            self.assertEqual(result["repository"], "sample-owner/StoryBuilder-Traces")
+            self.assertTrue(any(url.endswith("/user") for _, url in calls))
+
     def test_upload_is_refused_if_repository_is_not_private(self):
         with tempfile.TemporaryDirectory() as tmp:
             trace_path = self.make_trace_file(tmp)
