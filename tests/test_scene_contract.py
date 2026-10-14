@@ -290,9 +290,9 @@ class SceneContractTests(unittest.TestCase):
     def test_validator_treats_required_beats_as_narrative_goals(self):
         prompt = scene_contract.VALIDATOR_SYSTEM_PROMPT
         self.assertIn("Required Beats are goals, not a wording checklist", prompt)
-        self.assertIn("Fail for absent or materially wrong core actions/outcomes", prompt)
+        self.assertIn("Fail for absent/materially wrong core actions/outcomes", prompt)
         self.assertIn("a bubble bath is not a shower", prompt)
-        self.assertIn("A missing or substituted specified action/object is material", prompt)
+        self.assertIn("Omitting/substituting one is material", prompt)
         self.assertIn("incidental description unless it changes a specified action/object", prompt)
         self.assertLess(len(prompt), 800)
 
