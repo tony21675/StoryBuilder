@@ -257,8 +257,7 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         self.assertEqual(app.writer_save_draft_button.options["state"], "normal")
         self.assertEqual(app.writer_accept_button.options["state"], "normal")
         self.assertEqual(app.writer_reject_button.options["state"], "normal")
-        showwarning.assert_called_once()
-        self.assertIn("remains unaccepted", showwarning.call_args.args[1])
+        showwarning.assert_not_called()
 
     def test_unvalidated_draft_requires_explicit_acceptance_confirmation(self):
         with tempfile.TemporaryDirectory() as tmp:
