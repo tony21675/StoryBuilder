@@ -12,6 +12,25 @@ Read the current versions on GitHub `main` before acting:
 **Use the newest checkpoint below as the session handoff. Older conversation context or stale repository copies do not overrule the current author-confirmed checkpoint.**
 
 
+## Latest Checkpoint: October 14, 2026 (Writer draft decisions)
+
+### Permanent prose workflow: StoryBuilder writes; assistant reviews
+
+- Tony's permanent workflow is that the assistant reviews and diagnoses prose problems, discusses the smallest appropriate correction with Tony, and then lets StoryBuilder write/revise the scene. Do not replace scene prose in chat or directly edit manuscript prose unless Tony explicitly asks for that.
+- The author owns the prose and makes the final choice. Preserve working prose and emotional flow; focus on actual continuity, canon, character-knowledge, and scene-boundary problems.
+
+### Explicit choice for unfinished Writer text
+
+- Approved change is on `main`: [implementation commit `f653b3f`](https://github.com/tony21675/StoryBuilder/commit/f653b3f27ac633c8d774788bfe5743d1bfbb0394). Current regression suite passed in [GitHub Actions run 38518142668](https://github.com/tony21675/StoryBuilder/actions/runs/38518142668).
+- Before closing StoryBuilder, closing and syncing, or leaving the current scene when unaccepted Writer text exists, the app asks what to do:
+  - **Yes:** Save Draft to the correct originating chapter/scene.
+  - **No:** Discard this current attempt. If a draft file contains exactly that prose, remove that matching copy; if a pre-existing saved draft has different text, leave it untouched. Accepted scene prose and story state are not changed.
+  - **Cancel:** Abort the close/navigation action and keep the current Writer text in place.
+- The explicit **Save Draft** button marks that exact text as saved for the current session, so an unchanged draft does not trigger a second prompt when closing. If the text changes afterward, ask again.
+- The dialog is handled by the shared unfinished-draft safeguard, so close, close-and-sync, and guarded scene/package transitions follow the same behavior. A Cancel result must prevent the requested action.
+- Legacy versions silently wrote unfinished Writer prose on close/navigation. Such a draft may already exist locally; the new behavior governs future unsaved prose and lets Tony discard a matching old auto-saved copy when that same text is still in the Writer.
+- The code compiled and the full current unit suite passed on the latest check. Do not claim the desktop local runtime was manually tested; Tony still needs to pull/start the updated source and exercise the dialog.
+
 ## Latest Checkpoint: October 13, 2026 (author-led beats, creative route freedom)
 
 ### Design correction: author's destination, not an AI-made checklist
