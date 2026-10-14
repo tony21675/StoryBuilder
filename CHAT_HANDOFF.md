@@ -11,7 +11,30 @@ Read the current versions on GitHub `main` before acting:
 
 **Use the newest checkpoint below as the session handoff. Older conversation context or stale repository copies do not overrule the current author-confirmed checkpoint.**
 
-## Latest Checkpoint: October 14, 2026 (scene-contract validator JSON recovery)
+## Latest Checkpoint: October 14, 2026 (confirmed model and writing workflow)
+
+### Current model: Gemma 4
+
+- **Confirmed current local writing model:** `~/Documents/Models/01 gemma-4-E4B_q4_0-it.gguf` (Gemma 4 E4B, Q4_0 instruction-tuned GGUF). This exact path is recorded in the earlier project handoff and matches Tony's latest confirmation.
+- The old carried-over note saying the current model is `Llama-3.1-8B-instruct-Q4_K_M.gguf` is obsolete. Qwen is not the current model either. Do not describe Llama 3.1 or Qwen as the selected model.
+- `llama.cpp` / `llama-cli` is the inference runtime StoryBuilder launches. Those names in source code, logs, and configuration do **not** mean the loaded model is Llama. StoryBuilder loads the selected GGUF from the Models directory; do not hard-code a model family into reusable app logic.
+- Default workspace behavior on Tony's documented layout puts the model directory at `~/Documents/Models`. The current model is a local asset, not a GitHub file. Never delete or replace it during routine cleanup without Tony's approval.
+
+### Current writing workflow
+
+1. The active novel's `current_state.json`, accepted prose, character canon, and saved plain-English Scene Idea in `writing_guidance.json` are the continuity source of truth. The original Scene Idea expresses the author's destination and meaningful waypoints; model-generated direction/contract are supporting guidance. Only Required Beats explicitly labeled by the author become formal required beats. Keep the writer's room for natural dialogue, pacing, shared memories, gestures, and connective actions.
+2. Use **Build Scene Direction** to assemble context, then **Write Next Scene**. StoryBuilder writes the prose; the assistant reviews and diagnoses specific canon, continuity, character-knowledge, and scene-boundary issues. Do not rewrite scene prose in chat or edit accepted manuscript prose unless Tony explicitly asks.
+3. Review the entire generated scene. Save Draft is available for preserving a draft. A readable semantic validation failure follows the focused-revision path, which should preserve working prose rather than restart blindly.
+4. If the scene is accepted, continue **Analyze Accepted Scene** → review the proposed state patch → **Apply State Update** → **Build Scene Direction** for the next scene. Do not analyze before acceptance. **Reject Scene** discards the unaccepted generated attempt without changing accepted prose or current state.
+5. Before closing or leaving a scene with unsaved Writer text, answer the save/discard/cancel prompt. Cancel keeps the app/text in place. Save Draft before a planned restart when the live draft is worth keeping.
+6. StoryBuilder and MyNovel are independent Git repositories. From `~/Documents/StoryBuilder`, `./start.sh` syncs **StoryBuilder only** and launches the app; it does not sync the novel. Check each repository's `git status -sb`; only fast-forward a clean `main` checkout. Do not use **Close & Sync Novel** as a way to update application code, and do not reset or pull a dirty novel checkout.
+
+### Live test status
+
+- Tony most recently reported that a fresh **Write Next Scene** run was in progress. It is intended to test the validator-recovery change with Gemma 4. Its final result and button states have **not yet been reported**; do not assume it succeeded or failed. Do not interrupt a running generation or overwrite/replace its draft. When it finishes, review the prose and preserve it before restarting.
+- The JSON recovery code and regression tests are committed on `main`. GitHub Actions [run 38525271261](https://github.com/tony21675/StoryBuilder/actions/runs/38525271261) passed compilation and all **110 unit tests**. This verifies code/tests, not the live Gemma 4 runtime behavior.
+
+## Previous Checkpoint: October 14, 2026 (scene-contract validator JSON recovery)
 
 ### Root cause and approved fix
 
