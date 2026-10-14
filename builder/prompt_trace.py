@@ -9,7 +9,7 @@ from typing import Any
 
 
 def default_prompt_trace_path() -> Path:
-    """Return the single, local-only prompt trace destination."""
+    """Return the single local prompt trace destination."""
     return Path.home() / ".local" / "share" / "storybuilder" / "prompt_trace.json"
 
 
