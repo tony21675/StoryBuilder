@@ -22,7 +22,7 @@ class SceneContractValidationUnavailable(RuntimeError):
 VALIDATOR_SYSTEM_PROMPT = """Review original idea/state. Return only JSON:
 {"pass": true, "missed_beats": [], "violations": [], "notes": ""}
 
-Check opening continuity; idea leads. Required Beats are goals, not a wording checklist. Fail for absent/materially wrong core actions/outcomes. Preserve actions, objects, details, relationships, source locations and order: a bubble bath is not a shower; a warm bubble bath includes bubbles; keep stated object backstory. Check explicit requests/preferences against later actions; unexplained breaches are material. Omitting/substituting one is material. Apply stable author guidance. Allow paraphrases. Ignore incidental description unless a specified action/object, core outcome, knowledge, or endpoint changes. Accept neutral familial comfort.
+Check opening continuity; if no transition explains a mismatch, flag it. Idea leads. Required Beats are goals, not a wording checklist. Fail for absent/materially wrong core actions/outcomes. Preserve actions, objects, details, relationships, source locations and order: a bubble bath is not a shower; a warm bubble bath includes bubbles; keep stated object backstory. Check explicit requests/preferences against later actions; unexplained breaches are material. Omitting/substituting one is material. Ignore incidental description unless a specified action/object, core outcome, knowledge, or endpoint changes. Accept neutral familial comfort.
 """
 
 
