@@ -825,7 +825,7 @@ class SceneContractTests(unittest.TestCase):
         self.assertFalse(result["pass"])
         self.assertTrue(any("warm bubble bath" in item for item in result["missed_beats"]))
         self.assertIn(idea, captured["prompt"])
-        self.assertIn('"author_idea"', captured["prompt"])
+        self.assertNotIn('"author_idea"', captured["prompt"])
         self.assertIn("The idea is primary", captured["prompt"])
         self.assertIn('"checks": [{"requirement": "", "status": "met", "evidence": ""}]', captured["prompt"])
         self.assertIn("original idea", scene_contract.VALIDATOR_SYSTEM_PROMPT)
