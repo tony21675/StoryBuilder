@@ -20,9 +20,9 @@ class SceneContractValidationUnavailable(RuntimeError):
 
 
 VALIDATOR_SYSTEM_PROMPT = """Review original idea/state. Return only JSON:
-{"pass": true, "missed_beats": [], "violations": [], "notes": ""}
+{"pass": true, "missed_beats": [], "violations": [], "checks": [{"requirement": "", "status": "met", "evidence": ""}], "notes": ""}
 
-Check opening continuity; if no transition explains a mismatch, flag it. Idea leads. Required Beats are goals, not a wording checklist. Fail for absent/materially wrong core actions/outcomes. Preserve actions, objects, details, relationships, source locations and order: a bubble bath is not a shower; a warm bubble bath includes bubbles; keep stated object backstory. Check explicit requests/preferences against later actions; unexplained breaches are material. Omitting/substituting one is material. Ignore incidental description unless a specified action/object, core outcome, knowledge, or endpoint changes. Accept neutral familial comfort.
+Check opening continuity; if no transition explains a mismatch, flag it. Required Beats are goals, not a wording checklist. Fail for absent/materially wrong core actions/outcomes. Audit the original idea item by item: each material action/outcome, defining object detail/history, named participant/confirmation, acknowledged boundary, meaningful order/location, and endpoint. Do not add incidental requirements; use one check per independently missable commitment. For each check, status "met" only if the entire requirement is supported, and evidence must be a short verbatim quote directly proving it. Otherwise status "missing" and evidence "". A broad, related, or substitute action is not proof. Omitting/substituting one is material. Ignore incidental description unless a specified action/object, core outcome, knowledge, or endpoint changes. a bubble bath is not a shower; a warm bubble bath includes bubbles; keep stated object backstory. If any check is missing, pass must be false. Accept neutral familial comfort.
 """
 
 
@@ -175,7 +175,7 @@ def _run_validator(model: Path, prompt: str, engine: Any = None) -> dict[str, An
             VALIDATOR_SYSTEM_PROMPT,
             prompt,
             context_size=int(os.environ.get("STORY_VALIDATOR_CONTEXT", "6144")),
-            max_tokens=int(os.environ.get("STORY_VALIDATOR_MAX_TOKENS", "220")),
+            max_tokens=int(os.environ.get("STORY_VALIDATOR_MAX_TOKENS", "700")),
             timeout_seconds=timeout_seconds,
             task_name="Scene contract validation",
         )
@@ -200,7 +200,7 @@ def _run_validator(model: Path, prompt: str, engine: Any = None) -> dict[str, An
         "--top-p", "0.70",
         "--repeat-last-n", "128",
         "--repeat-penalty", "1.08",
-        "--n-predict", "220",
+        "--n-predict", os.environ.get("STORY_VALIDATOR_MAX_TOKENS", "700"),
         "--system-prompt", VALIDATOR_SYSTEM_PROMPT,
         "--prompt", prompt,
         "--color", "off",
@@ -262,12 +262,29 @@ def _run_validator(model: Path, prompt: str, engine: Any = None) -> dict[str, An
 
     notes = str(result.get("notes", "") or "").strip()
 
-    return {
+    normalized_result = {
         "pass": passed,
         "missed_beats": [str(x).strip() for x in missed if str(x).strip()],
         "violations": [str(x).strip() for x in violations if str(x).strip()],
         "notes": notes,
     }
+    checks = result.get("checks")
+    if checks is not None:
+        if not isinstance(checks, list):
+            raise SceneContractResponseError(
+                "Scene contract validator returned invalid checks data."
+            )
+        normalized_result["checks"] = checks
+    return normalized_result
+
+
+def _evidence_occurs_in_prose(prose: str, evidence: str) -> bool:
+    """Require validator evidence to be a verbatim excerpt from the completed scene."""
+    def normalize(value: str) -> str:
+        return re.sub(r"\s+", " ", str(value or "")).strip().casefold()
+
+    normalized_evidence = normalize(evidence)
+    return bool(normalized_evidence and normalized_evidence in normalize(prose))
 
 
 _AUTHOR_SECTION_ALIASES = {
@@ -856,6 +873,7 @@ class SceneContract:
             for key in ("author_idea", "direction", "required_beats", "hard_stop")
             if key in contract
         }
+        requires_coverage = bool(str(semantic_contract.get("author_idea", "") or "").strip())
 
         # Keep only state fields needed to verify opening continuity and knowledge.
         # Large unrelated state/history payloads make local validation slower.
@@ -897,8 +915,11 @@ class SceneContract:
             "If the main action occurs but only a purely incidental detail is missing, do not fail for that alone; optional details may go in notes. "
             "Search the entire scene for equivalent actions, including paraphrases or later paragraphs, before declaring one absent. Accept paraphrases, not different substitutes. "
             "Do not fail for a minor descriptive or phrasing omission when the intended event, character knowledge, and endpoint remain intact, unless a specified action/object/location or acknowledged request changes. "
+            "Build an itemized checks list covering every material commitment in the original idea, including defining object details, named people and confirmations, meaningful backstory, and boundaries. "
+            "For each check, provide its requirement, status ('met' or 'missing'), and a short verbatim scene quote as evidence. The quote must directly support the entire requirement, not merely a related or broad action. Use empty evidence and status 'missing' when absent or materially incomplete. "
+            "If an author idea is present, checks must be a non-empty list; pass must be false if any check is missing. "
             "Return JSON only in this shape: "
-            '{"pass": true, "missed_beats": [], "violations": [], "notes": ""}\n\n'
+            '{"pass": true, "missed_beats": [], "violations": [], "checks": [{"requirement": "", "status": "met", "evidence": ""}], "notes": ""}\n\n'
             + guidance_section
             + "\n\nSCENE INTENT AND SUPPORTING CONTRACT:\n"
             + json.dumps(semantic_contract, ensure_ascii=False, separators=(",", ":"))
@@ -951,6 +972,40 @@ class SceneContract:
                         "Scene-contract validator returned invalid violations data."
                     )
 
+                checks = raw_result.get("checks")
+                if requires_coverage and (not isinstance(checks, list) or not checks):
+                    raise SceneContractResponseError(
+                        "Scene-contract validator did not return itemized author-intent checks."
+                    )
+                if checks is not None and not isinstance(checks, list):
+                    raise SceneContractResponseError(
+                        "Scene-contract validator returned invalid checks data."
+                    )
+
+                normalized_checks = []
+                for item in checks or []:
+                    if not isinstance(item, dict):
+                        raise SceneContractResponseError(
+                            "Scene-contract validator returned an invalid check item."
+                        )
+                    requirement = str(item.get("requirement", "") or "").strip()
+                    status = str(item.get("status", "") or "").strip().casefold()
+                    evidence = str(item.get("evidence", "") or "").strip()
+                    if not requirement or status not in {"met", "missing"}:
+                        raise SceneContractResponseError(
+                            "Scene-contract validator returned an invalid requirement check."
+                        )
+                    # Never accept a claimed pass based on invented or non-verbatim
+                    # evidence. The model must quote the scene it is evaluating.
+                    if status == "met" and not _evidence_occurs_in_prose(prose, evidence):
+                        status = "missing"
+                        evidence = ""
+                    normalized_checks.append({
+                        "requirement": requirement,
+                        "status": status,
+                        "evidence": evidence,
+                    })
+
                 normalized_result = {
                     "pass": passed,
                     "missed_beats": [
@@ -960,6 +1015,7 @@ class SceneContract:
                         str(item).strip() for item in violations if str(item).strip()
                     ],
                     "notes": str(raw_result.get("notes", "") or "").strip(),
+                    "_checks": normalized_checks,
                 }
                 break
             except SceneContractResponseError as exc:
@@ -969,10 +1025,12 @@ class SceneContract:
                         + "\n\nCORRECTION REQUIRED: Your previous response was not a readable "
                         "JSON object in the required format. Re-evaluate the scene, then return "
                         "ONLY one complete JSON object with this shape: "
-                        + '{"pass": true, "missed_beats": [], "violations": [], "notes": ""}'
+                        + '{"pass": true, "missed_beats": [], "violations": [], "checks": [{"requirement": "", "status": "met", "evidence": ""}], "notes": ""}'
                         + ". Use a JSON boolean for pass, arrays of strings for missed_beats "
-                        "and violations, and a string for notes. Do not use Markdown fences "
-                        "or include any text before or after the JSON object."
+                        "and violations, a checks array of requirement/status/evidence objects, "
+                        "and a string for notes. For a supplied author idea, include at least one "
+                        "check per material commitment and use verbatim scene evidence. Do not use "
+                        "Markdown fences or include any text before or after the JSON object."
                     )
                     continue
                 raise SceneContractValidationUnavailable(
@@ -992,6 +1050,12 @@ class SceneContract:
         normalized_missed = normalized_result["missed_beats"]
         normalized_violations = normalized_result["violations"]
         notes = normalized_result["notes"]
+
+        for check in normalized_result.get("_checks", []):
+            if check["status"] == "missing":
+                message = f"Author-intent requirement not evidenced: {check['requirement']}"
+                if message not in normalized_missed:
+                    normalized_missed.append(message)
 
         # A validator response is internally inconsistent if it reports material
         # omissions/violations but still says pass=true. Never allow that result
