@@ -35,7 +35,7 @@ from builder.manuscript import ManuscriptManager
 from builder.scene_flow import review_chapter_flow
 from builder.novel_sync import NovelSyncError, sync_novel_repository
 from builder.state_manager import StateManager, remove_prior_chapter_opening_markers
-from builder.scene_contract import SceneContract
+from builder.scene_contract import SceneContract, SceneContractValidationUnavailable
 from builder.story_interview import (
     CHARACTER_QUESTIONS,
     RELATIONSHIP_QUESTIONS,
@@ -2673,6 +2673,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                 max_attempts = SceneContract.max_attempts(contract) if contract else 1
                 feedback = ""
                 answer = ""
+                validation_warning = None
                 self.writer_engine.reset_context(model, system_prompt)
 
                 for attempt in range(1, max_attempts + 1):
@@ -2686,12 +2687,19 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                     if not contract:
                         break
 
-                    result = SceneContract.validate_with_engine(
-                        self.writer_engine,
-                        contract,
-                        current_state,
-                        answer,
-                    )
+                    try:
+                        result = SceneContract.validate_with_engine(
+                            self.writer_engine,
+                            contract,
+                            current_state,
+                            answer,
+                        )
+                    except SceneContractValidationUnavailable as exc:
+                        # Preserve the generated prose. A broken validator response
+                        # is not evidence that the scene itself failed validation.
+                        validation_warning = str(exc)
+                        break
+
                     if result.get("pass"):
                         break
 
@@ -2708,11 +2716,16 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                 # If prose was produced and validation later failed, preserve that
                 # unaccepted draft so the author can save it rather than lose it.
                 error = str(exc)
-            self.after(0, lambda: self._finish_generated_scene(answer, error))
+            self.after(
+                0,
+                lambda: self._finish_generated_scene(
+                    answer, error, validation_warning
+                ),
+            )
 
         self.writer_thread = threading.Thread(target=work, daemon=True)
         self.writer_thread.start()
-    def _finish_generated_scene(self, answer, error):
+    def _finish_generated_scene(self, answer, error, validation_warning=None):
         target = getattr(self, "writer_generation_context", None)
         start_state = getattr(self, "writer_generation_start_state", None)
         self.writer_generation_in_progress = False
@@ -2722,8 +2735,8 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         self.writer_draft_saved_text = None
 
         if error:
-            # Preserve generated prose if validation timed out or otherwise failed.
-            # The scene remains unaccepted; the author can save the draft for review.
+            # Preserve generated prose if generation or a genuine validation check fails.
+            self.writer_validation_unavailable = False
             preserved_draft = bool(str(answer or "").strip())
             if preserved_draft:
                 self.generated_scene = str(answer).strip()
@@ -2749,6 +2762,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             return
 
         self.writer_validation_failed = False
+        self.writer_validation_unavailable = bool(validation_warning)
         self.generated_scene = answer.strip()
         self.generated_scene_context = target or (
             int(self.package.current_state.get("chapter", 1) or 1),
@@ -2759,13 +2773,30 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         )
         self.writer_output_text.delete("1.0", "end")
         self.writer_output_text.insert("1.0", self.generated_scene)
-        self.writer_status.configure(
-            text=(
-                f"Draft generated for Chapter {self.generated_scene_context[0]}, "
-                f"Scene {self.generated_scene_context[1]}. Review it, save a draft if desired, then accept or reject it."
+        if validation_warning:
+            self.writer_status.configure(
+                text=(
+                    f"Draft generated for Chapter {self.generated_scene_context[0]}, "
+                    f"Scene {self.generated_scene_context[1]}, but validation was unavailable. "
+                    "Review it carefully; accepting will require confirmation."
+                )
             )
-        )
+        else:
+            self.writer_status.configure(
+                text=(
+                    f"Draft generated for Chapter {self.generated_scene_context[0]}, "
+                    f"Scene {self.generated_scene_context[1]}. Review it, save a draft if desired, then accept or reject it."
+                )
+            )
         self._update_writer_buttons()
+        if validation_warning:
+            messagebox.showwarning(
+                "Scene Contract Validation",
+                validation_warning
+                + "\n\nThe draft has been preserved and remains unaccepted. "
+                "Review it carefully. StoryBuilder will ask for confirmation if you choose "
+                "to accept it without a successful semantic validation.",
+            )
     def _reject_generated_scene(self):
         if not self.generated_scene.strip():
             return
@@ -2778,6 +2809,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
 
         self.generated_scene = ""
         self.writer_validation_failed = False
+        self.writer_validation_unavailable = False
         self.writer_output_text.delete("1.0", "end")
         if not self.accepted_scene.strip():
             self.generated_scene_context = None
@@ -2896,6 +2928,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             )
 
             def work():
+                validation_unavailable = False
                 try:
                     result = SceneContract.validate_with_engine(
                         self.writer_engine,
@@ -2904,6 +2937,10 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                         prose,
                     )
                     error = None
+                except SceneContractValidationUnavailable as exc:
+                    result = None
+                    error = str(exc)
+                    validation_unavailable = True
                 except Exception as exc:
                     result = None
                     error = str(exc)
@@ -2917,12 +2954,22 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                         validation_state,
                         result,
                         error,
+                        validation_unavailable,
                     ),
                 )
 
             self.writer_thread = threading.Thread(target=work, daemon=True)
             self.writer_thread.start()
             return
+
+        if getattr(self, "writer_validation_unavailable", False):
+            if not self._ask_yes_no(
+                "Accept Without Validation",
+                "The scene-contract validator returned an unreadable response after one retry. "
+                "This draft has not passed semantic validation. Have you reviewed the scene and "
+                "do you want to accept it anyway?",
+            ):
+                return
 
         self.generated_scene = prose
         try:
@@ -2942,6 +2989,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                 json.loads(json.dumps(start_state if isinstance(start_state, dict) else state, ensure_ascii=False)),
             )
             self.accepted_scene = prose
+            self.writer_validation_unavailable = False
             self.generated_scene_context = (chapter, scene)
             self.pending_state_patch = None
             self.writer_state_preview.delete("1.0", "end")
@@ -2961,9 +3009,20 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         validation_state: dict,
         result: dict | None,
         error: str | None,
+        validation_unavailable: bool = False,
     ) -> None:
-        """Complete acceptance only when manually edited prose meets the active contract."""
+        """Complete acceptance after a successful check or explicit unvalidated review."""
         self.acceptance_validation_in_progress = False
+
+        if error and validation_unavailable:
+            # Route this through the normal author-confirmation guard below.
+            # Mark the edited text as the current draft to avoid an endless retry
+            # when its semantic check cannot be read after the one correction attempt.
+            self.writer_validation_unavailable = True
+            self.writer_validation_failed = False
+            self.generated_scene = prose
+            self._accept_generated_scene()
+            return
 
         if error:
             messagebox.showerror(
@@ -3014,6 +3073,8 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
 
         # Mark these exact, freshly validated words as the generated baseline so
         # the normal acceptance path can save them without a second validation pass.
+        self.writer_validation_unavailable = False
+        self.writer_validation_failed = False
         self.generated_scene = prose
         self._accept_generated_scene()
 
