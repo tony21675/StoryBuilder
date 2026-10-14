@@ -284,15 +284,16 @@ class SceneContractTests(unittest.TestCase):
         self.assertIn("Do not rewrite unaffected passages", prompt)
         self.assertIn("missing explicit", prompt)
         self.assertIn("natural prose rather than", prompt)
+        self.assertIn("restore the intended choice rather than a near-equivalent", prompt)
         self.assertNotIn("Rewrite the scene from the beginning", prompt)
 
     def test_validator_treats_required_beats_as_narrative_goals(self):
         prompt = scene_contract.VALIDATOR_SYSTEM_PROMPT
-        self.assertIn("Treat Required Beats as narrative-level goals", prompt)
-        self.assertIn("not a checklist", prompt)
-        self.assertIn("Fail only when a core action or outcome is absent or materially wrong", prompt)
-        self.assertIn("do not fail for that alone", prompt)
-        self.assertIn("Ignore incidental omissions from free-form prose", prompt)
+        self.assertIn("Required Beats are goals, not a wording checklist", prompt)
+        self.assertIn("Fail for absent or materially wrong core actions/outcomes", prompt)
+        self.assertIn("a bubble bath is not a shower", prompt)
+        self.assertIn("A missing or substituted specified action/object is material", prompt)
+        self.assertIn("incidental description unless it changes a specified action/object", prompt)
         self.assertLess(len(prompt), 800)
 
     def test_validator_checks_whole_scene_before_calling_a_beat_missing(self):
@@ -332,7 +333,11 @@ class SceneContractTests(unittest.TestCase):
             captured["prompt"],
         )
         self.assertIn(
-            "If the main action occurs but a secondary detail is missing, do not put the beat in missed_beats or fail for that alone",
+            "If the main action occurs but only a purely incidental detail is missing, do not fail for that alone",
+            captured["prompt"],
+        )
+        self.assertIn(
+            "A specified bubble bath replaced with a shower is a material substitution",
             captured["prompt"],
         )
         self.assertIn(
@@ -395,7 +400,11 @@ class SceneContractTests(unittest.TestCase):
         self.assertTrue(result["pass"], result)
         self.assertEqual(result["missed_beats"], [])
         self.assertIn("could be a little more explicit", result["notes"])
-        self.assertIn("secondary detail is missing", captured["prompt"])
+        self.assertIn("purely incidental detail is missing", captured["prompt"])
+        self.assertIn(
+            "A specified bubble bath replaced with a shower is a material substitution",
+            captured["prompt"],
+        )
         self.assertIn(prose, captured["prompt"])
 
     def test_guidance_builds_contract_from_legacy_fields_and_active_modules(self):
@@ -466,6 +475,9 @@ class SceneContractTests(unittest.TestCase):
         self.assertIn("AUTHOR'S ORIGINAL PLAIN-ENGLISH SCENE IDEA (PRIMARY INTENT):", writer_context)
         self.assertIn(idea, writer_context)
         self.assertIn("COMPACT SUPPORTING CONTRACT (SECONDARY):", writer_context)
+        self.assertIn("AUTHOR ACTION FIDELITY", writer_context)
+        self.assertIn("a bubble bath is not a shower", writer_context)
+        self.assertIn("Natural dialogue, gestures, pacing, transitions, and connective", writer_context)
         self.assertLess(
             writer_context.index("AUTHOR'S ORIGINAL PLAIN-ENGLISH SCENE IDEA"),
             writer_context.index("CURRENT SCENE CONTEXT AND CONTINUITY"),
