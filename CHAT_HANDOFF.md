@@ -32,6 +32,7 @@ Read the current versions on GitHub `main` before acting:
 ### Live test status
 
 - Tony most recently reported that a fresh **Write Next Scene** run was in progress. It is intended to test the validator-recovery change with Gemma 4. Its final result and button states have **not yet been reported**; do not assume it succeeded or failed. Do not interrupt a running generation or overwrite/replace its draft. When it finishes, review the prose and preserve it before restarting.
+- The obsolete remote MyNovel copy at `Manuscript/Chapters/Chapter_02/Chapter_02_Section_04_draft.txt` was removed with Tony's approval in [MyNovel commit 6b4625e](https://github.com/tony21675/MyNovel/commit/6b4625ef4cc24fba0cf0442247a4be368f802df4). It was a prior unaccepted attempt, not the current generated text; deletion did not touch accepted prose or the current live Writer window. Preserve current local/unaccepted prose separately and inspect MyNovel status before syncing.
 - The JSON recovery code and regression tests are committed on `main`. GitHub Actions [run 38525271261](https://github.com/tony21675/StoryBuilder/actions/runs/38525271261) passed compilation and all **110 unit tests**. This verifies code/tests, not the live Gemma 4 runtime behavior.
 
 ## Previous Checkpoint: October 14, 2026 (scene-contract validator JSON recovery)
