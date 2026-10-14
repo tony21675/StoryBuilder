@@ -5536,8 +5536,6 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             if not accepted:
                 self.generated_scene_context = None
                 self.generated_scene_start_state = None
-            if hasattr(self, "_update_writer_buttons"):
-                self._update_writer_buttons()
             return True
 
         if self.package.path is None or manager is None:
