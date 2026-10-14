@@ -209,6 +209,77 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         self.assertEqual(app.writer_accept_button.options["state"], "disabled")
         self.assertEqual(app.writer_reject_button.options["state"], "normal")
 
+    def test_validator_format_failure_preserves_draft_and_allows_author_review(self):
+        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+        app.package = SimpleNamespace(current_state={"chapter": 2, "scene": 4})
+        app.generated_scene = ""
+        app.accepted_scene = ""
+        app.writer_generation_context = (2, 4)
+        app.writer_generation_start_state = {"chapter": 2, "scene": 4}
+        app.writer_generation_in_progress = True
+        app.writer_engine = SimpleNamespace(child=None, model_path=None)
+        app.writer_output_text = FakeText()
+        app.writer_status = FakeButton()
+        app.scene_contract_building = False
+        app.pending_state_patch = None
+        app.__dict__["writer_notes_update_in_progress"] = False
+        app.__dict__["acceptance_validation_in_progress"] = False
+        for name in (
+            "writer_start_button",
+            "writer_stop_button",
+            "writer_write_button",
+            "writer_save_draft_button",
+            "writer_accept_button",
+            "writer_reject_button",
+            "writer_analyze_button",
+            "writer_apply_state_button",
+            "writer_clear_context_button",
+        ):
+            setattr(app, name, FakeButton())
+
+        draft = "The complete scene that the author wants to review."
+        warning = "The validator returned an unreadable response twice."
+        with patch.object(storybuilder_app.messagebox, "showwarning") as showwarning:
+            storybuilder_app.StoryBuilderApp._finish_generated_scene(
+                app, draft, None, warning
+            )
+
+        self.assertEqual(app.generated_scene, draft)
+        self.assertEqual(app.writer_output_text.value, draft)
+        self.assertTrue(app.writer_validation_unavailable)
+        self.assertFalse(app.writer_validation_failed)
+        self.assertEqual(app.writer_save_draft_button.options["state"], "normal")
+        self.assertEqual(app.writer_accept_button.options["state"], "normal")
+        self.assertEqual(app.writer_reject_button.options["state"], "normal")
+        showwarning.assert_called_once()
+        self.assertIn("remains unaccepted", showwarning.call_args.args[1])
+
+    def test_unvalidated_draft_requires_explicit_acceptance_confirmation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            state = {"chapter": 2, "scene": 4}
+            prose = "A draft awaiting the author's review."
+            app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+            app.package = SimpleNamespace(path=Path(tmp), current_state=state)
+            app.generated_scene = prose
+            app.accepted_scene = ""
+            app.generated_scene_context = (2, 4)
+            app.generated_scene_start_state = dict(state)
+            app.writer_validation_unavailable = True
+            app.writer_validation_failed = False
+            app.writer_output_text = FakeText(prose)
+            app.__dict__["acceptance_validation_in_progress"] = False
+            app._scene_contract = Mock(return_value={})
+            app._ask_yes_no = Mock(return_value=False)
+            app._update_writer_buttons = Mock()
+
+            storybuilder_app.StoryBuilderApp._accept_generated_scene(app)
+
+            app._ask_yes_no.assert_called_once()
+            self.assertEqual(app._ask_yes_no.call_args.args[0], "Accept Without Validation")
+            self.assertIn("not passed semantic validation", app._ask_yes_no.call_args.args[1])
+            self.assertEqual(app.accepted_scene, "")
+            self.assertEqual(list(Path(tmp).glob("**/*")), [])
+
     def test_writer_validation_error_uses_copyable_popup_and_preserves_unaccepted_draft(self):
         app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
         error_text = (
