@@ -888,14 +888,15 @@ class SceneContract:
 
         prompt = (
             "Validate against the author's original idea, relevant author guidance, and starting state. "
-            "The idea leads; generated hints are secondary. Required Beats are narrative goals, not a word-for-word checklist. "
-            "Fail for a missing or materially wrong core action or outcome. "
-            "Check specified action/object identity, source locations, and meaningful order, not just broad purpose: a bubble bath is not a shower. Preserve defining details and object history. "
-            "Check whether actions honor acknowledged explicit requests, preferences, boundaries, or needs; flag unexplained material conflicts. "
+            "The idea is primary; generated hints are secondary. "
+            "Treat Required Beats as narrative-level goals, not a word-for-word checklist. "
+            "Fail only when a core action or outcome is absent or materially wrong. "
+            "A specified bubble bath replaced with a shower is a material substitution, not an equivalent paraphrase; check objects, source locations, and order. Preserve defining details and object history. "
+            "Check explicit requests, preferences, boundaries, or needs against later actions; flag unexplained conflicts after acknowledgment. "
             "Report material omissions, substitutions, location/order changes, or ignored acknowledged requests. "
-            "Do not fail for incidental details alone; optional omissions may go in notes. "
-            "Search the whole scene, including later paragraphs, for equivalent actions before declaring one absent. Accept paraphrases, not different substitutes. "
-            "Ignore minor description/wording omissions unless a specified action/object/location, character knowledge, endpoint, or acknowledged request changes. "
+            "If the main action occurs but only a purely incidental detail is missing, do not fail for that alone; optional details may go in notes. "
+            "Search the entire scene for equivalent actions, including paraphrases or later paragraphs, before declaring one absent. Accept paraphrases, not different substitutes. "
+            "Do not fail for a minor descriptive or phrasing omission when the intended event, character knowledge, and endpoint remain intact, unless a specified action/object/location or acknowledged request changes. "
             "Return JSON only in this shape: "
             '{"pass": true, "missed_beats": [], "violations": [], "notes": ""}\n\n'
             + guidance_section
