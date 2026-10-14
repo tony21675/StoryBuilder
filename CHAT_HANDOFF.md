@@ -11,6 +11,15 @@ Read the current versions on GitHub `main` before acting:
 
 **Use the newest checkpoint below as the session handoff. Older conversation context or stale repository copies do not overrule the current author-confirmed checkpoint.**
 
+## Approved error-dialog repair — October 14, 2026
+
+- Tony reported that a long error appeared after Writer produced a scene, but the popup text was too long to read or copy. The previous fix had not covered every error path: there were still ordinary Tkinter `messagebox.showerror` calls across the application, and the validator-unavailable path still displayed a standard warning with technical diagnostics.
+- Approved repair committed to `main`: all 52 ordinary `messagebox.showerror` call sites now use the shared scrollable, copyable error window. Four additional warnings that may contain long technical details (unavailable scene validation, failed edited-scene validation, recovery-snapshot failure, and novel-open exception) also use it. Short routine warnings and confirmation dialogs remain unchanged.
+- **Copy Full Error** and **Close** now appear in an action row above the expandable text area so the copy button stays visible on shorter displays and long tracebacks cannot push it out of reach. The original error detail remains scrollable; copying still uses the main window's clipboard.
+- Source change: [copyable diagnostics implementation](https://github.com/tony21675/StoryBuilder/commit/6688dd549609b55e61fabb1d03cdeeafff60b558). Regression-test follow-ups: [update validation-path expectations](https://github.com/tony21675/StoryBuilder/commit/bde06cebfc97f5b8986f31c424ab690921796a92) and [final test correction](https://github.com/tony21675/StoryBuilder/commit/71c7d46e8f37e66d094c5ed6525a4e77d7cdadd9). GitHub Actions [run 38565054069](https://github.com/tony21675/StoryBuilder/actions/runs/38565054069) passed compilation and all **113 unit tests**.
+- Live verification is still needed: the currently running StoryBuilder process predates this update. To test it, dismiss the old error, close StoryBuilder normally, and update/relaunch with `cd ~/Documents/StoryBuilder && ./start.sh` after verifying the app checkout is clean on `main`. This updates the application only, not MyNovel.
+- **Current author preference:** do not save failed/unaccepted scene attempts as drafts. Review generated prose; keep it only when Tony accepts it. At the next close prompt for the failed current attempt, discard it rather than saving or accepting. Do not touch accepted Scenes 1–3 or alter story state to test this UI repair.
+
 ## Latest Checkpoint: October 14, 2026 (confirmed model and writing workflow)
 
 ### Current model: Gemma 4
@@ -26,7 +35,7 @@ Read the current versions on GitHub `main` before acting:
 2. Use **Build Scene Direction** to assemble context, then **Write Next Scene**. StoryBuilder writes the prose; the assistant reviews and diagnoses specific canon, continuity, character-knowledge, and scene-boundary issues. Do not rewrite scene prose in chat or edit accepted manuscript prose unless Tony explicitly asks.
 3. Review the entire generated scene. Save Draft is available for preserving a draft. A readable semantic validation failure follows the focused-revision path, which should preserve working prose rather than restart blindly.
 4. If the scene is accepted, continue **Analyze Accepted Scene** → review the proposed state patch → **Apply State Update** → **Build Scene Direction** for the next scene. Do not analyze before acceptance. **Reject Scene** discards the unaccepted generated attempt without changing accepted prose or current state.
-5. Before closing or leaving a scene with unsaved Writer text, answer the save/discard/cancel prompt. Cancel keeps the app/text in place. Save Draft before a planned restart when the live draft is worth keeping.
+5. Before closing or leaving a scene with unsaved Writer text, answer the save/discard/cancel prompt. Cancel keeps the app/text in place. Tony's current policy for this novel is to discard failed/unaccepted attempts rather than save draft files; do not select Save Draft unless he explicitly changes this preference.
 6. StoryBuilder and MyNovel are independent Git repositories. From `~/Documents/StoryBuilder`, `./start.sh` syncs **StoryBuilder only** and launches the app; it does not sync the novel. Check each repository's `git status -sb`; only fast-forward a clean `main` checkout. Do not use **Close & Sync Novel** as a way to update application code, and do not reset or pull a dirty novel checkout.
 
 ### Author-specified detail fidelity update — October 14, 2026
