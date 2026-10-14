@@ -94,6 +94,19 @@ Optional overrides are available for the model directory, llama-cli path, and no
 
 By default, `STORY_NOVEL_ROOT` now points to the workspace-level `MyNovel/`, not a folder inside the StoryBuilder repository. Large local AI assets such as GGUF models and the llama.cpp build stay on the workspace drive and are not committed to the repositories.
 
+## Optional private prompt trace sync
+
+The Writer tab's **Trace Next Scene** control captures one generation and validator run for debugging. When tracing is armed, StoryBuilder saves the trace locally to `~/.local/share/storybuilder/prompt_trace.json` and uploads it to a private GitHub repository named `StoryBuilder-Traces` owned by the authenticated GitHub account.
+
+- The upload happens only for a deliberately armed trace; ordinary scene generation does not collect or upload traces.
+- StoryBuilder checks that the target repository is private and refuses to upload if it contains files other than `prompt_trace.json`.
+- Authentication uses `STORYBUILDER_TRACE_GITHUB_TOKEN`, `GH_TOKEN`, or `GITHUB_TOKEN` when present, otherwise the token from GitHub CLI authentication (`gh auth token`). Never commit tokens.
+- To use a different destination, set `STORYBUILDER_TRACE_GITHUB_REPO=owner/repository`.
+- Each subsequent upload replaces the branch with a new root commit containing only the latest trace, so old traces do not appear in the branch's visible commit history. This is not a secure-erasure guarantee for unreachable Git objects.
+- If upload fails, the local trace is preserved and StoryBuilder reports the error without changing the generated draft.
+
+Traces can contain unpublished story text, prompts, and local runtime details. Keep the destination private and arm tracing only when diagnostic capture is needed.
+
 ## Run
 
 From the project directory:
