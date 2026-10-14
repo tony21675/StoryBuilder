@@ -771,10 +771,11 @@ class StoryBuilderApp(tk.Tk):
             content,
             text=(
                 "The Scene Idea is the part you edit. Generate / Replace Contract asks the local model "
-                "for a new direction, ending, and Required Beats. Even with the same idea, a new build "
-                "may differ from an earlier contract. If a contract is already saved, StoryBuilder asks "
-                "before replacing it. Choose No to keep the saved contract; this button does not restore "
-                "or reload earlier generated fields."
+                "for a concise direction and ending. Only items under a clearly labeled Required Beats "
+                "section in your Scene Idea become formal scene-level beats; model-generated suggestions "
+                "do not become mandatory. Separately enabled modules may supply their own requirements. "
+                "The original Scene Idea remains the Writer's primary guidance. If a contract is saved, "
+                "StoryBuilder asks before replacing its generated fields."
             ),
             wraplength=900,
             justify="left",
@@ -3471,11 +3472,13 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                     (
                         f"A contract is already saved for Chapter {chapter}, Scene {scene}.\n\n"
                         "This action asks the local model to CREATE A NEW CONTRACT. "
-                        "Even with the same Scene Idea, its direction, ending, and Required Beats "
-                        "may change. Continuing will replace the currently saved contract fields.\n\n"
-                        "Choose No to keep the existing contract. If your goal is to restore or "
-                        "reload previously saved fields, choose No; this button does not restore "
-                        "an earlier version. The Scene Idea will still be saved.\n\n"
+                        "Its concise direction and ending may change. Only Required Beats explicitly "
+                        "labeled in the original Scene Idea are enforced; model-generated suggestions "
+                        "are not turned into mandatory stops. Separately enabled modules may supply "
+                        "their own requirements. Continuing will replace the saved generated fields.\n\n"
+                        "Choose No to keep the existing fields. If your goal is to restore or reload "
+                        "previously saved fields, choose No; this button does not restore an earlier version. "
+                        "The Scene Idea will still be saved.\n\n"
                         "Generate and replace the saved contract?"
                     ),
                 )
