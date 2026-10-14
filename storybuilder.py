@@ -5470,7 +5470,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
 
         # An explicit Save Draft click marks this exact text as saved. Do not
         # ask again on close unless the author changes the Writer text afterward.
-        if getattr(self, "writer_draft_saved_text", None) == prose:
+        if self.__dict__.get("writer_draft_saved_text") == prose:
             return True
 
         state = self.package.current_state
