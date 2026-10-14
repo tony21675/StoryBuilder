@@ -2439,7 +2439,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             self.writer_clear_context_button.configure(
                 state="normal" if running and self.package and not notes_updating and not acceptance_validating and not contract_building else "disabled"
             )
-        if hasattr(self, "writer_trace_button"):
+        if self.__dict__.get("writer_trace_button") is not None:
             self.writer_trace_button.configure(
                 state="disabled" if self.writer_generation_in_progress or contract_building or notes_updating else "normal",
                 text="Trace Next Scene (Armed)" if getattr(self, "prompt_trace_armed", False) else "Trace Next Scene (Off)",
@@ -2903,11 +2903,11 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         target = getattr(self, "writer_generation_context", None)
         if trace_result is not None:
             self.active_prompt_trace = None
-            if hasattr(self, "writer_trace_button"):
+            if self.__dict__.get("writer_trace_button") is not None:
                 self.writer_trace_button.configure(
                     text="Trace Next Scene (Armed)" if getattr(self, "prompt_trace_armed", False) else "Trace Next Scene (Off)"
                 )
-            if hasattr(self, "writer_trace_status"):
+            if self.__dict__.get("writer_trace_status") is not None:
                 if trace_result.get("path"):
                     self.writer_trace_status.configure(
                         text=f"Saved one-scene trace: {trace_result['path']} (the next capture replaces it)."
