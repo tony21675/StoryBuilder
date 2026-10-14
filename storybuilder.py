@@ -2660,7 +2660,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             writer_context,
             "\n\n",
             "SCENE BOUNDARY:\n",
-            "Use the original plain-English Scene Idea as gentle guidance for intended direction, important moments, and endpoint, not as a checklist. Current story state controls what has already happened, physical continuity, and character knowledge; generated direction and contract are secondary hints. Do not replay completed events. Preserve established opening position/contact unless this scene changes them. Use creative freedom for natural dialogue, gestures, pacing, transitions, and connective actions.\n\n",
+            "The original plain-English Scene Idea defines intended actions, important moments, and endpoint. It is not a line-by-line wording checklist, but concrete actions and objects specified as intended choices must keep their identity; do not replace one with a materially different alternative (a bubble bath is not a shower). If the idea phrases an action as optional, preserve that choice instead of making it a new requirement. Current story state controls what has already happened, physical continuity, and character knowledge; generated direction and contract are secondary hints. Do not replay completed events. Preserve established opening position/contact unless this scene changes them. Use creative freedom for how actions unfold, dialogue, gestures, pacing, transitions, and connective actions.\n\n",
             "Write the scene now. Output only the prose."
         ]
         base_prompt = "".join(prompt_parts)
