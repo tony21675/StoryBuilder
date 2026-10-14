@@ -2779,7 +2779,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         def work():
             answer = ""
             validation_warning = None
-            trace_result = {"path": None, "error": None}
+            trace_result = None
             error = None
             try:
                 if model is None:
