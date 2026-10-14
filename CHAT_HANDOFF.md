@@ -16,7 +16,7 @@ Read the current versions on GitHub `main` before acting:
 ### Current model: Gemma 4
 
 - **Confirmed current local writing model:** `~/Documents/Models/01 gemma-4-E4B_q4_0-it.gguf` (Gemma 4 E4B, Q4_0 instruction-tuned GGUF). This exact path is recorded in the earlier project handoff and matches Tony's latest confirmation.
-- The old carried-over note saying the current model is `Llama-3.1-8B-instruct-Q4_K_M.gguf` is obsolete. Qwen is not the current model either. Do not describe Llama 3.1 or Qwen as the selected model.
+- Older conversational notes contain superseded model references. Treat this current checkpoint and the selected Gemma 4 GGUF above as authoritative; Qwen is not current.
 - `llama.cpp` / `llama-cli` is the inference runtime StoryBuilder launches. Those names in source code, logs, and configuration do **not** mean the loaded model is Llama. StoryBuilder loads the selected GGUF from the Models directory; do not hard-code a model family into reusable app logic.
 - Default workspace behavior on Tony's documented layout puts the model directory at `~/Documents/Models`. The current model is a local asset, not a GitHub file. Never delete or replace it during routine cleanup without Tony's approval.
 
@@ -250,7 +250,7 @@ The author approved proceeding with the agreed simplification on October 13, 202
 - At runtime, old novel packages remain loadable, but Required Facts, Required Sequence, Forbidden / Do Not Advance, Forbidden Details, hidden state-after hints, and regex gates are ignored by the active scene contract. Positive story events can still become required beats. Do not reintroduce auxiliary gates without discussing the behavior with the author first.
 - The Writer prompt's repeated scene-boundary paragraph is shorter. It keeps the useful boundaries: start from current state, preserve character knowledge and opening position/contact unless changed in-scene, reach the hard stop, and leave prose choices to the writer.
 - When the Writer is already running, Scene Contract generation and validation reuse that same WriterEngine process with a smaller context/output budget, avoiding a second concurrent copy of the model. Writer tasks are serialized while a contract is being built.
-- Timeouts kill the stalled model process. If prose exists but validation fails, the draft remains visible and saveable, remains unaccepted, and cannot be accepted until a successful validation. Writer and Scene Contract errors use the copyable dialog.
+- Timeouts kill a stalled model process. A readable semantic validation failure follows the normal focused-revision path. If the scene-contract validator's response is malformed or unreadable after one correction retry, the generated draft is preserved and remains unaccepted; Save Draft and Reject Scene remain available, and Accept Scene requires the author's separate confirmation that they reviewed and choose to accept without semantic validation. Other model/runtime failures are not bypassed.
 
 ### Confirmed Scene Idea workflow: plain-English author conversation
 
