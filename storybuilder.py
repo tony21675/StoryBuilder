@@ -2666,14 +2666,14 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         base_prompt = "".join(prompt_parts)
 
         def work():
+            answer = ""
+            validation_warning = None
             try:
                 if model is None:
                     raise RuntimeError("The Writer model is not available.")
 
                 max_attempts = SceneContract.max_attempts(contract) if contract else 1
                 feedback = ""
-                answer = ""
-                validation_warning = None
                 self.writer_engine.reset_context(model, system_prompt)
 
                 for attempt in range(1, max_attempts + 1):
