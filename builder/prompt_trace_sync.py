@@ -178,7 +178,11 @@ def upload_prompt_trace(
         branch_override = os.environ.get("STORYBUILDER_TRACE_GITHUB_BRANCH", "").strip()
         branch = branch_override or default_branch
         branch_path = quote(branch, safe="")
+        # GitHub uses /git/ref/{ref} for reads but /git/refs/{ref}
+        # for updates. Keep the two endpoints separate; using the singular
+        # read endpoint for PATCH returns HTTP 404 on an existing branch.
         ref_endpoint = f"{root}/git/ref/heads/{branch_path}"
+        update_ref_endpoint = f"{root}/git/refs/heads/{branch_path}"
 
         current_ref = _api_request(
             token, "GET", ref_endpoint, allow_404=True
@@ -298,7 +302,7 @@ def upload_prompt_trace(
         _api_request(
             token,
             "PATCH",
-            ref_endpoint,
+            update_ref_endpoint,
             {"sha": commit_sha, "force": True},
         )
 
