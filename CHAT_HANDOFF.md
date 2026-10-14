@@ -21,6 +21,15 @@ Read the current versions on GitHub `main` before acting:
 - Do not start long-term work while the current issue/live test is unresolved unless Tony explicitly changes priorities.
 
 
+## Approved diagnostic feature: one-scene Prompt Trace — October 14, 2026
+
+- Added an opt-in **Trace Next Scene** control to the Writer tab. It is off by default; arming it captures only the next scene-generation run, then automatically disarms.
+- The trace records the system prompts and their roles, scene start state, exact scene request before and after the Writer's line-flattening step, model output returned to StoryBuilder, available llama.cpp prompt/generation diagnostics, runtime context/token settings, each validator exchange, validator outcomes, and focused-revision feedback.
+- Retention is a single JSON file at `~/.local/share/storybuilder/prompt_trace.json`. A later completed capture overwrites that same file; StoryBuilder creates no trace history, does not put the trace in either Git repository, and does not upload it. Capture is held in memory until the scene run ends and then saved once. The file may contain unpublished novel text and prompts.
+- If the trace cannot be saved (for example, the disk is full), the writing result remains independent and the Writer tab reports the save error. This is diagnostic capture only; it does not change writing prompts or validation behavior.
+- **Next action on laptop:** after confirming StoryBuilder `main` is clean, launch `./start.sh`, open the active novel and Writer tab, click **Trace Next Scene (Off)** once so it becomes armed, then click **Write Next Scene**. After the attempt completes, inspect `~/.local/share/storybuilder/prompt_trace.json`. The next capture replaces it, so copy it elsewhere before another trace if you need to retain this one. Do not commit or sync it.
+- Automated tests cover trace serialization, exact request preservation, runtime metadata, and overwrite behavior. A real local Gemma 4 capture is still required to verify live llama.cpp diagnostics and inspect an actual troublesome generation.
+
 ## Latest Checkpoint: October 14, 2026 (author guidance and prose fidelity)
 
 ### Newest MyNovel live test and approved Scene 4 direction — October 14, 2026

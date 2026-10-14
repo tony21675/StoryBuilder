@@ -31,6 +31,7 @@ from builder.writer_notes import (
 )
 from builder.validator import validate_package
 from builder.writer_engine import WriterEngine
+from builder.prompt_trace import PromptTrace, default_prompt_trace_path
 from builder.manuscript import ManuscriptManager
 from builder.scene_flow import review_chapter_flow
 from builder.novel_sync import NovelSyncError, sync_novel_repository
@@ -122,6 +123,9 @@ class StoryBuilderApp(tk.Tk):
         self.spellcheck_available = shutil.which("aspell") is not None
         self._spellcheck_jobs = {}
         self.writer_engine = WriterEngine()
+        self.writer_engine.prompt_trace = None
+        self.prompt_trace_armed = False
+        self.active_prompt_trace = None
         self.writer_thread = None
         self.writer_notes_update_in_progress = False
         self.generated_scene = ""
@@ -1128,6 +1132,22 @@ class StoryBuilderApp(tk.Tk):
             command=self._reject_generated_scene,
         )
         self.writer_reject_button.pack(side="left", padx=(8, 0))
+
+        trace_row = ttk.Frame(content_frame)
+        trace_row.pack(fill="x", pady=(0, 8))
+        self.writer_trace_button = ttk.Button(
+            trace_row,
+            text="Trace Next Scene (Off)",
+            command=self._toggle_prompt_trace,
+        )
+        self.writer_trace_button.pack(side="left")
+        self.writer_trace_status = ttk.Label(
+            trace_row,
+            text="Off. No prompts are being recorded.",
+            wraplength=720,
+            justify="left",
+        )
+        self.writer_trace_status.pack(side="left", padx=(8, 0))
 
         ttk.Label(
             content_frame,
@@ -2362,6 +2382,25 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         parts.append("\nEND SCENE REFERENCE")
         return "\n".join(parts)
 
+    def _toggle_prompt_trace(self):
+        """Arm or cancel a one-scene prompt trace; tracing is otherwise off."""
+        if getattr(self, "writer_generation_in_progress", False):
+            return
+        self.prompt_trace_armed = not bool(getattr(self, "prompt_trace_armed", False))
+        if self.prompt_trace_armed:
+            self.writer_trace_button.configure(text="Trace Next Scene (Armed)")
+            self.writer_trace_status.configure(
+                text=(
+                    "Armed for the next scene only. One local JSON trace will be saved, "
+                    "replacing the previous trace. Nothing is uploaded."
+                )
+            )
+        else:
+            self.writer_trace_button.configure(text="Trace Next Scene (Off)")
+            self.writer_trace_status.configure(
+                text="Off. No prompts are being recorded."
+            )
+
     def _update_writer_buttons(self):
         if not hasattr(self, "writer_start_button"):
             return
@@ -2399,6 +2438,11 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         if hasattr(self, "writer_clear_context_button"):
             self.writer_clear_context_button.configure(
                 state="normal" if running and self.package and not notes_updating and not acceptance_validating and not contract_building else "disabled"
+            )
+        if hasattr(self, "writer_trace_button"):
+            self.writer_trace_button.configure(
+                state="disabled" if self.writer_generation_in_progress or contract_building or notes_updating else "normal",
+                text="Trace Next Scene (Armed)" if getattr(self, "prompt_trace_armed", False) else "Trace Next Scene (Off)",
             )
         self.writer_analyze_button.configure(
             state="normal" if has_accepted and self.package and not notes_updating and not contract_building else "disabled"
@@ -2705,9 +2749,38 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         ]
         base_prompt = "".join(prompt_parts)
 
+        prompt_trace = None
+        if getattr(self, "prompt_trace_armed", False):
+            prompt_trace = PromptTrace(
+                chapter=chapter,
+                scene=scene,
+                model_path=model,
+                current_state=current_state,
+                reference_files=files,
+                contract=contract,
+                scene_direction=direction,
+                author_guidance=author_guidance,
+                system_prompt=system_prompt,
+            )
+            self.prompt_trace_armed = False
+            self.active_prompt_trace = prompt_trace
+            self.writer_engine.prompt_trace = prompt_trace
+            prompt_trace.record_event(
+                "scene_generation_started",
+                chapter=chapter,
+                scene=scene,
+                max_attempts=SceneContract.max_attempts(contract) if contract else 1,
+            )
+            self.writer_trace_button.configure(text="Trace Next Scene (Off)", state="disabled")
+            self.writer_trace_status.configure(
+                text="Capturing this scene only. The single local trace file will be overwritten when this finishes."
+            )
+
         def work():
             answer = ""
             validation_warning = None
+            trace_result = {"path": None, "error": None}
+            error = None
             try:
                 if model is None:
                     raise RuntimeError("The Writer model is not available.")
@@ -2722,9 +2795,24 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                         if feedback
                         else base_prompt
                     )
+                    if prompt_trace is not None:
+                        prompt_trace.record_event(
+                            "writer_attempt_started",
+                            attempt=attempt,
+                            max_attempts=max_attempts,
+                            is_focused_revision=bool(feedback),
+                            prompt_characters=len(attempt_prompt),
+                        )
                     answer = self.writer_engine.generate(attempt_prompt)
 
                     if not contract:
+                        if prompt_trace is not None:
+                            prompt_trace.record_event(
+                                "writer_attempt_finished",
+                                attempt=attempt,
+                                status="generated_without_contract_validation",
+                                response_characters=len(answer),
+                            )
                         break
 
                     try:
@@ -2739,12 +2827,38 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                         # Preserve the generated prose. A broken validator response
                         # is not evidence that the scene itself failed validation.
                         validation_warning = str(exc)
+                        if prompt_trace is not None:
+                            prompt_trace.record_event(
+                                "validator_unavailable",
+                                attempt=attempt,
+                                error=str(exc),
+                            )
                         break
 
+                    if prompt_trace is not None:
+                        prompt_trace.record_event(
+                            "validator_result",
+                            attempt=attempt,
+                            result=result,
+                        )
                     if result.get("pass"):
+                        if prompt_trace is not None:
+                            prompt_trace.record_event(
+                                "writer_attempt_finished",
+                                attempt=attempt,
+                                status="passed_validation",
+                                response_characters=len(answer),
+                            )
                         break
 
                     feedback = SceneContract.feedback(result)
+                    if prompt_trace is not None:
+                        prompt_trace.record_event(
+                            "focused_revision_requested",
+                            attempt=attempt,
+                            next_attempt=attempt + 1,
+                            feedback=feedback,
+                        )
                     if attempt == max_attempts:
                         raise RuntimeError(
                             "The writer could not produce a scene that satisfies the scene contract "
@@ -2757,17 +2871,53 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                 # If prose was produced and validation later failed, preserve that
                 # unaccepted draft so the author can save it rather than lose it.
                 error = str(exc)
+            finally:
+                if prompt_trace is not None:
+                    if error:
+                        trace_status = "error"
+                    elif validation_warning:
+                        trace_status = "validation_unavailable"
+                    else:
+                        trace_status = "completed"
+                    trace_path = prompt_trace.finish(
+                        status=trace_status,
+                        error=error,
+                        validation_warning=validation_warning,
+                    )
+                    trace_result = {
+                        "path": str(trace_path) if trace_path is not None else None,
+                        "error": prompt_trace.save_error,
+                    }
+                    if getattr(self.writer_engine, "prompt_trace", None) is prompt_trace:
+                        self.writer_engine.prompt_trace = None
             self.after(
                 0,
                 lambda: self._finish_generated_scene(
-                    answer, error, validation_warning
+                    answer, error, validation_warning, trace_result
                 ),
             )
 
         self.writer_thread = threading.Thread(target=work, daemon=True)
         self.writer_thread.start()
-    def _finish_generated_scene(self, answer, error, validation_warning=None):
+    def _finish_generated_scene(self, answer, error, validation_warning=None, trace_result=None):
         target = getattr(self, "writer_generation_context", None)
+        if trace_result is not None:
+            self.active_prompt_trace = None
+            if hasattr(self, "writer_trace_button"):
+                self.writer_trace_button.configure(
+                    text="Trace Next Scene (Armed)" if getattr(self, "prompt_trace_armed", False) else "Trace Next Scene (Off)"
+                )
+            if hasattr(self, "writer_trace_status"):
+                if trace_result.get("path"):
+                    self.writer_trace_status.configure(
+                        text=f"Saved one-scene trace: {trace_result['path']} (the next capture replaces it)."
+                    )
+                else:
+                    self.writer_trace_status.configure(
+                        text="Scene trace could not be saved: " + str(
+                            trace_result.get("error") or "unknown file error"
+                        )
+                    )
         start_state = getattr(self, "writer_generation_start_state", None)
         self.writer_generation_in_progress = False
         self.writer_generation_context = None

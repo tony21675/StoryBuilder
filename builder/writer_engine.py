@@ -24,6 +24,25 @@ class WriterEngine:
         self.model_path: Path | None = None
         self.system_prompt = ""
         self.started_at: float | None = None
+        self.prompt_trace = None
+
+    def _trace_record(self, method_name: str, **details):
+        """Record diagnostics when armed, without letting tracing disrupt generation."""
+        trace = getattr(self, "prompt_trace", None)
+        if trace is None:
+            return None
+        try:
+            return getattr(trace, method_name)(**details)
+        except Exception as exc:
+            try:
+                trace.record_event(
+                    "trace_capture_error",
+                    method=method_name,
+                    error=str(exc),
+                )
+            except Exception:
+                pass
+            return None
 
     @staticmethod
     def available_models() -> list[Path]:
@@ -149,6 +168,25 @@ class WriterEngine:
             self.model_path = model
             self.system_prompt = system_prompt
             self.started_at = time.time()
+            self._trace_record(
+                "record_session",
+                model_path=model,
+                runtime_binary=DEFAULT_LLAMA,
+                system_prompt=system_prompt,
+                context_size=context_size,
+                max_tokens=max_predict,
+                device=device,
+                runtime_options={
+                    "gpu_layers": "all" if device else 0,
+                    "reasoning": "off",
+                    "repeat_last_n": 256,
+                    "repeat_penalty": 1.08,
+                    "max_generation_tokens": max_predict,
+                    "temperature": "llama.cpp default (not explicitly set by WriterEngine)",
+                    "top_k": "llama.cpp default (not explicitly set by WriterEngine)",
+                    "top_p": "llama.cpp default (not explicitly set by WriterEngine)",
+                },
+            )
 
     def reset_context(self, model_path: str | Path, system_prompt: str) -> None:
         """Restart llama-cli with a fresh conversation context."""
@@ -168,6 +206,12 @@ class WriterEngine:
             single_line_prompt = " ".join(
                 line.strip() for line in prompt.replace("\r", "").split("\n") if line.strip()
             )
+            trace_call_id = self._trace_record(
+                "begin_generation",
+                prompt=prompt,
+                sent_prompt=single_line_prompt,
+            )
+            generation_started = time.monotonic()
             self.child.sendline(single_line_prompt)
 
             turn_timeout = WRITER_TIMEOUT if timeout is None else max(1, int(timeout))
@@ -176,6 +220,20 @@ class WriterEngine:
             except pexpect.TIMEOUT as exc:
                 child = self.child
                 output = child.before or "" if child is not None else ""
+                diagnostics_match = re.search(
+                    r"\[ Prompt: .*? \| Generation: .*? \]\s*$",
+                    str(output),
+                    flags=re.DOTALL,
+                )
+                self._trace_record(
+                    "finish_generation",
+                    call_id=trace_call_id,
+                    response="",
+                    status="timeout",
+                    error=str(exc),
+                    cli_diagnostics=diagnostics_match.group(0).strip() if diagnostics_match else None,
+                    duration_seconds=time.monotonic() - generation_started,
+                )
                 # A timed-out task can otherwise keep consuming CPU and RAM.
                 try:
                     if child is not None:
@@ -189,12 +247,33 @@ class WriterEngine:
                 ) from exc
             except Exception as exc:
                 output = self.child.before or ""
+                diagnostics_match = re.search(
+                    r"\[ Prompt: .*? \| Generation: .*? \]\s*$",
+                    str(output),
+                    flags=re.DOTALL,
+                )
+                self._trace_record(
+                    "finish_generation",
+                    call_id=trace_call_id,
+                    response="",
+                    status="runtime_error",
+                    error=str(exc),
+                    cli_diagnostics=diagnostics_match.group(0).strip() if diagnostics_match else None,
+                    duration_seconds=time.monotonic() - generation_started,
+                )
                 raise RuntimeError(
                     "The writer failed while generating the scene.\n"
                     + str(output)[-3000:]
                 ) from exc
 
-            answer = str(self.child.before or "")
+            raw_output = str(self.child.before or "")
+            diagnostics_match = re.search(
+                r"\[ Prompt: .*? \| Generation: .*? \]\s*$",
+                raw_output,
+                flags=re.DOTALL,
+            )
+            cli_diagnostics = diagnostics_match.group(0).strip() if diagnostics_match else None
+            answer = raw_output
             answer = answer.replace("\r", "").strip()
 
             while answer.startswith("> "):
@@ -210,6 +289,23 @@ class WriterEngine:
             answer = re.sub(r"\n?\[ Prompt: .*? \| Generation: .*? \]\s*$", "", answer, flags=re.DOTALL).strip()
 
             if not answer:
+                self._trace_record(
+                    "finish_generation",
+                    call_id=trace_call_id,
+                    response="",
+                    status="empty_response",
+                    error="The writer returned an empty response.",
+                    cli_diagnostics=cli_diagnostics,
+                    duration_seconds=time.monotonic() - generation_started,
+                )
                 raise RuntimeError("The writer returned an empty response.")
 
+            self._trace_record(
+                "finish_generation",
+                call_id=trace_call_id,
+                response=answer,
+                status="completed",
+                cli_diagnostics=cli_diagnostics,
+                duration_seconds=time.monotonic() - generation_started,
+            )
             return answer
