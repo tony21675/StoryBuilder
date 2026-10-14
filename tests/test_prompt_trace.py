@@ -146,17 +146,17 @@ class PromptTraceSyncTests(unittest.TestCase):
                     return self.Response({"private": True, "default_branch": "main"})
                 if method == "GET" and url.endswith("/git/ref/heads/main"):
                     raise self.http_404(url)
-                if method == "POST" and url.endswith("/git/blobs"):
-                    return self.Response({"sha": "blob-sha"})
-                if method == "POST" and url.endswith("/git/trees"):
-                    return self.Response({"sha": "tree-sha"})
-                if method == "POST" and url.endswith("/git/commits"):
+                if method == "PUT" and url.endswith("/contents/prompt_trace.json"):
                     return self.Response({
-                        "sha": "root-commit-sha",
-                        "html_url": "https://github.com/owner/traces/commit/root-commit-sha",
+                        "content": {
+                            "path": "prompt_trace.json",
+                            "html_url": "https://github.com/owner/traces/blob/main/prompt_trace.json",
+                        },
+                        "commit": {
+                            "sha": "root-commit-sha",
+                            "html_url": "https://github.com/owner/traces/commit/root-commit-sha",
+                        },
                     })
-                if method == "POST" and url.endswith("/git/refs"):
-                    return self.Response({"ref": "refs/heads/main"})
                 raise AssertionError(f"Unexpected GitHub request: {method} {url}")
 
             with patch.dict(
@@ -168,11 +168,14 @@ class PromptTraceSyncTests(unittest.TestCase):
 
             self.assertTrue(result["ok"], result)
             self.assertEqual(result["url"], "https://github.com/owner/traces/blob/main/prompt_trace.json")
-            self.assertTrue(any(method == "POST" and url.endswith("/git/refs") for method, url, _ in calls))
-            commit_payload = next(payload for method, url, payload in calls if method == "POST" and url.endswith("/git/commits"))
-            self.assertEqual(commit_payload["parents"], [])
-            tree_payload = next(payload for method, url, payload in calls if method == "POST" and url.endswith("/git/trees"))
-            self.assertEqual([item["path"] for item in tree_payload["tree"]], ["prompt_trace.json"])
+            self.assertTrue(any(method == "PUT" and url.endswith("/contents/prompt_trace.json") for method, url, _ in calls))
+            self.assertFalse(any(url.endswith("/git/commits") or url.endswith("/git/refs") for _, url, _ in calls))
+            init_payload = next(payload for method, url, payload in calls if method == "PUT" and url.endswith("/contents/prompt_trace.json"))
+            self.assertEqual(init_payload["branch"], "main")
+            self.assertEqual(json.loads(__import__("base64").b64decode(init_payload["content"])), {
+                "format": "storybuilder-prompt-trace",
+                "scene": {"chapter": 2, "scene": 4},
+            })
             self.assertNotIn("test-token", repr(calls))
 
     def test_update_replaces_branch_with_new_root_and_rejects_extra_files(self):
