@@ -5,7 +5,11 @@ from pathlib import Path
 from unittest.mock import patch
 
 from builder import scene_contract
-from builder.scene_contract import SceneContract
+from builder.scene_contract import (
+    SceneContract,
+    SceneContractResponseError,
+    SceneContractValidationUnavailable,
+)
 
 
 class FakeEngine:
@@ -183,6 +187,57 @@ class SceneContractTests(unittest.TestCase):
             )
 
         self.assertFalse(result["pass"])
+
+    def test_validator_retries_once_with_a_corrected_json_prompt(self):
+        valid_result = {
+            "pass": True,
+            "missed_beats": [],
+            "violations": [],
+            "notes": "",
+        }
+        with patch.object(
+            scene_contract,
+            "_run_validator",
+            side_effect=[
+                SceneContractResponseError("invalid JSON"),
+                valid_result,
+            ],
+        ) as run_validator:
+            result = SceneContract.validate_with_engine(
+                FakeEngine(),
+                self.contract,
+                {"chapter": 2, "scene": 1},
+                "A complete, natural scene.",
+            )
+
+        self.assertTrue(result["pass"])
+        self.assertEqual(run_validator.call_count, 2)
+        first_prompt = run_validator.call_args_list[0].args[1]
+        retry_prompt = run_validator.call_args_list[1].args[1]
+        self.assertNotEqual(first_prompt, retry_prompt)
+        self.assertIn("CORRECTION REQUIRED", retry_prompt)
+        self.assertIn('"pass": true, "missed_beats": [], "violations": [], "notes": ""', retry_prompt)
+
+    def test_validator_unavailable_after_retry_is_distinguished_from_scene_failure(self):
+        with patch.object(
+            scene_contract,
+            "_run_validator",
+            side_effect=[
+                SceneContractResponseError("invalid JSON"),
+                SceneContractResponseError("still invalid JSON"),
+            ],
+        ) as run_validator:
+            with self.assertRaises(SceneContractValidationUnavailable) as raised:
+                SceneContract.validate_with_engine(
+                    FakeEngine(),
+                    self.contract,
+                    {"chapter": 2, "scene": 1},
+                    "A complete, natural scene.",
+                )
+
+        self.assertEqual(run_validator.call_count, 2)
+        self.assertIn("not been semantically validated", str(raised.exception))
+        self.assertIn("before deciding whether to accept it", str(raised.exception))
 
     def test_validator_cannot_pass_with_reported_omissions_or_violations(self):
         cases = [
