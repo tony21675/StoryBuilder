@@ -24,7 +24,7 @@ VALIDATOR_SYSTEM_PROMPT = """Review original idea, scene intent, and starting st
 Return only JSON:
 {"pass": true, "missed_beats": [], "violations": [], "notes": ""}
 
-Original idea leads; hints are secondary. Check continuity, character knowledge; if no transition explains a mismatch, flag it. Check opening continuity, central movement, author-labeled Required Beats, and endpoint. Treat Required Beats as narrative-level goals, not a checklist. Fail only when a core action or outcome is absent or materially wrong. If the main action occurs but a secondary detail is missing, do not fail for that alone; optionally note it. Ignore incidental omissions from free-form prose unless central development or the endpoint suffers. Accept paraphrases and neutral familial comfort. Do not nitpick style or invent requirements.
+Original idea leads; hints are secondary. Check continuity, knowledge, opening, central movement, Required Beats, and endpoint. Treat Required Beats as narrative-level goals, not a checklist. Fail only when a core action or outcome is absent or materially wrong. Preserve the identity of concrete actions and objects the idea specifies as intended choices: a bubble bath is not a shower, and an explicitly required robe is not a towel. A missing or materially substituted author-specified action/object is not an incidental omission, even if the broad scene purpose is met. Accept paraphrases for the same action and natural connective details. Do not fail for a purely incidental detail or description that does not change a specified action/object, the scene's core outcome, character knowledge, or endpoint. Do not nitpick style or invent requirements.
 """
 
 
@@ -671,11 +671,15 @@ class SceneContract:
 
         if author_idea:
             parts.append(
-                "Priority: Treat the Scene Idea as guidance for the intended direction, key intentions, "
-                "and endpoint, not as a line-by-line checklist. Respect explicitly named Required Beats "
-                "and clearly stated boundaries. The generated direction and compact contract are hints "
-                "only; they must not overrule or contradict the author's intent. Leave natural actions, "
-                "dialogue, gestures, pacing, and transitions to the writer."
+                "Priority: Treat the Scene Idea as the primary source for intended direction, key actions, "
+                "important moments, and endpoint. It is not a word-for-word prose checklist. Generated "
+                "direction and contract are supporting hints and must not override the author's intent. "
+                "AUTHOR ACTION FIDELITY: Concrete actions and objects the idea specifies as intended choices "
+                "must keep their identity. Do not replace one with a materially different alternative just "
+                "because it serves the same broad purpose: a bubble bath is not a shower, and an explicitly "
+                "required robe is not a towel. Natural dialogue, gestures, pacing, transitions, and connective "
+                "details remain creative choices. Treat wording such as 'can' or 'may' as permission when the "
+                "idea presents an option, not as an extra hard requirement."
             )
         return "\n\n".join(parts)
 
@@ -879,9 +883,11 @@ class SceneContract:
             "Validate this scene against the author's original idea and starting state. "
             "The idea is primary; generated hints are secondary. Treat Required Beats as narrative-level goals, not a word-for-word checklist. "
             "Fail only when a core action or outcome is absent or materially wrong. "
-            "If the main action occurs but a secondary detail is missing, do not put the beat in missed_beats or fail for that alone; optional details may go in notes. "
-            "Search the entire scene for equivalent actions, including paraphrases or later paragraphs, before declaring an action absent. "
-            "Do not fail for a minor descriptive or phrasing omission when the intended event, character knowledge, and endpoint remain intact. "
+            "Check the identity of concrete actions and objects specified by the idea, not only the broad scene purpose. A specified bubble bath replaced with a shower is a material substitution, not an equivalent paraphrase; apply the same principle to explicitly required objects or clothing. "
+            "Report a missing or materially substituted author-specified action/object as a missed beat or violation even if the broad purpose is met. "
+            "If the main action occurs but only a purely incidental detail is missing, do not fail for that alone; optional details may go in notes. "
+            "Search the entire scene for equivalent actions, including paraphrases or later paragraphs, before declaring an action absent. Accept paraphrases that describe the same action/object, not a different one. "
+            "Do not fail for a minor descriptive or phrasing omission when the intended event, character knowledge, and endpoint remain intact, unless the omission changes an explicitly specified action/object. "
             "Return JSON only in this shape: "
             '{"pass": true, "missed_beats": [], "violations": [], "notes": ""}\n\n'
             "SCENE INTENT AND SUPPORTING CONTRACT:\n"
@@ -1062,9 +1068,11 @@ class SceneContract:
             + "\n\nFOCUSED REVISION\n"
             "Use the previous draft below as your starting point. Keep its successful prose, "
             "dialogue, pacing, and natural creative choices. Change only what is needed to fix "
-            "the clear material issue(s) described after the draft. Add any missing explicit "
-            "Required Beats named in the revision guidance, woven into natural prose rather than "
-            "an outline or checklist. Do not rewrite unaffected passages. Return the complete "
+            "the clear material issue(s) described after the draft. Preserve the identity of concrete "
+            "actions and objects specified by the author's idea; if feedback identifies one that was "
+            "omitted or substituted, restore the intended choice rather than a near-equivalent. Add any "
+            "missing explicit Required Beats named in the revision guidance, woven into natural prose "
+            "rather than an outline or checklist. Do not rewrite unaffected passages. Return the complete "
             "revised scene only.\n\n"
             "PREVIOUS DRAFT:\n"
             + draft
