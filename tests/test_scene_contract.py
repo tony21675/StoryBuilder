@@ -294,7 +294,7 @@ class SceneContractTests(unittest.TestCase):
         self.assertIn("Fail for absent/materially wrong core actions/outcomes", prompt)
         self.assertIn("a bubble bath is not a shower", prompt)
         self.assertIn("a warm bubble bath includes bubbles", prompt)
-        self.assertIn("keep stated backstory that gives an object meaning", prompt)
+        self.assertIn("keep stated object backstory", prompt)
         self.assertIn("Omitting/substituting one is material", prompt)
         self.assertIn("Ignore incidental description unless a specified action/object, core outcome, knowledge, or endpoint changes", prompt)
         self.assertLess(len(prompt), 800)
