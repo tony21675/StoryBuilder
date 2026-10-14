@@ -175,7 +175,7 @@ def _run_validator(model: Path, prompt: str, engine: Any = None) -> dict[str, An
             VALIDATOR_SYSTEM_PROMPT,
             prompt,
             context_size=int(os.environ.get("STORY_VALIDATOR_CONTEXT", "6144")),
-            max_tokens=int(os.environ.get("STORY_VALIDATOR_MAX_TOKENS", "700")),
+            max_tokens=int(os.environ.get("STORY_VALIDATOR_MAX_TOKENS", "1500")),
             timeout_seconds=timeout_seconds,
             task_name="Scene contract validation",
         )
@@ -200,7 +200,7 @@ def _run_validator(model: Path, prompt: str, engine: Any = None) -> dict[str, An
         "--top-p", "0.70",
         "--repeat-last-n", "128",
         "--repeat-penalty", "1.08",
-        "--n-predict", os.environ.get("STORY_VALIDATOR_MAX_TOKENS", "700"),
+        "--n-predict", os.environ.get("STORY_VALIDATOR_MAX_TOKENS", "1500"),
         "--system-prompt", VALIDATOR_SYSTEM_PROMPT,
         "--prompt", prompt,
         "--color", "off",
