@@ -11,7 +11,7 @@ from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
 
 
-DEFAULT_TRACE_REPOSITORY = "tony21675/StoryBuilder-Traces"
+DEFAULT_TRACE_REPOSITORY_NAME = "StoryBuilder-Traces"
 TRACE_FILENAME = "prompt_trace.json"
 API_ROOT = "https://api.github.com"
 
@@ -130,12 +130,12 @@ def upload_prompt_trace(
     This is overwrite behavior, not a secure-erasure guarantee for Git object storage.
     """
     try:
-        repo = (
-            repository
-            or os.environ.get("STORYBUILDER_TRACE_GITHUB_REPO", "")
-            or DEFAULT_TRACE_REPOSITORY
+        configured_repo = (
+            repository or os.environ.get("STORYBUILDER_TRACE_GITHUB_REPO", "")
         ).strip()
-        if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo):
+        if configured_repo and not re.fullmatch(
+            r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", configured_repo
+        ):
             raise TraceSyncError(
                 "Configure STORYBUILDER_TRACE_GITHUB_REPO as owner/repository."
             )
@@ -155,6 +155,18 @@ def upload_prompt_trace(
             ) from exc
 
         token = _github_token()
+        repo = configured_repo
+        if not repo:
+            user_info = _api_request(token, "GET", "/user")
+            login = str((user_info or {}).get("login") or "").strip()
+            if not re.fullmatch(r"[A-Za-z0-9-]+", login):
+                raise TraceSyncError(
+                    "Could not determine the authenticated GitHub username. "
+                    "Set STORYBUILDER_TRACE_GITHUB_REPO to owner/repository."
+                )
+            # Never default to another developer's private repository.
+            repo = f"{login}/{DEFAULT_TRACE_REPOSITORY_NAME}"
+
         root = f"/repos/{repo}"
         repo_info = _api_request(token, "GET", root)
         if not repo_info or repo_info.get("private") is not True:
