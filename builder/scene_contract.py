@@ -11,6 +11,14 @@ from builder.state_manager import extract_json_object
 from builder.workspace import LLAMA as DEFAULT_LLAMA
 
 
+class SceneContractResponseError(ValueError):
+    """The validator replied, but its response was not valid JSON or schema."""
+
+
+class SceneContractValidationUnavailable(RuntimeError):
+    """The validator could not produce a readable response after one retry."""
+
+
 VALIDATOR_SYSTEM_PROMPT = """Review original idea, scene intent, and starting state.
 
 Return only JSON:
@@ -68,9 +76,16 @@ def _run_with_existing_engine(
             else:
                 os.environ[key] = value
 
-    result = extract_json_object(output)
+    try:
+        result = extract_json_object(output)
+    except ValueError as exc:
+        raise SceneContractResponseError(
+            f"{task_name} did not return a valid JSON object."
+        ) from exc
     if not isinstance(result, dict):
-        raise ValueError(f"{task_name} did not return a JSON object.")
+        raise SceneContractResponseError(
+            f"{task_name} did not return a JSON object."
+        )
     return result
 
 
@@ -221,9 +236,16 @@ def _run_validator(model: Path, prompt: str, engine: Any = None) -> dict[str, An
             "Scene contract validation failed.\n" + (output or "")[-2000:]
         )
 
-    result = extract_json_object(output)
+    try:
+        result = extract_json_object(output)
+    except ValueError as exc:
+        raise SceneContractResponseError(
+            "Scene-contract validator did not return a valid JSON object."
+        ) from exc
     if not isinstance(result, dict):
-        raise ValueError("Scene contract validator did not return an object.")
+        raise SceneContractResponseError(
+            "Scene-contract validator did not return a JSON object."
+        )
 
     raw_pass = result.get("pass", None)
     if isinstance(raw_pass, bool):
@@ -231,14 +253,14 @@ def _run_validator(model: Path, prompt: str, engine: Any = None) -> dict[str, An
     elif isinstance(raw_pass, str) and raw_pass.strip().casefold() in {"true", "false"}:
         passed = raw_pass.strip().casefold() == "true"
     else:
-        raise ValueError("Scene contract validator returned an invalid 'pass' value.")
+        raise SceneContractResponseError("Scene contract validator returned an invalid 'pass' value.")
 
     missed = result.get("missed_beats", [])
     violations = result.get("violations", [])
     if not isinstance(missed, list):
-        raise ValueError("Scene contract validator returned invalid missed_beats data.")
+        raise SceneContractResponseError("Scene contract validator returned invalid missed_beats data.")
     if not isinstance(violations, list):
-        raise ValueError("Scene contract validator returned invalid violations data.")
+        raise SceneContractResponseError("Scene contract validator returned invalid violations data.")
 
     notes = str(result.get("notes", "") or "").strip()
 
@@ -874,33 +896,86 @@ class SceneContract:
         if model is None:
             raise RuntimeError("The active writer model is unavailable for scene validation.")
 
-        if _engine_is_running(engine):
-            raw_result = _run_validator(Path(model), prompt, engine=engine)
-        else:
-            raw_result = _run_validator(Path(model), prompt)
-        # Keep the public API stable even when validators are mocked or an
-        # alternate engine returns JSON booleans as strings.
-        if not isinstance(raw_result, dict):
-            raise ValueError("Scene contract validator returned an invalid result object.")
+        validation_prompt = prompt
+        normalized_result = None
+        for validator_attempt in range(2):
+            try:
+                if _engine_is_running(engine):
+                    raw_result = _run_validator(
+                        Path(model), validation_prompt, engine=engine
+                    )
+                else:
+                    raw_result = _run_validator(Path(model), validation_prompt)
 
-        raw_pass = raw_result.get("pass", None)
-        if isinstance(raw_pass, bool):
-            passed = raw_pass
-        elif isinstance(raw_pass, str) and raw_pass.strip().casefold() in {"true", "false"}:
-            passed = raw_pass.strip().casefold() == "true"
-        else:
-            raise ValueError("Scene contract validator returned an invalid 'pass' value.")
+                # Keep the public API stable even when validators are mocked or
+                # alternate engines return JSON booleans as strings.
+                if not isinstance(raw_result, dict):
+                    raise SceneContractResponseError(
+                        "Scene-contract validator returned an invalid result object."
+                    )
 
-        missed = raw_result.get("missed_beats", [])
-        violations = raw_result.get("violations", [])
-        if not isinstance(missed, list):
-            raise ValueError("Scene contract validator returned invalid missed_beats data.")
-        if not isinstance(violations, list):
-            raise ValueError("Scene contract validator returned invalid violations data.")
+                raw_pass = raw_result.get("pass", None)
+                if isinstance(raw_pass, bool):
+                    passed = raw_pass
+                elif isinstance(raw_pass, str) and raw_pass.strip().casefold() in {"true", "false"}:
+                    passed = raw_pass.strip().casefold() == "true"
+                else:
+                    raise SceneContractResponseError(
+                        "Scene-contract validator returned an invalid 'pass' value."
+                    )
 
-        normalized_missed = [str(item).strip() for item in missed if str(item).strip()]
-        normalized_violations = [str(item).strip() for item in violations if str(item).strip()]
-        notes = str(raw_result.get("notes", "") or "").strip()
+                missed = raw_result.get("missed_beats", [])
+                violations = raw_result.get("violations", [])
+                if not isinstance(missed, list):
+                    raise SceneContractResponseError(
+                        "Scene-contract validator returned invalid missed_beats data."
+                    )
+                if not isinstance(violations, list):
+                    raise SceneContractResponseError(
+                        "Scene-contract validator returned invalid violations data."
+                    )
+
+                normalized_result = {
+                    "pass": passed,
+                    "missed_beats": [
+                        str(item).strip() for item in missed if str(item).strip()
+                    ],
+                    "violations": [
+                        str(item).strip() for item in violations if str(item).strip()
+                    ],
+                    "notes": str(raw_result.get("notes", "") or "").strip(),
+                }
+                break
+            except SceneContractResponseError as exc:
+                if validator_attempt == 0:
+                    validation_prompt = (
+                        prompt
+                        + "\n\nCORRECTION REQUIRED: Your previous response was not a readable "
+                        "JSON object in the required format. Re-evaluate the scene, then return "
+                        "ONLY one complete JSON object with this shape: "
+                        + '{"pass": true, "missed_beats": [], "violations": [], "notes": ""}'
+                        + ". Use a JSON boolean for pass, arrays of strings for missed_beats "
+                        "and violations, and a string for notes. Do not use Markdown fences "
+                        "or include any text before or after the JSON object."
+                    )
+                    continue
+                raise SceneContractValidationUnavailable(
+                    "Scene-contract validation could not be completed because the validator "
+                    "returned an unreadable or malformed response twice. The generated draft "
+                    "is preserved but has not been semantically validated. Review it carefully "
+                    "before deciding whether to accept it."
+                ) from exc
+
+        if normalized_result is None:
+            raise SceneContractValidationUnavailable(
+                "Scene-contract validation did not return a usable result. The generated draft "
+                "is preserved but has not been semantically validated."
+            )
+
+        passed = normalized_result["pass"]
+        normalized_missed = normalized_result["missed_beats"]
+        normalized_violations = normalized_result["violations"]
+        notes = normalized_result["notes"]
 
         # A validator response is internally inconsistent if it reports material
         # omissions/violations but still says pass=true. Never allow that result
