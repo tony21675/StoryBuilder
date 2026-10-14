@@ -1,9 +1,14 @@
 import json
+import os
 import tempfile
 import unittest
+from io import BytesIO
 from pathlib import Path
+from urllib.error import HTTPError
+from unittest.mock import patch
 
 from builder.prompt_trace import PromptTrace, default_prompt_trace_path
+from builder.prompt_trace_sync import upload_prompt_trace
 
 
 class PromptTraceTests(unittest.TestCase):
@@ -97,6 +102,187 @@ class PromptTraceTests(unittest.TestCase):
 
             self.assertIsNone(trace.finish(status="completed"))
             self.assertTrue(trace.save_error)
+
+
+
+
+class PromptTraceSyncTests(unittest.TestCase):
+    class Response:
+        def __init__(self, payload):
+            self.payload = json.dumps(payload).encode("utf-8")
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, traceback):
+            return False
+
+        def read(self):
+            return self.payload
+
+    @staticmethod
+    def http_404(url):
+        return HTTPError(url, 404, "Not Found", None, BytesIO(b'{"message":"Not Found"}'))
+
+    def make_trace_file(self, directory):
+        path = Path(directory) / "prompt_trace.json"
+        path.write_text(
+            json.dumps({"format": "storybuilder-prompt-trace", "scene": {"chapter": 2, "scene": 4}}),
+            encoding="utf-8",
+        )
+        return path
+
+    def test_upload_creates_private_trace_as_a_root_commit(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            trace_path = self.make_trace_file(tmp)
+            calls = []
+
+            def fake_urlopen(request, timeout=20):
+                method = request.get_method()
+                url = request.full_url
+                payload = json.loads(request.data) if request.data else None
+                calls.append((method, url, payload))
+                if method == "GET" and url.endswith("/repos/owner/traces"):
+                    return self.Response({"private": True, "default_branch": "main"})
+                if method == "GET" and url.endswith("/git/ref/heads/main"):
+                    raise self.http_404(url)
+                if method == "POST" and url.endswith("/git/blobs"):
+                    return self.Response({"sha": "blob-sha"})
+                if method == "POST" and url.endswith("/git/trees"):
+                    return self.Response({"sha": "tree-sha"})
+                if method == "POST" and url.endswith("/git/commits"):
+                    return self.Response({
+                        "sha": "root-commit-sha",
+                        "html_url": "https://github.com/owner/traces/commit/root-commit-sha",
+                    })
+                if method == "POST" and url.endswith("/git/refs"):
+                    return self.Response({"ref": "refs/heads/main"})
+                raise AssertionError(f"Unexpected GitHub request: {method} {url}")
+
+            with patch.dict(
+                os.environ,
+                {"STORYBUILDER_TRACE_GITHUB_TOKEN": "test-token"},
+                clear=True,
+            ), patch("builder.prompt_trace_sync.urlopen", side_effect=fake_urlopen):
+                result = upload_prompt_trace(trace_path, repository="owner/traces")
+
+            self.assertTrue(result["ok"], result)
+            self.assertEqual(result["url"], "https://github.com/owner/traces/blob/main/prompt_trace.json")
+            self.assertTrue(any(method == "POST" and url.endswith("/git/refs") for method, url, _ in calls))
+            commit_payload = next(payload for method, url, payload in calls if method == "POST" and url.endswith("/git/commits"))
+            self.assertEqual(commit_payload["parents"], [])
+            tree_payload = next(payload for method, url, payload in calls if method == "POST" and url.endswith("/git/trees"))
+            self.assertEqual([item["path"] for item in tree_payload["tree"]], ["prompt_trace.json"])
+            self.assertNotIn("test-token", repr(calls))
+
+    def test_update_replaces_branch_with_new_root_and_rejects_extra_files(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            trace_path = self.make_trace_file(tmp)
+            calls = []
+
+            def fake_urlopen(request, timeout=20):
+                method = request.get_method()
+                url = request.full_url
+                payload = json.loads(request.data) if request.data else None
+                calls.append((method, url, payload))
+                if method == "GET" and url.endswith("/repos/owner/traces"):
+                    return self.Response({"private": True, "default_branch": "main"})
+                if method == "GET" and url.endswith("/git/ref/heads/main"):
+                    return self.Response({"object": {"sha": "old-commit"}})
+                if method == "GET" and url.endswith("/git/commits/old-commit"):
+                    return self.Response({"tree": {"sha": "old-tree"}})
+                if method == "GET" and "/git/trees/old-tree?" in url:
+                    return self.Response({"tree": [{"path": "prompt_trace.json", "type": "blob"}]})
+                if method == "POST" and url.endswith("/git/blobs"):
+                    return self.Response({"sha": "new-blob"})
+                if method == "POST" and url.endswith("/git/trees"):
+                    return self.Response({"sha": "new-tree"})
+                if method == "POST" and url.endswith("/git/commits"):
+                    return self.Response({"sha": "new-root-commit"})
+                if method == "PATCH" and url.endswith("/git/ref/heads/main"):
+                    return self.Response({"ref": "refs/heads/main"})
+                raise AssertionError(f"Unexpected GitHub request: {method} {url}")
+
+            with patch.dict(
+                os.environ,
+                {"STORYBUILDER_TRACE_GITHUB_TOKEN": "test-token"},
+                clear=True,
+            ), patch("builder.prompt_trace_sync.urlopen", side_effect=fake_urlopen):
+                result = upload_prompt_trace(trace_path, repository="owner/traces")
+
+            self.assertTrue(result["ok"], result)
+            patch_request = next(item for item in calls if item[0] == "PATCH")
+            self.assertTrue(patch_request[2]["force"])
+            commit_payload = next(payload for method, url, payload in calls if method == "POST" and url.endswith("/git/commits"))
+            self.assertEqual(commit_payload["parents"], [])
+
+    def test_upload_is_refused_if_repository_is_not_private(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            trace_path = self.make_trace_file(tmp)
+            calls = []
+
+            def fake_urlopen(request, timeout=20):
+                calls.append((request.get_method(), request.full_url))
+                return self.Response({"private": False, "default_branch": "main"})
+
+            with patch.dict(
+                os.environ,
+                {"STORYBUILDER_TRACE_GITHUB_TOKEN": "test-token"},
+                clear=True,
+            ), patch("builder.prompt_trace_sync.urlopen", side_effect=fake_urlopen):
+                result = upload_prompt_trace(trace_path, repository="owner/traces")
+
+            self.assertFalse(result["ok"])
+            self.assertIn("not confirmed private", result["error"])
+            self.assertEqual(len(calls), 1)
+            self.assertEqual(calls[0][0], "GET")
+
+    def test_upload_refuses_to_replace_unrelated_repository_files(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            trace_path = self.make_trace_file(tmp)
+            calls = []
+
+            def fake_urlopen(request, timeout=20):
+                method = request.get_method()
+                url = request.full_url
+                calls.append((method, url))
+                if method == "GET" and url.endswith("/repos/owner/traces"):
+                    return self.Response({"private": True, "default_branch": "main"})
+                if method == "GET" and url.endswith("/git/ref/heads/main"):
+                    return self.Response({"object": {"sha": "old-commit"}})
+                if method == "GET" and url.endswith("/git/commits/old-commit"):
+                    return self.Response({"tree": {"sha": "old-tree"}})
+                if method == "GET" and "/git/trees/old-tree?" in url:
+                    return self.Response({
+                        "tree": [
+                            {"path": "prompt_trace.json", "type": "blob"},
+                            {"path": "README.md", "type": "blob"},
+                        ]
+                    })
+                raise AssertionError(f"Unexpected write after safety check: {method} {url}")
+
+            with patch.dict(
+                os.environ,
+                {"STORYBUILDER_TRACE_GITHUB_TOKEN": "test-token"},
+                clear=True,
+            ), patch("builder.prompt_trace_sync.urlopen", side_effect=fake_urlopen):
+                result = upload_prompt_trace(trace_path, repository="owner/traces")
+
+            self.assertFalse(result["ok"])
+            self.assertIn("other than prompt_trace.json", result["error"])
+            self.assertFalse(any(method in {"POST", "PATCH"} for method, _ in calls))
+
+    def test_upload_reports_missing_auth_without_network_access(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            trace_path = self.make_trace_file(tmp)
+            with patch.dict(os.environ, {}, clear=True), patch(
+                "builder.prompt_trace_sync.shutil.which", return_value=None
+            ), patch("builder.prompt_trace_sync.urlopen") as http:
+                result = upload_prompt_trace(trace_path, repository="owner/traces")
+
+            self.assertFalse(result["ok"])
+            self.assertIn("GitHub CLI", result["error"])
+            http.assert_not_called()
 
 
 if __name__ == "__main__":
