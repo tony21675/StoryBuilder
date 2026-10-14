@@ -172,7 +172,7 @@ class PromptTraceSyncTests(unittest.TestCase):
             self.assertTrue(any(method == "PUT" and url.endswith("/contents/prompt_trace.json") for method, url, _ in calls))
             self.assertFalse(any(url.endswith("/git/commits") or url.endswith("/git/refs") for _, url, _ in calls))
             init_payload = next(payload for method, url, payload in calls if method == "PUT" and url.endswith("/contents/prompt_trace.json"))
-            self.assertEqual(init_payload["branch"], "main")
+            self.assertNotIn("branch", init_payload)
             self.assertEqual(json.loads(base64.b64decode(init_payload["content"])), {
                 "format": "storybuilder-prompt-trace",
                 "scene": {"chapter": 2, "scene": 4},
