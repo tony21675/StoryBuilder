@@ -87,7 +87,8 @@ def _api_request(
             raw = response.read()
     except HTTPError as exc:
         error_body = exc.read().decode("utf-8", errors="replace")
-        if allow_404 and exc.code == 404:
+        if allow_404 and exc.code in (404, 409):
+            # Git database endpoints may report 409 for a repository with no refs.
             return None
         try:
             message = str(json.loads(error_body).get("message", "")).strip()
@@ -171,6 +172,31 @@ def upload_prompt_trace(
         current_ref = _api_request(
             token, "GET", ref_endpoint, allow_404=True
         )
+        if current_ref is None:
+            # GitHub's Git Database API cannot create refs in an empty repository.
+            # Contents API initializes the first branch and first root commit.
+            initial = _api_request(
+                token,
+                "PUT",
+                f"{root}/contents/{quote(TRACE_FILENAME, safe='')}",
+                {
+                    "message": "Initialize latest StoryBuilder prompt trace",
+                    "content": base64.b64encode(trace_bytes).decode("ascii"),
+                    "branch": branch,
+                },
+            )
+            file_info = (initial or {}).get("content") or {}
+            commit_info = (initial or {}).get("commit") or {}
+            return {
+                "ok": True,
+                "repository": repo,
+                "branch": branch,
+                "url": str(file_info.get("html_url") or (
+                    f"https://github.com/{repo}/blob/{quote(branch, safe='/')}/{TRACE_FILENAME}"
+                )),
+                "commit_url": str(commit_info.get("html_url") or ""),
+            }
+
         if current_ref is not None:
             old_commit_sha = str(
                 ((current_ref.get("object") or {}).get("sha") or "")
@@ -253,20 +279,12 @@ def upload_prompt_trace(
         if not commit_sha:
             raise TraceSyncError("GitHub did not create the latest-trace commit.")
 
-        if current_ref is None:
-            _api_request(
-                token,
-                "POST",
-                f"{root}/git/refs",
-                {"ref": f"refs/heads/{branch}", "sha": commit_sha},
-            )
-        else:
-            _api_request(
-                token,
-                "PATCH",
-                ref_endpoint,
-                {"sha": commit_sha, "force": True},
-            )
+        _api_request(
+            token,
+            "PATCH",
+            ref_endpoint,
+            {"sha": commit_sha, "force": True},
+        )
 
         return {
             "ok": True,
