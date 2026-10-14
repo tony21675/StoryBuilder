@@ -293,7 +293,7 @@ class SceneContractTests(unittest.TestCase):
         self.assertIn("Fail for absent/materially wrong core actions/outcomes", prompt)
         self.assertIn("a bubble bath is not a shower", prompt)
         self.assertIn("Omitting/substituting one is material", prompt)
-        self.assertIn("incidental description unless it changes a specified action/object", prompt)
+        self.assertIn("Ignore incidental description unless a specified action/object, core outcome, knowledge, or endpoint changes", prompt)
         self.assertLess(len(prompt), 800)
 
     def test_validator_checks_whole_scene_before_calling_a_beat_missing(self):
