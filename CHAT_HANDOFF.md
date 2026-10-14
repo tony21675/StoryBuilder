@@ -24,7 +24,11 @@ The author approved a generic change after identifying that the Writer was behav
 - The Scene Contract tab and overwrite confirmation now explain that generated beat suggestions do not become mandatory.
 - Regression tests cover model-generated beats being ignored for both new contracts and legacy saved contracts, while explicitly author-labeled beats remain mandatory.
 - The change is generic and does not modify MyNovel, its canon, accepted scenes, or the saved unaccepted Scene 4 draft.
-- Before syncing the laptop, verify the new commit's GitHub Actions status. Then restart StoryBuilder with `./start.sh`, reload the active novel package, and check that its Scene 4 contract no longer displays AI-generated Required Beats. Do not rebuild MyNovel or regenerate/accept the scene as part of this code sync.
+- **Pause point, October 13:** Tony is stopping here due to time and will pull/start StoryBuilder when he gets to work. The app should be closed with **Close**, not **Reject Scene** and not **Close & Sync Novel**. The existing Chapter 2, Scene 4 draft must remain saved and unaccepted.
+- **Next action at work:** From `~/Documents/StoryBuilder`, run `./start.sh`. The startup script syncs StoryBuilder and then launches it. Do not run a MyNovel sync or pull as part of this code update; the local Scene 4 draft and novel-package changes must remain untouched.
+- After launch, reopen `Taken_at_Dusk` and inspect Chapter 2, Scene 4's contract. The saved plain-English Scene Idea should remain, and the five previously model-generated scene-level Required Beats should no longer be enforced. Do not click Generate / Replace Contract, regenerate, reject, or accept Scene 4 just to verify the code.
+- The new regression tests were committed, but automated CI status has not been confirmed through the available GitHub status results in this session. Do not claim tests passed until the test result is checked. If needed, from `~/Documents/StoryBuilder` run `python3 -m pytest -q tests/test_scene_contract.py`, then review any failure before proceeding.
+- No MyNovel files, story canon, accepted scenes, or the saved unaccepted Scene 4 prose were changed by this StoryBuilder code update.
 
 ## Previous Checkpoint: October 13, 2026 (explicit-beat revision mechanics)
 
