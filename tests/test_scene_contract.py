@@ -117,19 +117,31 @@ class SceneContractTests(unittest.TestCase):
         self.assertIn("bruise", result["violations"][0])
 
     def test_semantic_validator_uses_separate_process_and_omits_regex_hints(self):
-        prose = "A valid creative scene."
+        prose = "Tony comforts Maya, and they finish at the kitchen table."
         validator_result = {
             "pass": True,
             "missed_beats": [],
             "violations": [],
             "notes": "",
         }
+        raw_validator_result = dict(validator_result, checks=[
+            {
+                "requirement": "Tony comforts Maya.",
+                "status": "met",
+                "evidence": "Tony comforts Maya",
+            },
+            {
+                "requirement": "They end at the kitchen table.",
+                "status": "met",
+                "evidence": "they finish at the kitchen table",
+            },
+        ])
         captured = {}
 
         def fake_validator(model, prompt):
             captured["model"] = model
             captured["prompt"] = prompt
-            return validator_result
+            return raw_validator_result
 
         engine = FakeEngine()
         idea = "The original plain-English idea says Tony comforts Maya and they end at the kitchen table."
@@ -165,7 +177,7 @@ class SceneContractTests(unittest.TestCase):
         self.assertNotIn('"forbidden"', captured["prompt"])
         self.assertNotIn('"forbidden_details"', captured["prompt"])
         self.assertNotIn("Old wording gate", captured["prompt"])
-        self.assertLess(len(captured["prompt"]), 2500)
+        self.assertLess(len(captured["prompt"]), 3200)
         self.assertLess(len(scene_contract.VALIDATOR_SYSTEM_PROMPT), 800)
 
 
@@ -216,7 +228,7 @@ class SceneContractTests(unittest.TestCase):
         retry_prompt = run_validator.call_args_list[1].args[1]
         self.assertNotEqual(first_prompt, retry_prompt)
         self.assertIn("CORRECTION REQUIRED", retry_prompt)
-        self.assertIn('"pass": true, "missed_beats": [], "violations": [], "notes": ""', retry_prompt)
+        self.assertIn('"pass": true, "missed_beats": [], "violations": [], "checks": [{"requirement": "", "status": "met", "evidence": ""}], "notes": ""', retry_prompt)
 
     def test_validator_unavailable_after_retry_is_distinguished_from_scene_failure(self):
         with patch.object(
@@ -294,10 +306,12 @@ class SceneContractTests(unittest.TestCase):
         self.assertIn("Fail for absent/materially wrong core actions/outcomes", prompt)
         self.assertIn("a bubble bath is not a shower", prompt)
         self.assertIn("a warm bubble bath includes bubbles", prompt)
+        self.assertIn('"checks": [{"requirement": "", "status": "met", "evidence": ""}]', prompt)
+        self.assertIn("verbatim quote directly proving it", prompt)
         self.assertIn("keep stated object backstory", prompt)
         self.assertIn("Omitting/substituting one is material", prompt)
         self.assertIn("Ignore incidental description unless a specified action/object, core outcome, knowledge, or endpoint changes", prompt)
-        self.assertLess(len(prompt), 800)
+        self.assertLess(len(prompt), 1500)
 
     def test_validator_checks_whole_scene_before_calling_a_beat_missing(self):
         prose = (
@@ -355,6 +369,96 @@ class SceneContractTests(unittest.TestCase):
         self.assertLess(len(captured["prompt"]), 2500)
 
 
+    def test_reported_missing_author_detail_blocks_a_false_pass(self):
+        idea = "Tony offers Maya a warm bubble bath with unscented bubbles and gives her privacy."
+        prose = "Tony offered Maya a warm bath, then left the room to give her privacy."
+        raw_result = {
+            "pass": True,
+            "missed_beats": [],
+            "violations": [],
+            "checks": [
+                {
+                    "requirement": "Tony offers a warm bubble bath with unscented bubbles.",
+                    "status": "missing",
+                    "evidence": "",
+                },
+                {
+                    "requirement": "Tony gives Maya privacy.",
+                    "status": "met",
+                    "evidence": "left the room to give her privacy.",
+                },
+            ],
+            "notes": "",
+        }
+
+        with patch.object(scene_contract, "_run_validator", return_value=raw_result):
+            result = SceneContract.validate_with_engine(
+                FakeEngine(),
+                {"author_idea": idea, "required_beats": []},
+                {"chapter": 2, "scene": 4},
+                prose,
+            )
+
+        self.assertFalse(result["pass"])
+        self.assertTrue(any("warm bubble bath with unscented bubbles" in item for item in result["missed_beats"]))
+
+    def test_claimed_evidence_must_be_quoted_from_the_scene(self):
+        idea = "Tony offers Maya a warm bubble bath with unscented bubbles and gives her privacy."
+        prose = "Tony offered Maya a warm bath, then left the room to give her privacy."
+        raw_result = {
+            "pass": True,
+            "missed_beats": [],
+            "violations": [],
+            "checks": [
+                {
+                    "requirement": "Tony offers a warm bubble bath with unscented bubbles.",
+                    "status": "met",
+                    "evidence": "A warm bubble bath with unscented bubbles filled the tub.",
+                },
+                {
+                    "requirement": "Tony gives Maya privacy.",
+                    "status": "met",
+                    "evidence": "left the room to give her privacy.",
+                },
+            ],
+            "notes": "",
+        }
+
+        with patch.object(scene_contract, "_run_validator", return_value=raw_result):
+            result = SceneContract.validate_with_engine(
+                FakeEngine(),
+                {"author_idea": idea, "required_beats": []},
+                {"chapter": 2, "scene": 4},
+                prose,
+            )
+
+        self.assertFalse(result["pass"])
+        self.assertTrue(any("warm bubble bath with unscented bubbles" in item for item in result["missed_beats"]))
+
+    def test_plain_english_idea_cannot_pass_without_coverage_report(self):
+        idea = "Tony offers Maya a warm bubble bath and leaves her private."
+        old_schema = {
+            "pass": True,
+            "missed_beats": [],
+            "violations": [],
+            "notes": "",
+        }
+
+        with patch.object(
+            scene_contract, "_run_validator", side_effect=[old_schema, old_schema]
+        ) as run_validator:
+            with self.assertRaises(SceneContractValidationUnavailable):
+                SceneContract.validate_with_engine(
+                    FakeEngine(),
+                    {"author_idea": idea, "required_beats": []},
+                    {"chapter": 2, "scene": 4},
+                    "Tony offers Maya a warm bath and leaves the room.",
+                )
+
+        self.assertEqual(run_validator.call_count, 2)
+        self.assertIn('"checks": [{"requirement": "", "status": "met", "evidence": ""}]', run_validator.call_args_list[0].args[1])
+
+
     def test_minor_secondary_detail_can_be_reported_without_failing_scene(self):
         idea = (
             "Tony helps Maya bathe privately, makes ordinary breakfast calls while "
@@ -383,6 +487,28 @@ class SceneContractTests(unittest.TestCase):
             "missed_beats": [],
             "violations": [],
             "notes": "The reassurance to Beth could be a little more explicit.",
+            "checks": [
+                {
+                    "requirement": "Tony offers Maya a bath and leaves her in private.",
+                    "status": "met",
+                    "evidence": "Tony offers a warm bath and leaves her in private.",
+                },
+                {
+                    "requirement": "Tony calls Beth and Jessica to arrange breakfast, with Jessica confirming everyone.",
+                    "status": "met",
+                    "evidence": "he calls Beth about breakfast, then calls Jessica, who confirms that she, Chloe, and Rick will join tomorrow.",
+                },
+                {
+                    "requirement": "Tony gets clean clothes, hugs Barnaby, and vows to bring Tiffany home.",
+                    "status": "met",
+                    "evidence": "He fetches clean clothes, hugs Barnaby in Tiffany's room and silently vows to bring his daughter home.",
+                },
+                {
+                    "requirement": "Tony ends with chamomile tea at the kitchen table.",
+                    "status": "met",
+                    "evidence": "He then makes chamomile tea and sits with Maya at the kitchen table.",
+                },
+            ],
         }
         captured = {}
 
@@ -509,6 +635,28 @@ class SceneContractTests(unittest.TestCase):
                 "pass": True,
                 "missed_beats": [],
                 "violations": [],
+                "checks": [
+                    {
+                        "requirement": "Tony offers Maya a warm bubble bath.",
+                        "status": "missing",
+                        "evidence": "",
+                    },
+                    {
+                        "requirement": "Tony makes the breakfast calls without revealing the abduction.",
+                        "status": "missing",
+                        "evidence": "",
+                    },
+                    {
+                        "requirement": "Tony returns Barnaby to Tiffany's room.",
+                        "status": "missing",
+                        "evidence": "",
+                    },
+                    {
+                        "requirement": "The scene ends with chamomile tea at the kitchen table.",
+                        "status": "missing",
+                        "evidence": "",
+                    },
+                ],
                 "notes": "",
             }
 
@@ -532,10 +680,12 @@ class SceneContractTests(unittest.TestCase):
                 "Tony remained beside Maya in the bedroom.",
             )
 
-        self.assertTrue(result["pass"])
+        self.assertFalse(result["pass"])
+        self.assertTrue(any("warm bubble bath" in item for item in result["missed_beats"]))
         self.assertIn(idea, captured["prompt"])
         self.assertIn('"author_idea"', captured["prompt"])
         self.assertIn("The idea is primary", captured["prompt"])
+        self.assertIn('"checks": [{"requirement": "", "status": "met", "evidence": ""}]', captured["prompt"])
         self.assertIn("original idea", scene_contract.VALIDATOR_SYSTEM_PROMPT)
 
     def test_validator_receives_stable_author_guidance_and_checks_context_fidelity(self):
@@ -544,6 +694,18 @@ class SceneContractTests(unittest.TestCase):
             "pass": True,
             "missed_beats": [],
             "violations": [],
+            "checks": [
+                {
+                    "requirement": "Tony respects Maya's request to keep things quiet.",
+                    "status": "missing",
+                    "evidence": "",
+                },
+                {
+                    "requirement": "Tony retrieves clean pajamas from Tiffany's bedroom.",
+                    "status": "missing",
+                    "evidence": "",
+                },
+            ],
             "notes": "",
         }
         author_guidance = (
@@ -574,7 +736,8 @@ class SceneContractTests(unittest.TestCase):
                 author_guidance=author_guidance,
             )
 
-        self.assertTrue(result["pass"])
+        self.assertFalse(result["pass"])
+        self.assertTrue(any("keep things quiet" in item for item in result["missed_beats"]))
         self.assertIn(author_guidance, captured["prompt"])
         self.assertIn("source locations", captured["prompt"])
         self.assertIn("explicit requests, preferences, boundaries, or needs", captured["prompt"])
@@ -879,7 +1042,7 @@ Required Beats
 
         self.assertTrue(result["pass"])
         self.assertEqual(engine.calls[0][2], "6144")
-        self.assertEqual(engine.calls[0][3], "220")
+        self.assertEqual(engine.calls[0][3], "700")
         self.assertEqual(engine.calls[1][2], 300)
         self.assertIn("sitting on the bed", engine.calls[1][1])
         self.assertNotIn("unrelated_archive_blob", engine.calls[1][1])
