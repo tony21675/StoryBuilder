@@ -19,11 +19,11 @@ class SceneContractValidationUnavailable(RuntimeError):
     """The validator could not produce a readable response after one retry."""
 
 
-VALIDATOR_SYSTEM_PROMPT = """Review original idea and starting state.
+VALIDATOR_SYSTEM_PROMPT = """Review idea and starting state.
 Return only JSON:
 {"pass": true, "missed_beats": [], "violations": [], "notes": ""}
 
-Idea leads; hints secondary. Check continuity; if no transition explains a mismatch, flag it. Check opening continuity, action, Required Beats, and endpoint. Required Beats are goals, not a wording checklist. Fail for absent/materially wrong core actions/outcomes. Preserve author-specified actions/objects: a bubble bath is not a shower; a required robe is not a towel. Omitting/substituting one is material even if purpose is met. Allow same-action paraphrases and connective detail. Ignore incidental description unless a specified action/object, core outcome, knowledge, or endpoint changes. Accept neutral familial comfort. No style nitpicks or invented rules.
+Idea leads; hints secondary. Check opening, actions, Required Beats, endpoint; flag unexplained mismatches. Required Beats are goals, not a wording checklist. Fail for absent/materially wrong core actions/outcomes. Preserve specified actions, objects, defining details, and relationships: a bubble bath is not a shower; a warm bubble bath includes bubbles; keep stated backstory that gives an object meaning. Omitting/substituting one is material. Allow same-action paraphrases and connective detail. Ignore incidental description unless a specified action/object, core outcome, knowledge, or endpoint changes. Accept neutral familial comfort. No style nitpicks or invented rules.
 """
 
 
@@ -1068,8 +1068,9 @@ class SceneContract:
             "Use the previous draft below as your starting point. Keep its successful prose, "
             "dialogue, pacing, and natural creative choices. Change only what is needed to fix "
             "the clear material issue(s) described after the draft. Preserve the identity of concrete "
-            "actions and objects specified by the author's idea; if feedback identifies one that was "
-            "omitted or substituted, restore the intended choice rather than a near-equivalent. Add any "
+            "actions and objects specified by the author's idea, including defining details and meaningful "
+            "relationships; if feedback identifies one that was omitted or substituted, restore the intended "
+            "choice rather than a near-equivalent. Add any "
             "missing explicit Required Beats named in the revision guidance, woven into natural prose "
             "rather than an outline or checklist. Do not rewrite unaffected passages. Return the complete "
             "revised scene only.\n\n"

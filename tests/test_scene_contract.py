@@ -285,6 +285,7 @@ class SceneContractTests(unittest.TestCase):
         self.assertIn("missing explicit", prompt)
         self.assertIn("natural prose rather than", prompt)
         self.assertIn("restore the intended choice rather than a near-equivalent", prompt)
+        self.assertIn("defining details and meaningful", prompt)
         self.assertNotIn("Rewrite the scene from the beginning", prompt)
 
     def test_validator_treats_required_beats_as_narrative_goals(self):
@@ -292,6 +293,8 @@ class SceneContractTests(unittest.TestCase):
         self.assertIn("Required Beats are goals, not a wording checklist", prompt)
         self.assertIn("Fail for absent/materially wrong core actions/outcomes", prompt)
         self.assertIn("a bubble bath is not a shower", prompt)
+        self.assertIn("a warm bubble bath includes bubbles", prompt)
+        self.assertIn("keep stated backstory that gives an object meaning", prompt)
         self.assertIn("Omitting/substituting one is material", prompt)
         self.assertIn("Ignore incidental description unless a specified action/object, core outcome, knowledge, or endpoint changes", prompt)
         self.assertLess(len(prompt), 800)
