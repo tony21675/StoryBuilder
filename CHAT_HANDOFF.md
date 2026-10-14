@@ -21,6 +21,16 @@ Read the current versions on GitHub `main` before acting:
 - Do not start long-term work while the current issue/live test is unresolved unless Tony explicitly changes priorities.
 
 
+## Fix Now: validator false-pass on explicit Scene Idea details — October 14, 2026
+
+- **Observed defect:** the Chapter 2, Scene 4 trace showed the prose omitting the explicitly requested bubbles in a warm bubble bath, but semantic validation returned `pass: true` with no missed beats or violations.
+- **Generic correction committed on `main`:** when an original plain-English Scene Idea is present, the validator must return an itemized coverage report for each material action/outcome, defining object detail/history, named participant/confirmation, acknowledged boundary, meaningful location/order, and endpoint. Each claimed-met item needs a short verbatim quote from the generated scene. StoryBuilder checks that the quote is actually present; missing items and unsupported quotes become validation failures and revision feedback. Missing/malformed coverage is retried once, then validation is marked unavailable so the draft is not accepted without a usable check. No Scene 4 wording is hard-coded.
+- The validator token budget default was increased from 220 to 700 so it has room to return the coverage report; `STORY_VALIDATOR_MAX_TOKENS` can override the setting.
+- Regression coverage includes a reported missing bubble-bath detail despite `pass: true`, fabricated/non-verbatim evidence, and missing coverage schema. Relevant commits: [validator coverage enforcement](https://github.com/tony21675/StoryBuilder/commit/69dd195cf88454897a627803004531dc15d36b1b), [regression tests](https://github.com/tony21675/StoryBuilder/commit/660d0404e80439564f7033a6247e511c86a8867f), and [prompt-size assertion update](https://github.com/tony21675/StoryBuilder/commit/5d5d8fee9fa21a305337217033738d337ba44dc1).
+- **Verification status:** code/test files are committed and were fetched back from `main` for inspection. This session could not retrieve a push-triggered GitHub Actions run or run the repository tests locally, so automated test results are **not yet verified**. This also is not yet a live Gemma 4 validation result.
+- **Next step on laptop:** after confirming `~/Documents/StoryBuilder` is clean and on `main`, update/launch StoryBuilder, run `python -m unittest discover -v`, and share any failures before another code change. If tests pass, use one fresh unaccepted Scene 4 generation to verify the validator flags the missing bubbles and any other absent material commitments. Keep MyNovel unchanged for this code fix and do not accept the generated scene without review.
+
+
 ## Approved diagnostic feature: one-scene Prompt Trace — October 14, 2026
 
 - Added an opt-in **Trace Next Scene** control to the Writer tab. It is off by default; arming it captures only the next scene-generation run, then automatically disarms.
