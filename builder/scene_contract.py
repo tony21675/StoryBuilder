@@ -287,6 +287,131 @@ def _evidence_occurs_in_prose(prose: str, evidence: str) -> bool:
     return bool(normalized_evidence and normalized_evidence in normalize(prose))
 
 
+def _capitalized_names(text: str) -> set[str]:
+    """Find likely character names without treating sentence starters as people."""
+    sentence_words = {
+        "After", "All", "Also", "Although", "And", "Author", "Before", "But",
+        "Chapter", "Current", "Do", "End", "He", "Here", "If", "In", "It",
+        "Keep", "Later", "Let", "Neither", "No", "Only", "Priority", "Required",
+        "Scene", "She", "Supporting", "The", "Their", "Then", "There", "These",
+        "They", "This", "Those", "Treat", "Use", "We", "When", "While", "You",
+    }
+    return {
+        name for name in re.findall(r"\b[A-Z][a-z]+\b", str(text or ""))
+        if name not in sentence_words
+    }
+
+
+def _compact_validator_guidance(
+    guidance: str,
+    author_idea: str,
+    scene_cast: list[str],
+    *,
+    max_chars: int = 1600,
+) -> str:
+    """Keep only guidance relevant to the current idea instead of crowding the validator."""
+    source = str(guidance or "").strip()
+    if len(source) <= max_chars:
+        return source
+
+    names = {str(name).strip() for name in scene_cast if str(name).strip()}
+    names.update(_capitalized_names(author_idea))
+    stopwords = {
+        "about", "after", "again", "also", "being", "before", "begins", "bring",
+        "calls", "cannot", "character", "characters", "comes", "could", "does",
+        "during", "each", "ending", "everything", "explicit", "first", "from",
+        "gets", "give", "given", "gives", "going", "have", "having", "into",
+        "later", "leave", "lets", "make", "makes", "making", "maybe", "moment",
+        "natural", "ordinary", "other", "over", "preserve", "scene", "should",
+        "since", "small", "some", "story", "such", "that", "their", "there",
+        "these", "they", "this", "those", "through", "time", "very", "while",
+        "with", "without", "would", "your",
+    }
+    idea_terms = {
+        word.casefold() for word in re.findall(r"[A-Za-z][A-Za-z'-]{3,}", author_idea)
+        if word.casefold() not in stopwords
+    }
+
+    candidates: list[tuple[int, int, str]] = []
+    for index, line in enumerate(source.splitlines()):
+        line = line.strip()
+        if not line or not line.startswith(("-", "*")):
+            continue
+        folded = line.casefold()
+        name_hits = sum(
+            1 for name in names
+            if re.search(r"(?<!\w)" + re.escape(name.casefold()) + r"(?!\w)", folded)
+        )
+        line_words = {
+            word.casefold() for word in re.findall(r"[A-Za-z][A-Za-z'-]{3,}", line)
+        }
+        topic_hits = len(idea_terms & line_words)
+        score = name_hits * 8 + min(topic_hits, 8)
+        if any(phrase in folded for phrase in (
+            "current story state", "only characters explicitly listed",
+            "do not import details from discarded drafts",
+            "do not introduce floral scents",
+        )):
+            score += 12
+        if score:
+            candidates.append((score, index, line))
+
+    chosen: set[int] = set()
+    used = 0
+    for _score, index, line in sorted(candidates, key=lambda item: (-item[0], item[1])):
+        addition = len(line) + (1 if used else 0)
+        if used + addition <= max_chars:
+            chosen.add(index)
+            used += addition
+    if not chosen:
+        return source[:max_chars].rsplit("\n", 1)[0]
+
+    return "\n".join(
+        line.strip()
+        for index, line in enumerate(source.splitlines())
+        if index in chosen
+    )
+
+
+def _compact_validation_state(
+    current_state: dict[str, Any],
+    scene_cast: list[str],
+    author_idea: str,
+) -> dict[str, Any]:
+    """Retain the scene opening and relevant character knowledge, not the full state dump."""
+    relevant_names = {str(name).strip() for name in scene_cast if str(name).strip()}
+    relevant_names.update(_capitalized_names(author_idea))
+    keys = (
+        "chapter", "scene", "status", "scene_completed", "location", "time",
+        "time_of_day", "scene_cast", "current_situation", "physical_state",
+        "character_knowledge", "active_objectives",
+    )
+    compact: dict[str, Any] = {}
+    for key in keys:
+        if key not in current_state:
+            continue
+        value = current_state[key]
+        if key in {"location", "physical_state", "character_knowledge", "active_objectives"} and isinstance(value, dict):
+            if key == "location":
+                compact[key] = {
+                    name: detail for name, detail in value.items()
+                    if name == "primary" or name in relevant_names
+                }
+            elif key in {"character_knowledge", "active_objectives"}:
+                compact[key] = {
+                    name: detail for name, detail in value.items()
+                    if name in relevant_names and (not scene_cast or name in scene_cast)
+                }
+            else:
+                compact[key] = {
+                    name: detail for name, detail in value.items()
+                    if name in relevant_names
+                }
+        else:
+            compact[key] = value
+    return compact
+
+
 _AUTHOR_SECTION_ALIASES = {
     "beginning": "beginning",
     "opening": "beginning",
@@ -877,52 +1002,59 @@ class SceneContract:
 
         # Keep only state fields needed to verify opening continuity and knowledge.
         # Large unrelated state/history payloads make local validation slower.
-        validation_state = {
-            key: current_state[key]
-            for key in (
-                "chapter",
-                "scene",
-                "status",
-                "scene_completed",
-                "location",
-                "time",
-                "time_of_day",
-                "scene_cast",
-                "current_situation",
-                "physical_state",
-                "character_knowledge",
-                "active_objectives",
-            )
-            if key in current_state
-        }
+        raw_scene_cast = current_state.get("scene_cast", [])
+        scene_cast = (
+            [str(name).strip() for name in raw_scene_cast if str(name).strip()]
+            if isinstance(raw_scene_cast, list)
+            else []
+        )
+        author_idea = str(semantic_contract.get("author_idea", "") or "").strip()
+        validation_state = _compact_validation_state(
+            current_state, scene_cast, author_idea
+        )
 
-        stable_guidance_text = str(author_guidance or "").strip()
+        stable_guidance_text = _compact_validator_guidance(
+            author_guidance, author_idea, scene_cast
+        )
         guidance_section = (
-            "\n\nAUTHOR'S STABLE WRITING GUIDANCE (apply when relevant; do not turn creative permissions into mandatory beats):\n"
+            "\n\nRELEVANT AUTHOR GUIDANCE (compact excerpt; idea and state remain authoritative):\n"
             + stable_guidance_text
             if stable_guidance_text
             else ""
         )
+        supporting_contract = {
+            key: value for key, value in semantic_contract.items()
+            if key != "author_idea"
+        }
+        idea_section = (
+            "AUTHOR'S ORIGINAL SCENE IDEA (PRIMARY VALIDATION SOURCE):\n"
+            + author_idea
+            + "\n\n"
+            if author_idea
+            else ""
+        )
 
         prompt = (
-            "Validate against the author's original idea, relevant author guidance, and starting state. "
-            "The idea is primary; generated hints are secondary. "
-            "Treat Required Beats as narrative-level goals, not a word-for-word checklist. "
-            "Fail only when a core action or outcome is absent or materially wrong. "
-            "A specified bubble bath replaced with a shower is a material substitution, not an equivalent paraphrase; check objects, source locations, and order. Preserve defining details and object history. "
-            "Check explicit requests, preferences, boundaries, or needs against later actions; flag unexplained conflicts after acknowledgment. "
-            "Report material omissions, substitutions, location/order changes, or ignored acknowledged requests. "
-            "If the main action occurs but only a purely incidental detail is missing, do not fail for that alone; optional details may go in notes. "
-            "Search the entire scene for equivalent actions, including paraphrases or later paragraphs, before declaring one absent. Accept paraphrases, not different substitutes. "
-            "Do not fail for a minor descriptive or phrasing omission when the intended event, character knowledge, and endpoint remain intact, unless a specified action/object/location or acknowledged request changes. "
-            "Build an itemized checks list covering every material commitment in the original idea, including defining object details, named people and confirmations, meaningful backstory, and boundaries. "
-            "For each check, provide its requirement, status ('met' or 'missing'), and a short verbatim scene quote as evidence. The quote must directly support the entire requirement, not merely a related or broad action. Use empty evidence and status 'missing' when absent or materially incomplete. "
-            "If an author idea is present, checks must be a non-empty list; pass must be false if any check is missing. "
-            "Return JSON only in this shape: "
-            '{"pass": true, "missed_beats": [], "violations": [], "checks": [{"requirement": "", "status": "met", "evidence": ""}], "notes": ""}\n\n'
+            idea_section
+            + "VALIDATOR TASK:\n"
+            + "Validate against the author's original idea, relevant author guidance, and starting state. "
+            + "The idea is primary; generated hints are secondary. "
+            + "Treat Required Beats as narrative-level goals, not a word-for-word checklist. "
+            + "Fail only when a core action or outcome is absent or materially wrong. "
+            + "A specified bubble bath replaced with a shower is a material substitution, not an equivalent paraphrase; check objects, source locations, and order. Preserve defining details and object history. "
+            + "Check explicit requests, preferences, boundaries, or needs against later actions; flag unexplained conflicts after acknowledgment. "
+            + "Report material omissions, substitutions, location/order changes, or ignored acknowledged requests. "
+            + "If the main action occurs but only a purely incidental detail is missing, do not fail for that alone; optional details may go in notes. "
+            + "Search the entire scene for equivalent actions, including paraphrases or later paragraphs, before declaring one absent. Accept paraphrases, not different substitutes. "
+            + "Do not fail for a minor descriptive or phrasing omission when the intended event, character knowledge, and endpoint remain intact, unless a specified action/object/location or acknowledged request changes. "
+            + "Build an itemized checks list covering every material commitment in the original idea, including defining object details, named people and confirmations, meaningful backstory, and boundaries. "
+            + "For each check, provide its requirement, status ('met' or 'missing'), and a short verbatim scene quote as evidence. The quote must directly support the entire requirement, not merely a related or broad action. Use empty evidence and status 'missing' when absent or materially incomplete. "
+            + "If an author idea is present, checks must be a non-empty list; pass must be false if any check is missing. "
+            + "Return JSON only in this shape: "
+            + '{"pass": true, "missed_beats": [], "violations": [], "checks": [{"requirement": "", "status": "met", "evidence": ""}], "notes": ""}'
             + guidance_section
-            + "\n\nSCENE INTENT AND SUPPORTING CONTRACT:\n"
-            + json.dumps(semantic_contract, ensure_ascii=False, separators=(",", ":"))
+            + "\n\nSUPPORTING SCENE DIRECTION AND CONTRACT (SECONDARY):\n"
+            + json.dumps(supporting_contract, ensure_ascii=False, separators=(",", ":"))
             + "\n\nSTARTING STATE (relevant fields only):\n"
             + json.dumps(validation_state, ensure_ascii=False, separators=(",", ":"))
             + "\n\nCOMPLETED SCENE:\n"
@@ -1022,9 +1154,11 @@ class SceneContract:
                 if validator_attempt == 0:
                     validation_prompt = (
                         prompt
-                        + "\n\nCORRECTION REQUIRED: Your previous response was not a readable "
-                        "JSON object in the required format. Re-evaluate the scene, then return "
-                        "ONLY one complete JSON object with this shape: "
+                        + "\n\nCORRECTION REQUIRED: Your previous response failed this validation: "
+                        + str(exc)
+                        + ". The original idea and starting state are included earlier in this prompt; "
+                        "do not claim they are absent. Re-evaluate those supplied inputs and the entire scene. "
+                        "Return ONLY one complete JSON object with this shape: "
                         + '{"pass": true, "missed_beats": [], "violations": [], "checks": [{"requirement": "", "status": "met", "evidence": ""}], "notes": ""}'
                         + ". Use a JSON boolean for pass, arrays of strings for missed_beats "
                         "and violations, a checks array of requirement/status/evidence objects, "
