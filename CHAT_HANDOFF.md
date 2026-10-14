@@ -11,8 +11,29 @@ Read the current versions on GitHub `main` before acting:
 
 **Use the newest checkpoint below as the session handoff. Older conversation context or stale repository copies do not overrule the current author-confirmed checkpoint.**
 
+## Latest Checkpoint: October 14, 2026 (scene-contract validator JSON recovery)
 
-## Latest Checkpoint: October 14, 2026 (Writer draft decisions)
+### Root cause and approved fix
+
+- Tony reported that he clicked **Write Next Scene**, the prose appeared, then the dialog said “The continuity manager did not return a JSON object.” **Accept Scene** and **Analyze Accepted Scene** were disabled; Tony had not accepted or analyzed anything.
+- Diagnosis: the scene-contract validator reused a shared JSON parser that emitted the continuity-manager error text. The Writer had generated prose, but a malformed validator response was treated like a scene-generation/validation failure and marked the draft as blocked.
+- Tony approved a generic repair to distinguish unreadable validator output from a genuine semantic failure.
+- builder/scene_contract.py now reports scene-contract response-format errors accurately and retries the validator once with a strict JSON correction prompt. This is a retry of the validator, not a blind rewrite of the scene.
+- If the response remains unreadable after that retry, StoryBuilder stops its automatic scene-revision loop, preserves the generated prose as an unaccepted draft, clearly warns that semantic validation was unavailable, and allows **Save Draft** and **Reject Scene**. **Accept Scene** is enabled, but accepting requires a separate confirmation that the author reviewed the unvalidated prose. A readable validator response that reports missing core actions or material contradictions still follows normal focused-revision validation; this recovery does not turn a genuine failed check into a pass.
+- Edited prose follows the same distinction. If its validator response is unreadable after retry, the edited text is preserved and reaches the same explicit confirmation gate. Actual runtime/model errors remain errors, not “validation unavailable.”
+- Source commits: [62b020e](https://github.com/tony21675/StoryBuilder/commit/62b020e34cfb5d4a04e98b307f5f7397e5afbd4a), [d77b8e3](https://github.com/tony21675/StoryBuilder/commit/d77b8e3c8cebafd6434baec0e642858caa818f96), and follow-up initialization safety fix [91d4cbf](https://github.com/tony21675/StoryBuilder/commit/91d4cbf40f59ba8c5b3abe591c1c91aff518f23b). Regression tests: [b407110](https://github.com/tony21675/StoryBuilder/commit/b4071106e211822e744b326c5c55545eeb1914db) and [265a96f](https://github.com/tony21675/StoryBuilder/commit/265a96fed241736f07d9f8b19c0734fb2683857a).
+- **Verification:** GitHub Actions [run 38525120787](https://github.com/tony21675/StoryBuilder/actions/runs/38525120787) passed compilation and all **110 unit tests**. The local GGUF model has not yet been manually tested with this new runtime recovery.
+- This work changed StoryBuilder code/tests/handoff only. It did not update or sync MyNovel, alter story canon or the Scene 4 idea, rewrite accepted Scenes 1–3, or accept/reject a scene.
+
+### Safe next step on Tony's laptop
+
+1. If the current Scene 4 prose is still open in the running app and has not been saved, click **Save Draft** before restarting. Do not click Accept or Reject merely to recover it.
+2. Close StoryBuilder normally; avoid **Close & Sync Novel**. Then from ~/Documents/StoryBuilder, run ./start.sh to update StoryBuilder from GitHub main and launch it.
+3. Reopen Taken_at_Dusk. The novel and its saved Scene 4 prose remain separate from this app-source update; do not run a MyNovel pull/reset/sync as part of the code update.
+4. Test the Scene 4 workflow with the saved scene idea. Expected behavior if the validator again returns unreadable output twice: the scene is preserved, a clear warning appears, **Save Draft** and **Reject Scene** remain available, and **Accept Scene** asks for explicit confirmation. Inspect the prose yourself before accepting. If validation returns a readable failed result, let StoryBuilder perform its normal focused revision.
+5. Once a scene is genuinely accepted, continue with **Analyze Accepted Scene** and the usual state-update workflow. Do not analyze before acceptance.
+
+## Previous Checkpoint: October 14, 2026 (Writer draft decisions)
 
 ### Permanent prose workflow: StoryBuilder writes; assistant reviews
 
