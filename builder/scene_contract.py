@@ -392,15 +392,20 @@ def _compact_validation_state(
             continue
         value = current_state[key]
         if key in {"location", "physical_state", "character_knowledge", "active_objectives"} and isinstance(value, dict):
-            if key == "location":
+            # Older scene states may not have a scene_cast field. Preserve their
+            # supplied continuity data rather than accidentally stripping it all.
+            if not scene_cast:
+                compact[key] = dict(value)
+            elif key == "location":
                 compact[key] = {
                     name: detail for name, detail in value.items()
                     if name == "primary" or name in relevant_names
                 }
             elif key in {"character_knowledge", "active_objectives"}:
+                # Only participating characters' knowledge/objectives affect this scene's dialogue.
                 compact[key] = {
                     name: detail for name, detail in value.items()
-                    if name in relevant_names and (not scene_cast or name in scene_cast)
+                    if name in relevant_names and name in scene_cast
                 }
             else:
                 compact[key] = {
