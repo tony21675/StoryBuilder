@@ -11,13 +11,23 @@ Read the current versions on GitHub `main` before acting:
 
 **Use the newest checkpoint below as the session handoff. Older conversation context or stale repository copies do not overrule the current author-confirmed checkpoint.**
 
+
+## Permanent workflow: FIX NOW / ADD LATER
+
+- **FIX NOW lives here:** current bug or writing blocker, latest evidence, smallest approved correction, relevant tests, outstanding live verification, and one next step. Keep the active novel task and safe repository steps clear.
+- **ADD LATER lives in [LONG_TERM_GOALS.md](LONG_TERM_GOALS.md):** future architecture and product ideas, candidate features, trade-offs, and open design questions. Those items are not implementation authorization.
+- Always discuss changes before editing. Inspect first; explain the proposed scope, reason, and trade-offs; wait for Tony's approval unless he has already explicitly approved that exact change.
+- Work one focused change at a time, preserve accepted scenes and state, test the generic path, and separate passing automated tests from live local-model results.
+- Do not start long-term work while the current issue/live test is unresolved unless Tony explicitly changes priorities.
+
+
 ## Latest Checkpoint: October 14, 2026 (author guidance and prose fidelity)
 
 ### Newest MyNovel live test and approved Scene 4 direction — October 14, 2026
 
 - After the latest StoryBuilder update was launched, the newest Chapter 2, Scene 4 generation completed without the old error popup. It respected the no-floral-scent rule, kept quiet after Maya asked for it, and fetched pajamas from Tiffany's bedroom. It included both breakfast calls, Barnaby's history and Tony's vow, Maya's robe, and chamomile tea.
 - That generated prose remains **unaccepted**. Remaining focused corrections: make the bath explicitly a warm bubble bath; have Tony clearly check that Maya welcomes his help into the tub, assist her in a practical, respectful, nonsexual, fatherly way, make sure she is settled and comfortable, then leave to give her privacy and quiet; and make Beth's invitation specifically for breakfast tomorrow morning, not a question about her afternoon.
-- The existing MyNovel Scene 4 idea and required beats have now been updated on GitHub to reflect that flow. Do not rebuild the contract, alter accepted Scenes 1–3, change current story state, or accept Scene 4 without Tony's review. The next test should use the focused revision path on Scene 4, after the updated MyNovel guidance has been refreshed in the app.
+- The existing MyNovel Scene 4 idea and required beats have now been updated on GitHub to reflect that flow. A new generation may be underway while this handoff is being updated; let it finish before closing the app, syncing, or reloading guidance. Its source version has not yet been confirmed, so do not count it as a test of the updated scene instructions until verified. Review the result while it is still unaccepted. Afterward, safely refresh the local MyNovel guidance if needed, without rebuilding the contract, altering accepted Scenes 1–3, changing current story state, or accepting Scene 4 without Tony's review. Apply only a focused revision.
 - **Confirmed family-care canon:** Tony thinks of Maya and Chloe as daughters of his heart and loves them almost as he loves Tiffany, though they have their own parents and homes. When the actual situation calls for it, practical parental care can include help with bathing or dressing. Keep it respectful, nonsexual, and attentive to their adult wishes, consent, comfort, privacy, and dignity. Do not treat it as automatically taboo or awkward because Tony is not their biological father, and do not force it into scenes where it is not needed. This paternal bond stays distinct from the separately established private feelings arcs.
 - MyNovel reference updates: [Tony's character card](https://github.com/tony21675/MyNovel/commit/6b51688558b550ee2f7441b55fa225eb925246a9), [stable writing guidance](https://github.com/tony21675/MyNovel/commit/e24d8d91621b536d993a0fcb53930b70dbc90f30), [Scene 4 instructions](https://github.com/tony21675/MyNovel/commit/b3cfce5ea0dd8b43d90a6c16649d26a0ea4dd158), [story plan](https://github.com/tony21675/MyNovel/commit/e63a71cf67c78083b91480a2dc041079cc79f1f4), and [latest novel handoff](https://github.com/tony21675/MyNovel/commit/34c489b663c2781d497fc630ff88f177d6fe66ba).
 
@@ -37,11 +47,9 @@ Read the current versions on GitHub `main` before acting:
 - On the laptop, inspect git status with **git status -sb** and the current branch with **git branch --show-current** in ~/Documents/StoryBuilder. Only if clean on main, run **./start.sh** to sync and launch the latest code. That startup updates StoryBuilder only, not MyNovel.
 - Reopen Taken_at_Dusk and test a new Scene 4 attempt with the saved Scene Idea, without rebuilding its contract or changing writing_guidance.json, current_state.json, or accepted Scenes 1–3. Check for no floral scent, respect for Maya's request for quiet, pajamas obtained from Tiffany's room, bath bubbles, and Barnaby's stated history. Review the whole scene before accepting. Use focused revision if the validator flags a real issue; do not rewrite prose in chat as a shortcut.
 
-### Quick comparison: Brasslamp
+### Long-term ideas moved to the separate goals file
 
-- The public [Brasslamp repository](https://github.com/brasslamp-app/brasslamp) describes a local-model novel-writing pipeline with a rolling state/canon ledger, scene-level quality retries with targeted feedback, and optional model judging/story audits.
-- The relevant closed report is [issue #2: the selected model connection could be silently lost during import/early passes](https://github.com/brasslamp-app/brasslamp/issues/2). The maintainer fixed the connection handoff, added missing API-key/model fields, surfaced errors in the visible UI, and made complete import derivation failure abort instead of silently building an outline from fallback lines.
-- That issue was **not the same prose-continuity bug** as StoryBuilder's missed source location/request rule. The useful parallel is to pass the correct source instructions through every workflow and fail visibly rather than quietly treating a degraded result as success. Borrow the quality-gate/targeted-revision and audit ideas, not a wholesale replacement of StoryBuilder's workflow.
+The detailed Brasslamp prompt-library comparison and candidate features now live in [LONG_TERM_GOALS.md](LONG_TERM_GOALS.md). Keep this handoff focused on the active fix and the next action. The Brasslamp findings remain useful background, but they are not current implementation tasks unless Tony explicitly promotes one through the Fix Now / Add Later workflow.
 
 ## Approved error-dialog repair — October 14, 2026
 
