@@ -1862,10 +1862,10 @@ class StoryBuilderApp(tk.Tk):
             try:
                 age = int(answer)
             except ValueError:
-                messagebox.showerror("Story Interview", "Age must be a whole number, or click Skip.")
+                self._show_copyable_error("Story Interview", "Age must be a whole number, or click Skip.")
                 return
             if age < 0:
-                messagebox.showerror("Story Interview", "Age cannot be negative.")
+                self._show_copyable_error("Story Interview", "Age cannot be negative.")
                 return
 
             target = self.interview_target_var.get().strip()
@@ -1894,7 +1894,7 @@ class StoryBuilderApp(tk.Tk):
         if model is None:
             selected = self.writer_model_var.get().strip()
             if not selected:
-                messagebox.showerror(
+                self._show_copyable_error(
                     "Story Interview",
                     "Select a GGUF model in the Writer tab first.",
                 )
@@ -1902,7 +1902,7 @@ class StoryBuilderApp(tk.Tk):
             try:
                 model = WriterEngine.validate_model(selected)
             except Exception as exc:
-                messagebox.showerror("Story Interview", str(exc))
+                self._show_copyable_error("Story Interview", str(exc))
                 return
 
         self.interview_process_button.configure(state="disabled")
@@ -1944,7 +1944,7 @@ class StoryBuilderApp(tk.Tk):
 
     def _finish_story_interview_structure(self, patch, error, answer):
         if error:
-            messagebox.showerror("Story Interview", error)
+            self._show_copyable_error("Story Interview", error)
             self.interview_status.configure(text="The answer was not applied.")
             self._update_story_interview_buttons()
             return
@@ -1989,7 +1989,7 @@ class StoryBuilderApp(tk.Tk):
                 target_name=target,
             )
         except Exception as exc:
-            messagebox.showerror("Story Interview", str(exc))
+            self._show_copyable_error("Story Interview", str(exc))
             return
 
         self.dirty = True
@@ -2385,12 +2385,12 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         if self.__dict__.get("writer_notes_update_in_progress", False):
             return
         if self.package is None:
-            messagebox.showerror("Writer", "Open or create a novel first.")
+            self._show_copyable_error("Writer", "Open or create a novel first.")
             return
 
         model = self.writer_model_var.get().strip()
         if not model:
-            messagebox.showerror("Writer", "Select a GGUF model first.")
+            self._show_copyable_error("Writer", "Select a GGUF model first.")
             return
 
         self._save()
@@ -2528,7 +2528,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
 
     def _finish_writer_start(self, error):
         if error:
-            messagebox.showerror("Writer", error)
+            self._show_copyable_error("Writer", error)
         self._update_writer_buttons()
 
     def _stop_writer(self):
@@ -2560,7 +2560,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
 
         model = self.writer_engine.model_path
         if model is None:
-            messagebox.showerror("Writer", "No active writer model is available.")
+            self._show_copyable_error("Writer", "No active writer model is available.")
             return
 
         files = self._writer_package_files()
@@ -2582,7 +2582,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
 
     def _finish_writer_context_reset(self, error):
         if error:
-            messagebox.showerror("Writer", error)
+            self._show_copyable_error("Writer", error)
             self._update_writer_buttons()
             return
 
@@ -2603,7 +2603,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             )
             return
         if self.package is None:
-            messagebox.showerror("Writer", "Open or create a novel first.")
+            self._show_copyable_error("Writer", "Open or create a novel first.")
             return
         if getattr(self, "scene_contract_building", False):
             messagebox.showwarning(
@@ -2637,7 +2637,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                         "Invalid scene contract:\n- " + "\n- ".join(lint_errors)
                     )
         except (TypeError, ValueError) as exc:
-            messagebox.showerror("Scene Contract", str(exc))
+            self._show_copyable_error("Scene Contract", str(exc))
             self._update_writer_buttons()
             return
 
@@ -2790,12 +2790,13 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             )
         self._update_writer_buttons()
         if validation_warning:
-            messagebox.showwarning(
+            self._show_copyable_error(
                 "Scene Contract Validation",
                 validation_warning
                 + "\n\nThe draft has been preserved and remains unaccepted. "
                 "Review it carefully. StoryBuilder will ask for confirmation if you choose "
                 "to accept it without a successful semantic validation.",
+                summary="Semantic validation was unavailable. The generated scene remains unaccepted.",
             )
     def _reject_generated_scene(self):
         if not self.generated_scene.strip():
@@ -2851,7 +2852,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                 f"Draft saved for Chapter {chapter}, Scene {scene}:\n\n{path}",
             )
         except Exception as exc:
-            messagebox.showerror("Writer", str(exc))
+            self._show_copyable_error("Writer", str(exc))
     def _accept_generated_scene(self):
         if not self.package or not self.generated_scene.strip():
             return
@@ -3000,7 +3001,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             )
             self._update_writer_buttons()
         except Exception as exc:
-            messagebox.showerror("Writer", str(exc))
+            self._show_copyable_error("Writer", str(exc))
     def _finish_edited_scene_validation(
         self,
         chapter: int,
@@ -3025,7 +3026,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             return
 
         if error:
-            messagebox.showerror(
+            self._show_copyable_error(
                 "Scene Contract",
                 "The edited scene could not be validated and was not accepted. "
                 "Your text remains in the Writer editor.\n\n" + error,
@@ -3060,10 +3061,11 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                     "notes": "",
                 }
             )
-            messagebox.showwarning(
+            self._show_copyable_error(
                 "Scene Contract",
                 "The edited prose does not satisfy the active scene contract, so it was not accepted. "
                 "Revise the prose or adjust the scene guidance, then try again.\n\n" + details,
+                summary="Edited prose did not pass scene validation and remains unaccepted.",
             )
             self.writer_status.configure(
                 text="Edited prose did not pass contract validation. It remains unaccepted in the Writer editor."
@@ -3371,7 +3373,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             )
         except Exception as exc:
             self.dirty = True
-            messagebox.showerror(
+            self._show_copyable_error(
                 "Reset Scene Contract",
                 f"Could not save the reset contract.\n\n{exc}",
             )
@@ -3483,7 +3485,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             _scene_idea, _direction, end_text, contract = self._collect_scene_contract_editor()
         except (TypeError, ValueError) as exc:
             self.scene_contract_status.configure(text="Contract invalid.")
-            messagebox.showerror("Scene Contract", str(exc))
+            self._show_copyable_error("Scene Contract", str(exc))
             return
 
         self.scene_contract_status.configure(
@@ -3504,7 +3506,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             self._apply_scene_contract_edits()
         except (TypeError, ValueError) as exc:
             self.scene_contract_status.configure(text="Contract not saved.")
-            messagebox.showerror("Scene Contract", str(exc))
+            self._show_copyable_error("Scene Contract", str(exc))
 
     def _store_scene_contract_entry(
         self,
@@ -3589,7 +3591,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
 
         idea = self.scene_idea_text.get("1.0", "end-1c").strip()
         if not idea:
-            messagebox.showerror("Scene Contract", "Enter a scene idea first.")
+            self._show_copyable_error("Scene Contract", "Enter a scene idea first.")
             return
 
         state = self.package.current_state
@@ -3783,13 +3785,13 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             self.dirty = True
             self._update_path_label()
             self.scene_contract_status.configure(text="Contract generated but could not be saved.")
-            messagebox.showerror("Scene Contract", str(exc))
+            self._show_copyable_error("Scene Contract", str(exc))
     def _build_writer_direction_from_contract(self):
         try:
             self._apply_scene_contract_edits()
             self._build_scene_direction()
         except Exception as exc:
-            messagebox.showerror("Scene Contract", str(exc))
+            self._show_copyable_error("Scene Contract", str(exc))
 
     @staticmethod
     def _chapter_scene_guidance(
@@ -4003,7 +4005,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             self.pending_state_patch = None
             if hasattr(self, "writer_state_preview"):
                 self.writer_state_preview.delete("1.0", "end")
-            messagebox.showerror(
+            self._show_copyable_error(
                 "State Update",
                 "The proposed state update is malformed and cannot be applied. "
                 "No state changes were made.\n\n" + str(exc),
@@ -4089,11 +4091,12 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                         completed_end_state,
                     )
                 except Exception as snapshot_error:
-                    messagebox.showwarning(
+                    self._show_copyable_error(
                         "State Snapshot",
                         "The state update was saved, but StoryBuilder could not save the "
                         f"recovery snapshot for Chapter {completed_chapter}, Scene {completed_scene}.\n\n"
                         f"{snapshot_error}",
+                        summary="The state update was saved, but its recovery snapshot failed.",
                     )
             if not self.package.current_state.get("chapter_completed"):
                 # Keep the Writer direction synchronized with the newly
@@ -4132,7 +4135,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                 )
             self._update_writer_buttons()
         except Exception as exc:
-            messagebox.showerror("State Update", str(exc))
+            self._show_copyable_error("State Update", str(exc))
 
     def _start_writer_notes_learning(self, chapter, scene, prose):
         """Learn craft notes from several accepted scenes after state application."""
@@ -4299,7 +4302,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
 
         numbers = ManuscriptManager.scene_numbers(path)
         if numbers is None:
-            messagebox.showerror(
+            self._show_copyable_error(
                 "State Recovery",
                 f"Could not determine chapter and scene numbers from {path.name}.",
             )
@@ -4836,7 +4839,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         try:
             target = manager.compile_chapter(chapter)
         except (OSError, ValueError) as exc:
-            messagebox.showerror("Assemble Chapter", str(exc))
+            self._show_copyable_error("Assemble Chapter", str(exc))
             return
 
         self.manuscript_recovery_status.configure(
@@ -4853,7 +4856,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         try:
             target = manager.compile_novel(title)
         except (OSError, ValueError) as exc:
-            messagebox.showerror("Assemble Entire Novel", str(exc))
+            self._show_copyable_error("Assemble Entire Novel", str(exc))
             return
 
         self.manuscript_recovery_status.configure(
@@ -4915,7 +4918,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         try:
             text = path.read_text(encoding="utf-8")
         except OSError as exc:
-            messagebox.showerror("Manuscript", str(exc))
+            self._show_copyable_error("Manuscript", str(exc))
             return
 
         self.manuscript_output.delete("1.0", "end")
@@ -4975,7 +4978,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
 
             self.destroy()
         except Exception as exc:
-            messagebox.showerror(
+            self._show_copyable_error(
                 "Close",
                 f"The novel was saved locally, but the app could not close cleanly.\n\n{exc}\n\nThe app will remain open."
             )
@@ -5077,9 +5080,10 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         try:
             self.package = StoryPackage.load(folder)
         except Exception as exc:
-            messagebox.showwarning(
+            self._show_copyable_error(
                 "Open Novel",
                 f"Could not open the novel package.\n\n{exc}\n\nStarting with a new unsaved novel instead.",
+                summary="The selected novel could not be opened; StoryBuilder is using a new unsaved package.",
             )
             self._new_novel()
             return
@@ -5154,7 +5158,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         selected_folder = Path(folder).expanduser().resolve()
         allowed = {candidate.resolve() for candidate in find_novel_packages(NOVEL_ROOT)}
         if selected_folder not in allowed:
-            messagebox.showerror(
+            self._show_copyable_error(
                 "Open Novel",
                 f"Choose a novel folder directly inside {NOVEL_ROOT}.",
             )
@@ -5168,7 +5172,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         try:
             self.package = StoryPackage.load(selected_folder)
         except Exception as exc:
-            messagebox.showerror("Open Novel", f"Could not open that novel package.\n\n{exc}")
+            self._show_copyable_error("Open Novel", f"Could not open that novel package.\n\n{exc}")
             return
         self.character_filename = None
         self.generated_scene = ""
@@ -5210,7 +5214,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             self._update_path_label()
             self._chat("Builder", "Saved.")
         except Exception as exc:
-            messagebox.showerror("Save", str(exc))
+            self._show_copyable_error("Save", str(exc))
 
     def _save_as(self):
         if self.__dict__.get("writer_notes_update_in_progress", False):
@@ -5233,7 +5237,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             else None
         )
         if target.exists() and current_path != target.resolve():
-            messagebox.showerror(
+            self._show_copyable_error(
                 "Save As",
                 f"A folder for '{name}' already exists here:\n\n{target}\n\n"
                 "Open that novel instead, or change the title before saving a new novel.",
@@ -5248,7 +5252,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             self._update_path_label()
             self._chat("Builder", f"Saved novel package to {target}.")
         except Exception as exc:
-            messagebox.showerror("Save As", str(exc))
+            self._show_copyable_error("Save As", str(exc))
 
     def _validate(self):
         if self.package is None:
@@ -5257,7 +5261,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             return
         errors = validate_package(self.package)
         if errors:
-            messagebox.showerror("Validation", "Validation found problems:\n\n" + "\n".join(f"• {e}" for e in errors))
+            self._show_copyable_error("Validation", "Validation found problems:\n\n" + "\n".join(f"• {e}" for e in errors))
         else:
             messagebox.showinfo("Validation", "Package is valid.")
 
@@ -5432,20 +5436,20 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
 
         raw = self.module_text.get("1.0", "end-1c").strip()
         if not raw:
-            messagebox.showerror("Module", "Module JSON cannot be empty.")
+            self._show_copyable_error("Module", "Module JSON cannot be empty.")
             return
 
         try:
             data = json.loads(raw)
         except json.JSONDecodeError as exc:
-            messagebox.showerror(
+            self._show_copyable_error(
                 "Module",
                 f"Invalid JSON at line {exc.lineno}, column {exc.colno}.\n\n{exc.msg}",
             )
             return
 
         if not isinstance(data, dict):
-            messagebox.showerror("Module", "Module JSON must contain an object at the top level.")
+            self._show_copyable_error("Module", "Module JSON must contain an object at the top level.")
             return
 
         self.package.extra_json[filename] = data
@@ -5577,12 +5581,11 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                         draft_path.unlink()
                         self._refresh_manuscript()
                 except OSError as exc:
-                    messagebox.showerror(
+                    self._show_copyable_error(
                         "Discard Draft",
                         "StoryBuilder could not safely discard the matching draft file. "
                         "The current text has been kept.\n\n"
-                        f"{exc}",
-                        parent=self,
+                        f"{exc}"
                     )
                     return False
 
@@ -5620,10 +5623,9 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             )
             return True
         except Exception as exc:
-            messagebox.showerror(
+            self._show_copyable_error(
                 "Save Draft",
-                f"StoryBuilder could not preserve the unfinished scene. The current scene was not changed.\n\n{exc}",
-                parent=self,
+                f"StoryBuilder could not preserve the unfinished scene. The current scene was not changed.\n\n{exc}"
             )
             return False
 
@@ -5767,14 +5769,14 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         try:
             saved_state = json.loads(previous_after_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
-            messagebox.showerror(
+            self._show_copyable_error(
                 "Restore Previous End State",
                 f"Could not read the previous scene's saved ending state.\n\n{exc}",
             )
             return
 
         if not isinstance(saved_state, dict):
-            messagebox.showerror(
+            self._show_copyable_error(
                 "Restore Previous End State",
                 "The previous scene's saved ending state is not a JSON object. Nothing was changed.",
             )
@@ -5847,7 +5849,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             self.package.current_state = old_state
             self.dirty = True
             self._refresh_all()
-            messagebox.showerror(
+            self._show_copyable_error(
                 "Restore Previous End State",
                 f"The state could not be saved, so the in-memory state was rolled back.\n\n{exc}",
             )
@@ -5876,7 +5878,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             except (TypeError, ValueError) as exc:
                 self.state_vars["chapter"].set(str(old_chapter))
                 self.state_vars["scene"].set(str(old_scene))
-                messagebox.showerror(
+                self._show_copyable_error(
                     "Scene Contract",
                     "The current scene contract could not be saved, so the scene was not changed.\n\n" + str(exc),
                 )
@@ -6000,7 +6002,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
 
     def _prepare_change_request(self):
         if self.package is None:
-            messagebox.showerror("Change Assistant", "Open or create a novel first.")
+            self._show_copyable_error("Change Assistant", "Open or create a novel first.")
             return
         if self.change_request_in_progress:
             return
@@ -6024,7 +6026,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             else:
                 raise ValueError("Select a local GGUF model in the Writer tab first.")
         except Exception as exc:
-            messagebox.showerror("Change Assistant", str(exc))
+            self._show_copyable_error("Change Assistant", str(exc))
             return
 
         existing_data = self._current_change_data()
@@ -6061,7 +6063,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         self.change_request_in_progress = False
         self.change_propose_button.configure(state="normal")
         if error:
-            messagebox.showerror("Change Assistant", error)
+            self._show_copyable_error("Change Assistant", error)
             self.change_assistant_status.configure(text="Proposal failed. Nothing was changed.")
             self.change_proposal_text.configure(state="normal")
             self.change_proposal_text.delete("1.0", "end")
@@ -6072,7 +6074,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             normalized = normalize_change_patch(patch, self.package, request)
             preview = render_change_preview(self.package, normalized)
         except Exception as exc:
-            messagebox.showerror("Change Assistant", "The response could not be used safely. Nothing was changed.\n\n" + str(exc))
+            self._show_copyable_error("Change Assistant", "The response could not be used safely. Nothing was changed.\n\n" + str(exc))
             self.change_assistant_status.configure(text="No proposal applied. Try rewording the request.")
             return
         self.change_pending_patch = normalized
@@ -6110,7 +6112,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                 self.package, self.change_pending_patch, request_text=self.change_pending_request
             )
         except Exception as exc:
-            messagebox.showerror("Change Assistant", "No changes were applied.\n\n" + str(exc))
+            self._show_copyable_error("Change Assistant", "No changes were applied.\n\n" + str(exc))
             return
         self.dirty = True
         self.change_pending_patch = None
@@ -6208,7 +6210,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         try:
             filename = self.package.add_character(name)
         except ValueError as exc:
-            messagebox.showerror("Add Character", str(exc))
+            self._show_copyable_error("Add Character", str(exc))
             return
         self.character_filename = filename
         self.dirty = True
@@ -6575,7 +6577,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             )
             self._update_writer_buttons()
         except Exception as exc:
-            messagebox.showerror("Advance Scene", str(exc))
+            self._show_copyable_error("Advance Scene", str(exc))
     def _start_next_chapter(self):
         """Start Scene 1 of the next chapter without dropping unfinished prose."""
         if self.package is None:
@@ -6646,7 +6648,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             )
             self._update_writer_buttons()
         except Exception as exc:
-            messagebox.showerror("Start Next Chapter", str(exc))
+            self._show_copyable_error("Start Next Chapter", str(exc))
     def _apply_situation_edit(self):
         if self.package is None:
             return False
@@ -7184,6 +7186,33 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             justify="left",
         ).pack(anchor="w", pady=(0, 8))
 
+        def copy_text(value: str) -> None:
+            try:
+                # Give clipboard ownership to the main application window,
+                # not this temporary dialog. Destroying the dialog must not
+                # destroy the copied text before it can be pasted elsewhere.
+                self.clipboard_clear()
+                self.clipboard_append(value)
+                self.update_idletasks()
+                status.configure(text="Error text copied. Paste it wherever you need it.")
+            except tk.TclError as exc:
+                status.configure(text=f"Clipboard copy failed: {exc}")
+
+        # Keep both actions above the expandable text area so they stay visible
+        # even on shorter screens or when the diagnostic contains a long traceback.
+        action_row = ttk.Frame(outer)
+        action_row.pack(fill="x", pady=(0, 8))
+        ttk.Button(
+            action_row,
+            text="Copy Full Error",
+            command=lambda: copy_text(str(message)),
+        ).pack(side="left")
+        ttk.Button(
+            action_row,
+            text="Close",
+            command=dialog.destroy,
+        ).pack(side="right")
+
         text_frame = ttk.Frame(outer)
         text_frame.pack(fill="both", expand=True)
         scrollbar = ttk.Scrollbar(text_frame, orient="vertical")
@@ -7206,18 +7235,6 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
 
         status = ttk.Label(outer, text="Select text to copy, or copy the full error.")
         status.pack(anchor="w", pady=(6, 0))
-
-        def copy_text(value: str) -> None:
-            try:
-                # Give clipboard ownership to the main application window,
-                # not this temporary dialog. Destroying the dialog must not
-                # destroy the copied text before it can be pasted elsewhere.
-                self.clipboard_clear()
-                self.clipboard_append(value)
-                self.update_idletasks()
-                status.configure(text="Error text copied. Paste it wherever you need it.")
-            except tk.TclError as exc:
-                status.configure(text=f"Clipboard copy failed: {exc}")
 
         def copy_selection(_event=None):
             try:
@@ -7254,19 +7271,6 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                 context_menu.grab_release()
 
         error_text.bind("<Button-3>", show_context_menu)
-
-        buttons = ttk.Frame(outer)
-        buttons.pack(fill="x", pady=(8, 0))
-        ttk.Button(
-            buttons,
-            text="Copy Full Error",
-            command=lambda: copy_text(str(message)),
-        ).pack(side="left")
-        ttk.Button(
-            buttons,
-            text="Close",
-            command=dialog.destroy,
-        ).pack(side="right")
 
         dialog.bind("<Escape>", lambda _event: dialog.destroy())
         dialog.focus_force()

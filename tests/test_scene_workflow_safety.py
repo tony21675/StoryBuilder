@@ -280,6 +280,36 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             self.assertEqual(app.accepted_scene, "")
             self.assertEqual(list(Path(tmp).glob("**/*")), [])
 
+    def test_validation_unavailable_diagnostic_uses_copyable_error_window(self):
+        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+        warning_text = "Validator response did not return JSON." + (" Details." * 100)
+        draft = "A complete scene left unaccepted because validation was unavailable."
+        app.package = SimpleNamespace(current_state={"chapter": 2, "scene": 4})
+        app.generated_scene = ""
+        app.accepted_scene = ""
+        app.writer_generation_context = (2, 4)
+        app.writer_generation_start_state = {"chapter": 2, "scene": 4}
+        app.writer_generation_in_progress = True
+        app.writer_output_text = FakeText()
+        app.writer_status = FakeButton()
+        app._show_copyable_error = Mock()
+        app._update_writer_buttons = Mock()
+
+        with patch.object(storybuilder_app.messagebox, "showwarning") as showwarning:
+            app._finish_generated_scene(draft, None, validation_warning=warning_text)
+
+        app._show_copyable_error.assert_called_once()
+        args, kwargs = app._show_copyable_error.call_args
+        self.assertEqual(args[0], "Scene Contract Validation")
+        self.assertIn(warning_text, args[1])
+        self.assertIn("remains unaccepted", args[1])
+        self.assertIn("Semantic validation was unavailable", kwargs["summary"])
+        showwarning.assert_not_called()
+        self.assertEqual(app.generated_scene, draft)
+        self.assertTrue(app.writer_validation_unavailable)
+        self.assertFalse(app.writer_validation_failed)
+        self.assertEqual(app.writer_output_text.value, draft)
+
     def test_writer_validation_error_uses_copyable_popup_and_preserves_unaccepted_draft(self):
         app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
         error_text = (
@@ -375,6 +405,10 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             app.destroy.assert_not_called()
             showerror.assert_not_called()
 
+    def test_application_error_popups_use_copyable_dialog(self):
+        source = Path(storybuilder_app.__file__).read_text(encoding="utf-8")
+        self.assertNotIn("messagebox.showerror(", source)
+
     def test_copyable_error_dialog_uses_main_window_clipboard(self):
         FakePopupWidget.instances.clear()
         app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
@@ -401,6 +435,16 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             widget
             for widget in FakePopupWidget.instances
             if widget.kwargs.get("text") == "Copy Full Error"
+        )
+        text_widget = next(
+            widget
+            for widget in FakePopupWidget.instances
+            if widget.kwargs.get("wrap") == "word"
+        )
+        self.assertLess(
+            FakePopupWidget.instances.index(copy_button),
+            FakePopupWidget.instances.index(text_widget),
+            "Copy Full Error must be created above the expandable diagnostic text.",
         )
         copy_button.kwargs["command"]()
 
