@@ -59,6 +59,7 @@ class CompactTabContainer(ttk.Frame):
         self._page_labels = []
         self._pages_by_label = {}
         self._selected_label = None
+        self.on_show = None
         self._section_var = tk.StringVar(self)
 
         navigation = ttk.Frame(self)
@@ -100,6 +101,9 @@ class CompactTabContainer(ttk.Frame):
         page.pack(fill="both", expand=True)
         self._selected_label = label
         self._section_var.set(label)
+        callback = self.on_show
+        if callable(callback):
+            callback(label)
 
 
 class StoryBuilderApp(tk.Tk):
@@ -190,6 +194,7 @@ class StoryBuilderApp(tk.Tk):
         self._install_context_menus()
         self._install_mousewheel_scrolling()
         self._install_spellchecking()
+        self.notebook.on_show = self._on_main_section_shown
 
     def _make_scrollable_tab(self, page, padding=12):
         """Place a tab's content in a vertical scrolling area.
@@ -1052,11 +1057,37 @@ class StoryBuilderApp(tk.Tk):
         self.writer_status = ttk.Label(content_frame, text="Writer stopped.")
         self.writer_status.pack(anchor="w", pady=(0, 8))
 
+        idea_frame = ttk.Frame(content_frame)
+        idea_frame.pack(fill="x", pady=(0, 8))
+        ttk.Label(
+            idea_frame,
+            text="Original Scene Idea (Primary Intent)",
+            font=("", 11, "bold"),
+        ).pack(anchor="w")
+        ttk.Label(
+            idea_frame,
+            text=(
+                "Read-only preview of the plain-English idea used by the Writer. "
+                "Edit it in Scene Contract; it does not need a generated contract."
+            ),
+            wraplength=900,
+            justify="left",
+        ).pack(anchor="w", pady=(3, 4))
+        self.writer_scene_idea_status = ttk.Label(
+            idea_frame,
+            text="No novel loaded.",
+        )
+        self.writer_scene_idea_status.pack(anchor="w", pady=(0, 4))
+        self.writer_scene_idea_text = tk.Text(
+            idea_frame, height=6, wrap="word", state="disabled"
+        )
+        self.writer_scene_idea_text.pack(fill="x", pady=(0, 4))
+
         direction_header = ttk.Frame(content_frame)
         direction_header.pack(fill="x")
         ttk.Label(
             direction_header,
-            text="Scene Direction",
+            text="Scene Direction (continuity and supporting guidance)",
             font=("", 11, "bold"),
         ).pack(side="left")
         ttk.Button(
@@ -2044,7 +2075,65 @@ class StoryBuilderApp(tk.Tk):
             state="normal" if pending else "disabled"
         )
 
-    def _build_scene_direction(self):
+    def _on_main_section_shown(self, label):
+        """Refresh the Writer's visible scene guidance when its section is opened."""
+        if label == "Writer":
+            self._refresh_writer_scene_guidance()
+
+    def _refresh_writer_scene_guidance(self):
+        """Show the current author Scene Idea and rebuild supporting continuity without model calls."""
+        if self.package is None or not hasattr(self, "writer_scene_idea_text"):
+            return
+
+        state = self.package.current_state
+        chapter = int(state.get("chapter", 1) or 1)
+        scene = int(state.get("scene", 1) or 1)
+        plan = self.package.extra_json.get("writing_guidance.json", {})
+        entry = self._chapter_scene_guidance(plan, chapter, scene) or {}
+        if not isinstance(entry, dict):
+            entry = {}
+        saved_idea = str(entry.get("scene_idea", "") or "").strip()
+
+        # If the author has edited the Scene Idea but has not saved yet, preview
+        # that exact text. Write Next Scene applies/saves the editor before it
+        # builds the runtime contract, so the model receives the same version.
+        editor_matches_scene = (
+            getattr(self, "scene_contract_editor_key", None) == (chapter, scene)
+            and hasattr(self, "scene_idea_text")
+        )
+        editor_idea = (
+            str(self.scene_idea_text.get("1.0", "end-1c") or "").strip()
+            if editor_matches_scene
+            else saved_idea
+        )
+        is_unsaved = editor_matches_scene and editor_idea != saved_idea
+        display_idea = editor_idea if editor_matches_scene else saved_idea
+
+        self.writer_scene_idea_text.configure(state="normal")
+        self.writer_scene_idea_text.delete("1.0", "end")
+        if display_idea:
+            self.writer_scene_idea_text.insert("1.0", display_idea)
+        self.writer_scene_idea_text.configure(state="disabled")
+
+        if not display_idea:
+            status = f"No Scene Idea is saved for Chapter {chapter}, Scene {scene}."
+        elif is_unsaved:
+            status = (
+                f"Showing unsaved Scene Idea edits for Chapter {chapter}, Scene {scene}. "
+                "They will be saved when you save or write the scene."
+            )
+        else:
+            status = (
+                f"Loaded Scene Idea for Chapter {chapter}, Scene {scene}. "
+                "The original idea is included directly in the Writer prompt."
+            )
+        self.writer_scene_idea_status.configure(text=status)
+
+        # This only refreshes the local UI. It never generates/replaces a
+        # contract and does not overwrite the Writer's displayed status.
+        self._build_scene_direction(update_status=False)
+
+    def _build_scene_direction(self, *, update_status=True):
         if self.package is None:
             return
 
@@ -2125,13 +2214,9 @@ class StoryBuilderApp(tk.Tk):
                     lines.append(f"Scene direction: {direction}")
                 if pacing:
                     lines.append(f"Pacing: {pacing}")
-                scene_contract = guidance.get("scene_contract", {})
-                if isinstance(scene_contract, dict) and scene_contract:
-                    required = scene_contract.get("required_beats", [])
-                    if isinstance(required, list) and required:
-                        lines.append("Required story beats: " + " | ".join(
-                            str(item).strip() for item in required if str(item).strip()
-                        ))
+                # Required Beats are added to the runtime prompt only after
+                # SceneContract.from_guidance filters out old model-generated
+                # lists. Never copy the raw saved list into Scene Direction.
 
         module_endings = []
         module_beats = []
@@ -2194,7 +2279,8 @@ class StoryBuilderApp(tk.Tk):
 
         self.writer_direction_text.delete("1.0", "end")
         self.writer_direction_text.insert("1.0", "\n".join(lines))
-        self.writer_status.configure(text="Scene direction built from the current state and active plan.")
+        if update_status:
+            self.writer_status.configure(text="Scene direction built from the current state and active plan.")
 
     def _writer_system_prompt(self, files):
         base = """You write natural prose for an ongoing fictional novel.
@@ -6254,6 +6340,8 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             self._refresh_scene_contract_editor()
         if hasattr(self, "interview_target_combo"):
             self._refresh_interview_targets(reset=False)
+        if hasattr(self, "writer_scene_idea_text"):
+            self._refresh_writer_scene_guidance()
         self._update_path_label()
 
     @staticmethod

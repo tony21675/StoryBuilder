@@ -1354,3 +1354,112 @@ class NovelSyncSafetyTests(unittest.TestCase):
                 ):
                     novel_sync.sync_novel_repository(root)
 
+
+
+    def make_writer_scene_idea_app(self, saved_idea, editor_idea=None):
+        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+        app.package = SimpleNamespace(
+            current_state={
+                "chapter": 2,
+                "scene": 4,
+                "scene_cast": ["Tony", "Maya"],
+                "location": {"primary": "Tony and Tiffany's home"},
+                "current_situation": "Tony is with Maya.",
+            },
+            extra_json={
+                "writing_guidance.json": {
+                    "chapter_plans": {
+                        "2": {
+                            "scene_plan": {
+                                "4": {
+                                    "scene_idea": saved_idea,
+                                    "direction": "Tony cares for Maya.",
+                                    "end_condition": "End at the kitchen table.",
+                                    "scene_contract": {
+                                        "required_beats": [
+                                            "AI-generated beat must not leak into Writer direction."
+                                        ]
+                                    },
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            story_bible={"optional_story_modules": []},
+        )
+        app.scene_contract_editor_key = (2, 4)
+        app.scene_idea_text = FakeText(saved_idea if editor_idea is None else editor_idea)
+        app.writer_scene_idea_text = FakeText()
+        app.writer_scene_idea_status = FakeButton()
+        app.writer_direction_text = FakeText()
+        app.writer_status = FakeButton()
+        app._build_scene_direction = Mock()
+        return app
+
+    def test_writer_scene_idea_preview_loads_saved_idea_without_building_contract(self):
+        idea = "Tony offers Maya a bubble bath, handles breakfast calls, and ends with tea."
+        app = self.make_writer_scene_idea_app(idea)
+
+        storybuilder_app.StoryBuilderApp._refresh_writer_scene_guidance(app)
+
+        self.assertEqual(app.writer_scene_idea_text.value, idea)
+        self.assertEqual(app.writer_scene_idea_text.state, "disabled")
+        self.assertIn("included directly in the Writer prompt", app.writer_scene_idea_status.options["text"])
+        app._build_scene_direction.assert_called_once_with(update_status=False)
+
+    def test_writer_scene_idea_preview_shows_unsaved_editor_text(self):
+        saved = "Older saved idea."
+        edited = "Revised idea with the bubble bath and tea."
+        app = self.make_writer_scene_idea_app(saved, edited)
+
+        storybuilder_app.StoryBuilderApp._refresh_writer_scene_guidance(app)
+
+        self.assertEqual(app.writer_scene_idea_text.value, edited)
+        self.assertIn("unsaved Scene Idea edits", app.writer_scene_idea_status.options["text"])
+
+    def test_writer_direction_does_not_copy_legacy_generated_required_beats(self):
+        idea = "Tony offers Maya a bubble bath and later makes tea."
+        app = self.make_writer_scene_idea_app(idea)
+        app.writer_status = Mock()
+
+        storybuilder_app.StoryBuilderApp._build_scene_direction(app, update_status=False)
+
+        self.assertNotIn(
+            "AI-generated beat must not leak into Writer direction.",
+            app.writer_direction_text.value,
+        )
+        self.assertIn("Scene direction: Tony cares for Maya.", app.writer_direction_text.value)
+        app.writer_status.configure.assert_not_called()
+
+    def test_compact_tab_calls_on_show_callback_for_selected_page(self):
+        class FakePage:
+            def __init__(self):
+                self.packed = False
+
+            def pack(self, **_kwargs):
+                self.packed = True
+
+            def pack_forget(self):
+                self.packed = False
+
+        class FakeVariable:
+            def __init__(self):
+                self.value = None
+
+            def set(self, value):
+                self.value = value
+
+        container = storybuilder_app.CompactTabContainer.__new__(
+            storybuilder_app.CompactTabContainer
+        )
+        container._pages_by_label = {"Writer": FakePage()}
+        container._selected_label = None
+        container._section_var = FakeVariable()
+        callback = Mock()
+        container.on_show = callback
+
+        storybuilder_app.CompactTabContainer._show_page(container, "Writer")
+
+        self.assertTrue(container._pages_by_label["Writer"].packed)
+        callback.assert_called_once_with("Writer")
