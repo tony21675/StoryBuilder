@@ -716,7 +716,12 @@ Required Beats
         self.assertNotIn("required_sequence", contract)
         self.assertNotIn("forbidden", contract)
         self.assertNotIn("forbidden_details", contract)
-        self.assertEqual(contract["required_beats"], ["Tony offers Maya a warm bubble bath."])
+        # Model-generated beats are suggestions, not mandatory author beats.
+        self.assertEqual(contract["required_beats"], [])
+        self.assertEqual(
+            contract["author_idea"],
+            "Tony comforts Maya and offers a warm bubble bath. End when they sit together at the kitchen table.",
+        )
         self.assertEqual(os.environ.get("STORY_WRITER_CONTEXT"), old_context)
         self.assertEqual(os.environ.get("STORY_WRITER_MAX_TOKENS"), old_tokens)
 

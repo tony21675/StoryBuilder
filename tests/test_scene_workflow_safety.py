@@ -832,11 +832,11 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             CONTRACT_BUILDER_SYSTEM_PROMPT,
         )
         self.assertIn(
-            "Normally leave required_beats empty",
+            "Always return required_beats as an empty list",
             CONTRACT_BUILDER_SYSTEM_PROMPT,
         )
         self.assertIn(
-            "Never convert every action mentioned in ordinary scene prose into a separate requirement",
+            "Never turn ordinary prose or your own summary into mandatory stops",
             CONTRACT_BUILDER_SYSTEM_PROMPT,
         )
 
@@ -977,7 +977,7 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
                 "Tony sat on the edge of the bed and held Maya.",
             )
 
-        self.assertIn("opening position and contact", scene_contract.VALIDATOR_SYSTEM_PROMPT)
+        self.assertIn("Check opening continuity", scene_contract.VALIDATOR_SYSTEM_PROMPT)
         self.assertIn("if no transition explains a mismatch", scene_contract.VALIDATOR_SYSTEM_PROMPT)
         self.assertIn("sitting upright against the headboard", captured["prompt"])
         self.assertIn("neutral familial comfort", scene_contract.VALIDATOR_SYSTEM_PROMPT)
