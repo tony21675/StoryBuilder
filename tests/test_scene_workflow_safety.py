@@ -342,8 +342,10 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
     def test_unfinished_writer_text_is_saved_to_origin_scene_not_current_selection(self):
         with tempfile.TemporaryDirectory() as tmp:
             app = self.make_app(tmp, "Scene 1 draft text", context=(2, 1))
-            with patch.object(storybuilder_app.messagebox, "showwarning"), patch.object(
-                storybuilder_app.messagebox, "showerror"
+            with (
+                patch.object(storybuilder_app.messagebox, "askyesnocancel", return_value=True) as ask,
+                patch.object(storybuilder_app.messagebox, "showwarning"),
+                patch.object(storybuilder_app.messagebox, "showerror"),
             ):
                 self.assertTrue(app._save_unsaved_writer_draft())
 
@@ -363,6 +365,106 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             )
             self.assertEqual(expected.read_text(encoding="utf-8"), "Scene 1 draft text\n")
             self.assertFalse(wrong_scene.exists())
+            self.assertEqual(app.writer_draft_saved_text, "Scene 1 draft text")
+            ask.assert_called_once()
+            self.assertIn("Choose Yes to Save Draft", ask.call_args.args[1])
+            self.assertIn("Choose No to discard", ask.call_args.args[1])
+            self.assertIn("Choose Cancel", ask.call_args.args[1])
+
+    def test_unfinished_writer_cancel_keeps_text_and_does_not_save(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            app = self.make_app(tmp, "Attempt to discard", context=(2, 1))
+            with patch.object(
+                storybuilder_app.messagebox, "askyesnocancel", return_value=None
+            ) as ask:
+                self.assertFalse(app._save_unsaved_writer_draft())
+
+            draft = (
+                Path(tmp)
+                / "Manuscript"
+                / "Chapters"
+                / "Chapter_02"
+                / "Chapter_02_Section_01_draft.txt"
+            )
+            self.assertFalse(draft.exists())
+            self.assertEqual(app.generated_scene, "Attempt to discard")
+            self.assertEqual(app.writer_output_text.value, "Attempt to discard")
+            ask.assert_called_once()
+
+    def test_unfinished_writer_discard_does_not_save_and_clears_attempt(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            app = self.make_app(tmp, "Attempt to discard", context=(2, 1))
+            with patch.object(
+                storybuilder_app.messagebox, "askyesnocancel", return_value=False
+            ):
+                self.assertTrue(app._save_unsaved_writer_draft())
+
+            draft = (
+                Path(tmp)
+                / "Manuscript"
+                / "Chapters"
+                / "Chapter_02"
+                / "Chapter_02_Section_01_draft.txt"
+            )
+            self.assertFalse(draft.exists())
+            self.assertEqual(app.generated_scene, "")
+            self.assertEqual(app.writer_output_text.value, "")
+            self.assertIsNone(app.generated_scene_context)
+            self.assertIsNone(app.generated_scene_start_state)
+
+    def test_discard_removes_matching_autosaved_draft_but_preserves_different_saved_version(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            app = self.make_app(tmp, "Current attempt", context=(2, 1))
+            draft = (
+                Path(tmp)
+                / "Manuscript"
+                / "Chapters"
+                / "Chapter_02"
+                / "Chapter_02_Section_01_draft.txt"
+            )
+            draft.parent.mkdir(parents=True)
+            draft.write_text("Current attempt\n", encoding="utf-8")
+            with patch.object(
+                storybuilder_app.messagebox, "askyesnocancel", return_value=False
+            ):
+                self.assertTrue(app._save_unsaved_writer_draft())
+            self.assertFalse(draft.exists())
+
+            app = self.make_app(tmp, "New attempt", context=(2, 1))
+            draft.write_text("Previously saved version\n", encoding="utf-8")
+            with patch.object(
+                storybuilder_app.messagebox, "askyesnocancel", return_value=False
+            ):
+                self.assertTrue(app._save_unsaved_writer_draft())
+            self.assertEqual(draft.read_text(encoding="utf-8"), "Previously saved version\n")
+            self.assertEqual(app.generated_scene, "")
+
+    def test_explicitly_saved_draft_does_not_prompt_again_when_unchanged(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            app = self.make_app(tmp, "Saved attempt", context=(2, 1))
+            app.writer_draft_saved_text = "Saved attempt"
+            with patch.object(
+                storybuilder_app.messagebox, "askyesnocancel"
+            ) as ask:
+                self.assertTrue(app._save_unsaved_writer_draft())
+            ask.assert_not_called()
+
+    def test_close_cancel_keeps_storybuilder_open_and_does_not_save_package(self):
+        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+        app._closing = False
+        app.package = SimpleNamespace(path=Path("/tmp/novel"))
+        app.writer_engine = SimpleNamespace(stop=Mock())
+        app.dirty = False
+        app._save_unsaved_writer_draft = Mock(return_value=False)
+        app._save = Mock()
+        app.destroy = Mock()
+
+        storybuilder_app.StoryBuilderApp._close_without_sync(app)
+
+        self.assertFalse(app._closing)
+        app.writer_engine.stop.assert_not_called()
+        app._save.assert_not_called()
+        app.destroy.assert_not_called()
 
     def test_edited_prose_must_pass_contract_before_acceptance(self):
         class ImmediateThread:
