@@ -672,7 +672,7 @@ class SceneContract:
             parts.append(
                 "Priority: Treat the Scene Idea as the primary source for intended direction, key actions, "
                 "important moments, and endpoint. It is not a word-for-word prose checklist. Generated "
-                "direction and contract are supporting hints and must not override the author's intent. "
+                "direction and contract are supporting hints and must not overrule or contradict the author's intent. "
                 "AUTHOR ACTION FIDELITY: Concrete actions and objects the idea specifies as intended choices "
                 "must keep their identity. Do not replace one with a materially different alternative just "
                 "because it serves the same broad purpose: a bubble bath is not a shower, and an explicitly "
