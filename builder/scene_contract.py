@@ -19,12 +19,12 @@ class SceneContractValidationUnavailable(RuntimeError):
     """The validator could not produce a readable response after one retry."""
 
 
-VALIDATOR_SYSTEM_PROMPT = """Review original idea, scene intent, and starting state.
+VALIDATOR_SYSTEM_PROMPT = """Review the idea and starting state.
 
 Return only JSON:
 {"pass": true, "missed_beats": [], "violations": [], "notes": ""}
 
-Original idea leads; hints secondary. Check continuity, knowledge, opening, central action, and endpoint. Required Beats are goals, not a wording checklist. Fail only for absent or materially wrong core actions/outcomes. Preserve concrete actions and objects explicitly intended: a bubble bath is not a shower; an explicitly required robe is not a towel. Missing/substituting a specified action/object is material even if the broad purpose is met. Accept paraphrases of the same action and natural connective detail. Do not fail for incidental description unless it changes a specified action/object, core outcome, knowledge, or endpoint. Do not nitpick style or invent requirements.
+Idea leads; hints are secondary. Check continuity, knowledge, opening, central action, and endpoint. Required Beats are goals, not a wording checklist. Fail for absent or materially wrong core actions/outcomes. Preserve concrete actions/objects specified by the author: a bubble bath is not a shower; a required robe is not a towel. A missing or substituted specified action/object is material even if the purpose is met. Accept paraphrases of the same action and natural connective detail. Do not fail for incidental description unless it changes a specified action/object, core outcome, knowledge, or endpoint. Don't nitpick style or invent requirements.
 """
 
 
