@@ -1327,7 +1327,10 @@ class StoryBuilderApp(tk.Tk):
         if self.package is None:
             return ""
 
-        guidance = self.package.extra_json.get("writing_guidance.json", {})
+        extra_json = getattr(self.package, "extra_json", {})
+        if not isinstance(extra_json, dict):
+            return ""
+        guidance = extra_json.get("writing_guidance.json", {})
         if not isinstance(guidance, dict):
             return ""
 

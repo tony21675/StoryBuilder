@@ -22,7 +22,7 @@ class SceneContractValidationUnavailable(RuntimeError):
 VALIDATOR_SYSTEM_PROMPT = """Review original idea/state. Return only JSON:
 {"pass": true, "missed_beats": [], "violations": [], "notes": ""}
 
-Idea leads; check opening, beats, endpoint. Required Beats are goals, not a wording checklist. Fail for absent/materially wrong core actions/outcomes. Preserve specified actions, objects, details, relationships, source locations and order: a bubble bath is not a shower; a warm bubble bath includes bubbles; keep stated object backstory. Check explicit requests/preferences against later actions; unexplained breaches are material. Omitting/substituting one is material. Apply stable author guidance. Allow paraphrases. Ignore incidental description unless a specified action/object, core outcome, knowledge, or endpoint changes. Accept neutral familial comfort.
+Check opening continuity; idea leads. Required Beats are goals, not a wording checklist. Fail for absent/materially wrong core actions/outcomes. Preserve actions, objects, details, relationships, source locations and order: a bubble bath is not a shower; a warm bubble bath includes bubbles; keep stated object backstory. Check explicit requests/preferences against later actions; unexplained breaches are material. Omitting/substituting one is material. Apply stable author guidance. Allow paraphrases. Ignore incidental description unless a specified action/object, core outcome, knowledge, or endpoint changes. Accept neutral familial comfort.
 """
 
 
@@ -887,16 +887,15 @@ class SceneContract:
         )
 
         prompt = (
-            "Validate this scene against the author's original idea, relevant author guidance, and starting state. "
-            "The idea is primary; generated hints are secondary. Treat Required Beats as narrative-level goals, not a word-for-word checklist. "
-            "Fail only when a core action or outcome is absent or materially wrong. "
-            "Check the identity of concrete actions and objects specified by the idea, not only the broad scene purpose. A specified bubble bath replaced with a shower is a material substitution, not an equivalent paraphrase; apply the same principle to explicitly required objects, clothing, source locations, and meaningful action order. "
-            "Preserve a specified source location or sequence; fulfilling the broad task elsewhere is not equivalent when the idea names where or how it happens. "
-            "Check whether subsequent actions honor explicit requests, preferences, boundaries, or needs that another character acknowledges; flag a material contradiction unless a clear in-story reason supports it. "
-            "Report a missing or materially substituted author-specified action/object/location, broken action order, or disregarded acknowledged request as a missed beat or violation even if the broad purpose is met. "
-            "If the main action occurs but only a purely incidental detail is missing, do not fail for that alone; optional details may go in notes. "
-            "Search the entire scene for equivalent actions, including paraphrases or later paragraphs, before declaring an action absent. Accept paraphrases that describe the same action/object, not a different one. "
-            "Do not fail for a minor descriptive or phrasing omission when the intended event, character knowledge, and endpoint remain intact, unless the omission changes an explicitly specified action/object/location or disregards an acknowledged request. "
+            "Validate against the author's original idea, relevant author guidance, and starting state. "
+            "The idea leads; generated hints are secondary. Required Beats are narrative goals, not a word-for-word checklist. "
+            "Fail for a missing or materially wrong core action or outcome. "
+            "Check specified action/object identity, source locations, and meaningful order, not just broad purpose: a bubble bath is not a shower. Preserve defining details and object history. "
+            "Check whether actions honor acknowledged explicit requests, preferences, boundaries, or needs; flag unexplained material conflicts. "
+            "Report material omissions, substitutions, location/order changes, or ignored acknowledged requests. "
+            "Do not fail for incidental details alone; optional omissions may go in notes. "
+            "Search the whole scene, including later paragraphs, for equivalent actions before declaring one absent. Accept paraphrases, not different substitutes. "
+            "Ignore minor description/wording omissions unless a specified action/object/location, character knowledge, endpoint, or acknowledged request changes. "
             "Return JSON only in this shape: "
             '{"pass": true, "missed_beats": [], "violations": [], "notes": ""}\n\n'
             + guidance_section
