@@ -222,6 +222,7 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         app.writer_status = FakeButton()
         app.scene_contract_building = False
         app.pending_state_patch = None
+        app._show_copyable_error = Mock()
         app.__dict__["writer_notes_update_in_progress"] = False
         app.__dict__["acceptance_validation_in_progress"] = False
         for name in (
@@ -244,6 +245,11 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
                 app, draft, None, warning
             )
 
+        app._show_copyable_error.assert_called_once()
+        args, kwargs = app._show_copyable_error.call_args
+        self.assertEqual(args[0], "Scene Contract Validation")
+        self.assertIn(warning, args[1])
+        showwarning.assert_not_called()
         self.assertEqual(app.generated_scene, draft)
         self.assertEqual(app.writer_output_text.value, draft)
         self.assertTrue(app.writer_validation_unavailable)
@@ -621,6 +627,7 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             app._refresh_manuscript = lambda: None
             app._chat = lambda *_args, **_kwargs: None
             app._update_writer_buttons = lambda: None
+            app._show_copyable_error = Mock()
             app.after = lambda _delay, callback: callback()
 
             failed = {
@@ -636,7 +643,11 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             ):
                 storybuilder_app.StoryBuilderApp._accept_generated_scene(app)
 
-            warning.assert_called_once()
+            app._show_copyable_error.assert_called_once()
+            args, _kwargs = app._show_copyable_error.call_args
+            self.assertEqual(args[0], "Scene Contract")
+            self.assertIn("does not satisfy the active scene contract", args[1])
+            warning.assert_not_called()
             self.assertFalse(
                 (Path(tmp) / "Manuscript" / "Chapters" / "Chapter_02" /
                  "Chapter_02_Section_01.txt").exists()
