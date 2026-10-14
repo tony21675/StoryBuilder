@@ -12,7 +12,21 @@ Read the current versions on GitHub `main` before acting:
 **Use the newest checkpoint below as the session handoff. Older conversation context or stale repository copies do not overrule the current author-confirmed checkpoint.**
 
 
-## Latest Checkpoint: October 13, 2026 (explicit-beat revision mechanics committed; CI passed)
+## Latest Checkpoint: October 13, 2026 (author-led beats, creative route freedom)
+
+### Design correction: author's destination, not an AI-made checklist
+
+The author approved a generic change after identifying that the Writer was behaving like a driver assembling a route from a rigid manual. The intended workflow is: author gives the starting situation, destination, and a few required waypoints; the Writer chooses natural dialogue, gestures, emotional pacing, memories, transitions, and connective actions along the way.
+
+- **Deterministic rule:** Model-generated `required_beats` are ignored when building a contract. Only items in a clearly labeled `Required Beats` section of the author's original Scene Idea become formal scene-level beats.
+- **Saved-contract compatibility:** When a saved guidance entry contains the original Scene Idea, StoryBuilder re-derives formal Required Beats from that idea instead of enforcing old model-generated beat lists. This prevents existing saved checklists, including Scene 4's detailed generated list, from overriding the author's plain-English idea. If the author has no original Scene Idea in a legacy entry, its existing structured events remain available for compatibility. Separately enabled modules may contribute their own requirements.
+- The original Scene Idea remains primary input to the Writer and validator. The generated direction and hard stop are secondary support. Validation still checks opening continuity, character knowledge, material story actions, and the intended ending; only explicitly author-labeled Required Beats receive a separate formal beat list.
+- The Scene Contract tab and overwrite confirmation now explain that generated beat suggestions do not become mandatory.
+- Regression tests cover model-generated beats being ignored for both new contracts and legacy saved contracts, while explicitly author-labeled beats remain mandatory.
+- The change is generic and does not modify MyNovel, its canon, accepted scenes, or the saved unaccepted Scene 4 draft.
+- Before syncing the laptop, verify the new commit's GitHub Actions status. Then restart StoryBuilder with `./start.sh`, reload the active novel package, and check that its Scene 4 contract no longer displays AI-generated Required Beats. Do not rebuild MyNovel or regenerate/accept the scene as part of this code sync.
+
+## Previous Checkpoint: October 13, 2026 (explicit-beat revision mechanics)
 
 ### Generic StoryBuilder revision and validation repair
 
