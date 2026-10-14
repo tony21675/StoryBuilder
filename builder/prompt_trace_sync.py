@@ -194,7 +194,6 @@ def upload_prompt_trace(
                 {
                     "message": "Initialize latest StoryBuilder prompt trace",
                     "content": base64.b64encode(trace_bytes).decode("ascii"),
-                    "branch": branch,
                 },
             )
             file_info = (initial or {}).get("content") or {}
