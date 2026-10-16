@@ -19,7 +19,7 @@ class SceneContractValidationUnavailable(RuntimeError):
     """The validator could not produce a readable response after one retry."""
 
 
-VALIDATOR_SYSTEM_PROMPT = """Review the author's idea and starting state. Return only JSON:
+VALIDATOR_SYSTEM_PROMPT = """Review the author's original idea and starting state. Return only JSON:
 {"pass": true, "missed_beats": [], "violations": [], "checks": [{"requirement": "", "status": "met", "evidence": ""}], "notes": ""}
 
 Judge meaning, not keywords. Synonyms and paraphrases count. Evidence must be a verbatim quote from COMPLETED SCENE only; never quote the idea, instructions, contract, or state.
@@ -1179,7 +1179,7 @@ class SceneContract:
             + "The idea is primary; generated hints are secondary. "
             + "Treat Required Beats as narrative-level goals, not a word-for-word checklist. "
             + "A specified bubble bath replaced with a shower is a material substitution; preserve defining objects, source locations, order, and history. "
-            + "Check explicit requests, preferences, boundaries, and needs against later actions; flag ignored acknowledgments. "
+            + "Check explicit requests, preferences, boundaries, or needs against later actions; flag ignored acknowledgments. "
             + "Report material omissions, substitutions, sequence/location errors, or ignored requests. "
             + "If the main action occurs but only a purely incidental detail is missing, do not fail for that alone; optional details may go in notes. "
             + "Search the whole scene for paraphrases before marking missing. Judge meaning, not keywords. Evidence must be verbatim scene prose, but need not reuse requirement words. "
