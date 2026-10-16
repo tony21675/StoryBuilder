@@ -2839,7 +2839,8 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         model = self.writer_engine.model_path
         author_guidance = self._author_writing_guidance()
         # Capture Tk variables on the UI thread; validation runs in a worker thread.
-        validator_model = self.validator_model_var.get().strip()
+        validator_var = self.__dict__.get("validator_model_var")
+        validator_model = validator_var.get().strip() if validator_var is not None else ""
 
         writer_context = SceneContract.writer_prompt_context(direction, contract)
         prompt_parts = [
@@ -3243,7 +3244,8 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             author_guidance = self._author_writing_guidance()
             # Capture Tk variables here, before handing validation to a worker thread.
             writer_model = self.writer_engine.model_path or self.writer_model_var.get().strip()
-            validator_model = self.validator_model_var.get().strip()
+            validator_var = self.__dict__.get("validator_model_var")
+            validator_model = validator_var.get().strip() if validator_var is not None else ""
             self.acceptance_validation_in_progress = True
             self._update_writer_buttons()
             self.writer_status.configure(
