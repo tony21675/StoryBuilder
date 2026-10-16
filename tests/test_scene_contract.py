@@ -476,6 +476,57 @@ class SceneContractTests(unittest.TestCase):
         self.assertIn("maroon sedan", run_validator.call_args_list[1].args[1])
         self.assertIn("Judge meaning, not keyword overlap", run_validator.call_args_list[1].kwargs["system_prompt"])
 
+
+    def test_short_event_checklist_is_rechecked_when_most_items_are_missing(self):
+        requirements = [
+            "Maya takes a bath.",
+            "Tony makes the breakfast calls.",
+            "Tony retrieves clothes and picks up Barnaby.",
+            "Tony and Maya end with tea at the kitchen table.",
+        ]
+        prose = (
+            "Maya settled into the bath. Tony called Beth, then Jessica, about breakfast. "
+            "He retrieved the clean clothes and picked up Barnaby. Later, they settled "
+            "at the kitchen table with chamomile tea."
+        )
+        first_pass = {
+            "pass": False,
+            "missed_beats": requirements.copy(),
+            "violations": [],
+            "checks": [
+                {"requirement": item, "status": "missing", "evidence": ""}
+                for item in requirements
+            ],
+            "notes": "",
+        }
+        second_pass = {
+            "pass": True,
+            "missed_beats": [],
+            "violations": [],
+            "checks": [
+                {"requirement": requirements[0], "status": "met", "evidence": "Maya settled into the bath."},
+                {"requirement": requirements[1], "status": "met", "evidence": "Tony called Beth, then Jessica, about breakfast."},
+                {"requirement": requirements[2], "status": "met", "evidence": "He retrieved the clean clothes and picked up Barnaby."},
+                {"requirement": requirements[3], "status": "met", "evidence": "they settled at the kitchen table with chamomile tea."},
+            ],
+            "notes": "",
+        }
+
+        with patch.object(
+            scene_contract, "_run_validator", side_effect=[first_pass, second_pass]
+        ) as run_validator:
+            result = SceneContract.validate_with_engine(
+                FakeEngine(),
+                {"author_idea": "The scene includes these four events.", "required_beats": []},
+                {"chapter": 2, "scene": 4},
+                prose,
+            )
+
+        self.assertTrue(result["pass"], result)
+        self.assertEqual(result["missed_beats"], [])
+        self.assertEqual(run_validator.call_count, 2)
+        self.assertIn("SEMANTIC COVERAGE RECHECK", run_validator.call_args_list[1].args[1])
+
     def test_missing_checks_do_not_duplicate_existing_missed_beats(self):
         idea = "Tony helps Maya settle and makes her tea."
         raw_result = {
