@@ -22,7 +22,7 @@ class SceneContractValidationUnavailable(RuntimeError):
 VALIDATOR_SYSTEM_PROMPT = """Review original idea/state. Return only JSON:
 {"pass": true, "missed_beats": [], "violations": [], "checks": [{"requirement": "", "status": "met", "evidence": ""}], "notes": ""}
 
-Check opening continuity; if no transition explains a mismatch, flag it. Required Beats are goals, not a wording checklist. Fail for absent/materially wrong core actions/outcomes. Audit the original idea item by item: each material action/outcome, defining object detail/history, named participant/confirmation, acknowledged boundary, meaningful order/location, and endpoint. Do not add incidental requirements; use one check per independently missable commitment. For each check, status "met" only if the entire requirement is supported, and evidence must be a short verbatim quote directly proving it. Otherwise status "missing" and evidence "". A broad, related, or substitute action is not proof. Omitting/substituting one is material. Ignore incidental description unless a specified action/object, core outcome, knowledge, or endpoint changes. Check explicit requests/preferences against later actions; unexplained breaches are material. a bubble bath is not a shower; a warm bubble bath includes bubbles; keep stated object backstory. If any check is missing, pass must be false. Accept neutral familial comfort.
+Check opening continuity; if no transition explains a mismatch, flag it. Required Beats are goals, not a wording checklist. Fail for absent/materially wrong core actions/outcomes. Audit the original idea item by item: each material action/outcome, defining object detail/history, named participant/confirmation, acknowledged boundary, meaningful order/location, and endpoint. Do not add incidental requirements; use one check per independently missable commitment. For each check, status "met" only if the entire requirement is supported, and evidence must be a short verbatim quote directly proving it from COMPLETED SCENE only; never from the author idea, instructions, supporting contract, or starting state. Otherwise status "missing" and evidence "". A broad, related, or substitute action is not proof. Omitting/substituting one is material. Ignore incidental description unless a specified action/object, core outcome, knowledge, or endpoint changes. Check explicit requests/preferences against later actions; unexplained breaches are material. a bubble bath is not a shower; a warm bubble bath includes bubbles; keep stated object backstory. If any check is missing, pass must be false. Accept neutral familial comfort.
 """
 
 
@@ -1053,7 +1053,7 @@ class SceneContract:
             + "Search the entire scene for equivalent actions, including paraphrases or later paragraphs, before declaring one absent. Accept paraphrases, not different substitutes. "
             + "Do not fail for a minor descriptive or phrasing omission when the intended event, character knowledge, and endpoint remain intact, unless a specified action/object/location or acknowledged request changes. "
             + "Build an itemized checks list covering every material commitment in the original idea, including defining object details, named people and confirmations, meaningful backstory, and boundaries. "
-            + "For each check, provide its requirement, status ('met' or 'missing'), and a short verbatim scene quote as evidence. The quote must directly support the entire requirement, not merely a related or broad action. Use empty evidence and status 'missing' when absent or materially incomplete. "
+            + "For each check, provide requirement, status, and a short verbatim evidence quote from COMPLETED SCENE only. The quote must directly support the entire requirement, not merely a related or broad action; never quote the idea, instructions, or state. If absent or materially incomplete, use status 'missing' and empty evidence. "
             + "If an author idea is present, checks must be a non-empty list; pass must be false if any check is missing. "
             + "Return JSON only in this shape: "
             + '{"pass": true, "missed_beats": [], "violations": [], "checks": [{"requirement": "", "status": "met", "evidence": ""}], "notes": ""}'
@@ -1120,6 +1120,7 @@ class SceneContract:
                     )
 
                 normalized_checks = []
+                ungrounded_evidence = []
                 for item in checks or []:
                     if not isinstance(item, dict):
                         raise SceneContractResponseError(
@@ -1132,16 +1133,32 @@ class SceneContract:
                         raise SceneContractResponseError(
                             "Scene-contract validator returned an invalid requirement check."
                         )
-                    # Never accept a claimed pass based on invented or non-verbatim
-                    # evidence. The model must quote the scene it is evaluating.
+                    # A claimed "met" result must cite the completed scene itself.
+                    # Evidence copied from instructions, idea, or state is not grounded.
                     if status == "met" and not _evidence_occurs_in_prose(prose, evidence):
-                        status = "missing"
-                        evidence = ""
+                        ungrounded_evidence.append(requirement)
                     normalized_checks.append({
                         "requirement": requirement,
                         "status": status,
                         "evidence": evidence,
                     })
+
+                if ungrounded_evidence:
+                    if validator_attempt == 0:
+                        validation_prompt = (
+                            prompt
+                            + "\n\nTARGETED EVIDENCE CORRECTION REQUIRED:\n"
+                            + "Your previous response marked one or more checks met using evidence that does not occur verbatim in the completed scene. Reassess the entire scene. For every met check, quote only exact text from the following EVIDENCE SOURCE. The author's idea, validator instructions, supporting direction/contract, and starting state are not scene prose and must never be quoted as evidence. If no exact quote from the EVIDENCE SOURCE directly supports the full requirement, use status 'missing' and evidence empty. Do not rewrite the scene. Return only the requested JSON object.\n\n"
+                            + "EVIDENCE SOURCE (only this passage may be quoted):\n"
+                            + prose.strip()
+                        )
+                        continue
+                    raise SceneContractValidationUnavailable(
+                        "Scene-contract validation is unavailable because the validator again supplied evidence "
+                        "that does not appear verbatim in the completed scene. The generated draft is preserved "
+                        "but has not been semantically validated. Review it carefully before deciding whether "
+                        "to accept it."
+                    )
 
                 normalized_result = {
                     "pass": passed,
