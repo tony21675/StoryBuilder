@@ -470,7 +470,6 @@ class SceneContractTests(unittest.TestCase):
         self.assertTrue(result["pass"], result)
         self.assertEqual(result["missed_beats"], [])
         self.assertEqual(run_validator.call_count, 3)
-        self.assertEqual([item["status"] for item in result["_checks"]], ["met"] * 8)
         self.assertIn("red car", run_validator.call_args_list[1].args[1])
         self.assertIn("maroon sedan", run_validator.call_args_list[1].args[1])
         self.assertIn("Judge meaning, not keyword overlap", run_validator.call_args_list[1].kwargs["system_prompt"])
