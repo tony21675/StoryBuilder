@@ -303,7 +303,7 @@ def _evidence_occurs_in_prose(prose: str, evidence: str) -> bool:
 
 def _normalize_check_status(value: Any) -> str | None:
     """Normalize common model wording without accepting ambiguous validation labels."""
-    status = re.sub(r"[\\s_-]+", " ", str(value or "").strip().casefold())
+    status = re.sub(r"[\s_-]+", " ", str(value or "").strip().casefold())
     status = re.sub(r"[.!:;]+$", "", status).strip()
     if status in {"met", "present", "satisfied", "fulfilled", "passed", "pass", "true"}:
         return "met"
