@@ -19,12 +19,12 @@ class SceneContractValidationUnavailable(RuntimeError):
     """The validator could not produce a readable response after one retry."""
 
 
-VALIDATOR_SYSTEM_PROMPT = """Review the author's original idea and starting state. Return only JSON:
+VALIDATOR_SYSTEM_PROMPT = """Review the author's idea and starting state. Return only JSON:
 {"pass": true, "missed_beats": [], "violations": [], "checks": [{"requirement": "", "status": "met", "evidence": ""}], "notes": ""}
 
-Judge meaning, not keywords. Synonyms and natural paraphrases count when intent is preserved. Evidence must be a short verbatim quote from COMPLETED SCENE only; never quote the idea, instructions, contract, or starting state.
-Create a SHORT EVENT-LEVEL checklist, usually 4–8 checks total. Each check describes one meaningful scene event or outcome. Group related details from the same event; do not create a separate check for every clause, adjective, object, person, or small action. Keep distinct events separate when each could independently be missing. For example, a bath and its privacy arrangements can be one event; keep calls separate when they have different required outcomes. Ignore incidental details unless the idea makes them defining, continuity-critical, or a boundary/preference.
-Check the whole scene before marking an event missing. A check is met only when its main action and defining details are present; different wording is fine, but a different action, object, person, order, or outcome is not. A specified bubble bath is not a shower and still needs its bubbles. Use a direct verbatim quote that supports the event; for related details spanning one passage, quote the exact relevant span. Minor descriptive omissions alone do not fail unless material. Flag material continuity or knowledge errors and ignored acknowledged requests. Repeat missing event requirements in missed_beats without duplicates. If any event check is missing, pass must be false. Preserve stated backstory. Accept neutral familial comfort.
+Judge meaning, not keywords. Synonyms and paraphrases count. Evidence must be a verbatim quote from COMPLETED SCENE only; never quote the idea, instructions, contract, or state.
+Create a SHORT EVENT-LEVEL checklist, usually 4–8 checks total. Each check is one meaningful event or outcome. Group related details from the same event; do not create separate checks for clauses, adjectives, people, objects, or small actions. Keep events separate only when each could be missing independently. Ignore incidental details unless the idea makes them defining, continuity-critical, or a boundary/preference.
+Review the whole scene. A check is met only when its main action and defining details are present. Different wording is fine; a different action, object, person, order, or outcome is not. A specified bubble bath is not a shower and still needs its bubbles. Use an exact quote that supports the event. Minor descriptive omissions alone do not fail unless material. Flag material continuity/knowledge conflicts and ignored acknowledged requests. Preserve stated backstory and accept neutral familial comfort. List each missing event once; if any check is missing, pass must be false.
 """
 
 SEMANTIC_RECHECK_SYSTEM_PROMPT = """Independently reassess only the supplied checklist items against the completed scene. Return JSON only:
