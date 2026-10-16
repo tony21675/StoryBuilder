@@ -1178,7 +1178,7 @@ class SceneContract:
             + "Validate against the author's original idea, relevant author guidance, and starting state. "
             + "The idea is primary; generated hints are secondary. "
             + "Treat Required Beats as narrative-level goals, not a word-for-word checklist. "
-            + "A specified bubble bath replaced with a shower is a material substitution; preserve defining objects, locations, order, and history. "
+            + "A specified bubble bath replaced with a shower is a material substitution; preserve defining objects, source locations, order, and history. "
             + "Check explicit requests, preferences, boundaries, and needs against later actions; flag ignored acknowledgments. "
             + "Report material omissions, substitutions, sequence/location errors, or ignored requests. "
             + "If the main action occurs but only a purely incidental detail is missing, do not fail for that alone; optional details may go in notes. "
