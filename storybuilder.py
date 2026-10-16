@@ -138,8 +138,6 @@ class StoryBuilderApp(tk.Tk):
         self.accepted_scene = ""
         self.accepted_scene_context = None
         self.focused_revision_history = []
-        self.accepted_scene_context = None
-        self.focused_revision_history = []
         # Keep each generated scene tied to the chapter/scene and exact start
         # state that produced it. Never file prose under a later UI selection.
         self.generated_scene_context: tuple[int, int] | None = None
@@ -2433,7 +2431,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
 
     def _toggle_prompt_trace(self):
         """Arm or cancel a one-scene prompt trace; tracing is otherwise off."""
-        if getattr(self, "writer_generation_in_progress", False):
+        if getattr(self, "writer_generation_in_progress", False) or getattr(self, "focused_revision_in_progress", False):
             return
         self.prompt_trace_armed = not bool(getattr(self, "prompt_trace_armed", False))
         if self.prompt_trace_armed:
@@ -2480,11 +2478,10 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         has_patch = isinstance(self.pending_state_patch, dict)
 
         notes_updating = bool(self.__dict__.get("writer_notes_update_in_progress", False))
-        acceptance_validating = bool(self.__dict__.get("acceptance_validation_in_progress", False))
         contract_building = bool(getattr(self, "scene_contract_building", False))
         generating = bool(getattr(self, "writer_generation_in_progress", False))
         focused_revision = bool(getattr(self, "focused_revision_in_progress", False))
-        busy = notes_updating or acceptance_validating or contract_building or generating or focused_revision
+        busy = notes_updating or contract_building or generating or focused_revision
 
         self.writer_start_button.configure(
             state="disabled" if running or busy else "normal"
@@ -2541,8 +2538,6 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             status_text = "Applying a focused change to the current draft..."
         elif generating:
             status_text = "Writing a new scene draft..."
-        elif acceptance_validating:
-            status_text = "Preparing scene acceptance..."
         elif contract_building:
             status_text = "Using the local model to build Scene Direction..."
         elif notes_updating:
@@ -2820,6 +2815,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             json.dumps(current_state, ensure_ascii=False)
         )
         self.writer_generation_in_progress = True
+        self._update_writer_buttons()
 
         files = self._writer_package_files()
         system_prompt = self._writer_system_prompt(files)
@@ -5323,6 +5319,8 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         self.character_filename = None
         self.generated_scene = ""
         self.accepted_scene = ""
+        self.accepted_scene_context = None
+        self.focused_revision_history = []
         self.pending_state_patch = None
         self.interview_active = False
         self.interview_index = 0
@@ -5354,6 +5352,8 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             pass
         self.generated_scene = ""
         self.accepted_scene = ""
+        self.accepted_scene_context = None
+        self.focused_revision_history = []
         self.generated_scene_context = None
         self.generated_scene_start_state = None
         self.writer_generation_context = None
@@ -5410,6 +5410,8 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         self.character_filename = None
         self.generated_scene = ""
         self.accepted_scene = ""
+        self.accepted_scene_context = None
+        self.focused_revision_history = []
         self.generated_scene_context = None
         self.generated_scene_start_state = None
         self.writer_generation_context = None
@@ -5744,10 +5746,10 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         """Ask before saving or discarding unfinished Writer prose."""
         if self.package is None:
             return True
-        if getattr(self, "writer_generation_in_progress", False):
+        if getattr(self, "writer_generation_in_progress", False) or getattr(self, "focused_revision_in_progress", False):
             messagebox.showwarning(
                 "Writer",
-                "A scene is still being generated. Let it finish before changing scenes or closing StoryBuilder.",
+                "A Writer task is still running. Let it finish before changing scenes or closing StoryBuilder.",
             )
             return False
         if getattr(self, "scene_contract_building", False):
@@ -5867,10 +5869,10 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         if self.package is None:
             return True
 
-        if self.__dict__.get("acceptance_validation_in_progress", False):
+        if getattr(self, "focused_revision_in_progress", False):
             messagebox.showwarning(
-                "Scene Contract",
-                "Wait for edited prose validation to finish before changing scenes.",
+                "Focused Change",
+                "Wait for the focused edit to finish before changing scenes.",
             )
             return False
 
@@ -5910,6 +5912,8 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         """Clear scene-specific Writer memory only after its text is safely saved."""
         self.generated_scene = ""
         self.accepted_scene = ""
+        self.accepted_scene_context = None
+        self.focused_revision_history = []
         self.generated_scene_context = None
         self.generated_scene_start_state = None
         self.writer_draft_saved_text = None
@@ -5936,12 +5940,13 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
 
         if (
             getattr(self, "writer_generation_in_progress", False)
+            or getattr(self, "focused_revision_in_progress", False)
             or getattr(self, "scene_contract_building", False)
             or self.__dict__.get("writer_notes_update_in_progress", False)
         ):
             messagebox.showwarning(
                 "Restore Previous End State",
-                "Wait for the active writer, contract build, or writing-notes review to finish first.",
+                "Wait for the active Writer task, Scene Direction build, or writing-notes review to finish first.",
             )
             return
 
