@@ -42,7 +42,7 @@ def build_focused_revision_prompt(
         '"replacement_text": "the revised passage"}',
         "The target must be a verbatim passage from the draft and should occur only once. "
         "Use enough surrounding words to identify it uniquely, but do not target the entire scene. "
-        "Make the smallest change that satisfies the author's request. Do not add any commentary.",
+        "Make the smallest change that satisfies the author's request. Do not return the whole scene. Do not add any commentary.",
     ]
     if correction:
         parts.extend([
