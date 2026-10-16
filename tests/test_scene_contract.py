@@ -302,17 +302,17 @@ class SceneContractTests(unittest.TestCase):
 
     def test_validator_treats_required_beats_as_narrative_goals(self):
         prompt = scene_contract.VALIDATOR_SYSTEM_PROMPT
-        self.assertIn("Required Beats are goals, not a wording checklist", prompt)
-        self.assertIn("Fail for absent/materially wrong core actions/outcomes", prompt)
+        self.assertIn("Judge meaning, not keywords", prompt)
+        self.assertIn("Mark met only when the entire requirement is supported", prompt)
         self.assertIn("a bubble bath is not a shower", prompt)
-        self.assertIn("a warm bubble bath includes bubbles", prompt)
+        self.assertIn("a bubble bath is not a shower and includes bubbles", prompt)
         self.assertIn('"checks": [{"requirement": "", "status": "met", "evidence": ""}]', prompt)
-        self.assertIn("verbatim quote directly proving it", prompt)
+        self.assertIn("verbatim quote from COMPLETED SCENE only", prompt)
         self.assertIn("COMPLETED SCENE only", prompt)
-        self.assertIn("never from the author idea, instructions", prompt)
-        self.assertIn("keep stated object backstory", prompt)
-        self.assertIn("Omitting/substituting one is material", prompt)
-        self.assertIn("Ignore incidental description unless a specified action/object, core outcome, knowledge, or endpoint changes", prompt)
+        self.assertIn("Never quote the idea, instructions", prompt)
+        self.assertIn("Preserve stated backstory", prompt)
+        self.assertIn("do not accept a different action, object, person", prompt)
+        self.assertIn("One check per commitment, no incidental requirements", prompt)
         self.assertLess(len(prompt), 1500)
 
     def test_validator_checks_whole_scene_before_calling_a_beat_missing(self):
@@ -360,7 +360,7 @@ class SceneContractTests(unittest.TestCase):
             captured["prompt"],
         )
         self.assertIn(
-            "Search the entire scene for equivalent actions, including paraphrases or later paragraphs",
+            "Search the whole scene for paraphrases before marking missing",
             captured["prompt"],
         )
         self.assertIn(
