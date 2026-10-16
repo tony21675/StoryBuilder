@@ -1059,6 +1059,24 @@ class StoryBuilderApp(tk.Tk):
         )
         self.writer_clear_context_button.pack(side="left", padx=(8, 3))
 
+        checker_row = ttk.Frame(content_frame)
+        checker_row.pack(fill="x", pady=(0, 4))
+        ttk.Label(checker_row, text="Scene checker model").pack(side="left")
+        self.validator_model_var = tk.StringVar()
+        self.validator_model_combo = ttk.Combobox(
+            checker_row,
+            textvariable=self.validator_model_var,
+            state="readonly",
+            width=72,
+        )
+        self.validator_model_combo.pack(
+            side="left", fill="x", expand=True, padx=(8, 8)
+        )
+        ttk.Label(
+            content_frame,
+            text="The checker runs after writing; StoryBuilder loads only one model at a time.",
+        ).pack(anchor="w", pady=(0, 8))
+
         self.writer_status = ttk.Label(content_frame, text="Writer stopped.")
         self.writer_status.pack(anchor="w", pady=(0, 8))
 
@@ -1341,7 +1359,91 @@ class StoryBuilderApp(tk.Tk):
             self.writer_model_var.set(values[0])
         else:
             self.writer_model_var.set("")
+
+        if hasattr(self, "validator_model_combo"):
+            self.validator_model_combo["values"] = values
+            checker_current = self.validator_model_var.get()
+            if checker_current in values:
+                self.validator_model_var.set(checker_current)
+            else:
+                # Prefer the installed instruction-tuned Llama checker for the
+                # first run, while preserving any later user selection.
+                preferred = next(
+                    (
+                        value for value in values
+                        if "llama-3.1-8b-instruct" in Path(value).name.casefold()
+                    ),
+                    None,
+                )
+                writer_selection = self.writer_model_var.get().strip()
+                if preferred:
+                    self.validator_model_var.set(preferred)
+                elif writer_selection in values:
+                    self.validator_model_var.set(writer_selection)
+                elif values:
+                    self.validator_model_var.set(values[0])
+                else:
+                    self.validator_model_var.set("")
         self._update_writer_buttons()
+
+    def _validate_scene_with_selected_model(
+        self,
+        contract,
+        current_state,
+        prose,
+        *,
+        author_guidance="",
+    ):
+        """Check a draft with the selected model, then restore the writer runtime."""
+        engine = self.writer_engine
+        writer_model = getattr(engine, "model_path", None)
+        if writer_model is None:
+            selected_writer = self.writer_model_var.get().strip()
+            if not selected_writer:
+                raise RuntimeError("Select a Writer model before checking a scene.")
+            writer_model = WriterEngine.validate_model(selected_writer)
+        else:
+            writer_model = Path(writer_model)
+
+        checker_selection = getattr(self, "validator_model_var", None)
+        checker_selection = checker_selection.get().strip() if checker_selection else ""
+        checker_model = (
+            WriterEngine.validate_model(checker_selection)
+            if checker_selection
+            else WriterEngine.validate_model(writer_model)
+        )
+
+        original_system_prompt = getattr(engine, "system_prompt", "")
+        child = getattr(engine, "child", None)
+        try:
+            was_running = child is not None and bool(child.isalive())
+        except Exception:
+            was_running = False
+
+        try:
+            return SceneContract.validate_with_engine(
+                engine,
+                contract,
+                current_state,
+                prose,
+                author_guidance=author_guidance,
+                model_path=checker_model,
+            )
+        finally:
+            # Validation switches the shared llama.cpp process to the checker
+            # model. Restore the writing model before a revision or next scene.
+            if was_running:
+                child = getattr(engine, "child", None)
+                try:
+                    still_running = child is not None and bool(child.isalive())
+                except Exception:
+                    still_running = False
+                if (
+                    not still_running
+                    or getattr(engine, "model_path", None) != writer_model
+                    or getattr(engine, "system_prompt", "") != original_system_prompt
+                ):
+                    engine.reset_context(writer_model, original_system_prompt)
 
     def _author_writing_guidance(self) -> str:
         """Return stable author instructions without mixing in scene-specific planning."""
@@ -2821,8 +2923,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                         break
 
                     try:
-                        result = SceneContract.validate_with_engine(
-                            self.writer_engine,
+                        result = self._validate_scene_with_selected_model(
                             contract,
                             current_state,
                             answer,
@@ -3149,8 +3250,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             def work():
                 validation_unavailable = False
                 try:
-                    result = SceneContract.validate_with_engine(
-                        self.writer_engine,
+                    result = self._validate_scene_with_selected_model(
                         validation_contract,
                         validation_state,
                         prose,
