@@ -1393,24 +1393,20 @@ class StoryBuilderApp(tk.Tk):
         prose,
         *,
         author_guidance="",
+        writer_model=None,
+        validator_model=None,
     ):
         """Check a draft with the selected model, then restore the writer runtime."""
         engine = self.writer_engine
-        writer_model = getattr(engine, "model_path", None)
         if writer_model is None:
-            selected_writer = self.writer_model_var.get().strip()
-            if not selected_writer:
-                raise RuntimeError("Select a Writer model before checking a scene.")
-            writer_model = WriterEngine.validate_model(selected_writer)
-        else:
-            writer_model = Path(writer_model)
-
-        checker_selection = getattr(self, "validator_model_var", None)
-        checker_selection = checker_selection.get().strip() if checker_selection else ""
+            writer_model = getattr(engine, "model_path", None)
+        if writer_model is None:
+            raise RuntimeError("Select a Writer model before checking a scene.")
+        writer_model = WriterEngine.validate_model(writer_model)
         checker_model = (
-            WriterEngine.validate_model(checker_selection)
-            if checker_selection
-            else WriterEngine.validate_model(writer_model)
+            WriterEngine.validate_model(validator_model)
+            if validator_model
+            else writer_model
         )
 
         original_system_prompt = getattr(engine, "system_prompt", "")
@@ -2842,6 +2838,8 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         system_prompt = self._writer_system_prompt(files)
         model = self.writer_engine.model_path
         author_guidance = self._author_writing_guidance()
+        # Capture Tk variables on the UI thread; validation runs in a worker thread.
+        validator_model = self.validator_model_var.get().strip()
 
         writer_context = SceneContract.writer_prompt_context(direction, contract)
         prompt_parts = [
@@ -2928,6 +2926,8 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                             current_state,
                             answer,
                             author_guidance=author_guidance,
+                            writer_model=model,
+                            validator_model=validator_model,
                         )
                     except SceneContractValidationUnavailable as exc:
                         # Preserve the generated prose. A broken validator response
@@ -3241,6 +3241,9 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             ))
             validation_contract = json.loads(json.dumps(contract, ensure_ascii=False))
             author_guidance = self._author_writing_guidance()
+            # Capture Tk variables here, before handing validation to a worker thread.
+            writer_model = self.writer_engine.model_path or self.writer_model_var.get().strip()
+            validator_model = self.validator_model_var.get().strip()
             self.acceptance_validation_in_progress = True
             self._update_writer_buttons()
             self.writer_status.configure(
@@ -3255,6 +3258,8 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                         validation_state,
                         prose,
                         author_guidance=author_guidance,
+                        writer_model=writer_model,
+                        validator_model=validator_model,
                     )
                     error = None
                 except SceneContractValidationUnavailable as exc:
