@@ -468,6 +468,74 @@ class SceneContractTests(unittest.TestCase):
         self.assertIn("EVIDENCE SOURCE (only this passage may be quoted):", retry_prompt)
         self.assertTrue(retry_prompt.rstrip().endswith(prose))
 
+    def test_schema_correction_does_not_consume_evidence_correction(self):
+        idea = "Tony offers Maya a warm bubble bath with unscented bubbles and gives her privacy."
+        prose = (
+            "Tony offered Maya a warm bubble bath with unscented bubbles, "
+            "then left the room to give her privacy."
+        )
+        ungrounded_result = {
+            "pass": True,
+            "missed_beats": [],
+            "violations": [],
+            "checks": [
+                {
+                    "requirement": "Tony offers a warm bubble bath with unscented bubbles.",
+                    "status": "met",
+                    "evidence": "",
+                },
+                {
+                    "requirement": "Tony gives Maya privacy.",
+                    "status": "met",
+                    "evidence": "",
+                },
+            ],
+            "notes": "",
+        }
+        corrected_result = {
+            "pass": True,
+            "missed_beats": [],
+            "violations": [],
+            "checks": [
+                {
+                    "requirement": "Tony offers a warm bubble bath with unscented bubbles.",
+                    "status": "met",
+                    "evidence": "Tony offered Maya a warm bubble bath with unscented bubbles",
+                },
+                {
+                    "requirement": "Tony gives Maya privacy.",
+                    "status": "met",
+                    "evidence": "left the room to give her privacy",
+                },
+            ],
+            "notes": "",
+        }
+
+        with patch.object(
+            scene_contract,
+            "_run_validator",
+            side_effect=[
+                SceneContractResponseError("invalid 'pass' value"),
+                ungrounded_result,
+                corrected_result,
+            ],
+        ) as run_validator:
+            result = SceneContract.validate_with_engine(
+                FakeEngine(),
+                {"author_idea": idea, "required_beats": []},
+                {"chapter": 2, "scene": 4},
+                prose,
+            )
+
+        self.assertTrue(result["pass"], result)
+        self.assertEqual(run_validator.call_count, 3)
+        schema_retry_prompt = run_validator.call_args_list[1].args[1]
+        evidence_retry_prompt = run_validator.call_args_list[2].args[1]
+        self.assertIn("CORRECTION REQUIRED", schema_retry_prompt)
+        self.assertIn("TARGETED EVIDENCE CORRECTION REQUIRED", evidence_retry_prompt)
+        self.assertIn("EVIDENCE SOURCE (only this passage may be quoted):", evidence_retry_prompt)
+        self.assertTrue(evidence_retry_prompt.rstrip().endswith(prose))
+
     def test_repeated_invalid_evidence_returns_validation_unavailable(self):
         idea = "Tony offers Maya a warm bubble bath with unscented bubbles and gives her privacy."
         prose = "Tony offered Maya a warm bath, then left the room to give her privacy."

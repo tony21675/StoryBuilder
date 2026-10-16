@@ -1072,7 +1072,11 @@ class SceneContract:
 
         validation_prompt = prompt
         normalized_result = None
-        for validator_attempt in range(2):
+        # Schema/shape failures and ungrounded evidence are independent failure modes.
+        # A correction for one must not consume the correction budget for the other.
+        response_correction_used = False
+        evidence_correction_used = False
+        for validator_attempt in range(3):
             try:
                 if _engine_is_running(engine):
                     raw_result = _run_validator(
@@ -1144,7 +1148,8 @@ class SceneContract:
                     })
 
                 if ungrounded_evidence:
-                    if validator_attempt == 0:
+                    if not evidence_correction_used:
+                        evidence_correction_used = True
                         validation_prompt = (
                             prompt
                             + "\n\nTARGETED EVIDENCE CORRECTION REQUIRED:\n"
@@ -1173,7 +1178,8 @@ class SceneContract:
                 }
                 break
             except SceneContractResponseError as exc:
-                if validator_attempt == 0:
+                if not response_correction_used:
+                    response_correction_used = True
                     validation_prompt = (
                         prompt
                         + "\n\nCORRECTION REQUIRED: Your previous response failed this validation: "
