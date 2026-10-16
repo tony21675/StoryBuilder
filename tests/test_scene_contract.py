@@ -200,6 +200,40 @@ class SceneContractTests(unittest.TestCase):
 
         self.assertFalse(result["pass"])
 
+    def test_semantic_validator_can_use_a_separate_model_path(self):
+        prose = "A man waves."
+        validator_model = Path("/tmp/secondary-checker.gguf")
+        captured = {}
+        validator_result = {
+            "pass": True,
+            "missed_beats": [],
+            "violations": [],
+            "checks": [
+                {
+                    "requirement": "Someone waves.",
+                    "status": "met",
+                    "evidence": "A man waves.",
+                }
+            ],
+            "notes": "",
+        }
+
+        def fake_validator(model, _prompt):
+            captured["model"] = model
+            return validator_result
+
+        with patch.object(scene_contract, "_run_validator", side_effect=fake_validator):
+            result = SceneContract.validate_with_engine(
+                FakeEngine(),
+                dict(self.contract, author_idea="Someone waves."),
+                {"chapter": 1, "scene": 1},
+                prose,
+                model_path=validator_model,
+            )
+
+        self.assertTrue(result["pass"], result)
+        self.assertEqual(captured["model"], validator_model)
+
     def test_validator_retries_once_with_a_corrected_json_prompt(self):
         valid_result = {
             "pass": True,

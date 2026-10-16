@@ -1110,6 +1110,7 @@ class SceneContract:
         current_state: dict[str, Any],
         prose: str,
         author_guidance: str = "",
+        model_path: str | Path | None = None,
     ) -> dict[str, Any]:
         """Validate the scene contract plus stable author guidance, when relevant."""
         if not isinstance(contract, dict) or not contract:
@@ -1214,9 +1215,10 @@ class SceneContract:
             + prose.strip()
         )
 
-        model = getattr(engine, "model_path", None)
+        model = model_path if model_path is not None else getattr(engine, "model_path", None)
         if model is None:
             raise RuntimeError("The active writer model is unavailable for scene validation.")
+        model = Path(model).expanduser()
 
         validation_prompt = prompt
         normalized_result = None
