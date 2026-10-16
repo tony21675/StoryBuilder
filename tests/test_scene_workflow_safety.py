@@ -277,7 +277,7 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             self.assertEqual(app.accepted_scene_context, (2, 4))
             path = ManuscriptManager(Path(tmp)).scene_path(2, 4)
             self.assertTrue(path.is_file())
-            self.assertEqual(path.read_text(encoding="utf-8"), prose)
+            self.assertEqual(path.read_text(encoding="utf-8"), prose + "\n")
     def test_writer_generation_error_preserves_unaccepted_draft(self):
         app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
         error_text = (
@@ -582,7 +582,7 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             self.assertEqual(app.accepted_scene, edited_prose)
             path = ManuscriptManager(Path(tmp)).scene_path(2, 1)
             self.assertTrue(path.is_file())
-            self.assertEqual(path.read_text(encoding="utf-8"), edited_prose)
+            self.assertEqual(path.read_text(encoding="utf-8"), edited_prose + "\n")
     def test_apply_state_update_saves_end_state_snapshot_before_advancing(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
