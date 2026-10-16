@@ -312,7 +312,9 @@ class SceneContractTests(unittest.TestCase):
         self.assertIn("Never quote the idea, instructions", prompt)
         self.assertIn("Preserve stated backstory", prompt)
         self.assertIn("do not accept a different action, object, person", prompt)
-        self.assertIn("One check per commitment, no incidental requirements", prompt)
+        self.assertIn("Create a SHORT EVENT-LEVEL checklist, usually 4–8 checks total", prompt)
+        self.assertIn("Group related details from the same event", prompt)
+        self.assertIn("Ignore incidental details unless the idea makes them defining", prompt)
         self.assertLess(len(prompt), 1500)
 
     def test_validator_checks_whole_scene_before_calling_a_beat_missing(self):
@@ -825,7 +827,8 @@ class SceneContractTests(unittest.TestCase):
         self.assertFalse(result["pass"])
         retry_prompt = run_validator.call_args_list[1].args[1]
         self.assertIn("checks", retry_prompt)
-        self.assertIn("itemized author-intent checks", retry_prompt)
+        self.assertIn("concise non-empty event checklist", retry_prompt)
+        self.assertIn("4-8 meaningful scene events", retry_prompt)
         self.assertIn("do not claim they are absent", retry_prompt)
         self.assertNotIn("previous response was not a readable", retry_prompt)
 
