@@ -2469,7 +2469,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         return visible.strip() != accepted
 
     def _update_writer_buttons(self):
-        if not hasattr(self, "writer_start_button"):
+        if self.__dict__.get("writer_start_button") is None:
             return
 
         child = getattr(self.writer_engine, "child", None)
@@ -2523,7 +2523,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             self.writer_revision_request_entry.configure(
                 state="normal" if running and has_pending and self.package and not busy else "disabled"
             )
-        if hasattr(self, "writer_clear_context_button"):
+        if self.__dict__.get("writer_clear_context_button") is not None:
             self.writer_clear_context_button.configure(
                 state="normal" if running and self.package and not busy else "disabled"
             )
