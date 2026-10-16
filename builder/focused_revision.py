@@ -106,6 +106,11 @@ def apply_focused_replacement(original: str, response: str) -> str:
     match = matches[0]
     if match.start() == 0 and match.end() == len(original):
         raise ValueError("The model targeted the entire scene instead of a focused passage.")
+    if len(replacement) >= len(original) * 0.6 and len(target) < len(original) * 0.4:
+        raise ValueError(
+            "The replacement is too broad for a focused edit. The model must return only the revised passage."
+        )
+
     if original[match.start():match.end()] == replacement:
         raise ValueError("The proposed replacement would not change the draft.")
 
