@@ -301,6 +301,21 @@ def _evidence_occurs_in_prose(prose: str, evidence: str) -> bool:
     return bool(normalized_evidence and normalized_evidence in normalize(prose))
 
 
+def _normalize_check_status(value: Any) -> str | None:
+    """Normalize common model wording without accepting ambiguous validation labels."""
+    status = re.sub(r"[\s_-]+", " ", str(value or "").strip().casefold())
+    status = re.sub(r"[.!:;]+$", "", status).strip()
+    if status in {"met", "present", "satisfied", "fulfilled", "passed", "pass", "true"}:
+        return "met"
+    if status in {
+        "missing", "missed", "not met", "not present", "unmet", "not satisfied",
+        "not fulfilled", "partially met", "partially satisfied", "absent", "omitted",
+        "not found", "failed", "fail", "false",
+    }:
+        return "missing"
+    return None
+
+
 def _semantic_recheck_checks(
     model: Path,
     engine: Any,
@@ -358,9 +373,9 @@ def _semantic_recheck_checks(
                     if not isinstance(item, dict):
                         malformed = True
                         break
-                    status = str(item.get("status", "") or "").strip().casefold()
+                    status = _normalize_check_status(item.get("status"))
                     evidence = str(item.get("evidence", "") or "").strip()
-                    if status not in {"met", "missing"}:
+                    if status is None:
                         malformed = True
                         break
                     requirement = requirements[index]
@@ -1264,9 +1279,9 @@ class SceneContract:
                             "Scene-contract validator returned an invalid check item."
                         )
                     requirement = str(item.get("requirement", "") or "").strip()
-                    status = str(item.get("status", "") or "").strip().casefold()
+                    status = _normalize_check_status(item.get("status"))
                     evidence = str(item.get("evidence", "") or "").strip()
-                    if not requirement or status not in {"met", "missing"}:
+                    if not requirement or status is None:
                         raise SceneContractResponseError(
                             "Scene-contract validator returned an invalid requirement check."
                         )
@@ -1277,7 +1292,7 @@ class SceneContract:
                     normalized_checks.append({
                         "requirement": requirement,
                         "status": status,
-                        "evidence": evidence,
+                        "evidence": evidence if status == "met" else "",
                     })
 
                 # If the event-level checklist is overwhelmingly marked missing, independently

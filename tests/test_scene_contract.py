@@ -527,6 +527,45 @@ class SceneContractTests(unittest.TestCase):
         self.assertEqual(run_validator.call_count, 2)
         self.assertIn("SEMANTIC COVERAGE RECHECK", run_validator.call_args_list[1].args[1])
 
+
+    def test_common_model_status_variants_normalize_to_missing(self):
+        self.assertEqual(scene_contract._normalize_check_status("not met"), "missing")
+        self.assertEqual(scene_contract._normalize_check_status("NOT_MET"), "missing")
+        self.assertEqual(scene_contract._normalize_check_status("missed"), "missing")
+        self.assertEqual(scene_contract._normalize_check_status("partially met"), "missing")
+        self.assertEqual(scene_contract._normalize_check_status("present"), "met")
+        self.assertEqual(scene_contract._normalize_check_status("Satisfied"), "met")
+        self.assertIsNone(scene_contract._normalize_check_status("unclear"))
+
+    def test_model_status_variants_do_not_bypass_missing_event_validation(self):
+        idea = "Maya takes a bath, and Tony makes tea."
+        prose = "Maya settled into the bath. Tony made tea."
+        raw_result = {
+            "pass": True,
+            "missed_beats": [],
+            "violations": [],
+            "checks": [
+                {"requirement": "Maya takes a bath.", "status": "present", "evidence": "Maya settled into the bath."},
+                {"requirement": "Tony makes tea.", "status": "not met", "evidence": ""},
+                {"requirement": "A third event happens.", "status": "missed", "evidence": "unsupported quote"},
+            ],
+            "notes": "",
+        }
+
+        with patch.object(scene_contract, "_run_validator", return_value=raw_result):
+            result = SceneContract.validate_with_engine(
+                FakeEngine(),
+                {"author_idea": idea, "required_beats": []},
+                {"chapter": 1, "scene": 1},
+                prose,
+            )
+
+        self.assertFalse(result["pass"])
+        self.assertTrue(any("Tony makes tea" in item for item in result["missed_beats"]))
+        self.assertTrue(any("A third event happens" in item for item in result["missed_beats"]))
+        self.assertTrue(result["missed_beats"][0].endswith("Tony makes tea."))
+        self.assertTrue(result["missed_beats"][1].endswith("A third event happens."))
+
     def test_missing_checks_do_not_duplicate_existing_missed_beats(self):
         idea = "Tony helps Maya settle and makes her tea."
         raw_result = {
