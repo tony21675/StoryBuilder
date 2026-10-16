@@ -404,6 +404,98 @@ class SceneContractTests(unittest.TestCase):
         self.assertFalse(result["pass"])
         self.assertTrue(any("warm bubble bath with unscented bubbles" in item for item in result["missed_beats"]))
 
+    def test_many_missing_checks_get_semantic_recheck_in_small_batches(self):
+        requirements = [
+            "A red car is present.",
+            "Tony sits on the porch.",
+            "Maya gives a nod.",
+            "Beth calls before sunset.",
+            "Jessica confirms she will come.",
+            "A kettle boils.",
+            "The rain stops.",
+            "The door closes.",
+        ]
+        prose = (
+            "A maroon sedan waited by the gate. Tony sat on the porch. Maya nodded once. "
+            "Beth called before sunset. Jessica confirmed she would come. The kettle boiled. "
+            "The rain stopped. The door clicked shut."
+        )
+        first_pass = {
+            "pass": False,
+            "missed_beats": requirements.copy(),
+            "violations": [],
+            "checks": [
+                {"requirement": requirement, "status": "missing", "evidence": ""}
+                for requirement in requirements
+            ],
+            "notes": "",
+        }
+        first_batch = {
+            "pass": True,
+            "missed_beats": [],
+            "violations": [],
+            "checks": [
+                {"requirement": requirements[0], "status": "met", "evidence": "A maroon sedan waited by the gate."},
+                {"requirement": requirements[1], "status": "met", "evidence": "Tony sat on the porch."},
+                {"requirement": requirements[2], "status": "met", "evidence": "Maya nodded once."},
+                {"requirement": requirements[3], "status": "met", "evidence": "Beth called before sunset."},
+                {"requirement": requirements[4], "status": "met", "evidence": "Jessica confirmed she would come."},
+                {"requirement": requirements[5], "status": "met", "evidence": "The kettle boiled."},
+            ],
+            "notes": "",
+        }
+        second_batch = {
+            "pass": True,
+            "missed_beats": [],
+            "violations": [],
+            "checks": [
+                {"requirement": requirements[6], "status": "met", "evidence": "The rain stopped."},
+                {"requirement": requirements[7], "status": "met", "evidence": "The door clicked shut."},
+            ],
+            "notes": "",
+        }
+
+        with patch.object(
+            scene_contract,
+            "_run_validator",
+            side_effect=[first_pass, first_batch, second_batch],
+        ) as run_validator:
+            result = SceneContract.validate_with_engine(
+                FakeEngine(),
+                {"author_idea": "The scene contains the listed actions and details.", "required_beats": []},
+                {"chapter": 1, "scene": 1},
+                prose,
+            )
+
+        self.assertTrue(result["pass"], result)
+        self.assertEqual(result["missed_beats"], [])
+        self.assertEqual(run_validator.call_count, 3)
+        self.assertEqual([item["status"] for item in result["_checks"]], ["met"] * 8)
+        self.assertIn("red car", run_validator.call_args_list[1].args[1])
+        self.assertIn("maroon sedan", run_validator.call_args_list[1].args[1])
+        self.assertIn("Judge meaning, not keyword overlap", run_validator.call_args_list[1].kwargs["system_prompt"])
+
+    def test_missing_checks_do_not_duplicate_existing_missed_beats(self):
+        idea = "Tony helps Maya settle and makes her tea."
+        raw_result = {
+            "pass": False,
+            "missed_beats": ["Tony helps Maya settle.", "Tony makes her tea."],
+            "violations": [],
+            "checks": [
+                {"requirement": "Tony helps Maya settle.", "status": "missing", "evidence": ""},
+                {"requirement": "Tony makes her tea.", "status": "missing", "evidence": ""},
+            ],
+            "notes": "",
+        }
+        with patch.object(scene_contract, "_run_validator", return_value=raw_result):
+            result = SceneContract.validate_with_engine(
+                FakeEngine(),
+                {"author_idea": idea, "required_beats": []},
+                {"chapter": 1, "scene": 1},
+                "Tony helped Maya settle. Tony made her tea.",
+            )
+        self.assertEqual(result["missed_beats"], raw_result["missed_beats"])
+
     def test_copied_instruction_evidence_is_retried_and_corrected_scene_quote_can_pass(self):
         idea = "Tony offers Maya a warm bubble bath with unscented bubbles and gives her privacy."
         prose = (
