@@ -22,7 +22,9 @@ class SceneContractValidationUnavailable(RuntimeError):
 VALIDATOR_SYSTEM_PROMPT = """Review the author's original idea and starting state. Return only JSON:
 {"pass": true, "missed_beats": [], "violations": [], "checks": [{"requirement": "", "status": "met", "evidence": ""}], "notes": ""}
 
-Judge meaning, not keywords: synonyms and natural paraphrases count when intent is preserved. A "red car" may be a "maroon sedan" if context identifies the same vehicle. Evidence must be a short verbatim quote from COMPLETED SCENE only, but need not reuse requirement words. Never quote the idea, instructions, supporting contract, or starting state as evidence. Mark met only when the entire requirement is supported; otherwise mark missing with empty evidence. Do not mark missing solely for different wording; do not accept a different action, object, person, order, defining detail, or outcome. Check material actions/results, object history/details, named people, boundaries, order/location, and endpoint. One check per commitment, no incidental requirements. Flag unexplained opening continuity mismatches; check character knowledge and respect intentional mysteries. Check acknowledged requests/preferences against later actions. A broad or substitute action is not proof; a bubble bath is not a shower and includes bubbles. Preserve stated backstory. For missing checks, list the exact requirement in missed_beats without duplicates. If any check is missing, pass must be false. Accept neutral familial comfort.
+Judge meaning, not keywords. Synonyms and natural paraphrases count when intent is preserved. Evidence must be a short verbatim quote from COMPLETED SCENE only; never quote the idea, instructions, contract, or starting state.
+Create a SHORT EVENT-LEVEL checklist, usually 4–8 checks total. Each check describes one meaningful scene event or outcome. Group related details from the same event; do not create a separate check for every clause, adjective, object, person, or small action. Keep distinct events separate when each could independently be missing. For example, a bath and its privacy arrangements can be one event; keep calls separate when they have different required outcomes. Ignore incidental details unless the idea makes them defining, continuity-critical, or a boundary/preference.
+Check the whole scene before marking an event missing. A check is met only when its main action and defining details are present; different wording is fine, but a different action, object, person, order, or outcome is not. A specified bubble bath is not a shower and still needs its bubbles. Use a direct verbatim quote that supports the event; for related details spanning one passage, quote the exact relevant span. Minor descriptive omissions alone do not fail unless material. Flag material continuity or knowledge errors and ignored acknowledged requests. Repeat missing event requirements in missed_beats without duplicates. If any event check is missing, pass must be false. Preserve stated backstory. Accept neutral familial comfort.
 """
 
 SEMANTIC_RECHECK_SYSTEM_PROMPT = """Independently reassess only the supplied checklist items against the completed scene. Return JSON only:
@@ -1183,9 +1185,10 @@ class SceneContract:
             + "If the main action occurs but only a purely incidental detail is missing, do not fail for that alone; optional details may go in notes. "
             + "Search the whole scene for paraphrases before marking missing. Judge meaning, not keywords: a 'red car' can be a 'maroon sedan'. Evidence must be verbatim scene prose, but need not use requirement words; do not accept different actions or defining details. "
             + "Do not fail for a minor descriptive or phrasing omission when the intended event, character knowledge, and endpoint remain intact, unless a specified action/object/location or acknowledged request changes. "
-            + "Build an itemized checks list covering every material commitment in the original idea, including defining object details, named people and confirmations, meaningful backstory, and boundaries. "
-            + "For each check, provide requirement, status, and a short verbatim evidence quote from COMPLETED SCENE only. The quote must directly support the entire requirement, not merely a related or broad action; never quote the idea, instructions, or state. If absent or materially incomplete, use status 'missing' and empty evidence. "
-            + "If an author idea is present, checks must be a non-empty list; pass must be false if any check is missing. "
+            + "Create a SHORT event-level checklist, usually 4–8 checks total. Group details belonging to the same scene event instead of making micro-checks for every clause, adjective, person, object, or small action. Keep genuinely separate events separate when their outcomes can independently be missing. "
+            + "Judge each event against the entire scene, using meaning rather than keyword overlap. Fail only for a missing or materially changed event, its defining detail, an explicit boundary/request, or the scene endpoint; minor descriptive omissions alone do not fail. "
+            + "For each event check, provide requirement, status, and a direct verbatim evidence quote from COMPLETED SCENE only. The quote must support the event, but need not reuse the requirement's words; never quote the idea, instructions, or state. If the event is absent or materially different, use status 'missing' and empty evidence. "
+            + "If an author idea is present, return a concise non-empty event checklist; pass must be false if any event check is missing. Report material continuity or character-knowledge conflicts separately as violations. "
             + "Return JSON only in this shape: "
             + '{"pass": true, "missed_beats": [], "violations": [], "checks": [{"requirement": "", "status": "met", "evidence": ""}], "notes": ""}'
             + guidance_section
@@ -1247,7 +1250,7 @@ class SceneContract:
                 checks = raw_result.get("checks")
                 if requires_coverage and (not isinstance(checks, list) or not checks):
                     raise SceneContractResponseError(
-                        "Scene-contract validator did not return itemized author-intent checks."
+                        "Scene-contract validator did not return a concise event-level checklist."
                     )
                 if checks is not None and not isinstance(checks, list):
                     raise SceneContractResponseError(
@@ -1278,14 +1281,13 @@ class SceneContract:
                         "evidence": evidence,
                     })
 
-                # Small local models can collapse when asked to judge a long checklist all at once.
-                # If almost every item is called missing, independently re-evaluate the same checks
-                # in small semantic batches before instructing the writer to rewrite the scene.
+                # If the event-level checklist is overwhelmingly marked missing, independently
+                # recheck it in small batches before asking the writer to revise a scene.
                 missing_count = sum(item["status"] == "missing" for item in normalized_checks)
                 should_semantically_recheck = (
                     not ungrounded_evidence
                     and requires_coverage
-                    and len(normalized_checks) >= 8
+                    and len(normalized_checks) >= 4
                     and missing_count / len(normalized_checks) >= 0.75
                 )
                 if should_semantically_recheck:
@@ -1343,7 +1345,7 @@ class SceneContract:
                         + ". Use a JSON boolean for pass, arrays of strings for missed_beats "
                         "and violations, a checks array of requirement/status/evidence objects, "
                         "and a string for notes. For a supplied author idea, include at least one "
-                        "check per material commitment and use verbatim scene evidence. Do not use "
+                        "use a short checklist of 4-8 meaningful scene events, group related details within each event, and use verbatim scene evidence. Do not use "
                         "Markdown fences or include any text before or after the JSON object."
                     )
                     continue
