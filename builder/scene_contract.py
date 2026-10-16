@@ -1344,7 +1344,7 @@ class SceneContract:
                         + '{"pass": true, "missed_beats": [], "violations": [], "checks": [{"requirement": "", "status": "met", "evidence": ""}], "notes": ""}'
                         + ". Use a JSON boolean for pass, arrays of strings for missed_beats "
                         "and violations, a checks array of requirement/status/evidence objects, "
-                        "and a string for notes. For a supplied author idea, include at least one "
+                        "and a string for notes. For a supplied author idea, "
                         "use a short checklist of 4-8 meaningful scene events, group related details within each event, and use verbatim scene evidence. Do not use "
                         "Markdown fences or include any text before or after the JSON object."
                     )
