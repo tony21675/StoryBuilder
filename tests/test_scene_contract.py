@@ -1113,7 +1113,7 @@ class SceneContractTests(unittest.TestCase):
         self.assertIn(author_guidance, captured["prompt"])
         self.assertIn("source locations", captured["prompt"])
         self.assertIn("explicit requests, preferences, boundaries, or needs", captured["prompt"])
-        self.assertIn("Check explicit requests/preferences against later actions", scene_contract.VALIDATOR_SYSTEM_PROMPT)
+        self.assertIn("Check acknowledged requests/preferences against later actions", scene_contract.VALIDATOR_SYSTEM_PROMPT)
 
     def test_max_attempts_is_safe_and_configurable(self):
         self.assertEqual(scene_contract.SceneContract.max_attempts({}), 3)
