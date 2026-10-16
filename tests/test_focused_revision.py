@@ -70,6 +70,16 @@ class FocusedRevisionTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "more than once"):
             apply_focused_replacement(original, response)
 
+    def test_rejects_scene_sized_replacement_for_a_small_target(self):
+        original = ("The bath was plain. " + "The rest of the scene stays unchanged. " * 8).strip()
+        response = json.dumps({
+            "target_text": "The bath was plain.",
+            "replacement_text": original + " rewritten in full",
+        })
+
+        with self.assertRaisesRegex(ValueError, "too broad"):
+            apply_focused_replacement(original, response)
+
     def test_rejects_whole_scene_rewrites(self):
         original = "A short complete scene."
         response = json.dumps({
