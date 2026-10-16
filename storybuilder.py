@@ -136,6 +136,7 @@ class StoryBuilderApp(tk.Tk):
         self.writer_notes_update_in_progress = False
         self.generated_scene = ""
         self.accepted_scene = ""
+        self.focused_revision_history = []
         self.accepted_scene_context = None
         self.focused_revision_history = []
         # Keep each generated scene tied to the chapter/scene and exact start
@@ -2487,7 +2488,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             state="disabled" if running or busy else "normal"
         )
         self.writer_stop_button.configure(
-            state="normal" if running and not busy else "disabled"
+            state="normal" if running and not notes_updating and not contract_building and not focused_revision else "disabled"
         )
         self.writer_write_button.configure(
             state="normal" if running and self.package and not has_pending and not busy else "disabled"
@@ -2911,13 +2912,13 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             self.after(
                 0,
                 lambda: self._finish_generated_scene(
-                    answer, error, None, trace_result
+                    answer, error, trace_result
                 ),
             )
 
         self.writer_thread = threading.Thread(target=work, daemon=True)
         self.writer_thread.start()
-    def _finish_generated_scene(self, answer, error, validation_warning=None, trace_result=None):
+    def _finish_generated_scene(self, answer, error, trace_result=None):
         target = getattr(self, "writer_generation_context", None)
         if trace_result is not None:
             self.active_prompt_trace = None
@@ -2987,8 +2988,6 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             return
 
         self.writer_draft_saved_text = None
-        self.writer_validation_failed = False
-        self.writer_validation_unavailable = False
         self.generated_scene = str(answer or "").strip()
         self.generated_scene_context = target or (
             int(self.package.current_state.get("chapter", 1) or 1),
@@ -3177,8 +3176,6 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             return
 
         self.generated_scene = ""
-        self.writer_validation_failed = False
-        self.writer_validation_unavailable = False
         self.focused_revision_history = []
         if hasattr(self, "writer_revision_request_var"):
             self.writer_revision_request_var.set("")
@@ -3186,10 +3183,10 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         if not self.accepted_scene.strip():
             self.generated_scene_context = None
             self.generated_scene_start_state = None
+        self._update_writer_buttons()
         self.writer_status.configure(
             text="Scene rejected. The current story state and accepted manuscript were not changed.",
         )
-        self._update_writer_buttons()
     def _save_generated_draft(self):
         if not self.package:
             return
@@ -3296,17 +3293,15 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             self.accepted_scene = prose
             self.accepted_scene_context = (chapter, scene)
             self.focused_revision_history = []
-            self.writer_validation_unavailable = False
-            self.writer_validation_failed = False
             self.generated_scene_context = (chapter, scene)
             self.pending_state_patch = None
             self.writer_state_preview.delete("1.0", "end")
             self._refresh_manuscript()
             self._chat("Builder", f"Accepted Chapter {chapter}, Scene {scene} and saved it to {path}.")
+            self._update_writer_buttons()
             self.writer_status.configure(
                 text="Scene accepted. You can now analyze it for state changes."
             )
-            self._update_writer_buttons()
         except Exception as exc:
             self._show_copyable_error("Writer", str(exc))
     def _editable_scene_guidance_entry(
@@ -4304,6 +4299,8 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             self.pending_state_patch = None
             self.generated_scene = ""
             self.accepted_scene = ""
+        self.accepted_scene_context = None
+        self.focused_revision_history = []
             self.generated_scene_context = None
             self.generated_scene_start_state = None
             self.writer_generation_context = None
@@ -5319,6 +5316,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         self.character_filename = None
         self.generated_scene = ""
         self.accepted_scene = ""
+        self.focused_revision_history = []
         self.accepted_scene_context = None
         self.focused_revision_history = []
         self.pending_state_patch = None
@@ -5352,6 +5350,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             pass
         self.generated_scene = ""
         self.accepted_scene = ""
+        self.focused_revision_history = []
         self.accepted_scene_context = None
         self.focused_revision_history = []
         self.generated_scene_context = None
@@ -5410,6 +5409,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         self.character_filename = None
         self.generated_scene = ""
         self.accepted_scene = ""
+        self.focused_revision_history = []
         self.accepted_scene_context = None
         self.focused_revision_history = []
         self.generated_scene_context = None
@@ -5912,6 +5912,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         """Clear scene-specific Writer memory only after its text is safely saved."""
         self.generated_scene = ""
         self.accepted_scene = ""
+        self.focused_revision_history = []
         self.accepted_scene_context = None
         self.focused_revision_history = []
         self.generated_scene_context = None
