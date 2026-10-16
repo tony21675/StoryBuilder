@@ -3175,21 +3175,28 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
 
         if not self._ask_yes_no(
             "Reject Scene",
-            "Discard this generated scene? It will not be accepted into the manuscript.",
+            "Discard this unaccepted draft or undo edits to the accepted scene? The manuscript file will not be deleted.",
         ):
             return
 
-        self.generated_scene = ""
+        accepted = str(self.__dict__.get("accepted_scene", "") or "").strip()
+        self.generated_scene = accepted
         self.focused_revision_history = []
-        if hasattr(self, "writer_revision_request_var"):
+        if self.__dict__.get("writer_revision_request_var") is not None:
             self.writer_revision_request_var.set("")
         self.writer_output_text.delete("1.0", "end")
-        if not self.accepted_scene.strip():
+        if accepted:
+            self.writer_output_text.insert("1.0", accepted)
+        else:
             self.generated_scene_context = None
             self.generated_scene_start_state = None
         self._update_writer_buttons()
         self.writer_status.configure(
-            text="Scene rejected. The current story state and accepted manuscript were not changed.",
+            text=(
+                "Restored the accepted scene. The manuscript was not changed."
+                if accepted
+                else "Scene rejected. The current story state and accepted manuscript were not changed."
+            ),
         )
     def _save_generated_draft(self):
         if not self.package:
