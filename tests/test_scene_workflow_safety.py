@@ -174,21 +174,21 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         self.assertEqual(app.scene_idea_text.value, "Saved scene beats.")
         app._ask_yes_no.assert_not_called()
 
-    def test_validation_failed_draft_can_be_saved_but_not_accepted(self):
+    def test_pending_draft_can_be_accepted_after_author_review(self):
         app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
         app.writer_engine = SimpleNamespace(
             child=SimpleNamespace(isalive=lambda: True),
             model_path=Path("/tmp/writer.gguf"),
         )
         app.package = object()
-        app.generated_scene = "Complete but unvalidated prose."
+        app.generated_scene = "Complete draft awaiting author review."
         app.accepted_scene = ""
         app.pending_state_patch = None
+        # Legacy state must no longer block acceptance in the author-review flow.
         app.writer_validation_failed = True
         app.scene_contract_building = False
         app.__dict__["writer_generation_in_progress"] = False
         app.__dict__["writer_notes_update_in_progress"] = False
-        app.__dict__["acceptance_validation_in_progress"] = False
         for name in (
             "writer_start_button",
             "writer_stop_button",
@@ -206,10 +206,9 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         app._update_writer_buttons()
 
         self.assertEqual(app.writer_save_draft_button.options["state"], "normal")
-        self.assertEqual(app.writer_accept_button.options["state"], "disabled")
+        self.assertEqual(app.writer_accept_button.options["state"], "normal")
         self.assertEqual(app.writer_reject_button.options["state"], "normal")
-
-    def test_validator_format_failure_preserves_draft_and_allows_author_review(self):
+    def test_generated_scene_returns_for_author_review_without_validator(self):
         app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
         app.package = SimpleNamespace(current_state={"chapter": 2, "scene": 4})
         app.generated_scene = ""
@@ -224,7 +223,6 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         app.pending_state_patch = None
         app._show_copyable_error = Mock()
         app.__dict__["writer_notes_update_in_progress"] = False
-        app.__dict__["acceptance_validation_in_progress"] = False
         for name in (
             "writer_start_button",
             "writer_stop_button",
@@ -239,89 +237,53 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             setattr(app, name, FakeButton())
 
         draft = "The complete scene that the author wants to review."
-        warning = "The validator returned an unreadable response twice."
         with patch.object(storybuilder_app.messagebox, "showwarning") as showwarning:
-            storybuilder_app.StoryBuilderApp._finish_generated_scene(
-                app, draft, None, warning
-            )
+            storybuilder_app.StoryBuilderApp._finish_generated_scene(app, draft, None)
 
-        app._show_copyable_error.assert_called_once()
-        args, kwargs = app._show_copyable_error.call_args
-        self.assertEqual(args[0], "Scene Contract Validation")
-        self.assertIn(warning, args[1])
+        app._show_copyable_error.assert_not_called()
         showwarning.assert_not_called()
         self.assertEqual(app.generated_scene, draft)
         self.assertEqual(app.writer_output_text.value, draft)
-        self.assertTrue(app.writer_validation_unavailable)
-        self.assertFalse(app.writer_validation_failed)
+        self.assertIn("Review it", app.writer_status.options["text"])
         self.assertEqual(app.writer_save_draft_button.options["state"], "normal")
         self.assertEqual(app.writer_accept_button.options["state"], "normal")
         self.assertEqual(app.writer_reject_button.options["state"], "normal")
-        showwarning.assert_not_called()
-
-    def test_unvalidated_draft_requires_explicit_acceptance_confirmation(self):
+    def test_author_can_accept_draft_without_validator_confirmation(self):
         with tempfile.TemporaryDirectory() as tmp:
             state = {"chapter": 2, "scene": 4}
-            prose = "A draft awaiting the author's review."
+            prose = "A draft that the author reviewed and chose to keep."
             app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
             app.package = SimpleNamespace(path=Path(tmp), current_state=state)
             app.generated_scene = prose
             app.accepted_scene = ""
             app.generated_scene_context = (2, 4)
             app.generated_scene_start_state = dict(state)
-            app.writer_validation_unavailable = True
-            app.writer_validation_failed = False
             app.writer_output_text = FakeText(prose)
-            app.__dict__["acceptance_validation_in_progress"] = False
-            app._scene_contract = Mock(return_value={})
+            app.writer_state_preview = FakeText()
+            app.writer_status = FakeButton()
+            app.pending_state_patch = None
             app._ask_yes_no = Mock(return_value=False)
+            app._refresh_manuscript = Mock()
+            app._chat = Mock()
             app._update_writer_buttons = Mock()
 
-            storybuilder_app.StoryBuilderApp._accept_generated_scene(app)
+            with patch.object(SceneContract, "validate_with_engine") as validator:
+                storybuilder_app.StoryBuilderApp._accept_generated_scene(app)
 
-            app._ask_yes_no.assert_called_once()
-            self.assertEqual(app._ask_yes_no.call_args.args[0], "Accept Without Validation")
-            self.assertIn("not passed semantic validation", app._ask_yes_no.call_args.args[1])
-            self.assertEqual(app.accepted_scene, "")
-            self.assertEqual(list(Path(tmp).glob("**/*")), [])
-
-    def test_validation_unavailable_diagnostic_uses_copyable_error_window(self):
-        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
-        warning_text = "Validator response did not return JSON." + (" Details." * 100)
-        draft = "A complete scene left unaccepted because validation was unavailable."
-        app.package = SimpleNamespace(current_state={"chapter": 2, "scene": 4})
-        app.generated_scene = ""
-        app.accepted_scene = ""
-        app.writer_generation_context = (2, 4)
-        app.writer_generation_start_state = {"chapter": 2, "scene": 4}
-        app.writer_generation_in_progress = True
-        app.writer_output_text = FakeText()
-        app.writer_status = FakeButton()
-        app._show_copyable_error = Mock()
-        app._update_writer_buttons = Mock()
-
-        with patch.object(storybuilder_app.messagebox, "showwarning") as showwarning:
-            app._finish_generated_scene(draft, None, validation_warning=warning_text)
-
-        app._show_copyable_error.assert_called_once()
-        args, kwargs = app._show_copyable_error.call_args
-        self.assertEqual(args[0], "Scene Contract Validation")
-        self.assertIn(warning_text, args[1])
-        self.assertIn("remains unaccepted", args[1])
-        self.assertIn("Semantic validation was unavailable", kwargs["summary"])
-        showwarning.assert_not_called()
-        self.assertEqual(app.generated_scene, draft)
-        self.assertTrue(app.writer_validation_unavailable)
-        self.assertFalse(app.writer_validation_failed)
-        self.assertEqual(app.writer_output_text.value, draft)
-
-    def test_writer_validation_error_uses_copyable_popup_and_preserves_unaccepted_draft(self):
+            validator.assert_not_called()
+            app._ask_yes_no.assert_not_called()
+            self.assertEqual(app.accepted_scene, prose)
+            self.assertEqual(app.accepted_scene_context, (2, 4))
+            path = ManuscriptManager(Path(tmp)).scene_path(2, 4)
+            self.assertTrue(path.is_file())
+            self.assertEqual(path.read_text(encoding="utf-8"), prose)
+    def test_writer_generation_error_preserves_unaccepted_draft(self):
         app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
         error_text = (
             "Local model turn timed out after 300 seconds. "
             "The draft remains unaccepted; you can save it and retry."
         )
-        draft = "A complete scene that could not finish validation."
+        draft = "A complete scene generated before a later model error."
         app.package = SimpleNamespace(current_state={"chapter": 2, "scene": 4})
         app.generated_scene = ""
         app.accepted_scene = ""
@@ -338,15 +300,13 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         app._show_copyable_error.assert_called_once_with(
             "Writer",
             error_text,
-            summary="Scene generation or contract validation failed. The draft was not accepted.",
+            summary="Scene generation encountered an error. Any draft remains available for your review.",
         )
         self.assertFalse(app.writer_generation_in_progress)
         self.assertEqual(app.generated_scene, draft)
         self.assertEqual(app.writer_output_text.value, draft)
-        self.assertTrue(app.writer_validation_failed)
-        self.assertIn("remains unaccepted", app.writer_status.options["text"])
+        self.assertIn("remains available for your review", app.writer_status.options["text"])
         app._update_writer_buttons.assert_called_once_with()
-
     def test_sync_failure_uses_copyable_error_dialog(self):
         with tempfile.TemporaryDirectory() as tmp:
             app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
@@ -586,14 +546,7 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         app._save.assert_not_called()
         app.destroy.assert_not_called()
 
-    def test_edited_prose_must_pass_contract_before_acceptance(self):
-        class ImmediateThread:
-            def __init__(self, target, daemon=False):
-                self.target = target
-
-            def start(self):
-                self.target()
-
+    def test_edited_prose_can_be_accepted_without_contract_revalidation(self):
         with tempfile.TemporaryDirectory() as tmp:
             state = {
                 "chapter": 2,
@@ -608,51 +561,27 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             app.accepted_scene = ""
             app.generated_scene_context = (2, 1)
             app.generated_scene_start_state = json.loads(json.dumps(state))
-            app.writer_generation_context = None
-            app.writer_generation_start_state = None
-            edited_prose = "Edited prose omits Tony noticing the mark."
+            edited_prose = "Edited prose with the requested local change."
             app.writer_output_text = FakeText(edited_prose)
             app.writer_state_preview = FakeText()
             app.writer_status = SimpleLabel()
             app.writer_accept_button = FakeButton()
             app.writer_reject_button = FakeButton()
-            app.writer_engine = SimpleNamespace(model_path=Path("/tmp/fake-writer.gguf"))
-            app._writer_editor_prose = lambda: edited_prose
-            app._scene_contract = lambda *_args: {
-                "required_beats": ["Tony notices the slap mark."],
-                "hard_stop": "Maya begins to tell Tony that the man hit her.",
-            }
-            app._save_unsaved_writer_draft = lambda: True
+            app.pending_state_patch = None
             app._refresh_manuscript = lambda: None
             app._chat = lambda *_args, **_kwargs: None
             app._update_writer_buttons = lambda: None
-            app._show_copyable_error = Mock()
-            app.after = lambda _delay, callback: callback()
+            app._ask_yes_no = Mock(return_value=False)
 
-            failed = {
-                "pass": False,
-                "missed_beats": ["Tony does not notice the slap mark."],
-                "violations": [],
-                "notes": "",
-            }
-            with (
-                patch.object(storybuilder_app.threading, "Thread", ImmediateThread),
-                patch.object(SceneContract, "validate_with_engine", return_value=failed),
-                patch.object(storybuilder_app.messagebox, "showwarning") as warning,
-            ):
+            with patch.object(SceneContract, "validate_with_engine") as validator:
                 storybuilder_app.StoryBuilderApp._accept_generated_scene(app)
 
-            app._show_copyable_error.assert_called_once()
-            args, _kwargs = app._show_copyable_error.call_args
-            self.assertEqual(args[0], "Scene Contract")
-            self.assertIn("does not satisfy the active scene contract", args[1])
-            warning.assert_not_called()
-            self.assertFalse(
-                (Path(tmp) / "Manuscript" / "Chapters" / "Chapter_02" /
-                 "Chapter_02_Section_01.txt").exists()
-            )
-            self.assertEqual(app.generated_scene, "Original generated prose")
-
+            validator.assert_not_called()
+            app._ask_yes_no.assert_not_called()
+            self.assertEqual(app.accepted_scene, edited_prose)
+            path = ManuscriptManager(Path(tmp)).scene_path(2, 1)
+            self.assertTrue(path.is_file())
+            self.assertEqual(path.read_text(encoding="utf-8"), edited_prose)
     def test_apply_state_update_saves_end_state_snapshot_before_advancing(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
