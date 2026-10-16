@@ -1109,9 +1109,9 @@ class SceneContractTests(unittest.TestCase):
         self.assertFalse(result["pass"])
         self.assertTrue(any("warm bubble bath" in item for item in result["missed_beats"]))
         self.assertIn(idea, captured["prompts"][0])
-        self.assertNotIn('"author_idea"', captured["prompt"])
-        self.assertIn("The idea is primary", captured["prompt"])
-        self.assertIn('"checks": [{"requirement": "", "status": "met", "evidence": ""}]', captured["prompt"])
+        self.assertNotIn('"author_idea"', captured["prompts"][0])
+        self.assertIn("The idea is primary", captured["prompts"][0])
+        self.assertIn('"checks": [{"requirement": "", "status": "met", "evidence": ""}]', captured["prompts"][0])
         self.assertIn("original idea", scene_contract.VALIDATOR_SYSTEM_PROMPT)
 
     def test_validator_receives_stable_author_guidance_and_checks_context_fidelity(self):
