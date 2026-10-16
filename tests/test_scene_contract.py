@@ -303,16 +303,18 @@ class SceneContractTests(unittest.TestCase):
     def test_validator_treats_required_beats_as_narrative_goals(self):
         prompt = scene_contract.VALIDATOR_SYSTEM_PROMPT
         self.assertIn("Judge meaning, not keywords", prompt)
-        self.assertIn("Mark met only when the entire requirement is supported", prompt)
-        self.assertIn("a bubble bath is not a shower", prompt)
-        self.assertIn("a bubble bath is not a shower and includes bubbles", prompt)
+        self.assertIn("A check is met only when its main action and defining details are present", prompt)
+        self.assertIn("A specified bubble bath is not a shower", prompt)
+        self.assertIn("still needs its bubbles", prompt)
         self.assertIn('"checks": [{"requirement": "", "status": "met", "evidence": ""}]', prompt)
         self.assertIn("verbatim quote from COMPLETED SCENE only", prompt)
         self.assertIn("COMPLETED SCENE only", prompt)
-        self.assertIn("Never quote the idea, instructions", prompt)
+        self.assertIn("never quote the idea, instructions, contract", prompt)
         self.assertIn("Preserve stated backstory", prompt)
-        self.assertIn("do not accept a different action, object, person", prompt)
-        self.assertIn("One check per commitment, no incidental requirements", prompt)
+        self.assertIn("a different action, object, person, order, or outcome is not", prompt)
+        self.assertIn("Create a SHORT EVENT-LEVEL checklist, usually 4–8 checks total", prompt)
+        self.assertIn("Group related details from the same event", prompt)
+        self.assertIn("Ignore incidental details unless the idea makes them defining", prompt)
         self.assertLess(len(prompt), 1500)
 
     def test_validator_checks_whole_scene_before_calling_a_beat_missing(self):
@@ -473,6 +475,57 @@ class SceneContractTests(unittest.TestCase):
         self.assertIn("red car", run_validator.call_args_list[1].args[1])
         self.assertIn("maroon sedan", run_validator.call_args_list[1].args[1])
         self.assertIn("Judge meaning, not keyword overlap", run_validator.call_args_list[1].kwargs["system_prompt"])
+
+
+    def test_short_event_checklist_is_rechecked_when_most_items_are_missing(self):
+        requirements = [
+            "Maya takes a bath.",
+            "Tony makes the breakfast calls.",
+            "Tony retrieves clothes and picks up Barnaby.",
+            "Tony and Maya end with tea at the kitchen table.",
+        ]
+        prose = (
+            "Maya settled into the bath. Tony called Beth, then Jessica, about breakfast. "
+            "He retrieved the clean clothes and picked up Barnaby. Later, they settled "
+            "at the kitchen table with chamomile tea."
+        )
+        first_pass = {
+            "pass": False,
+            "missed_beats": requirements.copy(),
+            "violations": [],
+            "checks": [
+                {"requirement": item, "status": "missing", "evidence": ""}
+                for item in requirements
+            ],
+            "notes": "",
+        }
+        second_pass = {
+            "pass": True,
+            "missed_beats": [],
+            "violations": [],
+            "checks": [
+                {"requirement": requirements[0], "status": "met", "evidence": "Maya settled into the bath."},
+                {"requirement": requirements[1], "status": "met", "evidence": "Tony called Beth, then Jessica, about breakfast."},
+                {"requirement": requirements[2], "status": "met", "evidence": "He retrieved the clean clothes and picked up Barnaby."},
+                {"requirement": requirements[3], "status": "met", "evidence": "they settled at the kitchen table with chamomile tea."},
+            ],
+            "notes": "",
+        }
+
+        with patch.object(
+            scene_contract, "_run_validator", side_effect=[first_pass, second_pass]
+        ) as run_validator:
+            result = SceneContract.validate_with_engine(
+                FakeEngine(),
+                {"author_idea": "The scene includes these four events.", "required_beats": []},
+                {"chapter": 2, "scene": 4},
+                prose,
+            )
+
+        self.assertTrue(result["pass"], result)
+        self.assertEqual(result["missed_beats"], [])
+        self.assertEqual(run_validator.call_count, 2)
+        self.assertIn("SEMANTIC COVERAGE RECHECK", run_validator.call_args_list[1].args[1])
 
     def test_missing_checks_do_not_duplicate_existing_missed_beats(self):
         idea = "Tony helps Maya settle and makes her tea."
@@ -825,7 +878,8 @@ class SceneContractTests(unittest.TestCase):
         self.assertFalse(result["pass"])
         retry_prompt = run_validator.call_args_list[1].args[1]
         self.assertIn("checks", retry_prompt)
-        self.assertIn("itemized author-intent checks", retry_prompt)
+        self.assertIn("concise non-empty event checklist", retry_prompt)
+        self.assertIn("4-8 meaningful scene events", retry_prompt)
         self.assertIn("do not claim they are absent", retry_prompt)
         self.assertNotIn("previous response was not a readable", retry_prompt)
 
@@ -999,10 +1053,10 @@ class SceneContractTests(unittest.TestCase):
             "the abduction, returns Barnaby to Tiffany's room, and ends at the kitchen table "
             "with chamomile tea."
         )
-        captured = {}
+        captured = {"prompts": []}
 
-        def fake_validator(_model, prompt):
-            captured["prompt"] = prompt
+        def fake_validator(_model, prompt, **kwargs):
+            captured["prompts"].append(prompt)
             return {
                 "pass": True,
                 "missed_beats": [],
@@ -1054,10 +1108,10 @@ class SceneContractTests(unittest.TestCase):
 
         self.assertFalse(result["pass"])
         self.assertTrue(any("warm bubble bath" in item for item in result["missed_beats"]))
-        self.assertIn(idea, captured["prompt"])
-        self.assertNotIn('"author_idea"', captured["prompt"])
-        self.assertIn("The idea is primary", captured["prompt"])
-        self.assertIn('"checks": [{"requirement": "", "status": "met", "evidence": ""}]', captured["prompt"])
+        self.assertIn(idea, captured["prompts"][0])
+        self.assertNotIn('"author_idea"', captured["prompts"][0])
+        self.assertIn("The idea is primary", captured["prompts"][0])
+        self.assertIn('"checks": [{"requirement": "", "status": "met", "evidence": ""}]', captured["prompts"][0])
         self.assertIn("original idea", scene_contract.VALIDATOR_SYSTEM_PROMPT)
 
     def test_validator_receives_stable_author_guidance_and_checks_context_fidelity(self):
