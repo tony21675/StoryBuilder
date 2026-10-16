@@ -1053,10 +1053,10 @@ class SceneContractTests(unittest.TestCase):
             "the abduction, returns Barnaby to Tiffany's room, and ends at the kitchen table "
             "with chamomile tea."
         )
-        captured = {}
+        captured = {"prompts": []}
 
-        def fake_validator(_model, prompt):
-            captured["prompt"] = prompt
+        def fake_validator(_model, prompt, **kwargs):
+            captured["prompts"].append(prompt)
             return {
                 "pass": True,
                 "missed_beats": [],
@@ -1108,7 +1108,7 @@ class SceneContractTests(unittest.TestCase):
 
         self.assertFalse(result["pass"])
         self.assertTrue(any("warm bubble bath" in item for item in result["missed_beats"]))
-        self.assertIn(idea, captured["prompt"])
+        self.assertIn(idea, captured["prompts"][0])
         self.assertNotIn('"author_idea"', captured["prompt"])
         self.assertIn("The idea is primary", captured["prompt"])
         self.assertIn('"checks": [{"requirement": "", "status": "met", "evidence": ""}]', captured["prompt"])
