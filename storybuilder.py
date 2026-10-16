@@ -1398,11 +1398,18 @@ class StoryBuilderApp(tk.Tk):
     ):
         """Check a draft with the selected model, then restore the writer runtime."""
         engine = self.writer_engine
+        active_writer_model = getattr(engine, "model_path", None)
         if writer_model is None:
-            writer_model = getattr(engine, "model_path", None)
+            writer_model = active_writer_model
         if writer_model is None:
             raise RuntimeError("Select a Writer model before checking a scene.")
-        writer_model = WriterEngine.validate_model(writer_model)
+        if active_writer_model is None:
+            # A chosen-but-not-yet-started writer model still needs path validation.
+            writer_model = WriterEngine.validate_model(writer_model)
+        else:
+            # A running writer model was validated when it was started; preserving
+            # its existing path also supports callers with a lightweight test engine.
+            writer_model = Path(writer_model).expanduser()
         checker_model = (
             WriterEngine.validate_model(validator_model)
             if validator_model
