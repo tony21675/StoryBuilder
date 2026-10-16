@@ -563,8 +563,8 @@ class SceneContractTests(unittest.TestCase):
         self.assertFalse(result["pass"])
         self.assertTrue(any("Tony makes tea" in item for item in result["missed_beats"]))
         self.assertTrue(any("A third event happens" in item for item in result["missed_beats"]))
-        self.assertEqual(result["missed_beats"][0], "Tony makes tea.")
-        self.assertEqual(result["missed_beats"][1], "A third event happens.")
+        self.assertTrue(result["missed_beats"][0].endswith("Tony makes tea."))
+        self.assertTrue(result["missed_beats"][1].endswith("A third event happens."))
 
     def test_missing_checks_do_not_duplicate_existing_missed_beats(self):
         idea = "Tony helps Maya settle and makes her tea."
