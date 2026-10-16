@@ -1369,12 +1369,12 @@ class SceneContract:
 
         def _normalize_requirement(value: str) -> str:
             value = re.sub(
-                r"^Author-intent requirement not evidenced:\\s*",
+                r"^Author-intent requirement not evidenced:\s*",
                 "",
                 str(value or ""),
                 flags=re.IGNORECASE,
             )
-            return re.sub(r"\\s+", " ", value).strip(" .!?").casefold()
+            return re.sub(r"\s+", " ", value).strip(" .!?").casefold()
 
         existing_missed = {_normalize_requirement(item) for item in normalized_missed}
         for check in normalized_result.get("_checks", []):
