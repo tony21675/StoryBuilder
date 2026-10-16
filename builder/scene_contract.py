@@ -24,7 +24,7 @@ VALIDATOR_SYSTEM_PROMPT = """Review the author's idea and starting state. Return
 
 Judge meaning, not keywords. Synonyms and paraphrases count. Evidence must be a verbatim quote from COMPLETED SCENE only; never quote the idea, instructions, contract, or state.
 Create a SHORT EVENT-LEVEL checklist, usually 4–8 checks total. Each check is one meaningful event or outcome. Group related details from the same event; do not create separate checks for clauses, adjectives, people, objects, or small actions. Keep events separate only when each could be missing independently. Ignore incidental details unless the idea makes them defining, continuity-critical, or a boundary/preference.
-Review the whole scene. A check is met only when its main action and defining details are present. Different wording is fine; a different action, object, person, order, or outcome is not. A specified bubble bath is not a shower and still needs its bubbles. Use an exact quote that supports the event. Minor descriptive omissions alone do not fail unless material. Flag material continuity/knowledge conflicts and ignored acknowledged requests. Preserve stated backstory and accept neutral familial comfort. List each missing event once; if any check is missing, pass must be false.
+Review the whole scene. A check is met only when its main action and defining details are present. Different wording is fine; a different action, object, person, order, or outcome is not. A specified bubble bath is not a shower and still needs its bubbles. Use an exact quote that supports the event. Minor descriptive omissions alone do not fail unless material. Flag unexplained opening continuity mismatches, character-knowledge conflicts, and ignored acknowledged requests. Check acknowledged requests/preferences against later actions. Preserve stated backstory and accept neutral familial comfort. List each missing event once; if any check is missing, pass must be false.
 """
 
 SEMANTIC_RECHECK_SYSTEM_PROMPT = """Independently reassess only the supplied checklist items against the completed scene. Return JSON only:
@@ -1178,16 +1178,15 @@ class SceneContract:
             + "Validate against the author's original idea, relevant author guidance, and starting state. "
             + "The idea is primary; generated hints are secondary. "
             + "Treat Required Beats as narrative-level goals, not a word-for-word checklist. "
-            + "Fail only when a core action or outcome is absent or materially wrong. "
-            + "A specified bubble bath replaced with a shower is a material substitution, not an equivalent paraphrase; check objects, source locations, and order. Preserve defining details and object history. "
-            + "Check explicit requests, preferences, boundaries, or needs against later actions; flag unexplained conflicts after acknowledgment. "
-            + "Report material omissions, substitutions, location/order changes, or ignored acknowledged requests. "
+            + "A specified bubble bath replaced with a shower is a material substitution; preserve defining objects, locations, order, and history. "
+            + "Check explicit requests, preferences, boundaries, and needs against later actions; flag ignored acknowledgments. "
+            + "Report material omissions, substitutions, sequence/location errors, or ignored requests. "
             + "If the main action occurs but only a purely incidental detail is missing, do not fail for that alone; optional details may go in notes. "
-            + "Search the whole scene for paraphrases before marking missing. Judge meaning, not keywords: a 'red car' can be a 'maroon sedan'. Evidence must be verbatim scene prose, but need not use requirement words; do not accept different actions or defining details. "
-            + "Do not fail for a minor descriptive or phrasing omission when the intended event, character knowledge, and endpoint remain intact, unless a specified action/object/location or acknowledged request changes. "
-            + "Create a SHORT event-level checklist, usually 4–8 checks total. Group details belonging to the same scene event instead of making micro-checks for every clause, adjective, person, object, or small action. Keep genuinely separate events separate when their outcomes can independently be missing. "
+            + "Search the whole scene for paraphrases before marking missing. Judge meaning, not keywords. Evidence must be verbatim scene prose, but need not reuse requirement words. "
+            + "Do not fail for a minor descriptive or phrasing omission when the intended event, character knowledge, and endpoint remain intact unless a defining action, object, location, or acknowledged request changes. "
+            + "Create a SHORT event-level checklist, usually 4–8 checks. Group related details; do not make micro-checks for each clause, adjective, person, object, or small action. Separate events only when their outcomes can be missing independently. "
             + "Judge each event against the entire scene, using meaning rather than keyword overlap. Fail only for a missing or materially changed event, its defining detail, an explicit boundary/request, or the scene endpoint; minor descriptive omissions alone do not fail. "
-            + "For each event check, provide requirement, status, and a direct verbatim evidence quote from COMPLETED SCENE only. The quote must support the event, but need not reuse the requirement's words; never quote the idea, instructions, or state. If the event is absent or materially different, use status 'missing' and empty evidence. "
+            + "For each event check, provide requirement, status, and a direct quote from COMPLETED SCENE only. It must support the event; never quote the idea or state. If absent or materially different, mark missing with empty evidence. "
             + "If an author idea is present, return a concise non-empty event checklist; pass must be false if any event check is missing. Report material continuity or character-knowledge conflicts separately as violations. "
             + "Return JSON only in this shape: "
             + '{"pass": true, "missed_beats": [], "violations": [], "checks": [{"requirement": "", "status": "met", "evidence": ""}], "notes": ""}'
