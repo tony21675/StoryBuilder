@@ -70,8 +70,8 @@ def apply_focused_replacement(original: str, response: str) -> str:
 
     raw = str(response or "").strip()
     if raw.startswith("```"):
-        raw = re.sub(r"^\`\`\`(?:json)?\s*", "", raw, count=1, flags=re.IGNORECASE)
-        raw = re.sub(r"\s*\`\`\`$", "", raw, count=1)
+        raw = re.sub(r"^```(?:json)?\s*", "", raw, count=1, flags=re.IGNORECASE)
+        raw = re.sub(r"\s*```$", "", raw, count=1)
 
     start = raw.find("{")
     end = raw.rfind("}")
