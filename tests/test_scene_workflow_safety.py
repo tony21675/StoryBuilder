@@ -1246,7 +1246,7 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
                 "Tony sat on the edge of the bed and held Maya.",
             )
 
-        self.assertIn("Check opening continuity", scene_contract.VALIDATOR_SYSTEM_PROMPT)
+        self.assertIn("Flag unexplained opening continuity mismatches", scene_contract.VALIDATOR_SYSTEM_PROMPT)
         self.assertIn("unexplained opening continuity mismatches", scene_contract.VALIDATOR_SYSTEM_PROMPT)
         self.assertIn("sitting upright against the headboard", captured["prompt"])
         self.assertIn("neutral familial comfort", scene_contract.VALIDATOR_SYSTEM_PROMPT)
