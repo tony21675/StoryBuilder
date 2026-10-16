@@ -136,7 +136,6 @@ class StoryBuilderApp(tk.Tk):
         self.writer_notes_update_in_progress = False
         self.generated_scene = ""
         self.accepted_scene = ""
-        self.focused_revision_history = []
         self.accepted_scene_context = None
         self.focused_revision_history = []
         # Keep each generated scene tied to the chapter/scene and exact start
@@ -4299,8 +4298,8 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             self.pending_state_patch = None
             self.generated_scene = ""
             self.accepted_scene = ""
-        self.accepted_scene_context = None
-        self.focused_revision_history = []
+            self.accepted_scene_context = None
+            self.focused_revision_history = []
             self.generated_scene_context = None
             self.generated_scene_start_state = None
             self.writer_generation_context = None
@@ -5316,7 +5315,6 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         self.character_filename = None
         self.generated_scene = ""
         self.accepted_scene = ""
-        self.focused_revision_history = []
         self.accepted_scene_context = None
         self.focused_revision_history = []
         self.pending_state_patch = None
@@ -5350,7 +5348,6 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             pass
         self.generated_scene = ""
         self.accepted_scene = ""
-        self.focused_revision_history = []
         self.accepted_scene_context = None
         self.focused_revision_history = []
         self.generated_scene_context = None
@@ -5409,7 +5406,6 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         self.character_filename = None
         self.generated_scene = ""
         self.accepted_scene = ""
-        self.focused_revision_history = []
         self.accepted_scene_context = None
         self.focused_revision_history = []
         self.generated_scene_context = None
@@ -5912,7 +5908,6 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         """Clear scene-specific Writer memory only after its text is safely saved."""
         self.generated_scene = ""
         self.accepted_scene = ""
-        self.focused_revision_history = []
         self.accepted_scene_context = None
         self.focused_revision_history = []
         self.generated_scene_context = None
