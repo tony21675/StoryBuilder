@@ -168,7 +168,7 @@ class StateUpdateValidationTests(unittest.TestCase):
             self.assertEqual(popen.call_count, 2)
             repair_args = popen.call_args_list[1].args[0]
             repair_prompt = repair_args[repair_args.index("--prompt") + 1]
-            self.assertIn("Do not return a singular 'event' field", repair_prompt)
+            self.assertIn("Do not return event, events", repair_prompt)
             self.assertIn("current_situation", repair_prompt)
 
     def test_rejects_character_knowledge_lists_inside_location(self):
