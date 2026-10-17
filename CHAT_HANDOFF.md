@@ -1,5 +1,7 @@
 # StoryBuilder Chat Handoff
 
+We're building a writing assistant, not a Mars lander. **The story comes first.** Let the model invent ordinary connective details, dialogue, gestures, transitions, and other harmless in-between material. Focus only on problems that materially affect story correctness, explicit rules, scene-to-scene flow, important facts, or continuity. Do not turn minor wording or bookkeeping imperfections into more engineering work. Fix a demonstrated problem, verify that specific fix, and stop. Work on one thing at a time.
+
 ## First instruction for every new session
 
 Read the current versions on GitHub `main` before acting:
