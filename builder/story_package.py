@@ -124,6 +124,113 @@ class StoryPackage:
         cleaned = re.sub(r"\s+", "_", cleaned)
         return f"{cleaned or 'Character'}.json"
 
+    def promote_supporting_person(self, name: str) -> str:
+        """Move a supporting person and any existing JSON data into core character cards."""
+        name = str(name or "").strip()
+        if not name:
+            raise ValueError("Choose a supporting person to promote.")
+
+        supporting = self.story_bible.get("supporting_people", {})
+        if not isinstance(supporting, dict):
+            raise ValueError("The supporting-people list is not a valid object.")
+
+        supporting_key = next(
+            (
+                str(key) for key in supporting
+                if str(key).strip().casefold() == name.casefold()
+            ),
+            None,
+        )
+        if supporting_key is None:
+            raise ValueError(f"{name} is not currently listed as a supporting person.")
+
+        if self.character_by_name(name) is not None:
+            raise ValueError(f"{name} already has a core character card.")
+
+        filename = self.safe_filename(name)
+        matching_character_file = next(
+            (key for key in self.characters if key.casefold() == filename.casefold()),
+            None,
+        )
+        if matching_character_file is not None:
+            raise ValueError(
+                f"A core character file for {name} already exists: {matching_character_file}."
+            )
+
+        extra_key = next(
+            (key for key in self.extra_json if key.casefold() == filename.casefold()),
+            None,
+        )
+        source_path = None
+        if extra_key is not None:
+            filename = extra_key
+            source = self.extra_json[extra_key]
+            if not isinstance(source, dict):
+                raise ValueError(f"The existing {filename} file does not contain a JSON object.")
+            card = deepcopy(source)
+        else:
+            if self.path is not None:
+                source_path = next(
+                    (
+                        path for path in self.path.glob("*.json")
+                        if path.name.casefold() == filename.casefold()
+                    ),
+                    None,
+                )
+            if source_path is not None:
+                try:
+                    with source_path.open("r", encoding="utf-8") as handle:
+                        source = json.load(handle)
+                except (OSError, json.JSONDecodeError) as exc:
+                    raise ValueError(
+                        f"Could not safely read the existing character file {source_path.name}."
+                    ) from exc
+                if not isinstance(source, dict):
+                    raise ValueError(
+                        f"The existing {source_path.name} file does not contain a JSON object."
+                    )
+                filename = source_path.name
+                card = deepcopy(source)
+            else:
+                details = supporting[supporting_key]
+                card = {
+                    "name": name,
+                    "status": "established",
+                    "role": "core character",
+                    "age": None,
+                    "description": details.strip() if isinstance(details, str) else "",
+                    "personality": [],
+                    "background": "",
+                    "occupation": "",
+                }
+                if isinstance(details, dict):
+                    card.update(deepcopy(details))
+
+        stored_name = str(card.get("name", "") or "").strip()
+        if stored_name and stored_name.casefold() != name.casefold():
+            raise ValueError(
+                f"The existing {filename} file is for {stored_name}, not {name}. "
+                "No character data was changed."
+            )
+        card["name"] = stored_name or name
+        if str(card.get("status", "") or "").strip().casefold() in {"", "supporting"}:
+            card["status"] = "established"
+
+        # Move the data between the two package collections only after validating
+        # the source, so existing character details are not silently overwritten.
+        self.characters[filename] = card
+        if extra_key is not None:
+            self.extra_json.pop(extra_key, None)
+        supporting.pop(supporting_key, None)
+
+        cards = self.story_bible.setdefault("character_cards", [])
+        if not isinstance(cards, list):
+            cards = []
+            self.story_bible["character_cards"] = cards
+        if filename not in cards:
+            cards.append(filename)
+        return filename
+
     def add_character(self, name: str) -> str:
         name = name.strip()
         if not name:

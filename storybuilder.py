@@ -382,6 +382,11 @@ class StoryBuilderApp(tk.Tk):
         self.supporting_people_list.pack(fill="y")
         self.supporting_people_list.bind("<<ListboxSelect>>", self._select_supporting_person)
         ttk.Button(left, text="Add Supporting Person", command=self._add_supporting_person).pack(fill="x", pady=(4, 3))
+        ttk.Button(
+            left,
+            text="Promote to Core Character",
+            command=self._promote_supporting_person,
+        ).pack(fill="x", pady=(0, 3))
         ttk.Button(left, text="Remove Supporting Person", command=self._remove_supporting_person).pack(fill="x")
 
         right = ttk.Frame(tab)
@@ -6536,6 +6541,88 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         self._refresh_supporting_people(select_name=name)
         self._update_path_label()
         self._chat("Builder", f"Added supporting person {name}. Add details, then save.")
+
+    def _promote_supporting_person(self):
+        if self.package is None or not hasattr(self, "supporting_people_list"):
+            return
+
+        if (
+            getattr(self, "writer_generation_in_progress", False)
+            or getattr(self, "scene_contract_building", False)
+            or getattr(self, "writer_notes_update_in_progress", False)
+        ):
+            messagebox.showwarning(
+                "Promote to Core Character",
+                "Wait for the current writing or analysis operation to finish before changing character data.",
+            )
+            return
+
+        selection = self.supporting_people_list.curselection()
+        if not selection:
+            messagebox.showinfo(
+                "Promote to Core Character",
+                "Select Beth, Jessica, or Rick under Supporting People first.",
+            )
+            return
+
+        people = self.package.story_bible.get("supporting_people", {})
+        if not isinstance(people, dict):
+            messagebox.showwarning(
+                "Promote to Core Character",
+                "The supporting-people list is not available.",
+            )
+            return
+
+        names = sorted(
+            (str(name) for name in people if str(name).strip()),
+            key=str.casefold,
+        )
+        index = selection[0]
+        if index < 0 or index >= len(names):
+            return
+        name = names[index]
+
+        if not self._ask_yes_no(
+            "Promote to Core Character",
+            f"Promote {name} to a core character?\n\n"
+            "StoryBuilder will reuse the existing character JSON when available, "
+            "preserve its details, add it to the core character cards, and remove "
+            "the duplicate supporting-person entry.",
+        ):
+            return
+
+        # Preserve edits in the supporting-person details box without allowing
+        # a blank box to erase the existing description by accident.
+        edited_details = self.supporting_person_text.get("1.0", "end-1c").strip()
+        existing_details = str(people.get(name, "") or "").strip()
+        if edited_details != existing_details:
+            people[name] = edited_details
+
+        filename = None
+        try:
+            filename = self.package.promote_supporting_person(name)
+            self.dirty = True
+            if self.package.path is not None:
+                self.package.save()
+                self.dirty = False
+            self._refresh_all()
+            self._refresh_characters(select_filename=filename)
+            self._chat(
+                "Builder",
+                f"Promoted {name} to a core character. Existing character details were preserved.",
+            )
+        except Exception as exc:
+            # Keep the in-memory change visible if saving failed, and report that
+            # the author still needs to save the novel package.
+            self.dirty = True
+            self._refresh_all()
+            if filename:
+                self._refresh_characters(select_filename=filename)
+            self._show_copyable_error(
+                "Promote to Core Character",
+                "The promotion could not be fully saved. Review the error and save the novel package before continuing.\n\n"
+                + str(exc),
+            )
 
     def _remove_supporting_person(self):
         if self.package is None:
