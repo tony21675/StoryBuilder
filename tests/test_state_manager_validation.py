@@ -236,6 +236,67 @@ class StateUpdateValidationTests(unittest.TestCase):
             "The audit must not mutate the source state.",
         )
 
+    def test_knowledge_audit_filters_subjectless_and_passive_routine_actions(self):
+        current_state = {
+            "scene_cast": ["Tony", "Maya"],
+            "character_knowledge": {
+                "Tony": ["Knows Tiffany is his daughter."],
+                "Maya": ["Witnessed Tiffany being taken."],
+            },
+        }
+        patch = {}
+        delta = {
+            "Tony": [
+                "Knows Tiffany is his daughter.",
+                "Helped Maya get cleaned up by guiding her to the bathroom and lowering her into the tub.",
+                "Closed the bathroom door after helping Maya.",
+                "Brewed chamomile tea for Maya.",
+                "Sat with Maya at the kitchen table drinking tea.",
+                "Now knows from Maya that Tiffany struck the kidnapper twice in the solar plexus.",
+            ],
+            "Maya": [
+                "Witnessed Tiffany being taken.",
+                "Was helped by Tony to sit up.",
+                "Was guided toward the adjoining bathroom by Tony.",
+                "Was lowered carefully into the tub by Tony.",
+                "Sits at the kitchen table drinking tea with Tony.",
+                "Observed Tiffany scratch the kidnapper three times down his left cheek, causing it to bleed.",
+            ],
+        }
+
+        StateManager._merge_knowledge_delta(current_state, patch, delta)
+
+        tony = patch["character_knowledge"]["Tony"]
+        maya = patch["character_knowledge"]["Maya"]
+        for fact in (
+            "Helped Maya get cleaned up",
+            "Closed the bathroom door",
+            "Brewed chamomile tea",
+            "Sat with Maya at the kitchen table",
+        ):
+            self.assertFalse(
+                any(fact.casefold() in item.casefold() for item in tony),
+                f"Routine action fragment should be filtered: {fact}",
+            )
+        for fact in (
+            "Was helped by Tony",
+            "Was guided toward the adjoining bathroom",
+            "Was lowered carefully into the tub",
+            "Sits at the kitchen table",
+        ):
+            self.assertFalse(
+                any(fact.casefold() in item.casefold() for item in maya),
+                f"Passive routine action should be filtered: {fact}",
+            )
+        self.assertTrue(
+            any("Tiffany struck the kidnapper twice" in item for item in tony),
+            "Consequential violence facts must be retained.",
+        )
+        self.assertTrue(
+            any("Observed Tiffany scratch the kidnapper" in item for item in maya),
+            "Consequential violence facts must be retained.",
+        )
+
     def test_knowledge_audit_preserves_prior_facts_omitted_by_model(self):
         current_state = {
             "scene_cast": ["Tony"],

@@ -108,6 +108,18 @@ def is_routine_action_log_knowledge(
             break
         candidate = unwrapped
 
+    # Some models emit a bare verb fragment ("Brewed tea", "Sat with Maya")
+    # or passive phrasing ("Was guided by Tony") instead of naming the actor.
+    # Inspect the first meaningful verb after common auxiliaries, but only drop
+    # verbs already classified as routine logistics above. Consequential verbs
+    # such as struck, abducted, injured, or scratched are deliberately retained.
+    fragment_match = re.match(
+        r"^(?:(?:has|have|had|is|are|was|were|been|being|does|did)\s+)*(?:now\s+)?([a-z]+)\b",
+        candidate,
+    )
+    if fragment_match and fragment_match.group(1) in ROUTINE_KNOWLEDGE_ACTION_VERBS:
+        return True
+
     for name in sorted(
         (str(item).strip().casefold() for item in character_names if str(item).strip()),
         key=len,
