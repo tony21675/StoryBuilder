@@ -36,6 +36,14 @@ Read the current versions on GitHub `main` before acting:
 - **Continuity repair status:** PR #26, [Fix continuity state proposals to reflect scene endings](https://github.com/tony21675/StoryBuilder/pull/26), was merged on October 16, 2026, as [`b3b78b0`](https://github.com/tony21675/StoryBuilder/commit/b3b78b067b75673c48722a0aa2844ca52adf5731). Its code is now on GitHub `main`; the laptop must fast-forward to the current `main` before testing this continuity repair. Keep model/test verification honest and inspect the proposed JSON before applying it.
 - **Do not loop:** First establish whether StoryBuilder is open and whether its Writer contains unsaved text; second preserve any such text; third determine whether the needed prose is accepted manuscript prose or an unaccepted draft; fourth use the appropriate path above; only then discuss another restart or code change. Do not ask Tony to repeat work already completed, re-run unrelated setup, or send him between Writer and Manuscript without explaining which source of prose each action uses.
 
+## Fix Now: character-knowledge action-log filtering — October 16, 2026
+
+- Current issue: the Writer/Manuscript state analysis returns a good kitchen-table ending state, but its separate cumulative knowledge audit still inserts ordinary scene-action logs (Tony called Beth/Jessica, helped Maya to the bathroom, closed the door, brewed/served tea). The general state model's character_knowledge is intentionally discarded, then the separate audit's output is trusted too directly by _merge_knowledge_delta.
+- Approved focused fix: filter common routine scene actions from the cumulative knowledge audit result while retaining consequential story facts (kidnapping, violence, injuries, clues, established relationships, observed scene details). Add tests for the exact Scene 4 style of output, and a safeguard so a response consisting only of filtered actions cannot erase valid prior knowledge.
+- Story safety: do not edit MyNovel/current_state.json, writing guidance, accepted manuscript sections, before/after snapshots, or failed drafts as part of this code fix. The reviewed proposal was not applied and must not be retroactively applied during this repair.
+- Verification: await the focused tests and PR Actions; do not claim local Gemma behavior is fully verified merely because automated tests pass.
+- One next step: finish the focused PR, check its Actions result, merge only if green, then give Tony only the current git pull and one focused test command.
+
 ## Fix Now: spell-check thread safety — October 16, 2026
 
 - **Laptop evidence:** Tony launched `./start.sh`; StoryBuilder reported that local `main` matched `origin/main`, then a background spell-check worker raised `RuntimeError: main thread is not in main loop` from `self.after(...)` inside `check_in_background` near the old line 7182.
