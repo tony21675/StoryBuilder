@@ -139,6 +139,120 @@ class StateUpdateValidationTests(unittest.TestCase):
         self.assertEqual(merged["recent_events"], base["recent_events"])
         self.assertEqual(base, before, "Merging must not mutate the original state.")
 
+    def test_knowledge_audit_filters_routine_action_logs_but_keeps_material_facts(self):
+        current_state = {
+            "scene_cast": ["Maya", "Tony"],
+            "character_knowledge": {
+                "Tony": [
+                    "Knows Tiffany is his daughter.",
+                    "Know that Tony called Beth and asked if she was free tomorrow morning.",
+                    "Know that Tony closed the bathroom door.",
+                    "Know that Tony brewed chamomile tea for Maya.",
+                ],
+                "Maya": [
+                    "Witnessed Tiffany being taken.",
+                    "Has told Tony that Tiffany is gone.",
+                    "Tony helped her sit up and guided her toward the bathroom.",
+                    "Tony lowered her carefully into the tub.",
+                    "Tony offered her tea when she emerged from the bathroom.",
+                ],
+            },
+        }
+        patch = {}
+        delta = {
+            "Tony": [
+                "Knows Tiffany is his daughter.",
+                "Now knows from Maya that Tiffany is gone.",
+                "Now knows from Maya that Tiffany swung her elbow twice into the unidentified man's solar plexus.",
+                "Know that Tony called Beth and asked if she was free tomorrow morning for breakfast.",
+                "Know that Tony called Jessica and suggested a larger gathering tomorrow.",
+                "Know that Tony suggested getting Maya cleaned up with warm water and unscented bubbles.",
+                "Know that Tony helped Maya sit up and guided her toward the bathroom.",
+                "Know that Tony closed the bathroom door to give Maya privacy.",
+                "Know that Tony brewed chamomile tea for Maya.",
+                "Know that Tiffany's bedroom is tidy.",
+                "Know that Barnaby, a soft and threadbare rabbit, was on the chair in Tiffany's room.",
+                "Know that Tiffany has clean pajamas laid out on her bed.",
+            ],
+            "Maya": [
+                "Witnessed Tiffany being taken.",
+                "Know one unidentified male kidnapper was involved.",
+                "Know Tony is awake and with her in his bedroom.",
+                "Has told Tony that Tiffany is gone.",
+                "Tony helped her sit up and guided her toward the bathroom.",
+                "Tony lowered her carefully into the tub.",
+                "Tony gave her peace by closing the bathroom door.",
+                "Tony offered her tea when she emerged from the bathroom.",
+                "Observed Tiffany scratch the kidnapper three times down his left cheek, causing it to bleed.",
+            ],
+        }
+
+        StateManager._merge_knowledge_delta(current_state, patch, delta)
+
+        knowledge = patch["character_knowledge"]
+        tony = knowledge["Tony"]
+        maya = knowledge["Maya"]
+        self.assertIn("Knows Tiffany is his daughter.", tony)
+        self.assertIn("Now knows from Maya that Tiffany is gone.", tony)
+        self.assertIn(
+            "Now knows from Maya that Tiffany swung her elbow twice into the unidentified man's solar plexus.",
+            tony,
+        )
+        self.assertIn("Know that Tiffany's bedroom is tidy.", tony)
+        self.assertIn(
+            "Know that Barnaby, a soft and threadbare rabbit, was on the chair in Tiffany's room.",
+            tony,
+        )
+        self.assertIn("Know that Tiffany has clean pajamas laid out on her bed.", tony)
+        self.assertIn("Witnessed Tiffany being taken.", maya)
+        self.assertIn(
+            "Observed Tiffany scratch the kidnapper three times down his left cheek, causing it to bleed.",
+            maya,
+        )
+        for owner_facts in (tony, maya):
+            combined_text = " ".join(owner_facts).casefold()
+            for phrase in (
+                "called beth",
+                "called jessica",
+                "suggested getting maya cleaned",
+                "helped maya sit up",
+                "closed the bathroom door",
+                "brewed chamomile tea",
+                "lowered her carefully into the tub",
+                "offered her tea",
+                "has told tony",
+                "gave her peace",
+            ):
+                self.assertNotIn(phrase, combined_text)
+        self.assertEqual(
+            current_state["character_knowledge"]["Tony"][0],
+            "Knows Tiffany is his daughter.",
+            "The audit must not mutate the source state.",
+        )
+
+    def test_knowledge_audit_does_not_erase_prior_facts_when_only_action_logs_return(self):
+        current_state = {
+            "scene_cast": ["Tony"],
+            "character_knowledge": {
+                "Tony": ["Knows Tiffany is his daughter."],
+            },
+        }
+        patch = {}
+        delta = {
+            "Tony": [
+                "Know that Tony called Beth about breakfast.",
+                "Know that Tony brewed chamomile tea.",
+            ],
+        }
+
+        StateManager._merge_knowledge_delta(current_state, patch, delta)
+
+        self.assertNotIn("character_knowledge", patch)
+        self.assertEqual(
+            current_state["character_knowledge"]["Tony"],
+            ["Knows Tiffany is his daughter."],
+        )
+
     def test_rejects_unrecognized_singular_event_field(self):
         with self.assertRaisesRegex(ValueError, "unsupported singular 'event' field"):
             StateManager.validate_patch(
