@@ -110,6 +110,46 @@ class ManuscriptManager:
         )
         return draft
 
+    def load_scene_for_state_review(
+        self,
+        chapter: int,
+        scene: int,
+        current_state: dict,
+    ) -> dict | None:
+        """Load the accepted scene matching the live pointer, if its baseline is safe.
+
+        Returns the saved path, prose, and the scene's starting state. A mismatch
+        between the saved before-state and the live state is rejected so Writer
+        cannot analyze old prose against a different continuity baseline.
+        """
+        target = self.scene_path(chapter, scene)
+        if not target.is_file():
+            return None
+
+        try:
+            prose = target.read_text(encoding="utf-8").strip()
+        except OSError as exc:
+            raise OSError(f"Could not read saved scene {target.name}: {exc}") from exc
+        if not prose:
+            return None
+
+        before_state = self.load_state_before(chapter, scene)
+        if before_state is not None and before_state != current_state:
+            raise ValueError(
+                f"The saved starting state for {target.name} does not match the current story state. "
+                "Use Manuscript → Analyze Saved Section to review this section safely; "
+                "Writer has not loaded it."
+            )
+
+        baseline = before_state if before_state is not None else json.loads(
+            json.dumps(current_state, ensure_ascii=False)
+        )
+        return {
+            "path": target,
+            "text": prose,
+            "start_state": baseline,
+        }
+
     @property
     def compiled_dir(self) -> Path:
         return self.novel_path / "Manuscript" / "Compiled"
