@@ -37,7 +37,12 @@ from builder.manuscript import ManuscriptManager
 from builder.scene_flow import review_chapter_flow
 from builder.novel_sync import NovelSyncError, sync_novel_repository
 from builder.state_manager import StateManager, remove_prior_chapter_opening_markers
-from builder.scene_contract import SceneContract, SceneContractValidationUnavailable
+from builder.scene_contract import SceneContract
+from builder.focused_revision import (
+    FOCUSED_REVISION_SYSTEM_PROMPT,
+    apply_focused_replacement,
+    build_focused_revision_prompt,
+)
 from builder.story_interview import (
     CHARACTER_QUESTIONS,
     RELATIONSHIP_QUESTIONS,
@@ -131,6 +136,8 @@ class StoryBuilderApp(tk.Tk):
         self.writer_notes_update_in_progress = False
         self.generated_scene = ""
         self.accepted_scene = ""
+        self.accepted_scene_context = None
+        self.focused_revision_history = []
         # Keep each generated scene tied to the chapter/scene and exact start
         # state that produced it. Never file prose under a later UI selection.
         self.generated_scene_context: tuple[int, int] | None = None
@@ -1059,24 +1066,6 @@ class StoryBuilderApp(tk.Tk):
         )
         self.writer_clear_context_button.pack(side="left", padx=(8, 3))
 
-        checker_row = ttk.Frame(content_frame)
-        checker_row.pack(fill="x", pady=(0, 4))
-        ttk.Label(checker_row, text="Scene checker model").pack(side="left")
-        self.validator_model_var = tk.StringVar()
-        self.validator_model_combo = ttk.Combobox(
-            checker_row,
-            textvariable=self.validator_model_var,
-            state="readonly",
-            width=72,
-        )
-        self.validator_model_combo.pack(
-            side="left", fill="x", expand=True, padx=(8, 8)
-        )
-        ttk.Label(
-            content_frame,
-            text="The checker runs after writing; StoryBuilder loads only one model at a time.",
-        ).pack(anchor="w", pady=(0, 8))
-
         self.writer_status = ttk.Label(content_frame, text="Writer stopped.")
         self.writer_status.pack(anchor="w", pady=(0, 8))
 
@@ -1139,18 +1128,6 @@ class StoryBuilderApp(tk.Tk):
             command=self._save_generated_draft,
         )
         self.writer_save_draft_button.pack(side="left", padx=(8, 0))
-        self.writer_accept_button = ttk.Button(
-            button_row,
-            text="Accept Scene",
-            command=self._accept_generated_scene,
-        )
-        self.writer_accept_button.pack(side="left", padx=(8, 0))
-        self.writer_reject_button = ttk.Button(
-            button_row,
-            text="Reject Scene",
-            command=self._reject_generated_scene,
-        )
-        self.writer_reject_button.pack(side="left", padx=(8, 0))
 
         trace_row = ttk.Frame(content_frame)
         trace_row.pack(fill="x", pady=(0, 8))
@@ -1175,6 +1152,73 @@ class StoryBuilderApp(tk.Tk):
         ).pack(anchor="w")
         self.writer_output_text = tk.Text(content_frame, height=22, wrap="word", undo=True)
         self.writer_output_text.pack(fill="x", pady=(4, 0))
+
+        review_button_row = ttk.Frame(content_frame)
+        review_button_row.pack(fill="x", pady=(8, 4))
+        self.writer_accept_button = ttk.Button(
+            review_button_row,
+            text="Accept Scene",
+            command=self._accept_generated_scene,
+        )
+        self.writer_accept_button.pack(side="left")
+        self.writer_regenerate_button = ttk.Button(
+            review_button_row,
+            text="Regenerate Scene",
+            command=self._regenerate_generated_scene,
+        )
+        self.writer_regenerate_button.pack(side="left", padx=(8, 0))
+        self.writer_reject_button = ttk.Button(
+            review_button_row,
+            text="Reject Scene",
+            command=self._reject_generated_scene,
+        )
+        self.writer_reject_button.pack(side="left", padx=(8, 0))
+
+        revision_frame = ttk.Frame(content_frame)
+        revision_frame.pack(fill="x", pady=(4, 8))
+        ttk.Label(
+            revision_frame,
+            text=(
+                "Focused change: describe one specific change; other text will be preserved. "
+                "(Ctrl+Enter to apply.)"
+            ),
+        ).pack(anchor="w")
+
+        request_input_frame = ttk.Frame(revision_frame)
+        request_input_frame.pack(fill="x", pady=(3, 0))
+        self.writer_revision_request_entry = tk.Text(
+            request_input_frame,
+            height=4,
+            wrap="word",
+            undo=True,
+        )
+        request_scrollbar = ttk.Scrollbar(
+            request_input_frame,
+            orient="vertical",
+            command=self.writer_revision_request_entry.yview,
+        )
+        self.writer_revision_request_entry.configure(yscrollcommand=request_scrollbar.set)
+        self.writer_revision_request_entry.pack(side="left", fill="x", expand=True)
+        request_scrollbar.pack(side="right", fill="y")
+        self.writer_revision_request_entry.bind(
+            "<Control-Return>",
+            lambda _event: self._apply_focused_scene_change() or "break",
+        )
+
+        revision_button_row = ttk.Frame(revision_frame)
+        revision_button_row.pack(fill="x", pady=(4, 0))
+        self.writer_focus_change_button = ttk.Button(
+            revision_button_row,
+            text="Apply Focused Change",
+            command=self._apply_focused_scene_change,
+        )
+        self.writer_focus_change_button.pack(side="left")
+        self.writer_undo_focused_change_button = ttk.Button(
+            revision_button_row,
+            text="Undo Focused Change",
+            command=self._undo_focused_scene_change,
+        )
+        self.writer_undo_focused_change_button.pack(side="left", padx=(8, 0))
 
         state_button_row = ttk.Frame(content_frame)
         state_button_row.pack(fill="x", pady=(8, 0))
@@ -1360,93 +1404,7 @@ class StoryBuilderApp(tk.Tk):
         else:
             self.writer_model_var.set("")
 
-        if hasattr(self, "validator_model_combo"):
-            self.validator_model_combo["values"] = values
-            checker_current = self.validator_model_var.get()
-            if checker_current in values:
-                self.validator_model_var.set(checker_current)
-            else:
-                # Prefer the installed instruction-tuned Llama checker for the
-                # first run, while preserving any later user selection.
-                preferred = next(
-                    (
-                        value for value in values
-                        if "llama-3.1-8b-instruct" in Path(value).name.casefold()
-                    ),
-                    None,
-                )
-                writer_selection = self.writer_model_var.get().strip()
-                if preferred:
-                    self.validator_model_var.set(preferred)
-                elif writer_selection in values:
-                    self.validator_model_var.set(writer_selection)
-                elif values:
-                    self.validator_model_var.set(values[0])
-                else:
-                    self.validator_model_var.set("")
         self._update_writer_buttons()
-
-    def _validate_scene_with_selected_model(
-        self,
-        contract,
-        current_state,
-        prose,
-        *,
-        author_guidance="",
-        writer_model=None,
-        validator_model=None,
-    ):
-        """Check a draft with the selected model, then restore the writer runtime."""
-        engine = self.writer_engine
-        active_writer_model = getattr(engine, "model_path", None)
-        if writer_model is None:
-            writer_model = active_writer_model
-        if writer_model is None:
-            raise RuntimeError("Select a Writer model before checking a scene.")
-        if active_writer_model is None:
-            # A chosen-but-not-yet-started writer model still needs path validation.
-            writer_model = WriterEngine.validate_model(writer_model)
-        else:
-            # A running writer model was validated when it was started; preserving
-            # its existing path also supports callers with a lightweight test engine.
-            writer_model = Path(writer_model).expanduser()
-        checker_model = (
-            WriterEngine.validate_model(validator_model)
-            if validator_model
-            else writer_model
-        )
-
-        original_system_prompt = getattr(engine, "system_prompt", "")
-        child = getattr(engine, "child", None)
-        try:
-            was_running = child is not None and bool(child.isalive())
-        except Exception:
-            was_running = False
-
-        try:
-            return SceneContract.validate_with_engine(
-                engine,
-                contract,
-                current_state,
-                prose,
-                author_guidance=author_guidance,
-                model_path=checker_model,
-            )
-        finally:
-            # Validation switches the shared llama.cpp process to the checker
-            # model. Restore the writing model before a revision or next scene.
-            if was_running:
-                child = getattr(engine, "child", None)
-                try:
-                    still_running = child is not None and bool(child.isalive())
-                except Exception:
-                    still_running = False
-                if (
-                    not still_running
-                    or getattr(engine, "model_path", None) != writer_model
-                    or getattr(engine, "system_prompt", "") != original_system_prompt
-                ):
-                    engine.reset_context(writer_model, original_system_prompt)
 
     def _author_writing_guidance(self) -> str:
         """Return stable author instructions without mixing in scene-specific planning."""
@@ -2490,7 +2448,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
 
     def _toggle_prompt_trace(self):
         """Arm or cancel a one-scene prompt trace; tracing is otherwise off."""
-        if getattr(self, "writer_generation_in_progress", False):
+        if getattr(self, "writer_generation_in_progress", False) or self.__dict__.get("focused_revision_in_progress", False):
             return
         self.prompt_trace_armed = not bool(getattr(self, "prompt_trace_armed", False))
         if self.prompt_trace_armed:
@@ -2508,59 +2466,102 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                 text="Off. No prompts are being recorded."
             )
 
+    def _has_pending_generated_scene(self):
+        """Whether the visible draft is waiting for the author's decision."""
+        draft = str(self.__dict__.get("generated_scene", "") or "").strip()
+        if not draft:
+            return False
+
+        output_widget = self.__dict__.get("writer_output_text")
+        visible = (
+            output_widget.get("1.0", "end-1c").strip()
+            if output_widget is not None
+            else draft
+        )
+        accepted = str(self.__dict__.get("accepted_scene", "") or "").strip()
+        draft_context = self.__dict__.get("generated_scene_context")
+        accepted_context = self.__dict__.get("accepted_scene_context")
+        if draft_context != accepted_context and (draft_context is not None or accepted_context is not None):
+            return True
+        return visible.strip() != accepted
+
     def _update_writer_buttons(self):
-        if not hasattr(self, "writer_start_button"):
+        if self.__dict__.get("writer_start_button") is None:
             return
 
-        running = (
-            self.writer_engine.child is not None
-            and self.writer_engine.child.isalive()
-        )
-        has_scene = bool(self.generated_scene.strip())
-        has_accepted = bool(self.accepted_scene.strip())
+        child = getattr(self.writer_engine, "child", None)
+        try:
+            running = child is not None and child.isalive()
+        except Exception:
+            running = False
+        has_scene = bool(str(getattr(self, "generated_scene", "") or "").strip())
+        has_accepted = bool(str(getattr(self, "accepted_scene", "") or "").strip())
+        has_pending = self._has_pending_generated_scene()
         has_patch = isinstance(self.pending_state_patch, dict)
 
         notes_updating = bool(self.__dict__.get("writer_notes_update_in_progress", False))
-        acceptance_validating = bool(self.__dict__.get("acceptance_validation_in_progress", False))
         contract_building = bool(getattr(self, "scene_contract_building", False))
+        generating = bool(getattr(self, "writer_generation_in_progress", False))
+        focused_revision = bool(self.__dict__.get("focused_revision_in_progress", False))
+        busy = notes_updating or contract_building or generating or focused_revision
+
         self.writer_start_button.configure(
-            state="disabled" if running or notes_updating or acceptance_validating or contract_building else "normal"
+            state="disabled" if running or busy else "normal"
         )
         self.writer_stop_button.configure(
-            state="normal" if running and not notes_updating and not acceptance_validating and not contract_building else "disabled"
+            state="normal" if running and not notes_updating and not contract_building and not focused_revision else "disabled"
         )
         self.writer_write_button.configure(
-            state="normal" if running and self.package and not notes_updating and not acceptance_validating and not contract_building else "disabled"
+            state="normal" if running and self.package and not has_pending and not busy else "disabled"
         )
         self.writer_save_draft_button.configure(
-            state="normal" if has_scene and self.package and not acceptance_validating else "disabled"
+            state="normal" if has_pending and self.package and not busy else "disabled"
         )
-        validation_failed = bool(getattr(self, "writer_validation_failed", False))
         self.writer_accept_button.configure(
-            state="normal" if has_scene and not has_accepted and self.package and not acceptance_validating and not contract_building and not validation_failed else "disabled"
+            state="normal" if has_pending and self.package and not busy else "disabled"
         )
         self.writer_reject_button.configure(
-            state="normal" if has_scene and not has_accepted and self.package and not acceptance_validating else "disabled"
+            state="normal" if has_pending and self.package and not busy else "disabled"
         )
-        if hasattr(self, "writer_clear_context_button"):
+        if self.__dict__.get("writer_regenerate_button") is not None:
+            self.writer_regenerate_button.configure(
+                state="normal" if running and has_pending and self.package and not busy else "disabled"
+            )
+        if self.__dict__.get("writer_focus_change_button") is not None:
+            self.writer_focus_change_button.configure(
+                state="normal" if running and has_pending and self.package and not busy else "disabled"
+            )
+        if self.__dict__.get("writer_undo_focused_change_button") is not None:
+            history = self.__dict__.get("focused_revision_history", [])
+            self.writer_undo_focused_change_button.configure(
+                state="normal" if has_pending and history and not busy else "disabled"
+            )
+        if self.__dict__.get("writer_revision_request_entry") is not None:
+            self.writer_revision_request_entry.configure(
+                state="normal" if running and has_pending and self.package and not busy else "disabled"
+            )
+        if self.__dict__.get("writer_clear_context_button") is not None:
             self.writer_clear_context_button.configure(
-                state="normal" if running and self.package and not notes_updating and not acceptance_validating and not contract_building else "disabled"
+                state="normal" if running and self.package and not busy else "disabled"
             )
         if self.__dict__.get("writer_trace_button") is not None:
             self.writer_trace_button.configure(
-                state="disabled" if self.writer_generation_in_progress or contract_building or notes_updating else "normal",
+                state="disabled" if generating or focused_revision or contract_building or notes_updating else "normal",
                 text="Trace Next Scene (Armed)" if getattr(self, "prompt_trace_armed", False) else "Trace Next Scene (Off)",
             )
         self.writer_analyze_button.configure(
-            state="normal" if has_accepted and self.package and not notes_updating and not contract_building else "disabled"
+            state="normal" if has_accepted and self.package and not busy else "disabled"
         )
         self.writer_apply_state_button.configure(
             state="normal" if has_patch and self.package and not notes_updating else "disabled"
         )
-        if acceptance_validating:
-            status_text = "Validating edited prose against the active scene contract..."
+
+        if focused_revision:
+            status_text = "Applying a focused change to the current draft..."
+        elif generating:
+            status_text = "Writing a new scene draft..."
         elif contract_building:
-            status_text = "Using the local model to build the Scene Contract..."
+            status_text = "Using the local model to build Scene Direction..."
         elif notes_updating:
             status_text = "Updating this novel's temporary writing notes from accepted scenes..."
         elif running and self.writer_engine.model_path:
@@ -2781,7 +2782,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         )
         self._update_writer_buttons()
 
-    def _write_next_scene(self):
+    def _write_next_scene(self, replacing_draft=False):
         if getattr(self, "scene_contract_building", False):
             self.writer_status.configure(
                 text="Wait for Scene Contract generation to finish before writing the next scene."
@@ -2801,8 +2802,15 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                 "Wait for the current scene contract to finish before generating prose.",
             )
             return
-        if getattr(self, "writer_generation_in_progress", False):
-            messagebox.showwarning("Writer", "A scene is already being generated.")
+        if getattr(self, "writer_generation_in_progress", False) or self.__dict__.get("focused_revision_in_progress", False):
+            messagebox.showwarning("Writer", "A Writer task is already running.")
+            return
+        if self._has_pending_generated_scene() and not replacing_draft:
+            messagebox.showinfo(
+                "Review Current Draft",
+                "There is already an unaccepted scene draft. Accept it, make a focused change, "
+                "or use Regenerate Scene to replace it.",
+            )
             return
 
         direction = self.writer_direction_text.get("1.0", "end-1c").strip()
@@ -2818,18 +2826,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
 
         chapter = int(self.package.current_state.get("chapter", 1) or 1)
         scene = int(self.package.current_state.get("scene", 1) or 1)
-        try:
-            contract = self._scene_contract(chapter, scene)
-            if contract:
-                lint_errors = SceneContract.lint(contract)
-                if lint_errors:
-                    raise ValueError(
-                        "Invalid scene contract:\n- " + "\n- ".join(lint_errors)
-                    )
-        except (TypeError, ValueError) as exc:
-            self._show_copyable_error("Scene Contract", str(exc))
-            self._update_writer_buttons()
-            return
+        contract = self._scene_contract(chapter, scene)
 
         current_state = json.loads(
             json.dumps(self.package.current_state, ensure_ascii=False)
@@ -2840,15 +2837,12 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             json.dumps(current_state, ensure_ascii=False)
         )
         self.writer_generation_in_progress = True
+        self._update_writer_buttons()
 
         files = self._writer_package_files()
         system_prompt = self._writer_system_prompt(files)
         model = self.writer_engine.model_path
         author_guidance = self._author_writing_guidance()
-        # Capture Tk variables on the UI thread; validation runs in a worker thread.
-        validator_var = self.__dict__.get("validator_model_var")
-        validator_model = validator_var.get().strip() if validator_var is not None else ""
-
         writer_context = SceneContract.writer_prompt_context(direction, contract)
         prompt_parts = [
             writer_context,
@@ -2879,7 +2873,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                 "scene_generation_started",
                 chapter=chapter,
                 scene=scene,
-                max_attempts=SceneContract.max_attempts(contract) if contract else 1,
+                max_attempts=1,
             )
             self.writer_trace_button.configure(text="Trace Next Scene (Off)", state="disabled")
             self.writer_trace_status.configure(
@@ -2891,117 +2885,40 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
 
         def work():
             answer = ""
-            validation_warning = None
             trace_result = None
             error = None
             try:
                 if model is None:
                     raise RuntimeError("The Writer model is not available.")
 
-                max_attempts = SceneContract.max_attempts(contract) if contract else 1
-                feedback = ""
                 self.writer_engine.reset_context(model, system_prompt)
-
-                for attempt in range(1, max_attempts + 1):
-                    attempt_prompt = (
-                        SceneContract.revision_prompt(base_prompt, answer, feedback)
-                        if feedback
-                        else base_prompt
+                if prompt_trace is not None:
+                    prompt_trace.record_event(
+                        "writer_attempt_started",
+                        attempt=1,
+                        max_attempts=1,
+                        is_focused_revision=False,
+                        prompt_characters=len(base_prompt),
                     )
-                    if prompt_trace is not None:
-                        prompt_trace.record_event(
-                            "writer_attempt_started",
-                            attempt=attempt,
-                            max_attempts=max_attempts,
-                            is_focused_revision=bool(feedback),
-                            prompt_characters=len(attempt_prompt),
-                        )
-                    answer = self.writer_engine.generate(attempt_prompt)
-
-                    if not contract:
-                        if prompt_trace is not None:
-                            prompt_trace.record_event(
-                                "writer_attempt_finished",
-                                attempt=attempt,
-                                status="generated_without_contract_validation",
-                                response_characters=len(answer),
-                            )
-                        break
-
-                    try:
-                        result = self._validate_scene_with_selected_model(
-                            contract,
-                            current_state,
-                            answer,
-                            author_guidance=author_guidance,
-                            writer_model=model,
-                            validator_model=validator_model,
-                        )
-                    except SceneContractValidationUnavailable as exc:
-                        # Preserve the generated prose. A broken validator response
-                        # is not evidence that the scene itself failed validation.
-                        validation_warning = str(exc)
-                        if prompt_trace is not None:
-                            prompt_trace.record_event(
-                                "validator_unavailable",
-                                attempt=attempt,
-                                error=str(exc),
-                            )
-                        break
-
-                    if prompt_trace is not None:
-                        prompt_trace.record_event(
-                            "validator_result",
-                            attempt=attempt,
-                            result=result,
-                        )
-                    if result.get("pass"):
-                        if prompt_trace is not None:
-                            prompt_trace.record_event(
-                                "writer_attempt_finished",
-                                attempt=attempt,
-                                status="passed_validation",
-                                response_characters=len(answer),
-                            )
-                        break
-
-                    feedback = SceneContract.feedback(result)
-                    if prompt_trace is not None:
-                        prompt_trace.record_event(
-                            "focused_revision_requested",
-                            attempt=attempt,
-                            next_attempt=attempt + 1,
-                            feedback=feedback,
-                        )
-                    if attempt == max_attempts:
-                        raise RuntimeError(
-                            "The writer could not produce a scene that satisfies the scene contract "
-                            f"after {max_attempts} attempts.\n\n{feedback}"
-                        )
-                    self.writer_engine.reset_context(model, system_prompt)
-
-                error = None
+                answer = self.writer_engine.generate(base_prompt)
+                if prompt_trace is not None:
+                    prompt_trace.record_event(
+                        "writer_attempt_finished",
+                        attempt=1,
+                        status="generated_for_author_review",
+                        response_characters=len(answer),
+                    )
             except Exception as exc:
-                # If prose was produced and validation later failed, preserve that
-                # unaccepted draft so the author can save it rather than lose it.
                 error = str(exc)
             finally:
                 if prompt_trace is not None:
-                    if error:
-                        trace_status = "error"
-                    elif validation_warning:
-                        trace_status = "validation_unavailable"
-                    else:
-                        trace_status = "completed"
                     trace_path = prompt_trace.finish(
-                        status=trace_status,
+                        status="error" if error else "completed",
                         error=error,
-                        validation_warning=validation_warning,
+                        validation_warning=None,
                     )
                     upload_result = None
                     if trace_path is not None and not prompt_trace.save_error:
-                        # Upload failures are diagnostic only; the local trace and
-                        # generated draft remain available even without a network.
                         try:
                             upload_result = upload_prompt_trace(trace_path)
                         except Exception as exc:
@@ -3016,13 +2933,13 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             self.after(
                 0,
                 lambda: self._finish_generated_scene(
-                    answer, error, validation_warning, trace_result
+                    answer, error, trace_result
                 ),
             )
 
         self.writer_thread = threading.Thread(target=work, daemon=True)
         self.writer_thread.start()
-    def _finish_generated_scene(self, answer, error, validation_warning=None, trace_result=None):
+    def _finish_generated_scene(self, answer, error, trace_result=None):
         target = getattr(self, "writer_generation_context", None)
         if trace_result is not None:
             self.active_prompt_trace = None
@@ -3053,16 +2970,13 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                             trace_result.get("error") or "unknown file error"
                         )
                     )
+
         start_state = getattr(self, "writer_generation_start_state", None)
         self.writer_generation_in_progress = False
         self.writer_generation_context = None
         self.writer_generation_start_state = None
-        # New generation output has not been explicitly saved as a draft yet.
-        self.writer_draft_saved_text = None
 
         if error:
-            # Preserve generated prose if generation or a genuine validation check fails.
-            self.writer_validation_unavailable = False
             preserved_draft = bool(str(answer or "").strip())
             if preserved_draft:
                 self.generated_scene = str(answer).strip()
@@ -3071,25 +2985,31 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                     int(self.package.current_state.get("scene", 1) or 1),
                 )
                 self.generated_scene_start_state = start_state
-                self.writer_validation_failed = True
+                self.focused_revision_history = []
                 self.writer_output_text.delete("1.0", "end")
                 self.writer_output_text.insert("1.0", self.generated_scene)
-            # Preserve copy/paste for full model and validation errors.
             self._show_copyable_error(
                 "Writer",
                 error,
-                summary="Scene generation or contract validation failed. The draft was not accepted.",
+                summary="Scene generation encountered an error. Any draft remains available for your review.",
             )
             self._update_writer_buttons()
             if preserved_draft:
                 self.writer_status.configure(
-                    text="Draft generated, but contract validation failed. The draft is preserved and remains unaccepted; save it or retry."
+                    text="A draft was produced before the error. It remains available for your review."
+                )
+            elif self._has_pending_generated_scene():
+                self.writer_status.configure(
+                    text="Regeneration failed. Your previous draft remains unchanged."
+                )
+            else:
+                self.writer_status.configure(
+                    text="Scene generation failed. No scene was accepted or saved."
                 )
             return
 
-        self.writer_validation_failed = False
-        self.writer_validation_unavailable = bool(validation_warning)
-        self.generated_scene = answer.strip()
+        self.writer_draft_saved_text = None
+        self.generated_scene = str(answer or "").strip()
         self.generated_scene_context = target or (
             int(self.package.current_state.get("chapter", 1) or 1),
             int(self.package.current_state.get("scene", 1) or 1),
@@ -3097,54 +3017,204 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         self.generated_scene_start_state = start_state or json.loads(
             json.dumps(self.package.current_state, ensure_ascii=False)
         )
+        self.focused_revision_history = []
         self.writer_output_text.delete("1.0", "end")
         self.writer_output_text.insert("1.0", self.generated_scene)
-        if validation_warning:
+        if self.__dict__.get("writer_revision_request_entry") is not None:
+            self.writer_revision_request_entry.delete("1.0", "end")
+        self._update_writer_buttons()
+        self.writer_status.configure(
+            text=(
+                f"Draft generated for Chapter {self.generated_scene_context[0]}, "
+                f"Scene {self.generated_scene_context[1]}. Review it, request a focused change, "
+                "regenerate it, or accept it when you are satisfied."
+            )
+        )
+    def _regenerate_generated_scene(self):
+        if not self._has_pending_generated_scene():
+            return
+        if getattr(self, "writer_generation_in_progress", False) or self.__dict__.get("focused_revision_in_progress", False):
+            return
+        if not self._ask_yes_no(
+            "Regenerate Scene",
+            "Generate a fresh version of this scene? The current draft will remain available "
+            "if regeneration fails, but will be replaced if the new draft succeeds.",
+        ):
+            return
+        self._write_next_scene(replacing_draft=True)
+
+    def _apply_focused_scene_change(self):
+        if self.package is None or not self._has_pending_generated_scene():
+            return
+        if getattr(self, "writer_generation_in_progress", False) or self.__dict__.get("focused_revision_in_progress", False):
+            return
+
+        original = self._writer_editor_prose()
+        request = self.writer_revision_request_entry.get("1.0", "end-1c").strip()
+        if not request:
+            messagebox.showwarning("Focused Change", "Describe the specific change you want.")
+            return
+        if not original:
+            messagebox.showwarning("Focused Change", "There is no scene draft to revise.")
+            return
+
+        engine = self.writer_engine
+        model = getattr(engine, "model_path", None)
+        child = getattr(engine, "child", None)
+        try:
+            running = child is not None and child.isalive()
+        except Exception:
+            running = False
+        if model is None or not running:
+            messagebox.showwarning("Focused Change", "Start the Writer model before requesting a focused change.")
+            return
+        original_system_prompt = str(getattr(engine, "system_prompt", "") or "")
+        self.focused_revision_in_progress = True
+        self.writer_status.configure(text="Preparing a focused edit...")
+        self._update_writer_buttons()
+
+        def work():
+            revised = None
+            error = None
+            restore_error = None
+            try:
+                # A short task-specific prompt keeps the exact draft and patch inside
+                # the local model's context window without repeating the full novel bible.
+                engine.reset_context(model, FOCUSED_REVISION_SYSTEM_PROMPT)
+                correction = None
+                previous_response = None
+                last_error = None
+                for _attempt in range(2):
+                    response = engine.generate(
+                        build_focused_revision_prompt(
+                            original,
+                            request,
+                            correction=correction,
+                            previous_response=previous_response,
+                        )
+                    )
+                    try:
+                        revised = apply_focused_replacement(original, response)
+                        last_error = None
+                        break
+                    except ValueError as exc:
+                        last_error = str(exc)
+                        correction = last_error
+                        previous_response = response
+                if revised is None:
+                    raise ValueError(
+                        "The model could not produce a safe, exact-text edit after two attempts. "
+                        + str(last_error or "")
+                    )
+            except Exception as exc:
+                error = str(exc)
+            finally:
+                try:
+                    engine.reset_context(model, original_system_prompt)
+                except Exception as exc:
+                    restore_error = str(exc)
+
+            self.after(
+                0,
+                lambda: self._finish_focused_scene_change(
+                    original, revised, error, restore_error
+                ),
+            )
+
+        self.writer_thread = threading.Thread(target=work, daemon=True)
+        self.writer_thread.start()
+
+    def _finish_focused_scene_change(self, original, revised, error, restore_error=None):
+        self.focused_revision_in_progress = False
+        if revised is not None and self._writer_editor_prose() != original:
+            error = (
+                "The visible draft changed while the focused edit was running. "
+                "No model edit was applied; your current text was left untouched."
+            )
+
+        if error or revised is None:
+            self._update_writer_buttons()
+            self.writer_status.configure(
+                text="Focused change was not applied. Your draft remains unchanged."
+            )
+            self._show_copyable_error(
+                "Focused Change",
+                "No text was changed. Review the request and try again.\n\n"
+                + str(error or "The model returned no usable replacement."),
+            )
+            return
+
+        history = getattr(self, "focused_revision_history", None)
+        if not isinstance(history, list):
+            history = []
+            self.focused_revision_history = history
+        history.append(original)
+        self.generated_scene = revised
+        self.writer_draft_saved_text = None
+        self.writer_output_text.delete("1.0", "end")
+        self.writer_output_text.insert("1.0", revised)
+        self.writer_revision_request_entry.delete("1.0", "end")
+        self._update_writer_buttons()
+        if restore_error:
             self.writer_status.configure(
                 text=(
-                    f"Draft generated for Chapter {self.generated_scene_context[0]}, "
-                    f"Scene {self.generated_scene_context[1]}, but validation was unavailable. "
-                    "Review it carefully; accepting will require confirmation."
+                    "Focused change applied. The draft is preserved, but the Writer session "
+                    "could not be restored. Restart the Writer before generating or revising again."
                 )
+            )
+            self._show_copyable_error(
+                "Focused Change",
+                "The focused edit was applied safely, but StoryBuilder could not restore the normal Writer session. "
+                "Restart the Writer before the next model task.\n\n" + str(restore_error),
             )
         else:
             self.writer_status.configure(
-                text=(
-                    f"Draft generated for Chapter {self.generated_scene_context[0]}, "
-                    f"Scene {self.generated_scene_context[1]}. Review it, save a draft if desired, then accept or reject it."
-                )
+                text="Focused change applied to one exact passage. All other draft text was preserved; review it again."
             )
+
+    def _undo_focused_scene_change(self):
+        history = getattr(self, "focused_revision_history", [])
+        if not history or not self._has_pending_generated_scene():
+            return
+        previous = history.pop()
+        self.generated_scene = previous
+        self.writer_draft_saved_text = None
+        self.writer_output_text.delete("1.0", "end")
+        self.writer_output_text.insert("1.0", previous)
         self._update_writer_buttons()
-        if validation_warning:
-            self._show_copyable_error(
-                "Scene Contract Validation",
-                validation_warning
-                + "\n\nThe draft has been preserved and remains unaccepted. "
-                "Review it carefully. StoryBuilder will ask for confirmation if you choose "
-                "to accept it without a successful semantic validation.",
-                summary="Semantic validation was unavailable. The generated scene remains unaccepted.",
-            )
+        self.writer_status.configure(
+            text="Undid the last focused change. The previous draft text has been restored."
+        )
+
     def _reject_generated_scene(self):
         if not self.generated_scene.strip():
             return
 
         if not self._ask_yes_no(
             "Reject Scene",
-            "Discard this generated scene? It will not be accepted into the manuscript.",
+            "Discard this unaccepted draft or undo edits to the accepted scene? The manuscript file will not be deleted.",
         ):
             return
 
-        self.generated_scene = ""
-        self.writer_validation_failed = False
-        self.writer_validation_unavailable = False
+        accepted = str(self.__dict__.get("accepted_scene", "") or "").strip()
+        self.generated_scene = accepted
+        self.focused_revision_history = []
+        if self.__dict__.get("writer_revision_request_entry") is not None:
+            self.writer_revision_request_entry.delete("1.0", "end")
         self.writer_output_text.delete("1.0", "end")
-        if not self.accepted_scene.strip():
+        if accepted:
+            self.writer_output_text.insert("1.0", accepted)
+        else:
             self.generated_scene_context = None
             self.generated_scene_start_state = None
-        self.writer_status.configure(
-            text="Scene rejected. The current story state and accepted manuscript were not changed.",
-        )
         self._update_writer_buttons()
+        self.writer_status.configure(
+            text=(
+                "Restored the accepted scene. The manuscript was not changed."
+                if accepted
+                else "Scene rejected. The current story state and accepted manuscript were not changed."
+            ),
+        )
     def _save_generated_draft(self):
         if not self.package:
             return
@@ -3193,9 +3263,8 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         if not prose:
             messagebox.showwarning("Writer", "There is no scene text to accept.")
             return
-        if self.__dict__.get("acceptance_validation_in_progress", False):
+        if self.__dict__.get("focused_revision_in_progress", False):
             return
-        original_generated_prose = str(self.generated_scene or "").strip()
 
         state = self.package.current_state
         current_key = (
@@ -3232,79 +3301,6 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             )
             return
 
-        contract = self._scene_contract(chapter, scene)
-        if contract and prose.strip() != original_generated_prose:
-            if not getattr(self.writer_engine, "model_path", None):
-                messagebox.showwarning(
-                    "Scene Contract",
-                    "This text differs from the generated scene, so StoryBuilder must recheck it "
-                    "against the active scene contract before accepting it. Start/select the Writer "
-                    "model, then try Accept Scene again.",
-                )
-                return
-
-            validation_state = json.loads(json.dumps(
-                start_state if isinstance(start_state, dict) else state,
-                ensure_ascii=False,
-            ))
-            validation_contract = json.loads(json.dumps(contract, ensure_ascii=False))
-            author_guidance = self._author_writing_guidance()
-            # Capture Tk variables here, before handing validation to a worker thread.
-            writer_model = self.writer_engine.model_path or self.writer_model_var.get().strip()
-            validator_var = self.__dict__.get("validator_model_var")
-            validator_model = validator_var.get().strip() if validator_var is not None else ""
-            self.acceptance_validation_in_progress = True
-            self._update_writer_buttons()
-            self.writer_status.configure(
-                text="Checking edited prose against the active scene contract before acceptance..."
-            )
-
-            def work():
-                validation_unavailable = False
-                try:
-                    result = self._validate_scene_with_selected_model(
-                        validation_contract,
-                        validation_state,
-                        prose,
-                        author_guidance=author_guidance,
-                        writer_model=writer_model,
-                        validator_model=validator_model,
-                    )
-                    error = None
-                except SceneContractValidationUnavailable as exc:
-                    result = None
-                    error = str(exc)
-                    validation_unavailable = True
-                except Exception as exc:
-                    result = None
-                    error = str(exc)
-
-                self.after(
-                    0,
-                    lambda: self._finish_edited_scene_validation(
-                        chapter,
-                        scene,
-                        prose,
-                        validation_state,
-                        result,
-                        error,
-                        validation_unavailable,
-                    ),
-                )
-
-            self.writer_thread = threading.Thread(target=work, daemon=True)
-            self.writer_thread.start()
-            return
-
-        if getattr(self, "writer_validation_unavailable", False):
-            if not self._ask_yes_no(
-                "Accept Without Validation",
-                "The scene-contract validator returned an unreadable response after one retry. "
-                "This draft has not passed semantic validation. Have you reviewed the scene and "
-                "do you want to accept it anyway?",
-            ):
-                return
-
         self.generated_scene = prose
         try:
             manager = ManuscriptManager(self.package.path)
@@ -3323,96 +3319,19 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                 json.loads(json.dumps(start_state if isinstance(start_state, dict) else state, ensure_ascii=False)),
             )
             self.accepted_scene = prose
-            self.writer_validation_unavailable = False
+            self.accepted_scene_context = (chapter, scene)
+            self.focused_revision_history = []
             self.generated_scene_context = (chapter, scene)
             self.pending_state_patch = None
             self.writer_state_preview.delete("1.0", "end")
             self._refresh_manuscript()
             self._chat("Builder", f"Accepted Chapter {chapter}, Scene {scene} and saved it to {path}.")
+            self._update_writer_buttons()
             self.writer_status.configure(
                 text="Scene accepted. You can now analyze it for state changes."
             )
-            self._update_writer_buttons()
         except Exception as exc:
             self._show_copyable_error("Writer", str(exc))
-    def _finish_edited_scene_validation(
-        self,
-        chapter: int,
-        scene: int,
-        prose: str,
-        validation_state: dict,
-        result: dict | None,
-        error: str | None,
-        validation_unavailable: bool = False,
-    ) -> None:
-        """Complete acceptance after a successful check or explicit unvalidated review."""
-        self.acceptance_validation_in_progress = False
-
-        if error and validation_unavailable:
-            # Route this through the normal author-confirmation guard below.
-            # Mark the edited text as the current draft to avoid an endless retry
-            # when its semantic check cannot be read after the one correction attempt.
-            self.writer_validation_unavailable = True
-            self.writer_validation_failed = False
-            self.generated_scene = prose
-            self._accept_generated_scene()
-            return
-
-        if error:
-            self._show_copyable_error(
-                "Scene Contract",
-                "The edited scene could not be validated and was not accepted. "
-                "Your text remains in the Writer editor.\n\n" + error,
-            )
-            self._update_writer_buttons()
-            return
-
-        if self.package is None:
-            self._update_writer_buttons()
-            return
-
-        state = self.package.current_state
-        current_key = (
-            int(state.get("chapter", 1) or 1),
-            int(state.get("scene", 1) or 1),
-        )
-        if current_key != (int(chapter), int(scene)) or state != validation_state:
-            messagebox.showwarning(
-                "Scene Contract",
-                "The story state changed while the edited scene was being checked. "
-                "Nothing was accepted. Restore the starting state and try again.",
-            )
-            self._update_writer_buttons()
-            return
-
-        if not isinstance(result, dict) or not result.get("pass", False):
-            details = SceneContract.feedback(
-                result if isinstance(result, dict) else {
-                    "pass": False,
-                    "missed_beats": [],
-                    "violations": ["The validator returned no usable result."],
-                    "notes": "",
-                }
-            )
-            self._show_copyable_error(
-                "Scene Contract",
-                "The edited prose does not satisfy the active scene contract, so it was not accepted. "
-                "Revise the prose or adjust the scene guidance, then try again.\n\n" + details,
-                summary="Edited prose did not pass scene validation and remains unaccepted.",
-            )
-            self.writer_status.configure(
-                text="Edited prose did not pass contract validation. It remains unaccepted in the Writer editor."
-            )
-            self._update_writer_buttons()
-            return
-
-        # Mark these exact, freshly validated words as the generated baseline so
-        # the normal acceptance path can save them without a second validation pass.
-        self.writer_validation_unavailable = False
-        self.writer_validation_failed = False
-        self.generated_scene = prose
-        self._accept_generated_scene()
-
     def _editable_scene_guidance_entry(
         self,
         chapter: int,
@@ -4408,6 +4327,8 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             self.pending_state_patch = None
             self.generated_scene = ""
             self.accepted_scene = ""
+            self.accepted_scene_context = None
+            self.focused_revision_history = []
             self.generated_scene_context = None
             self.generated_scene_start_state = None
             self.writer_generation_context = None
@@ -5423,6 +5344,8 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         self.character_filename = None
         self.generated_scene = ""
         self.accepted_scene = ""
+        self.accepted_scene_context = None
+        self.focused_revision_history = []
         self.pending_state_patch = None
         self.interview_active = False
         self.interview_index = 0
@@ -5454,6 +5377,8 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             pass
         self.generated_scene = ""
         self.accepted_scene = ""
+        self.accepted_scene_context = None
+        self.focused_revision_history = []
         self.generated_scene_context = None
         self.generated_scene_start_state = None
         self.writer_generation_context = None
@@ -5510,6 +5435,8 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         self.character_filename = None
         self.generated_scene = ""
         self.accepted_scene = ""
+        self.accepted_scene_context = None
+        self.focused_revision_history = []
         self.generated_scene_context = None
         self.generated_scene_start_state = None
         self.writer_generation_context = None
@@ -5844,10 +5771,10 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         """Ask before saving or discarding unfinished Writer prose."""
         if self.package is None:
             return True
-        if getattr(self, "writer_generation_in_progress", False):
+        if getattr(self, "writer_generation_in_progress", False) or self.__dict__.get("focused_revision_in_progress", False):
             messagebox.showwarning(
                 "Writer",
-                "A scene is still being generated. Let it finish before changing scenes or closing StoryBuilder.",
+                "A Writer task is still running. Let it finish before changing scenes or closing StoryBuilder.",
             )
             return False
         if getattr(self, "scene_contract_building", False):
@@ -5967,10 +5894,10 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         if self.package is None:
             return True
 
-        if self.__dict__.get("acceptance_validation_in_progress", False):
+        if self.__dict__.get("focused_revision_in_progress", False):
             messagebox.showwarning(
-                "Scene Contract",
-                "Wait for edited prose validation to finish before changing scenes.",
+                "Focused Change",
+                "Wait for the focused edit to finish before changing scenes.",
             )
             return False
 
@@ -6010,6 +5937,8 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         """Clear scene-specific Writer memory only after its text is safely saved."""
         self.generated_scene = ""
         self.accepted_scene = ""
+        self.accepted_scene_context = None
+        self.focused_revision_history = []
         self.generated_scene_context = None
         self.generated_scene_start_state = None
         self.writer_draft_saved_text = None
@@ -6036,12 +5965,13 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
 
         if (
             getattr(self, "writer_generation_in_progress", False)
+            or self.__dict__.get("focused_revision_in_progress", False)
             or getattr(self, "scene_contract_building", False)
             or self.__dict__.get("writer_notes_update_in_progress", False)
         ):
             messagebox.showwarning(
                 "Restore Previous End State",
-                "Wait for the active writer, contract build, or writing-notes review to finish first.",
+                "Wait for the active Writer task, Scene Direction build, or writing-notes review to finish first.",
             )
             return
 

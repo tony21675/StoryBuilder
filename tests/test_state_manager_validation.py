@@ -7,11 +7,54 @@ from unittest.mock import patch
 import builder.state_manager as state_manager_module
 from builder.state_manager import (
     StateManager,
+    extract_json_object,
     remove_prior_chapter_opening_markers,
 )
 
 
 class StateUpdateValidationTests(unittest.TestCase):
+    def test_extracts_final_patch_instead_of_echoed_before_state(self):
+        before_state = {
+            "story_format_version": "1.0",
+            "chapter": 1,
+            "scene": 1,
+            "scene_completed": False,
+            "chapter_completed": False,
+            "status": "story_start",
+            "time_of_day": "",
+            # Legacy packages can contain a plain-text location value.
+            "location": "",
+            "scene_cast": [],
+            "events": [],
+            "continuity_notes": [],
+            "physical_state": {},
+            "current_situation": "",
+        }
+        model_patch = {
+            "location": {
+                "primary": "Community garden",
+                "Maya": "Kneeling near the first planted row",
+                "Alex": "Kneeling beside Maya",
+            },
+            "physical_state": {
+                "Maya": {"posture": "kneeling"},
+                "Alex": {"posture": "kneeling"},
+            },
+            "current_situation": (
+                "Maya and Alex have finished planting the first row in the garden."
+            ),
+        }
+        output = (
+            "llama.cpp output and echoed prompt\\n"
+            "CURRENT STATE BEFORE THIS SECTION:\\n"
+            + json.dumps(before_state, indent=2)
+            + "\\nFinal model response:\\n"
+            + json.dumps(model_patch, indent=2)
+            + "\\n[ Generation stats ]"
+        )
+
+        self.assertEqual(extract_json_object(output), model_patch)
+
     def setUp(self):
         self.state = {
             "chapter": 2,
