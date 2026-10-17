@@ -74,6 +74,103 @@ class StateUpdateValidationTests(unittest.TestCase):
             },
         }
 
+    def test_rejects_unrecognized_singular_event_field(self):
+        with self.assertRaisesRegex(ValueError, "unsupported field.*event"):
+            StateManager.validate_patch(
+                self.state,
+                {"event": "Tony carried Maya back onto the bed."},
+            )
+
+    def test_retries_event_log_and_knowledge_pollution_then_returns_ending_state(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            model = root / "writer.gguf"
+            llama = root / "llama-cli"
+            model.touch()
+            llama.touch()
+
+            current_state = {
+                "story_format_version": "1.0",
+                "chapter": 1,
+                "scene": 4,
+                "scene_completed": False,
+                "chapter_completed": False,
+                "status": "story_start",
+                "time_of_day": "",
+                "location": "",
+                "scene_cast": [],
+                "events": [],
+                "continuity_notes": [],
+                "physical_state": {},
+                "current_situation": "",
+            }
+            invalid_output = json.dumps({
+                "event": "Tony scooped Maya up gently and carried her back onto the sheets.",
+                "character_knowledge": {
+                    "Tony": [
+                        "He helped Maya sit up and guided her toward the bathroom.",
+                        "He called Beth and invited her to breakfast.",
+                    ],
+                    "Maya": ["Tony offered her tea."],
+                },
+            })
+            valid_patch = {
+                "current_situation": (
+                    "Maya sits opposite Tony at the kitchen table, holding a warm mug of chamomile "
+                    "while they share a quiet moment."
+                ),
+                "location": {
+                    "primary": "Kitchen",
+                    "Tony": "Seated at the kitchen table opposite Maya",
+                    "Maya": "Seated at the kitchen table holding a mug of chamomile",
+                },
+                "physical_state": {
+                    "Tony": {"posture": "seated at the kitchen table"},
+                    "Maya": {"posture": "seated", "holding": "a mug of chamomile"},
+                },
+            }
+
+            class FakeProcess:
+                returncode = 0
+
+                def __init__(self, output):
+                    self.output = output
+
+                def communicate(self, timeout=None):
+                    return self.output, None
+
+            with (
+                patch.object(state_manager_module, "DEFAULT_LLAMA", llama),
+                patch.object(
+                    state_manager_module.subprocess,
+                    "Popen",
+                    side_effect=[
+                        FakeProcess(json.dumps(invalid_output) if False else invalid_output),
+                        FakeProcess(json.dumps(valid_patch)),
+                    ],
+                ) as popen,
+                patch.object(StateManager, "_detect_accelerator", return_value=None),
+                patch.object(StateManager, "_propose_knowledge_delta", return_value={}),
+            ):
+                result = StateManager.propose(
+                    model,
+                    current_state,
+                    (
+                        "Maya emerged from the bathroom in a robe. Tony offered her chamomile tea. "
+                        "She sat opposite him at the kitchen table and held the warm mug in both hands. "
+                        "They sat in comfortable silence."
+                    ),
+                )
+
+            self.assertEqual(result, valid_patch)
+            self.assertNotIn("event", result)
+            self.assertNotIn("character_knowledge", result)
+            self.assertEqual(popen.call_count, 2)
+            repair_args = popen.call_args_list[1].args[0]
+            repair_prompt = repair_args[repair_args.index("--prompt") + 1]
+            self.assertIn("Do not return a singular 'event' field", repair_prompt)
+            self.assertIn("current_situation", repair_prompt)
+
     def test_rejects_character_knowledge_lists_inside_location(self):
         patch = {
             "location": {
@@ -240,12 +337,19 @@ class StateUpdateValidationTests(unittest.TestCase):
                     "Maya tells Tony she witnessed the man take Tiffany, but remains shaken.",
                 )
 
-            self.assertEqual(result, corrected_patch)
+            self.assertEqual(
+                result,
+                {
+                    "current_situation": (
+                        "Maya has begun telling Tony what she witnessed, but remains shaken."
+                    )
+                },
+            )
             self.assertEqual(popen.call_count, 2)
             second_args = popen.call_args_list[1].args[0]
             repair_prompt = second_args[second_args.index("--prompt") + 1]
             self.assertIn("AUTOMATIC CORRECTION REQUIRED", repair_prompt)
-            self.assertIn("Character knowledge belongs only under character_knowledge", repair_prompt)
+            self.assertIn("SCHEMA REMINDER", repair_prompt)
 
     def test_drops_malformed_location_values_after_retry_and_preserves_baseline(self):
         with tempfile.TemporaryDirectory() as tmp:
