@@ -860,6 +860,64 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             self.assertEqual(app.pending_state_patch, analysis_patch)
             self.assertNotIn("PLANNED BUT NOT PROVEN", app.writer_state_preview.get("1.0", "end"))
 
+    def test_writer_state_analysis_previews_full_reconciled_state_without_applying_it(self):
+        before = {
+            "chapter": 2,
+            "scene": 4,
+            "current_situation": "Tony and Maya are in the bedroom.",
+            "location": {
+                "primary": "Tony's bedroom",
+                "Tony": "Tony's bedroom",
+                "Maya": "Tony's bedroom",
+            },
+            "Tony": "At home, awake in his bedroom with Maya.",
+            "Maya": "In Tony's bedroom, clinging to Tony.",
+            "physical_state": {
+                "Tony": {"location": "Tony's bedroom", "position": "on the bed"},
+                "Maya": {"location": "Tony's bedroom", "position": "beside Tony"},
+            },
+            "character_knowledge": {
+                "Tony": ["Tony knows Tiffany is missing."],
+            },
+            "recent_events": ["Tony reassured Maya in the bedroom."],
+        }
+        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+        app.package = SimpleNamespace(current_state=before)
+        app.writer_state_preview = FakeText()
+        app.writer_status = SimpleLabel()
+        app._update_writer_buttons = Mock()
+        patch = {
+            "current_situation": (
+                "Tony and Maya share a quiet moment over tea at the kitchen table."
+            ),
+            "location": {
+                "primary": "Kitchen",
+                "Tony": "Kitchen",
+                "Maya": "Kitchen",
+            },
+            "physical_state": {
+                "Tony": {"position": "seated at the kitchen table"},
+                "Maya": {"position": "seated opposite Tony at the kitchen table"},
+            },
+        }
+
+        storybuilder_app.StoryBuilderApp._finish_state_analysis(app, patch, None)
+
+        preview = json.loads(app.writer_state_preview.get("1.0", "end"))
+        self.assertEqual(app.pending_state_patch, patch)
+        self.assertEqual(preview["location"]["primary"], "Kitchen")
+        self.assertEqual(preview["physical_state"]["Tony"]["location"], "Kitchen")
+        self.assertEqual(preview["physical_state"]["Maya"]["location"], "Kitchen")
+        self.assertNotIn("Tony", preview)
+        self.assertNotIn("Maya", preview)
+        self.assertEqual(
+            preview["character_knowledge"],
+            before["character_knowledge"],
+        )
+        self.assertEqual(preview["recent_events"], before["recent_events"])
+        self.assertEqual(app.package.current_state, before)
+        self.assertIn("Nothing has been applied", app.writer_status.text)
+
     def test_generated_contract_text_is_read_only_after_each_programmatic_update(self):
         widget = FakeText("old generated text")
 

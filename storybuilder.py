@@ -1251,7 +1251,7 @@ class StoryBuilderApp(tk.Tk):
         proposed_state_header.pack(fill="x", pady=(10, 0))
         ttk.Label(
             proposed_state_header,
-            text="Proposed State Changes",
+            text="Reconstructed Ending State (Preview Only)",
             font=("", 11, "bold"),
         ).pack(side="left")
 
@@ -1262,7 +1262,19 @@ class StoryBuilderApp(tk.Tk):
         )
         self.writer_copy_state_button.pack(side="right")
 
-        self.writer_state_preview = tk.Text(content_frame, height=8, wrap="none", undo=True)
+        ttk.Label(
+            content_frame,
+            text=(
+                "Shows the full merged ending state, including fields preserved from earlier scenes. "
+                "Nothing is applied until you click Apply State Update."
+            ),
+            wraplength=900,
+            justify="left",
+        ).pack(anchor="w", pady=(4, 0))
+
+        self.writer_state_preview = tk.Text(
+            content_frame, height=12, wrap="none", undo=True
+        )
         self.writer_state_preview.pack(fill="x", pady=(4, 0))
 
         self._refresh_writer_models()
@@ -4319,14 +4331,24 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             self._update_writer_buttons()
             return
 
+        # Keep the actual partial patch for Apply State Update, but preview
+        # the fully merged candidate so the author can inspect preserved fields
+        # and location reconciliation before changing canon.
         self.pending_state_patch = patch or {}
+        reconstructed_state = StateManager.merge_patch(
+            self.package.current_state,
+            self.pending_state_patch,
+        )
         self.writer_state_preview.delete("1.0", "end")
         self.writer_state_preview.insert(
             "1.0",
-            json.dumps(self.pending_state_patch, indent=2, ensure_ascii=False),
+            json.dumps(reconstructed_state, indent=2, ensure_ascii=False),
         )
         self.writer_status.configure(
-            text="State update proposed. Review it before applying."
+            text=(
+                "Full ending-state preview ready. Nothing has been applied; "
+                "review the JSON before choosing Apply State Update."
+            )
         )
         self._update_writer_buttons()
 
