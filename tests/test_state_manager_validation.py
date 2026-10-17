@@ -270,6 +270,89 @@ class StateUpdateValidationTests(unittest.TestCase):
             "The audit merge must not mutate source state.",
         )
 
+    def test_knowledge_audit_removes_only_explicitly_superseded_prior_facts(self):
+        current_state = {
+            "scene_cast": ["Tony"],
+            "character_knowledge": {
+                "Tony": [
+                    "Knows Tiffany is his daughter.",
+                    "Believes the kidnapper's identity is unknown.",
+                    "Knows Maya witnessed the abduction.",
+                ],
+            },
+        }
+        patch = {}
+        delta = {
+            "Tony": [
+                "Knows Tiffany is his daughter.",
+                "Now knows the kidnapper's identity has been established.",
+            ],
+            "_superseded_facts": {
+                "Tony": ["Believes the kidnapper's identity is unknown."],
+            },
+        }
+
+        StateManager._merge_knowledge_delta(current_state, patch, delta)
+
+        knowledge = patch["character_knowledge"]["Tony"]
+        self.assertIn("Knows Tiffany is his daughter.", knowledge)
+        self.assertIn("Knows Maya witnessed the abduction.", knowledge)
+        self.assertIn("Now knows the kidnapper's identity has been established.", knowledge)
+        self.assertNotIn("Believes the kidnapper's identity is unknown.", knowledge)
+        self.assertNotIn("_superseded_facts", patch["character_knowledge"])
+
+    def test_knowledge_audit_parser_accepts_optional_superseded_facts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            model = root / "writer.gguf"
+            llama = root / "llama-cli"
+            model.touch()
+            llama.touch()
+
+            current_state = {
+                "scene_cast": ["Tony"],
+                "character_knowledge": {
+                    "Tony": ["Believes the kidnapper's identity is unknown."],
+                },
+            }
+            output = json.dumps({
+                "Tony": ["Now knows the kidnapper's identity has been established."],
+                "_superseded_facts": {
+                    "Tony": ["Believes the kidnapper's identity is unknown."],
+                },
+            })
+
+            class FakeProcess:
+                returncode = 0
+
+                def communicate(self, timeout=None):
+                    return output, None
+
+            with (
+                patch.object(state_manager_module, "DEFAULT_LLAMA", llama),
+                patch.object(
+                    state_manager_module.subprocess,
+                    "Popen",
+                    return_value=FakeProcess(),
+                ),
+                patch.object(StateManager, "_detect_accelerator", return_value=None),
+            ):
+                result = StateManager._propose_knowledge_delta(
+                    model,
+                    current_state,
+                    "Maya explains that the kidnapper's identity has now been established.",
+                )
+
+        self.assertEqual(
+            result,
+            {
+                "Tony": ["Now knows the kidnapper's identity has been established."],
+                "_superseded_facts": {
+                    "Tony": ["Believes the kidnapper's identity is unknown."],
+                },
+            },
+        )
+
     def test_knowledge_audit_does_not_erase_prior_facts_when_only_action_logs_return(self):
         current_state = {
             "scene_cast": ["Tony"],
