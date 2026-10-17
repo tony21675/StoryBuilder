@@ -126,6 +126,7 @@ class StoryBuilderApp(tk.Tk):
         self.dirty = False
         self.guided_setup = GuidedSetupSession()
         self._closing = False
+        self.state_analysis_in_progress = False
         self._scroll_canvases = []
         self.spellcheck_available = shutil.which("aspell") is not None
         self._spellcheck_jobs = {}
@@ -1227,12 +1228,18 @@ class StoryBuilderApp(tk.Tk):
 
         state_button_row = ttk.Frame(content_frame)
         state_button_row.pack(fill="x", pady=(8, 0))
+        self.writer_reload_scene_button = ttk.Button(
+            state_button_row,
+            text="Reload Saved Scene",
+            command=self._load_saved_scene_into_writer,
+        )
+        self.writer_reload_scene_button.pack(side="left")
         self.writer_analyze_button = ttk.Button(
             state_button_row,
             text="Analyze Accepted Scene",
             command=self._analyze_accepted_scene,
         )
-        self.writer_analyze_button.pack(side="left")
+        self.writer_analyze_button.pack(side="left", padx=(8, 0))
         self.writer_apply_state_button = ttk.Button(
             state_button_row,
             text="Apply State Update",
@@ -2554,11 +2561,16 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                 state="disabled" if generating or focused_revision or contract_building or notes_updating else "normal",
                 text="Trace Next Scene (Armed)" if getattr(self, "prompt_trace_armed", False) else "Trace Next Scene (Off)",
             )
+        analysis_in_progress = bool(self.__dict__.get("state_analysis_in_progress", False))
+        if self.__dict__.get("writer_reload_scene_button") is not None:
+            self.writer_reload_scene_button.configure(
+                state="normal" if self.package and not busy and not analysis_in_progress else "disabled"
+            )
         self.writer_analyze_button.configure(
-            state="normal" if has_accepted and self.package and not busy else "disabled"
+            state="normal" if has_accepted and self.package and not busy and not analysis_in_progress else "disabled"
         )
         self.writer_apply_state_button.configure(
-            state="normal" if has_patch and self.package and not notes_updating else "disabled"
+            state="normal" if has_patch and self.package and not notes_updating and not analysis_in_progress else "disabled"
         )
 
         if focused_revision:
@@ -4164,8 +4176,74 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         return SceneContract.from_guidance(entry, module_guidance)
 
 
+    def _load_saved_scene_into_writer(self, startup=False):
+        """Restore the saved accepted section matching the live scene pointer."""
+        if self.package is None or self.package.path is None:
+            if not startup:
+                messagebox.showwarning(
+                    "Reload Saved Scene",
+                    "Open a saved novel package before reloading a manuscript section.",
+                )
+            return False
+
+        state = self.package.current_state
+        chapter = int(state.get("chapter", 1) or 1)
+        scene = int(state.get("scene", 1) or 1)
+        try:
+            restored = ManuscriptManager(Path(self.package.path)).load_scene_for_state_review(
+                chapter,
+                scene,
+                state,
+            )
+        except (OSError, ValueError) as exc:
+            if startup:
+                self.writer_status.configure(text=str(exc))
+            else:
+                self._show_copyable_error("Reload Saved Scene", str(exc))
+            return False
+
+        if restored is None:
+            message = (
+                f"No saved accepted manuscript prose was found for Chapter {chapter}, "
+                f"Scene {scene}. No Writer text was changed."
+            )
+            if startup:
+                self.writer_status.configure(text=message)
+            else:
+                messagebox.showinfo("Reload Saved Scene", message, parent=self)
+            return False
+
+        prose = restored["text"]
+        visible = self._writer_editor_prose()
+        accepted_before = str(getattr(self, "accepted_scene", "") or "").strip()
+        if not startup and visible and visible != accepted_before and visible != prose:
+            if not self._save_unsaved_writer_draft():
+                return False
+
+        self.generated_scene = prose
+        self.accepted_scene = prose
+        self.accepted_scene_context = (chapter, scene)
+        self.generated_scene_context = (chapter, scene)
+        self.generated_scene_start_state = restored["start_state"]
+        self.writer_draft_saved_text = None
+        self.focused_revision_history = []
+        self.pending_state_patch = None
+        self.writer_output_text.delete("1.0", "end")
+        self.writer_output_text.insert("1.0", prose)
+        self.writer_state_preview.delete("1.0", "end")
+        self._update_writer_buttons()
+        self.writer_status.configure(
+            text=(
+                f"Restored saved Chapter {chapter}, Scene {scene} into Writer. "
+                "Review the prose, then analyze its ending state."
+            )
+        )
+        return True
+
     def _analyze_accepted_scene(self):
         if not self.package or not self.accepted_scene.strip():
+            return
+        if self.__dict__.get("state_analysis_in_progress", False):
             return
 
         current_state = dict(self.package.current_state)
@@ -4183,6 +4261,8 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         scene_end_guidance = self._scene_end_guidance(completed_chapter, completed_scene)
         model = self.writer_engine.model_path
 
+        self.state_analysis_in_progress = True
+        self.writer_reload_scene_button.configure(state="disabled")
         self.writer_analyze_button.configure(state="disabled")
         self.writer_apply_state_button.configure(state="disabled")
         self.writer_status.configure(text="Analyzing accepted scene...")
@@ -4213,6 +4293,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
 
 
     def _finish_state_analysis(self, patch, error):
+        self.state_analysis_in_progress = False
         if error:
             self.pending_state_patch = None
             if hasattr(self, "writer_state_preview"):
@@ -5360,6 +5441,10 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         self.dirty = False
         self._refresh_all()
         self._refresh_writer_models()
+        # Recover the accepted prose for the live chapter/scene when its saved
+        # starting state matches current_state. This keeps restart recovery from
+        # silently emptying the Writer before a pending continuity analysis.
+        self._load_saved_scene_into_writer(startup=True)
         self._chat(
             "Builder",
             f'Opened "{self.package.story_bible.get("title", folder.name)}".',
