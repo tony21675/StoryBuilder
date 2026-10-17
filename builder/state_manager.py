@@ -659,20 +659,21 @@ class StateManager:
         # Preserve non-scene character knowledge exactly as it was.
         combined = dict(base_knowledge)
 
-        # The focused audit is authoritative for current-scene characters.
-        # Replace those characters' cumulative knowledge rather than appending
-        # a small delta that could leave obsolete negative statements behind.
+        # The focused audit may omit valid prior facts, even when asked for
+        # cumulative knowledge. Treat it as evidence for additions and cleanup,
+        # not as permission to erase every prior fact it failed to repeat.
+        # Merge the baseline with the audit, then apply the same deterministic
+        # routine-action and obsolete-negative filters to the combined list.
         for name, values in delta.items():
-            cleaned = normalize_knowledge(values, name)
-            if values and not cleaned:
-                # A malformed audit consisting entirely of filtered action logs
-                # must not wipe a character's valid knowledge. Fall back to the
-                # existing facts after applying the same cleanup guard.
-                prior_values = base_knowledge.get(name, [])
-                if isinstance(prior_values, str):
-                    prior_values = [prior_values]
-                if isinstance(prior_values, list):
-                    cleaned = normalize_knowledge(prior_values, name)
+            prior_values = base_knowledge.get(name, [])
+            if isinstance(prior_values, str):
+                prior_values = [prior_values]
+            if not isinstance(prior_values, list):
+                prior_values = []
+
+            proposed_values = values if isinstance(values, list) else []
+            combined_values = [*prior_values, *proposed_values]
+            cleaned = normalize_knowledge(combined_values, name)
             combined[name] = cleaned
 
         # Preserve any useful model-derived knowledge for scene characters only
