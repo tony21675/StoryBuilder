@@ -694,10 +694,16 @@ class StateManager:
         # not as permission to erase facts that the model failed to repeat.
         # Explicit supersession metadata is optional, so models using the older
         # output schema remain safe and backward-compatible.
-        for name, values in delta.items():
-            if name == "_superseded_facts":
-                continue
-
+        audited_names = list(dict.fromkeys(
+            [
+                name for name in delta
+                if name != "_superseded_facts"
+            ] + [
+                str(name) for name in superseded_payload
+            ]
+        ))
+        for name in audited_names:
+            values = delta.get(name, [])
             prior_values = base_knowledge.get(name, [])
             if isinstance(prior_values, str):
                 prior_values = [prior_values]
@@ -727,7 +733,7 @@ class StateManager:
         # Preserve any useful model-derived knowledge for scene characters only
         # when the focused audit did not return that character.
         for name, values in proposed.items():
-            if name in delta:
+            if name in audited_names:
                 continue
             if isinstance(values, list):
                 combined[name] = [
