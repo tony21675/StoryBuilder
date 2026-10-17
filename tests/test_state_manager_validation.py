@@ -183,6 +183,9 @@ class StateUpdateValidationTests(unittest.TestCase):
                 "Tony lowered her carefully into the tub.",
                 "Tony gave her peace by closing the bathroom door.",
                 "Tony offered her tea when she emerged from the bathroom.",
+                "Know from Tony that he helped her sit up and guided her toward the adjoining bathroom.",
+                "Know from Tony that he lowered her carefully into the tub and ensured the temperature was just right.",
+                "Know from Tony that he closed the bathroom door behind him.",
                 "Observed Tiffany scratch the kidnapper three times down his left cheek, causing it to bleed.",
             ],
         }
@@ -222,6 +225,9 @@ class StateUpdateValidationTests(unittest.TestCase):
                 "offered her tea",
                 "has told tony",
                 "gave her peace",
+                "know from tony that he helped her sit up",
+                "know from tony that he lowered her carefully",
+                "know from tony that he closed the bathroom door",
             ):
                 self.assertNotIn(phrase, combined_text)
         self.assertEqual(

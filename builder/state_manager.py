@@ -111,6 +111,11 @@ def is_routine_action_log_knowledge(
         if match and match.group(1) in ROUTINE_KNOWLEDGE_ACTION_VERBS:
             return True
 
+    # Some local-model outputs wrap routine actions as "Know from Tony that he helped...".
+    # After unwrapping the knowledge prefix, the grammatical subject is a pronoun.
+    pronoun_match = re.match(r"^(?:he|she|they|it)\s+([a-z]+)\b", candidate)
+    if pronoun_match and pronoun_match.group(1) in ROUTINE_KNOWLEDGE_ACTION_VERBS:
+        return True
     # This wording also appears in routine caregiving logs, while preserving
     # consequential historical statements such as "Tony gave Tiffany Barnaby".
     if re.match(r"^(?:[a-z][a-z '-]+?\s+)?gave\s+(?:her|him|maya|tony)\s+peace\b", candidate):
