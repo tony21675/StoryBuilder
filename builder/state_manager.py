@@ -708,13 +708,13 @@ class StateManager:
             if not isinstance(superseded_values, list):
                 superseded_values = []
             superseded_keys = {
-                re.sub(r"\\s+", " ", str(value).strip()).casefold()
+                re.sub(r"\s+", " ", str(value).strip()).casefold()
                 for value in superseded_values
                 if str(value).strip()
             }
 
             def is_superseded(value: Any) -> bool:
-                key = re.sub(r"\\s+", " ", str(value).strip()).casefold()
+                key = re.sub(r"\s+", " ", str(value).strip()).casefold()
                 return bool(key and key in superseded_keys)
 
             proposed_values = values if isinstance(values, list) else []
