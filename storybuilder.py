@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import queue
 import re
 import shutil
 import subprocess
@@ -128,6 +129,10 @@ class StoryBuilderApp(tk.Tk):
         self._scroll_canvases = []
         self.spellcheck_available = shutil.which("aspell") is not None
         self._spellcheck_jobs = {}
+        # Background spell-check workers publish results here. Only the Tk main
+        # thread may consume them and update widgets.
+        self._spellcheck_results = queue.Queue()
+        self._spellcheck_poll_job = None
         self.writer_engine = WriterEngine()
         self.writer_engine.prompt_trace = None
         self.prompt_trace_armed = False
@@ -7135,6 +7140,9 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                 "Builder",
                 "Live spell check is available when the system 'aspell' program is installed."
             )
+        else:
+            # Tk callbacks must be scheduled from the Tk main thread.
+            self._spellcheck_poll_job = self.after(100, self._poll_spellcheck_results)
 
     def _schedule_spellcheck(self, event=None):
         widget = event.widget if event is not None else None
@@ -7179,9 +7187,30 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             except (OSError, subprocess.SubprocessError):
                 words = None
 
-            self.after(0, lambda: self._apply_spellcheck_result(widget, source_text, words))
+            # Do not call Tkinter from this worker thread. The main-thread
+            # poller below safely delivers the result to the editor.
+            self._spellcheck_results.put((widget, source_text, words))
 
         threading.Thread(target=check_in_background, args=(text,), daemon=True).start()
+
+    def _poll_spellcheck_results(self):
+        """Apply queued spell-check results on the Tk main thread."""
+        self._spellcheck_poll_job = None
+        if self._closing:
+            return
+
+        while True:
+            try:
+                widget, source_text, words = self._spellcheck_results.get_nowait()
+            except queue.Empty:
+                break
+            self._apply_spellcheck_result(widget, source_text, words)
+
+        try:
+            self._spellcheck_poll_job = self.after(100, self._poll_spellcheck_results)
+        except tk.TclError:
+            # The root may be closing between the poll and rescheduling.
+            self._spellcheck_poll_job = None
 
     def _apply_spellcheck_result(self, widget, source_text, misspelled):
         try:
