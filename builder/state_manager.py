@@ -562,38 +562,6 @@ class StateManager:
             json.dumps(current_state, indent=2, ensure_ascii=False),
         ]
 
-        # Give the continuity model an explicit before-state knowledge audit so
-        # dialogue-based learning is evaluated separately from physical state.
-        cast = [
-            str(name).strip()
-            for name in current_state.get("scene_cast", [])
-            if str(name).strip()
-        ]
-        knowledge_before = {}
-        existing_knowledge = current_state.get("character_knowledge", {})
-        if isinstance(existing_knowledge, dict):
-            for name in cast:
-                values = existing_knowledge.get(name)
-                if values is None:
-                    for key, candidate in existing_knowledge.items():
-                        if str(key).casefold() == name.casefold():
-                            values = candidate
-                            break
-                if isinstance(values, list):
-                    knowledge_before[name] = [
-                        str(item).strip()
-                        for item in values
-                        if str(item).strip()
-                    ]
-                elif isinstance(values, str) and values.strip():
-                    knowledge_before[name] = [values.strip()]
-
-        if knowledge_before:
-            prompt_parts.extend([
-                "\n\nCHARACTER KNOWLEDGE BEFORE THIS SECTION:\n",
-                json.dumps(knowledge_before, indent=2, ensure_ascii=False),
-            ])
-
         prompt_parts.extend([
             "\n\nCOMPLETED STORY SECTION:\n",
             completed_text,
