@@ -11,8 +11,11 @@ from builder.workspace import LLAMA as DEFAULT_LLAMA
 
 KNOWLEDGE_AUDIT_SYSTEM_PROMPT = """You are a character-knowledge auditor for an ongoing fictional novel.
 
-Return ONLY valid JSON in this exact shape:
+Return ONLY valid JSON. The normal shape is:
 {"CharacterName": ["complete fact known after the section", "another complete fact known after the section"]}
+When a prior fact is explicitly superseded by the completed prose, you may additionally include:
+"_superseded_facts": {"CharacterName": ["exact prior fact that is now false or obsolete"]}
+Older callers may only consume the character-name arrays, so keep those arrays complete and valid.
 
 Rules:
 - Audit only the supplied scene cast.
@@ -23,6 +26,9 @@ Rules:
 - Do not give information to characters who did not hear, observe, read, or experience it.
 - Preserve specific consequential facts. Do not replace several distinct facts with a vague summary.
 - If a before-state item says a character does not know a fact, and the completed prose shows that character now learns it, remove the obsolete negative statement and record the actual knowledge instead.
+- Never omit a valid prior fact merely because the completed section does not repeat it. The application also preserves prior facts as a safeguard against incomplete model output.
+- Only when the completed prose directly corrects, contradicts, or resolves a prior fact, list that exact prior fact under the optional "_superseded_facts" object for its character. Do not list a fact as superseded merely because it was omitted from your knowledge summary.
+- If you do not find any prior fact that is explicitly superseded, omit the "_superseded_facts" object and use the normal character-name arrays.
 - Do not keep contradictory positive and negative knowledge statements when the completed prose resolves the contradiction.
 - Read the entire completed section, not only its ending.
 - Never infer future events, motives, hidden information, or unstated conclusions.
@@ -496,7 +502,7 @@ class StateManager:
         model: Path,
         current_state: dict[str, Any],
         story_text: str,
-    ) -> dict[str, list[str]]:
+    ) -> dict[str, Any]:
         """Run a focused pass that returns cumulative post-scene knowledge."""
         cast = [
             str(name).strip()
@@ -527,7 +533,11 @@ class StateManager:
             "Audit the entire completed story section and produce the complete cumulative knowledge "
             "for every current-scene character after the section. Preserve all valid before-state facts, "
             "add all facts learned during the section, and remove obsolete negative statements when the "
-            "character now knows the corresponding fact.\n\n"
+            "character now knows the corresponding fact. Do not omit a prior fact just because it is not "
+            "repeated in this section. If and only if the completed prose directly corrects, contradicts, "
+            "or resolves a prior fact, optionally return a top-level \"_superseded_facts\" object mapping "
+            "the character name to exact prior fact strings that are no longer current. Older models may "
+            "omit this optional field; do not require it for ordinary outputs.\n\n"
             "SCENE CAST:\n"
             + json.dumps(cast, indent=2, ensure_ascii=False)
             + "\n\nCHARACTER KNOWLEDGE BEFORE THIS SECTION:\n"
@@ -586,7 +596,7 @@ class StateManager:
             )
 
         raw = extract_json_object(output)
-        result: dict[str, list[str]] = {}
+        result: dict[str, Any] = {}
         for name in cast:
             values = raw.get(name)
             if not isinstance(values, list):
@@ -596,15 +606,31 @@ class StateManager:
                 result[name] = cleaned
             elif name in raw:
                 result[name] = []
+
+        # Optional and backward-compatible: older models may return only the
+        # original character-name-to-list schema. Accept explicit supersession
+        # declarations when a model can identify prior facts directly corrected
+        # by the completed prose.
+        superseded = raw.get("_superseded_facts")
+        if isinstance(superseded, dict):
+            cleaned_superseded: dict[str, list[str]] = {}
+            for name in cast:
+                values = superseded.get(name)
+                if isinstance(values, list):
+                    facts = [str(item).strip() for item in values if str(item).strip()]
+                    if facts:
+                        cleaned_superseded[name] = facts
+            if cleaned_superseded:
+                result["_superseded_facts"] = cleaned_superseded
         return result
 
     @staticmethod
     def _merge_knowledge_delta(
         current_state: dict[str, Any],
         patch: dict[str, Any],
-        delta: dict[str, list[str]],
+        delta: dict[str, Any],
     ) -> None:
-        """Apply audited cumulative knowledge for current-scene characters."""
+        """Merge audited knowledge while guarding against omitted prior facts."""
         scene_characters = [
             str(name).strip()
             for name in current_state.get("scene_cast", [])
@@ -659,26 +685,55 @@ class StateManager:
         # Preserve non-scene character knowledge exactly as it was.
         combined = dict(base_knowledge)
 
-        # The focused audit is authoritative for current-scene characters.
-        # Replace those characters' cumulative knowledge rather than appending
-        # a small delta that could leave obsolete negative statements behind.
-        for name, values in delta.items():
-            cleaned = normalize_knowledge(values, name)
-            if values and not cleaned:
-                # A malformed audit consisting entirely of filtered action logs
-                # must not wipe a character's valid knowledge. Fall back to the
-                # existing facts after applying the same cleanup guard.
-                prior_values = base_knowledge.get(name, [])
-                if isinstance(prior_values, str):
-                    prior_values = [prior_values]
-                if isinstance(prior_values, list):
-                    cleaned = normalize_knowledge(prior_values, name)
+        superseded_payload = delta.get("_superseded_facts", {})
+        if not isinstance(superseded_payload, dict):
+            superseded_payload = {}
+
+        # The audit may omit valid prior facts even when asked for cumulative
+        # knowledge. Treat ordinary character arrays as additions and cleanup,
+        # not as permission to erase facts that the model failed to repeat.
+        # Explicit supersession metadata is optional, so models using the older
+        # output schema remain safe and backward-compatible.
+        audited_names = list(dict.fromkeys(
+            [
+                name for name in delta
+                if name != "_superseded_facts"
+            ] + [
+                str(name) for name in superseded_payload
+            ]
+        ))
+        for name in audited_names:
+            values = delta.get(name, [])
+            prior_values = base_knowledge.get(name, [])
+            if isinstance(prior_values, str):
+                prior_values = [prior_values]
+            if not isinstance(prior_values, list):
+                prior_values = []
+
+            superseded_values = superseded_payload.get(name, [])
+            if not isinstance(superseded_values, list):
+                superseded_values = []
+            superseded_keys = {
+                re.sub(r"\s+", " ", str(value).strip()).casefold()
+                for value in superseded_values
+                if str(value).strip()
+            }
+
+            def is_superseded(value: Any) -> bool:
+                key = re.sub(r"\s+", " ", str(value).strip()).casefold()
+                return bool(key and key in superseded_keys)
+
+            proposed_values = values if isinstance(values, list) else []
+            prior_values = [value for value in prior_values if not is_superseded(value)]
+            proposed_values = [value for value in proposed_values if not is_superseded(value)]
+            combined_values = [*prior_values, *proposed_values]
+            cleaned = normalize_knowledge(combined_values, name)
             combined[name] = cleaned
 
         # Preserve any useful model-derived knowledge for scene characters only
         # when the focused audit did not return that character.
         for name, values in proposed.items():
-            if name in delta:
+            if name in audited_names:
                 continue
             if isinstance(values, list):
                 combined[name] = [
