@@ -1178,30 +1178,47 @@ class StoryBuilderApp(tk.Tk):
         revision_frame.pack(fill="x", pady=(4, 8))
         ttk.Label(
             revision_frame,
-            text="Focused change: describe one specific change; other text will be preserved.",
+            text=(
+                "Focused change: describe one specific change; other text will be preserved. "
+                "(Ctrl+Enter to apply.)"
+            ),
         ).pack(anchor="w")
-        self.writer_revision_request_var = tk.StringVar()
-        self.writer_revision_request_entry = ttk.Entry(
-            revision_frame,
-            textvariable=self.writer_revision_request_var,
+
+        request_input_frame = ttk.Frame(revision_frame)
+        request_input_frame.pack(fill="x", pady=(3, 0))
+        self.writer_revision_request_entry = tk.Text(
+            request_input_frame,
+            height=4,
+            wrap="word",
+            undo=True,
         )
-        self.writer_revision_request_entry.pack(side="left", fill="x", expand=True, pady=(3, 0))
+        request_scrollbar = ttk.Scrollbar(
+            request_input_frame,
+            orient="vertical",
+            command=self.writer_revision_request_entry.yview,
+        )
+        self.writer_revision_request_entry.configure(yscrollcommand=request_scrollbar.set)
+        self.writer_revision_request_entry.pack(side="left", fill="x", expand=True)
+        request_scrollbar.pack(side="right", fill="y")
         self.writer_revision_request_entry.bind(
-            "<Return>",
-            lambda _event: self._apply_focused_scene_change(),
+            "<Control-Return>",
+            lambda _event: self._apply_focused_scene_change() or "break",
         )
+
+        revision_button_row = ttk.Frame(revision_frame)
+        revision_button_row.pack(fill="x", pady=(4, 0))
         self.writer_focus_change_button = ttk.Button(
-            revision_frame,
+            revision_button_row,
             text="Apply Focused Change",
             command=self._apply_focused_scene_change,
         )
-        self.writer_focus_change_button.pack(side="left", padx=(8, 0), pady=(3, 0))
+        self.writer_focus_change_button.pack(side="left")
         self.writer_undo_focused_change_button = ttk.Button(
-            revision_frame,
+            revision_button_row,
             text="Undo Focused Change",
             command=self._undo_focused_scene_change,
         )
-        self.writer_undo_focused_change_button.pack(side="left", padx=(8, 0), pady=(3, 0))
+        self.writer_undo_focused_change_button.pack(side="left", padx=(8, 0))
 
         state_button_row = ttk.Frame(content_frame)
         state_button_row.pack(fill="x", pady=(8, 0))
@@ -3003,8 +3020,8 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         self.focused_revision_history = []
         self.writer_output_text.delete("1.0", "end")
         self.writer_output_text.insert("1.0", self.generated_scene)
-        if self.__dict__.get("writer_revision_request_var") is not None:
-            self.writer_revision_request_var.set("")
+        if self.__dict__.get("writer_revision_request_entry") is not None:
+            self.writer_revision_request_entry.delete("1.0", "end")
         self._update_writer_buttons()
         self.writer_status.configure(
             text=(
@@ -3033,7 +3050,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             return
 
         original = self._writer_editor_prose()
-        request = self.writer_revision_request_var.get().strip()
+        request = self.writer_revision_request_entry.get("1.0", "end-1c").strip()
         if not request:
             messagebox.showwarning("Focused Change", "Describe the specific change you want.")
             return
@@ -3136,7 +3153,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         self.writer_draft_saved_text = None
         self.writer_output_text.delete("1.0", "end")
         self.writer_output_text.insert("1.0", revised)
-        self.writer_revision_request_var.set("")
+        self.writer_revision_request_entry.delete("1.0", "end")
         self._update_writer_buttons()
         if restore_error:
             self.writer_status.configure(
@@ -3182,8 +3199,8 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         accepted = str(self.__dict__.get("accepted_scene", "") or "").strip()
         self.generated_scene = accepted
         self.focused_revision_history = []
-        if self.__dict__.get("writer_revision_request_var") is not None:
-            self.writer_revision_request_var.set("")
+        if self.__dict__.get("writer_revision_request_entry") is not None:
+            self.writer_revision_request_entry.delete("1.0", "end")
         self.writer_output_text.delete("1.0", "end")
         if accepted:
             self.writer_output_text.insert("1.0", accepted)
