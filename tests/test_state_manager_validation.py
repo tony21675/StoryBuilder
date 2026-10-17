@@ -75,7 +75,7 @@ class StateUpdateValidationTests(unittest.TestCase):
         }
 
     def test_rejects_unrecognized_singular_event_field(self):
-        with self.assertRaisesRegex(ValueError, "unsupported field.*event"):
+        with self.assertRaisesRegex(ValueError, "unsupported singular 'event' field"):
             StateManager.validate_patch(
                 self.state,
                 {"event": "Tony carried Maya back onto the bed."},
@@ -145,7 +145,7 @@ class StateUpdateValidationTests(unittest.TestCase):
                     state_manager_module.subprocess,
                     "Popen",
                     side_effect=[
-                        FakeProcess(json.dumps(invalid_output) if False else invalid_output),
+                        FakeProcess(invalid_output),
                         FakeProcess(json.dumps(valid_patch)),
                     ],
                 ) as popen,
