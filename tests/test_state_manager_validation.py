@@ -301,6 +301,28 @@ class StateUpdateValidationTests(unittest.TestCase):
         self.assertNotIn("Believes the kidnapper's identity is unknown.", knowledge)
         self.assertNotIn("_superseded_facts", patch["character_knowledge"])
 
+    def test_superseded_facts_apply_even_if_character_array_is_omitted(self):
+        current_state = {
+            "scene_cast": ["Tony"],
+            "character_knowledge": {
+                "Tony": [
+                    "Knows Tiffany is his daughter.",
+                    "Believes the kidnapper's identity is unknown.",
+                ],
+            },
+        }
+        patch = {}
+        delta = {
+            "_superseded_facts": {
+                "Tony": ["Believes the kidnapper's identity is unknown."],
+            },
+        }
+
+        StateManager._merge_knowledge_delta(current_state, patch, delta)
+
+        knowledge = patch["character_knowledge"]["Tony"]
+        self.assertEqual(knowledge, ["Knows Tiffany is his daughter."])
+
     def test_knowledge_audit_parser_accepts_optional_superseded_facts(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
