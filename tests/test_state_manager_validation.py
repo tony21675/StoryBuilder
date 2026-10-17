@@ -236,6 +236,40 @@ class StateUpdateValidationTests(unittest.TestCase):
             "The audit must not mutate the source state.",
         )
 
+    def test_knowledge_audit_preserves_prior_facts_omitted_by_model(self):
+        current_state = {
+            "scene_cast": ["Tony"],
+            "character_knowledge": {
+                "Tony": [
+                    "Knows Tiffany is his daughter.",
+                    "Has made a silent vow to find Tiffany and bring her home.",
+                    "Knows Maya witnessed Tiffany's abduction.",
+                ],
+            },
+        }
+        patch = {}
+        # Simulate a model that returns new scene facts but omits established
+        # knowledge it was instructed to preserve.
+        delta = {
+            "Tony": [
+                "Knows Tiffany is his daughter.",
+                "Now knows from Maya that Tiffany is gone.",
+            ],
+        }
+
+        StateManager._merge_knowledge_delta(current_state, patch, delta)
+
+        knowledge = patch["character_knowledge"]["Tony"]
+        self.assertIn("Knows Tiffany is his daughter.", knowledge)
+        self.assertIn("Has made a silent vow to find Tiffany and bring her home.", knowledge)
+        self.assertIn("Knows Maya witnessed Tiffany's abduction.", knowledge)
+        self.assertIn("Now knows from Maya that Tiffany is gone.", knowledge)
+        self.assertEqual(
+            current_state["character_knowledge"]["Tony"][1],
+            "Has made a silent vow to find Tiffany and bring her home.",
+            "The audit merge must not mutate source state.",
+        )
+
     def test_knowledge_audit_does_not_erase_prior_facts_when_only_action_logs_return(self):
         current_state = {
             "scene_cast": ["Tony"],
