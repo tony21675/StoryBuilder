@@ -77,6 +77,7 @@ class SpellcheckThreadSafetyTests(unittest.TestCase):
             _spellcheck_poll_job=None,
             _closing=False,
             _apply_spellcheck_result=apply_result,
+            _poll_spellcheck_results=lambda: None,
             after=fake_after,
         )
         caller_thread = threading.get_ident()
