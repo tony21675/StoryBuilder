@@ -329,12 +329,65 @@ def remove_prior_chapter_opening_markers(
     return restored if changed else state
 
 
+def reconcile_merged_state_locations(
+    state: dict[str, Any],
+    patch: dict[str, Any],
+) -> dict[str, Any]:
+    """Keep nested character locations consistent after applying a state patch.
+
+    Some older story states retain character location descriptions as top-level
+    keys as well as under location. Once a nested location map exists, the
+    nested map is authoritative. If this patch changes a character's location,
+    mirror that location into the character's physical_state entry so an older
+    physical_state.location cannot contradict the accepted scene ending.
+    """
+    result = dict(state)
+    location = result.get("location")
+    if not isinstance(location, dict):
+        return result
+
+    # Remove legacy top-level duplicates, but retain unrelated top-level state.
+    for name in location:
+        if name == "primary":
+            continue
+        if name in result and isinstance(result[name], str):
+            result.pop(name, None)
+    if isinstance(result.get("primary"), str):
+        result.pop("primary", None)
+
+    location_patch = patch.get("location") if isinstance(patch, dict) else None
+    physical_state = result.get("physical_state")
+    if not isinstance(location_patch, dict) or not isinstance(physical_state, dict):
+        return result
+
+    updated_physical_state = dict(physical_state)
+    changed = False
+    for name, final_location in location_patch.items():
+        if name == "primary" or not isinstance(final_location, str):
+            continue
+        character_state = physical_state.get(name)
+        if not isinstance(character_state, dict):
+            continue
+        if character_state.get("location") == final_location:
+            continue
+
+        updated_character_state = dict(character_state)
+        updated_character_state["location"] = final_location
+        updated_physical_state[name] = updated_character_state
+        changed = True
+
+    if changed:
+        result["physical_state"] = updated_physical_state
+    return result
+
+
 class StateManager:
     """Turns accepted prose into a reviewable current_state patch."""
 
     @staticmethod
     def merge_patch(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
-        return merge_patch(base, patch)
+        merged = merge_patch(base, patch)
+        return reconcile_merged_state_locations(merged, patch)
 
     @staticmethod
     def validate_patch(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:

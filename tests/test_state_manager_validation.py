@@ -74,6 +74,71 @@ class StateUpdateValidationTests(unittest.TestCase):
             },
         }
 
+    def test_merge_patch_reconciles_character_locations_and_removes_legacy_duplicates(self):
+        base = {
+            "current_situation": "Tony and Maya are in the bedroom.",
+            "location": {
+                "primary": "Tony's bedroom",
+                "Tony": "Tony's bedroom",
+                "Maya": "Tony's bedroom",
+            },
+            # Older saved states may retain duplicate top-level descriptions.
+            "Tony": "At home, awake in his bedroom with Maya.",
+            "Maya": "In Tony's bedroom, clinging to Tony.",
+            "physical_state": {
+                "Tony": {
+                    "location": "Tony's bedroom",
+                    "position": "sitting on the bed",
+                    "posture": "relaxed",
+                },
+                "Maya": {
+                    "location": "Tony's bedroom",
+                    "position": "lying beside Tony",
+                    "posture": "relaxed",
+                },
+            },
+            "character_knowledge": {
+                "Tony": ["Tony knows Tiffany is missing."],
+            },
+            "recent_events": ["Tony reassured Maya in the bedroom."],
+        }
+        before = json.loads(json.dumps(base))
+        patch = {
+            "current_situation": (
+                "Tony and Maya are sharing a quiet moment over tea at the kitchen table."
+            ),
+            "location": {
+                "primary": "Kitchen",
+                "Tony": "Kitchen",
+                "Maya": "Kitchen",
+            },
+            "physical_state": {
+                "Tony": {"position": "seated at the kitchen table"},
+                "Maya": {"position": "seated opposite Tony at the kitchen table"},
+            },
+        }
+
+        merged = StateManager.merge_patch(base, patch)
+
+        self.assertEqual(merged["location"]["primary"], "Kitchen")
+        self.assertEqual(merged["location"]["Tony"], "Kitchen")
+        self.assertEqual(merged["location"]["Maya"], "Kitchen")
+        self.assertEqual(merged["physical_state"]["Tony"]["location"], "Kitchen")
+        self.assertEqual(merged["physical_state"]["Maya"]["location"], "Kitchen")
+        self.assertEqual(
+            merged["physical_state"]["Tony"]["position"],
+            "seated at the kitchen table",
+        )
+        self.assertEqual(
+            merged["physical_state"]["Maya"]["position"],
+            "seated opposite Tony at the kitchen table",
+        )
+        self.assertNotIn("Tony", merged)
+        self.assertNotIn("Maya", merged)
+        self.assertEqual(merged["character_knowledge"], base["character_knowledge"])
+        self.assertEqual(merged["recent_events"], base["recent_events"])
+        self.assertEqual(base, before, "Merging must not mutate the original state.")
+
     def test_rejects_unrecognized_singular_event_field(self):
         with self.assertRaisesRegex(ValueError, "unsupported singular 'event' field"):
             StateManager.validate_patch(
