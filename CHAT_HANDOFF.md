@@ -21,6 +21,15 @@ Read the current versions on GitHub `main` before acting:
 - Do not start long-term work while the current issue/live test is unresolved unless Tony explicitly changes priorities.
 
 
+## Fix Now: spell-check thread safety — October 16, 2026
+
+- **Laptop evidence:** Tony launched `./start.sh`; StoryBuilder reported that local `main` matched `origin/main`, then a background spell-check worker raised `RuntimeError: main thread is not in main loop` from `self.after(...)` inside `check_in_background` near the old line 7182.
+- **Diagnosis:** the existing spell-check worker called Tkinter's `after()` from a background thread. Tkinter's cross-thread callback path is timing-dependent and can fail, especially if the worker finishes while the event loop is not yet servicing callbacks. This is separate from continuity validation; at the time of the report, the continuity repair PR #26 had not been merged into `main`. Do not claim the continuity fix caused this traceback.
+- **Approved and committed to `main`:** [`f578f1d`](https://github.com/tony21675/StoryBuilder/commit/f578f1d861ba93f8a15fd102fae0b7426b0d1b4e) replaces the unsafe worker callback with a thread-safe queue. A repeating Tk `after()` callback is set up from the main thread, drains queued results, and applies editor highlighting on the main thread. Polling stops when closing, and rescheduling tolerates a Tcl teardown race. [`5da0f6f`](https://github.com/tony21675/StoryBuilder/commit/5da0f6ffad934181c8cc027c1f743df9b949caef) adds regression tests for queue-only worker delivery and main-thread result application.
+- **Verification boundary:** source was checked on GitHub after the commits. The regression tests have been added, but this session has not run the repository's full suite on the laptop, and no passing CI result was available from the queried commit status. Do not report the tests as passing until actually run.
+- **Next laptop action:** close the old StoryBuilder window normally if it is still open. In `~/Documents/StoryBuilder`, confirm `git status -sb` and `git branch --show-current`; only if the checkout is clean on `main`, run `./start.sh` to pull the two commits and launch the app. Verify the startup traceback is gone and spell-check highlights still work. Run the repository's unit suite, including `tests/test_spellcheck_threading.py`, and record the actual result.
+- **Separate task:** do not confuse this committed spell-check repair with continuity repair PR #26. The latter needs its own status/review/merge decision and is not merged by these commits. Keep accepted novel scenes and state untouched.
+
 ## Fix Now: semantic-validator evidence grounding — October 14, 2026
 
 - **Latest live test:** Scene 2.4 (Chapter 2, Scene 4) was captured in the private [prompt trace](https://github.com/tony21675/StoryBuilder-Traces/blob/main/prompt_trace.json), 2026-10-14 17:49–18:18 Mountain Time (2026-10-14 23:49–2026-10-15 00:18 UTC). Trace sync succeeded. The run stopped after three writer attempts with the scene still unaccepted.
