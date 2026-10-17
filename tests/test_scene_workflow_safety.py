@@ -827,6 +827,7 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             app.package = SimpleNamespace(path=Path(tmp), current_state=state)
             app.accepted_scene = "Maya tells Tony the man hit her, then remains too shaken to say more."
             app.writer_engine = SimpleNamespace(model_path=Path("/tmp/fake-writer.gguf"))
+            app.writer_reload_scene_button = FakeButton()
             app.writer_analyze_button = FakeButton()
             app.writer_apply_state_button = FakeButton()
             app.writer_state_preview = FakeText()
