@@ -114,7 +114,7 @@ def is_routine_action_log_knowledge(
     # verbs already classified as routine logistics above. Consequential verbs
     # such as struck, abducted, injured, or scratched are deliberately retained.
     fragment_match = re.match(
-        r"^(?:(?:has|have|had|is|are|was|were|been|being|does|did)\\s+)*(?:now\\s+)?([a-z]+)\\b",
+        r"^(?:(?:has|have|had|is|are|was|were|been|being|does|did)\s+)*(?:now\s+)?([a-z]+)\b",
         candidate,
     )
     if fragment_match and fragment_match.group(1) in ROUTINE_KNOWLEDGE_ACTION_VERBS:
