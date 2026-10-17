@@ -26,6 +26,10 @@ Rules:
 - Do not keep contradictory positive and negative knowledge statements when the completed prose resolves the contradiction.
 - Read the entire completed section, not only its ending.
 - Never infer future events, motives, hidden information, or unstated conclusions.
+- Return knowledge facts and beliefs only, not a log of actions performed in the scene.
+- Never list a character's own actions as things that character knows. For example, "Tony helped Maya into the bath" is an event, not a knowledge fact.
+- A valid entry states what the character knows about the world, another person, or an event, such as "Tony knows from Maya that Tiffany is missing."
+- Preserve character knowledge separately from location, physical_state, current_situation, and event history.
 - If a character learned nothing, return that character's before-state knowledge unchanged.
 - Output JSON only. No markdown, commentary, or explanations.
 """
@@ -35,8 +39,12 @@ Return ONLY one valid JSON object containing a PARTIAL UPDATE to the current sto
 
 Rules:
 - Record only changes actually caused by the supplied completed story section.
+- The most important output is current_situation: ALWAYS return a concise, factual, non-empty description of what is true at the absolute end of the completed prose. This is an ending-state summary, not a list of events and not a guess about what happens next.
+- Follow the final paragraphs when describing ending state. Do not report an earlier intermediate action as the ending if later prose shows the characters in a different place or position.
+- Do not return a singular "event" field. Do not return character_knowledge; a separate knowledge audit handles that field.
+- Return only these ending-state fields: current_situation, location, physical_state, and time_of_day. Do not return event/event-log fields, character_knowledge, scene flags, continuity notes, or unrelated metadata.
 - Location is a nested state field. When the baseline current_state has a location object, never return character or primary location values at the top level. Normalize any legacy top-level location fields into the location object before returning the patch.
-- Strict field shape: location must be an object whose primary and per-character entries are plain text location descriptions. Never put lists, knowledge facts, or nested objects under location. character_knowledge must be an object mapping each character name to a list of text facts. Keep these fields separate even when a character learns something without changing location.
+- Strict field shape: location must be an object whose primary and per-character entries are plain text location descriptions. Never put lists, knowledge facts, or nested objects under location. physical_state must be an object describing each character's actual final position, posture, contact, and movement where established by the prose.
 - Do not repeat unchanged fields.
 - For changed nested objects, include only changed nested keys.
 - For arrays, replace the array only when that array truly changed.
@@ -45,21 +53,12 @@ Rules:
 - When the section crosses a scene boundary, describe what is true at the end of the completed section, not what should happen afterward.
 - Never invent future events.
 - Never turn an unknown fact into a known fact.
-- Keep character knowledge limited to what each character could actually know.
-- Update character_knowledge when a character actually learns a new consequential fact during the completed section, including facts learned through another character's dialogue, a direct observation, or an event that character personally experiences.
-- Perform an explicit knowledge audit for every current-scene character. Compare the BEFORE-state knowledge with the entire completed prose and add only facts that became known during this section.
-- For dialogue, treat information as learned by the characters who actually hear it. A speaker does not gain new knowledge merely by saying something they already know. Do not give information to characters who were not present, did not hear it, and did not witness it.
-- Knowledge updates do not depend on a location or physical-state change. A character can learn important facts while remaining physically stationary.
-- Preserve specific newly learned facts rather than replacing them with a vague summary such as "learned what happened." If several distinct facts are communicated, retain the distinct facts.
-- Read the entire completed section for knowledge changes. Do not rely only on the final paragraph or final excerpt.
-- Never infer that a character learned a fact merely because the narrator states it. The character must reasonably perceive, hear, read, or experience the information in the scene.
+- Character knowledge is handled by a separate knowledge audit. Do not analyze, return, or rewrite character_knowledge in this state proposal.
 - Treat continuity_notes as editorial reminders only. They are not authoritative story facts, scene instructions, or character knowledge. Never use them as evidence for what happened, never promote them into permanent facts, and never copy them into a new state update unless the completed prose independently establishes the same fact.
 - Treat physical_state as a first-class continuity field. It records each character's physical location, position, posture, contact with other characters, and movement state at the absolute end of the supplied section.
 - When the completed prose clearly establishes or changes a character's final physical state, include those changed fields under physical_state for that character.
 - Physical continuity must follow the actual final prose. Do not move or reposition a character in physical_state merely because a new scene could logically use a different arrangement.
 - Record only facts established by the supplied story section.
-- Preserve consequential action ownership and causal links. When a completed section establishes multiple important actions in sequence, keep them as separate ordered events in recent_events rather than collapsing them into vague summaries. Do not replace a specific action such as a character striking, grabbing, turning, throwing, or being injured with a generic description such as "tried to help" or "a struggle occurred."
-- Preserve the established order of consequential events when updating recent_events. Do not reorder, merge, or omit a consequential action merely to make the summary shorter.
 - Determine the resulting state from what is true at the ABSOLUTE END of the completed section, using the final actions and final paragraphs as the primary evidence.
 - The current state is the BEFORE-state baseline only. Never copy a before-state location or situation into the update when the completed section clearly changes it.
 - For any character whose location or immediate situation changes during the section, include that changed character under location even if the before-state already listed a different location.
@@ -187,6 +186,49 @@ def remove_unchanged(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, A
     return result
 
 
+OPTIONAL_STATE_PATCH_FIELDS = {
+    # These fields are valid even in older packages that predate their storage.
+    "current_situation",
+    "location",
+    "physical_state",
+    "time_of_day",
+    "character_knowledge",
+    "recent_events",
+    "active_objectives",
+    "continuity_requirements",
+}
+
+
+END_STATE_PROPOSAL_FIELDS = {
+    "current_situation",
+    "location",
+    "physical_state",
+    "time_of_day",
+}
+
+
+def validate_state_proposal(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
+    """Validate the narrower output contract used by the main continuity pass."""
+    if not isinstance(patch, dict):
+        raise ValueError("The proposed state update must be a JSON object.")
+
+    unsupported = sorted(set(patch) - END_STATE_PROPOSAL_FIELDS)
+    if unsupported:
+        raise ValueError(
+            "Invalid continuity proposal: unsupported ending-state field(s): "
+            + ", ".join(unsupported)
+            + ". Return only current_situation, location, physical_state, and time_of_day."
+        )
+
+    situation = patch.get("current_situation")
+    if not isinstance(situation, str) or not situation.strip():
+        raise ValueError(
+            "Invalid state update: 'current_situation' is required and must describe the actual end of the scene."
+        )
+
+    return validate_state_patch(base, patch)
+
+
 def validate_state_patch(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
     """Reject malformed state-update structures before preview or application."""
     if not isinstance(base, dict):
@@ -194,10 +236,24 @@ def validate_state_patch(base: dict[str, Any], patch: dict[str, Any]) -> dict[st
     if not isinstance(patch, dict):
         raise ValueError("The proposed state update must be a JSON object.")
 
+    if "event" in patch:
+        raise ValueError(
+            "Invalid state update: unsupported singular 'event' field. "
+            "Use current_situation to describe the actual end of the scene."
+        )
+
     app_managed_fields = {
         "chapter", "scene", "status", "scene_completed",
-        "chapter_completed", "scene_cast",
+        "chapter_completed", "scene_cast", "story_format_version",
     }
+    allowed_fields = set(base) | OPTIONAL_STATE_PATCH_FIELDS | app_managed_fields
+    unknown_fields = sorted(set(patch) - allowed_fields)
+    if unknown_fields:
+        raise ValueError(
+            "Invalid state update: unsupported field(s): "
+            + ", ".join(unknown_fields)
+            + ". Return only supported story-state fields; use current_situation for the scene's ending state."
+        )
     forbidden_fields = sorted(app_managed_fields.intersection(patch))
     if forbidden_fields:
         raise ValueError(
@@ -216,6 +272,14 @@ def validate_state_patch(base: dict[str, Any], patch: dict[str, Any]) -> dict[st
                     f"Invalid state update at 'location.{field}': location entries must be text. "
                     "Character knowledge belongs under 'character_knowledge', not 'location'."
                 )
+
+    if "current_situation" in patch and (
+        not isinstance(patch["current_situation"], str)
+        or not patch["current_situation"].strip()
+    ):
+        raise ValueError(
+            "Invalid state update: 'current_situation' must be non-empty text describing the actual end of the scene."
+        )
 
     if "character_knowledge" in patch:
         knowledge = patch["character_knowledge"]
@@ -500,38 +564,6 @@ class StateManager:
             json.dumps(current_state, indent=2, ensure_ascii=False),
         ]
 
-        # Give the continuity model an explicit before-state knowledge audit so
-        # dialogue-based learning is evaluated separately from physical state.
-        cast = [
-            str(name).strip()
-            for name in current_state.get("scene_cast", [])
-            if str(name).strip()
-        ]
-        knowledge_before = {}
-        existing_knowledge = current_state.get("character_knowledge", {})
-        if isinstance(existing_knowledge, dict):
-            for name in cast:
-                values = existing_knowledge.get(name)
-                if values is None:
-                    for key, candidate in existing_knowledge.items():
-                        if str(key).casefold() == name.casefold():
-                            values = candidate
-                            break
-                if isinstance(values, list):
-                    knowledge_before[name] = [
-                        str(item).strip()
-                        for item in values
-                        if str(item).strip()
-                    ]
-                elif isinstance(values, str) and values.strip():
-                    knowledge_before[name] = [values.strip()]
-
-        if knowledge_before:
-            prompt_parts.extend([
-                "\n\nCHARACTER KNOWLEDGE BEFORE THIS SECTION:\n",
-                json.dumps(knowledge_before, indent=2, ensure_ascii=False),
-            ])
-
         prompt_parts.extend([
             "\n\nCOMPLETED STORY SECTION:\n",
             completed_text,
@@ -561,7 +593,8 @@ class StateManager:
             "the actual immediate situation at the absolute end of the completed section, not the starting "
             "situation and not what should happen in the next scene. Keep it concise and factual. "
             "Do not copy planning instructions or future events into it. "
-            "Return ONLY the changed fields as a JSON object. Return {} if nothing changed."
+            "Always return non-empty current_situation, plus only changed location, physical_state, and/or time_of_day fields. "
+            "Do not return character_knowledge, event/event-log fields, scene flags, or other metadata."
         ])
         prompt = "".join(prompt_parts)
 
@@ -634,10 +667,14 @@ class StateManager:
         for attempt in range(2):
             try:
                 candidate = extract_json_object(output)
+                # Knowledge is produced by a dedicated audit below. Never let
+                # the general state model turn scene actions into "knowledge"
+                # or replace cumulative facts with an event log.
+                candidate.pop("character_knowledge", None)
                 if "location" in candidate and not isinstance(candidate["location"], dict):
                     raise ValueError("Invalid state update: 'location' must be an object.")
                 candidate = normalize_location_patch(current_state, candidate)
-                StateManager.validate_patch(current_state, candidate)
+                validate_state_proposal(current_state, candidate)
                 patch = candidate
                 break
             except (TypeError, ValueError) as exc:
@@ -653,6 +690,9 @@ class StateManager:
                     ):
                         try:
                             recovered = extract_json_object(output)
+                            # Character knowledge is always handled by the
+                            # dedicated knowledge audit, never salvaged here.
+                            recovered.pop("character_knowledge", None)
                             # Normalize legacy top-level location keys FIRST.
                             # Otherwise a malformed top-level Maya/Tony value can
                             # be moved under location after that field was cleaned.
@@ -674,7 +714,7 @@ class StateManager:
                             else:
                                 recovered.pop("location", None)
 
-                            StateManager.validate_patch(current_state, recovered)
+                            validate_state_proposal(current_state, recovered)
                             patch = recovered
                             break
                         except (TypeError, ValueError):
@@ -696,10 +736,10 @@ class StateManager:
                     "rejected by the application's state validator. Correct the same proposal "
                     "using only facts supported by the completed prose. Do not invent new events.\n"
                     + f"VALIDATION ERROR: {exc}\n"
-                    + "SCHEMA REMINDER: location must be an object whose primary and per-character "
-                    "entries are plain text strings only. Character knowledge belongs only under "
-                    "character_knowledge, an object mapping character names to lists of text facts. "
-                    "Never put lists or knowledge facts under location. Return corrected partial JSON only.\n"
+                    + "SCHEMA REMINDER: return ONLY current_situation, location, physical_state, and time_of_day. Do not return event, events, recent_events, character_knowledge, or other fields. "
+                    "Always include a non-empty current_situation describing what is true at the absolute end of the completed prose, not an earlier action. "
+                    "If supplied, location must be an object with plain-text primary and per-character location descriptions; physical_state must be an object. "
+                    "Do not turn actions the characters performed into knowledge facts. Return corrected JSON only.\n"
                     + "PREVIOUS INVALID RESPONSE TO CORRECT:\n"
                     + (output or "")[-3000:]
                 )
