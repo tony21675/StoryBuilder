@@ -623,7 +623,8 @@ class StateManager:
             "the actual immediate situation at the absolute end of the completed section, not the starting "
             "situation and not what should happen in the next scene. Keep it concise and factual. "
             "Do not copy planning instructions or future events into it. "
-            "Return ONLY the changed fields as a JSON object. Return {} if nothing changed."
+            "Always return non-empty current_situation, plus only changed location, physical_state, and/or time_of_day fields. "
+            "Do not return character_knowledge, event/event-log fields, scene flags, or other metadata."
         ])
         prompt = "".join(prompt_parts)
 
