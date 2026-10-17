@@ -189,6 +189,9 @@ def remove_unchanged(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, A
 OPTIONAL_STATE_PATCH_FIELDS = {
     # These fields are valid even in older packages that predate their storage.
     "current_situation",
+    "location",
+    "physical_state",
+    "time_of_day",
     "character_knowledge",
     "recent_events",
     "active_objectives",
@@ -239,7 +242,11 @@ def validate_state_patch(base: dict[str, Any], patch: dict[str, Any]) -> dict[st
             "Use current_situation to describe the actual end of the scene."
         )
 
-    allowed_fields = set(base) | OPTIONAL_STATE_PATCH_FIELDS
+    app_managed_fields = {
+        "chapter", "scene", "status", "scene_completed",
+        "chapter_completed", "scene_cast", "story_format_version",
+    }
+    allowed_fields = set(base) | OPTIONAL_STATE_PATCH_FIELDS | app_managed_fields
     unknown_fields = sorted(set(patch) - allowed_fields)
     if unknown_fields:
         raise ValueError(
@@ -247,11 +254,6 @@ def validate_state_patch(base: dict[str, Any], patch: dict[str, Any]) -> dict[st
             + ", ".join(unknown_fields)
             + ". Return only supported story-state fields; use current_situation for the scene's ending state."
         )
-
-    app_managed_fields = {
-        "chapter", "scene", "status", "scene_completed",
-        "chapter_completed", "scene_cast", "story_format_version",
-    }
     forbidden_fields = sorted(app_managed_fields.intersection(patch))
     if forbidden_fields:
         raise ValueError(
