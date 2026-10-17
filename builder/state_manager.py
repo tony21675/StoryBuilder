@@ -502,7 +502,7 @@ class StateManager:
         model: Path,
         current_state: dict[str, Any],
         story_text: str,
-    ) -> dict[str, list[str]]:
+    ) -> dict[str, Any]:
         """Run a focused pass that returns cumulative post-scene knowledge."""
         cast = [
             str(name).strip()
