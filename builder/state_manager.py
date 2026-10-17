@@ -84,17 +84,29 @@ def merge_patch(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
 
 
 def extract_json_object(text: str) -> dict[str, Any]:
+    """Extract the last complete JSON object from model-runner output.
+
+    Some local CLI versions echo portions of the prompt before the model's
+    answer. That prompt can contain a valid JSON before-state, so returning
+    the first object can mistakenly validate the baseline instead of the
+    model's proposed partial update. Prefer the complete object ending latest
+    in the output; nested objects end before their containing object.
+    """
     decoder = json.JSONDecoder()
+    candidates: list[tuple[int, dict[str, Any]]] = []
 
     for index, char in enumerate(text or ""):
         if char != "{":
             continue
         try:
-            obj, _ = decoder.raw_decode(text[index:])
+            obj, end = decoder.raw_decode(text[index:])
         except json.JSONDecodeError:
             continue
         if isinstance(obj, dict):
-            return obj
+            candidates.append((index + end, obj))
+
+    if candidates:
+        return max(candidates, key=lambda candidate: candidate[0])[1]
 
     raise ValueError("The continuity manager did not return a JSON object.")
 
