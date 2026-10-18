@@ -8039,6 +8039,15 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                 break
 
     @staticmethod
+    def _selected_widget_text(widget, start_index, end_index):
+        """Return a selected substring from Text or Entry-style widgets."""
+        if isinstance(widget, tk.Text):
+            return widget.get(start_index, end_index)
+        # Entry, ttk.Entry, Combobox, and Spinbox expose get() without index
+        # arguments; their selection offsets are indexes into the full value.
+        return widget.get()[int(start_index):int(end_index)]
+
+    @staticmethod
     def _add_context_menu(widget):
         menu = tk.Menu(widget, tearoff=0)
 
@@ -8061,7 +8070,9 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                 if selected is None:
                     return
                 start_index, end_index = selected
-                value = widget.get(start_index, end_index)
+                value = StoryBuilderApp._selected_widget_text(
+                    widget, start_index, end_index
+                )
                 widget.clipboard_clear()
                 widget.clipboard_append(value)
                 widget.update_idletasks()
@@ -8074,7 +8085,9 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                 if selected is None:
                     return
                 start_index, end_index = selected
-                value = widget.get(start_index, end_index)
+                value = StoryBuilderApp._selected_widget_text(
+                    widget, start_index, end_index
+                )
                 widget.clipboard_clear()
                 widget.clipboard_append(value)
                 widget.update_idletasks()
