@@ -1124,7 +1124,7 @@ class SceneContractTests(unittest.TestCase):
         self.assertIn("as a character's personal memory", writer_context)
         self.assertIn("never transfer another character's eyewitness experience", writer_context)
         self.assertIn(
-            "When an explicit endpoint is named, including a time or passage-of-time boundary, carry the scene through to it",
+            "If an explicit endpoint is named, including a time or passage-of-time boundary, carry the scene through to it",
             writer_context,
         )
         self.assertIn(
