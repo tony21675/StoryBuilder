@@ -1005,7 +1005,7 @@ class SceneContract:
         # contract may focus on one notable action, but that focus must not
         # replace the author's intended whole scene.
         parts.append(
-            "SCENE PROGRESSION AND SCOPE:\\n"
+            "SCENE PROGRESSION AND SCOPE:\n"
             "Follow the order and dramatic progression of any phases or turning points named in the Scene Idea, "
             "including beginning, middle, end, first response, or a hard stop. Match the intended degree of progress: "
             "a disclosure, discovery, emotional reaction, or initial offer of help does not automatically authorize "
