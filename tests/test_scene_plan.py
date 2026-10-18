@@ -192,7 +192,10 @@ class ScenePlanReaderTests(unittest.TestCase):
         app.scene_contract_attempts_var = FakeValue()
         app.scene_contract_status = FakeLabel()
         app.scene_contract_reload_idea_button = FakeLabel()
+        app.scene_contract_plan_reload_button = FakeLabel()
         app.scene_contract_build_button = FakeLabel()
+        app.scene_contract_building = False
+        app.writer_generation_in_progress = False
         app._scene_contract_start_summary = lambda: "Current beginning state."
         return app
 

@@ -13,7 +13,7 @@ This is deliberately generic. No *Taken at Dusk* names, facts, plot beats, or ch
 
 The canonical MyNovel plan is in [STORY_PLAN.md](https://github.com/tony21675/MyNovel/blob/main/STORY_PLAN.md). Once this code is pulled locally, use **Load from STORY_PLAN.md** for the active Chapter 3, Scene 2 to load the revised plan into Scene Idea; check its Direction and End, then generate a new attempt. Do not accept the rejected attempt or use a chain of Focused Changes for this structural miss.
 
-The contract parser/endpoint fix remains complete at [commit 1665e923](https://github.com/tony21675/StoryBuilder/commit/1665e9231e77325aa6da7be61ebe02c837be0c24). The new tests have not yet been verified by CI at the time of this handoff update.
+The contract parser/endpoint fix remains complete at [commit 1665e923](https://github.com/tony21675/StoryBuilder/commit/1665e9231e77325aa6da7be61ebe02c837be0c24). **Verification follow-up:** The first CI run for commit 4b4503f compiled successfully but exposed errors in the lightweight Tkinter test helper: it lacked stubs for the new plan-load button and generation flags, causing Tkinter's `__getattr__` fallback to recurse. The test helper has now been corrected in this commit and the next CI run will verify it. The same run also hit the previously known unrelated failure `test_writer_prompt_preserves_uncontradicted_physical_continuity`, whose expected prompt wording was already missing before these changes. That unrelated assertion is intentionally not bundled into this feature.
 
 
 ## Current checkpoint: Chapter 3, Scene 2 and generic plan-to-idea loading, October 18, 2026
