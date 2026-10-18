@@ -4613,13 +4613,10 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                 patch_to_apply,
             )
         except (TypeError, ValueError) as exc:
-            self.pending_state_patch = None
-            if hasattr(self, "writer_state_preview"):
-                self.writer_state_preview.delete("1.0", "end")
             self._show_copyable_error(
                 "State Update",
-                "The proposed state update is malformed and cannot be applied. "
-                "No state changes were made.\n\n" + str(exc),
+                "The reviewed ending-state preview is invalid, so no state changes were made. "
+                "Correct the JSON and click Apply State Update again.\n\n" + str(exc),
             )
             self._update_writer_buttons()
             return
