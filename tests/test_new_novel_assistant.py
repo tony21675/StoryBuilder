@@ -47,6 +47,30 @@ class NewNovelAssistantTests(unittest.TestCase):
             "potential_conflicts": [],
         }
 
+    def test_unknown_appearance_fields_are_allowed_and_omitted(self):
+        raw = self.sample()
+        raw["characters"][0]["appearance"] = {
+            "build": "",
+            "hair": "Dark brown",
+            "eyes": None,
+            "style": "   ",
+        }
+        proposal = normalize_new_novel_proposal(
+            raw, author_brief="A retired paramedic returns to a small town."
+        )
+        self.assertEqual(
+            proposal["characters"][0]["appearance"],
+            {"hair": "Dark brown"},
+        )
+
+    def test_relationship_values_remain_required(self):
+        raw = self.sample()
+        raw["relationships"]["Mara and Inez"] = ""
+        with self.assertRaisesRegex(ValueError, "Relationships value"):
+            normalize_new_novel_proposal(
+                raw, author_brief="A retired paramedic returns to a small town."
+            )
+
     def test_proposal_applies_only_after_normalization_and_approval(self):
         package = StoryPackage.new()
         brief = "A retired paramedic is drawn into a small town mystery."
