@@ -338,6 +338,17 @@ def validate_state_proposal(base: dict[str, Any], patch: dict[str, Any]) -> dict
     return validate_state_patch(base, patch)
 
 
+APP_MANAGED_STATE_FIELDS = {
+    "chapter",
+    "scene",
+    "status",
+    "scene_completed",
+    "chapter_completed",
+    "scene_cast",
+    "story_format_version",
+}
+
+
 def validate_state_patch(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
     """Reject malformed state-update structures before preview or application."""
     if not isinstance(base, dict):
@@ -351,10 +362,7 @@ def validate_state_patch(base: dict[str, Any], patch: dict[str, Any]) -> dict[st
             "Use current_situation to describe the actual end of the scene."
         )
 
-    app_managed_fields = {
-        "chapter", "scene", "status", "scene_completed",
-        "chapter_completed", "scene_cast", "story_format_version",
-    }
+    app_managed_fields = APP_MANAGED_STATE_FIELDS
     allowed_fields = set(base) | OPTIONAL_STATE_PATCH_FIELDS | app_managed_fields
     unknown_fields = sorted(set(patch) - allowed_fields)
     if unknown_fields:
@@ -405,6 +413,69 @@ def validate_state_patch(base: dict[str, Any], patch: dict[str, Any]) -> dict[st
         raise ValueError("Invalid state update: 'physical_state' must be an object.")
 
     return patch
+
+
+def reviewed_state_preview_to_patch(
+    expected_state: dict[str, Any],
+    reviewed_state: dict[str, Any],
+) -> dict[str, Any]:
+    """Convert edits to the full ending-state preview into a safe partial patch.
+
+    StoryBuilder displays the model patch merged with the current state. Authors
+    may correct values in that full JSON before applying it. This helper returns
+    only the differences from the displayed baseline, so the normal patch merge
+    and application-owned scene navigation remain in force.
+    """
+    if not isinstance(expected_state, dict):
+        raise ValueError("The expected ending-state preview must be a JSON object.")
+    if not isinstance(reviewed_state, dict):
+        raise ValueError("The reviewed ending-state preview must be a JSON object.")
+
+    for field in APP_MANAGED_STATE_FIELDS:
+        expected_has_field = field in expected_state
+        reviewed_has_field = field in reviewed_state
+        if expected_has_field != reviewed_has_field or (
+            expected_has_field and expected_state[field] != reviewed_state[field]
+        ):
+            raise ValueError(
+                f"'{field}' is managed by StoryBuilder and cannot be edited in the "
+                "ending-state preview. Restore its original value and try again."
+            )
+
+    unchanged = object()
+
+    def diff(before: Any, after: Any, path: str) -> Any:
+        if isinstance(before, dict) and isinstance(after, dict):
+            changes: dict[str, Any] = {}
+            for key in before:
+                if key not in after:
+                    field_path = f"{path}.{key}" if path else key
+                    raise ValueError(
+                        f"The reviewed ending-state preview removed the existing "
+                        f"field '{field_path}'. Keep existing fields in place and "
+                        "change their values instead."
+                    )
+            for key, after_value in after.items():
+                field_path = f"{path}.{key}" if path else key
+                if key not in before:
+                    changes[key] = after_value
+                    continue
+                change = diff(before[key], after_value, field_path)
+                if change is unchanged:
+                    continue
+                if isinstance(change, dict) and not change:
+                    continue
+                changes[key] = change
+            return changes
+
+        if before == after:
+            return unchanged
+        return after
+
+    patch = diff(expected_state, reviewed_state, "")
+    if patch is unchanged:
+        patch = {}
+    return validate_state_patch(expected_state, patch)
 
 
 def remove_prior_chapter_opening_markers(
