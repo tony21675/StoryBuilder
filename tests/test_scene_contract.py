@@ -1123,6 +1123,19 @@ class SceneContractTests(unittest.TestCase):
         self.assertIn("must not shrink a broader scene to that action", writer_context)
         self.assertIn("as a character's personal memory", writer_context)
         self.assertIn("never transfer another character's eyewitness experience", writer_context)
+        self.assertIn(
+            "When an explicit endpoint is named, including a time or passage-of-time boundary, carry the scene through to it",
+            writer_context,
+        )
+        self.assertIn(
+            "Use a natural stopping point only when the idea leaves the endpoint open",
+            writer_context,
+        )
+        self.assertIn(
+            "When the idea gives a clear endpoint, put that endpoint in hard_stop",
+            scene_contract.CONTRACT_BUILDER_SYSTEM_PROMPT,
+        )
+        self.assertIn("temporal boundary", scene_contract.CONTRACT_BUILDER_SYSTEM_PROMPT)
 
     def test_validator_receives_original_plain_english_idea(self):
         idea = (

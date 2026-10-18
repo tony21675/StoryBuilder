@@ -46,7 +46,7 @@ Return only JSON:
 
 Use current_situation as the authoritative narrative snapshot for what has already happened. If they conflict, follow current_situation and preserve physical_state details not contradicted. The full original plain-English idea is also given directly to the Writer; it provides the scene's direction, key intentions, and natural endpoint.
 
-Do not turn the idea into a checklist. Keep direction brief and high-level. Always return required_beats as an empty list; the application carries forward only beats the author explicitly labels in the original Scene Idea. Never turn ordinary prose or your own summary into mandatory stops. If the idea makes the final moment clear, set hard_stop to that endpoint.
+Do not turn the idea into a checklist. Keep direction brief and high-level. Always return required_beats as an empty list; the application carries forward only beats the author explicitly labels in the original Scene Idea. Never turn ordinary prose or your own summary into mandatory stops. When the idea gives a clear endpoint, put that endpoint in hard_stop. Preserve it even when expressed as a temporal boundary or a passage-of-time boundary rather than a final action. Do not replace such an endpoint with the most prominent action mentioned earlier. If no endpoint is clear, leave hard_stop empty rather than inventing one.
 
 Do not invent events or rules. Leave the Writer freedom over natural dialogue, gestures, pacing, transitions, and connective actions. max_attempts is 3. Output JSON only.
 """
@@ -983,8 +983,11 @@ class SceneContract:
             "Treat the author's original Scene Idea as the scope of the whole scene. A concise generated "
             "direction may emphasize one action, but it must not shrink a broader scene to that action. "
             "When the idea calls for continuing thought, transition, or development beyond a highlighted "
-            "moment, let the scene continue naturally to the author's endpoint or a natural stopping point "
-            "consistent with it. Do not pad the scene or invent consequential events to extend it.\n"
+            "moment, do not stop at that moment. If an explicit endpoint is named, including a time or "
+            "passage-of-time boundary, carry the scene through to it. Let intervening time pass naturally "
+            "through relevant thought, small actions, or transitions; do not pad the scene, invent "
+            "consequential events, or continue past the endpoint into the next scene. Use a natural "
+            "stopping point only when the idea leaves the endpoint open.\n"
             "Knowing that an event happened is not the same as witnessing it. Only present sights, sounds, "
             "smells, dialogue, or actions as a character's personal memory if the story establishes that the "
             "character was present and witnessed them. If the character learned about an event second-hand, "

@@ -1122,7 +1122,15 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         self.assertIn("Knowing that an event happened is not the same as witnessing it", prompt)
         self.assertIn("do not shrink the whole scene to the single action emphasized", prompt)
         self.assertIn(
-            "Respect the intended endpoint in the original Scene Idea",
+            "Respect an explicit endpoint in the original Scene Idea, including a temporal boundary",
+            prompt,
+        )
+        self.assertIn(
+            "continue through the intended development until that endpoint",
+            prompt,
+        )
+        self.assertIn(
+            "Only when no clear endpoint is stated may you choose a natural stopping point",
             prompt,
         )
         self.assertNotIn(
