@@ -585,11 +585,18 @@ def extract_authored_scene_sections(scene_idea: str) -> dict[str, Any]:
     """Extract clearly labeled author sections so generation cannot silently omit them."""
     collected: dict[str, list[str]] = {}
     active_section: str | None = None
+    # An inline End / HARD STOP paragraph is a complete endpoint. A following
+    # blank-line-separated author note should not leak into the Writer's End
+    # field merely because it has no heading of its own.
+    active_end_is_inline = False
 
     for raw_line in str(scene_idea or "").splitlines():
         line = raw_line.strip()
         if not line:
-            if active_section:
+            if active_section == "end" and active_end_is_inline:
+                active_section = None
+                active_end_is_inline = False
+            elif active_section:
                 collected.setdefault(active_section, []).append("")
             continue
 
@@ -620,6 +627,7 @@ def extract_authored_scene_sections(scene_idea: str) -> dict[str, Any]:
         standalone_heading = ":" not in header and not inline_value
         if section and (not standalone_heading or candidate in _AUTHOR_SECTION_ALIASES):
             active_section = section
+            active_end_is_inline = section == "end" and bool(inline_value.strip())
             collected.setdefault(active_section, [])
             if inline_value.strip():
                 collected[active_section].append(inline_value.strip())
