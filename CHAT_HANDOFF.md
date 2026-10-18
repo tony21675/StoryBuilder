@@ -1,5 +1,19 @@
 # StoryBuilder Chat Handoff
 
+## Latest checkpoint — October 18, 2026: review of regenerated Chapter 3, Scene 2
+
+A fresh Chapter 3, Scene 2 draft has been generated after the Scene Contract check. It has **not yet been accepted or explicitly rejected by Tony**. Initial review recommends another generation rather than a chain of focused edits because several major scene-level constraints are missed:
+
+- The accepted story timeline says Tiffany was abducted the previous afternoon near the corner; the draft says “taken last night.”
+- Tony says only “Tiffany is gone” before a vague follow-up (“She was taken last night. She... she had company.”). The group needs a clear disclosure that Tiffany was abducted, grounded in Maya's account; Tony did not witness the abduction.
+- The draft adds unestablished sensory/action details to Maya's recollection, including old cigarettes/cheap cologne/pine needles and specific struggle details. The planned scene explicitly says not to invent new clues or answers.
+- It advances too far into concrete investigation: Jessica mentions tracing cameras/digital footprints, Beth proposes questioning neighbors, and Rick mentions perimeter checks. This scene should only establish broad possible contributions and initial shared commitment; specific investigation steps and assignments remain later.
+- Chloe is largely sidelined after a one-line commitment; Maya also needs a meaningful voice without being pressured into a full account.
+- Maya wakes wearing a robe and remains in it through breakfast. Tony clarified she should already be in pajamas when woken and can change into regular clothes before breakfast.
+- The friends arrive as if making an unplanned stop (“we just wanted to swing by”), rather than clearly arriving for the breakfast Tony arranged.
+
+The dawn/breakfast atmosphere and initial shock work as a foundation, and the broad arc is recognizable. The main failure is execution against timeline/canon and the hard stop, not the premise itself. Next step: revise reusable plan/contract or guidance as needed and regenerate; don't accept this draft yet unless Tony decides otherwise. Existing accepted Scene 1, saved daybreak state, and rejected earlier Scene 2 draft remain untouched.
+
 ## Latest checkpoint — October 18, 2026: Current State edits did not persist across restart
 
 **Verification after sync:** Tony re-ran `./start.sh`, corrected Time of Day to `daybreak / early morning` using **Apply & Save State Edits**, then restarted StoryBuilder. The daybreak value **survived the restart**. This confirms the immediate local state-persistence issue is resolved. Chapter/Scene were left unchanged; `time.exact_time` remains not established. Continue from Chapter 3, Scene 2 with the persisted state; do not rerun Scene 1 analysis.
