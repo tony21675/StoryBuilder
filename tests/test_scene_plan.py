@@ -199,14 +199,14 @@ class ScenePlanReaderTests(unittest.TestCase):
     def test_contract_editor_prefills_plan_idea_without_saving_it(self):
         with tempfile.TemporaryDirectory() as tmp:
             Path(tmp, "STORY_PLAN.md").write_text(
-                "## CONFIRMED: Chapter 3\\n"
-                "### Scene 1: The long night\\n"
-                "- End at daybreak.\\n"
-                "### Scene 2: Breakfast disclosure\\n"
-                "- Tony prepares breakfast.\\n"
-                "- He tells the group once everyone is seated.\\n"
-                "### Confirmed group roles\\n"
-                "- Tony leads.\\n",
+                "## CONFIRMED: Chapter 3\n"
+                "### Scene 1: The long night\n"
+                "- End at daybreak.\n"
+                "### Scene 2: Breakfast disclosure\n"
+                "- Tony prepares breakfast.\n"
+                "- He tells the group once everyone is seated.\n"
+                "### Confirmed group roles\n"
+                "- Tony leads.\n",
                 encoding="utf-8",
             )
             app = self.make_contract_editor_app(tmp)
@@ -223,7 +223,7 @@ class ScenePlanReaderTests(unittest.TestCase):
     def test_contract_editor_never_overwrites_saved_scene_idea_with_plan(self):
         with tempfile.TemporaryDirectory() as tmp:
             Path(tmp, "STORY_PLAN.md").write_text(
-                "## Chapter 3\\n### Scene 2: Plan version\\n- Plan content.\\n",
+                "## Chapter 3\n### Scene 2: Plan version\n- Plan content.\n",
                 encoding="utf-8",
             )
             app = self.make_contract_editor_app(tmp, saved_idea="My saved author notes.")
