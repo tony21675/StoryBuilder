@@ -9,6 +9,7 @@ from builder.scene_contract import (
     SceneContract,
     SceneContractResponseError,
     SceneContractValidationUnavailable,
+    extract_authored_scene_sections,
 )
 
 
@@ -58,6 +59,62 @@ class SceneContractTests(unittest.TestCase):
                 ],
             },
         }
+
+    def test_compound_end_hard_stop_label_is_extracted_as_author_ending(self):
+        idea = """Breakfast disclosure and the first offers to help
+
+**Beginning:**
+- Tony prepares breakfast and gently wakes Maya.
+
+**Middle: The disclosure and the first response**
+- Tony tells the group what happened and they begin discussing how to help.
+
+**End / HARD STOP:** End after the group begins sketching basic roles for the private search. Leave detailed assignments and the rescue plan for later scenes. No one calls the police.
+Preserve all established character roles and knowledge boundaries; do not invent new clues.
+"""
+        sections = extract_authored_scene_sections(idea)
+
+        self.assertIn("End after the group begins sketching basic roles", sections["end"])
+        self.assertIn("No one calls the police.", sections["end"])
+        self.assertNotIn("Tony prepares breakfast", sections["end"])
+        self.assertNotIn("Tony tells the group", sections["end"])
+        self.assertNotIn("HARD STOP", sections["middle"])
+
+    def test_explicit_author_hard_stop_overrides_model_repeating_whole_idea(self):
+        idea = """Breakfast disclosure and the first offers to help
+
+**Beginning:**
+- Tony prepares breakfast and gently wakes Maya.
+
+**Middle: The disclosure and the first response**
+- Tony tells the group what happened and they begin discussing how to help.
+
+**End / HARD STOP:** End after the group begins sketching basic roles for the private search. Leave detailed assignments and the rescue plan for later scenes. No one calls the police.
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            model_path = Path(tmp, "writer.gguf")
+            model_path.write_text("test fixture", encoding="utf-8")
+            # Reproduce the failure mode: the model echoes the entire idea as
+            # its hard_stop instead of returning a concise endpoint.
+            raw_result = {
+                "direction": "Move from breakfast to disclosure, then initial roles.",
+                "hard_stop": idea,
+                "required_beats": [],
+                "max_attempts": 3,
+            }
+            with patch.object(
+                scene_contract, "_run_contract_builder", return_value=raw_result
+            ):
+                result = SceneContract.generate_from_idea(
+                    model_path,
+                    {"chapter": 3, "scene": 2, "current_situation": "Daybreak at Tony's home."},
+                    idea,
+                )
+
+        self.assertIn("End after the group begins sketching basic roles", result["hard_stop"])
+        self.assertIn("No one calls the police.", result["hard_stop"])
+        self.assertNotIn("Tony prepares breakfast", result["hard_stop"])
+        self.assertNotIn("Tony tells the group", result["hard_stop"])
 
     def test_has_saved_contract_detects_fields_that_a_rebuild_would_replace(self):
         entries = [
