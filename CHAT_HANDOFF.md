@@ -2,6 +2,8 @@
 
 ## Latest checkpoint — October 18, 2026: Current State edits did not persist across restart
 
+**Verification after sync:** Tony re-ran `./start.sh`, corrected Time of Day to `daybreak / early morning` using **Apply & Save State Edits**, then restarted StoryBuilder. The daybreak value **survived the restart**. This confirms the immediate local state-persistence issue is resolved. Chapter/Scene were left unchanged; `time.exact_time` remains not established. Continue from Chapter 3, Scene 2 with the persisted state; do not rerun Scene 1 analysis.
+
 Tony clarified that he had manually corrected the time to daybreak/early morning during the previous Scene 2 session, but restarting StoryBuilder restored the old value. Source inspection distinguishes **two separate bugs**:
 
 1. The Writer's editable full ending-state preview was ignored by Apply State Update, which applied only the hidden original proposal.
