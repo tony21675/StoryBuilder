@@ -89,7 +89,7 @@ class ScenePlanReaderTests(unittest.TestCase):
     def test_reads_plan_file_from_novel_package_root_case_insensitively(self):
         with tempfile.TemporaryDirectory() as tmp:
             Path(tmp, "story_plan.md").write_text(
-                "## Chapter 3\\n### Scene 2: Breakfast\\n- Coffee is ready.\\n",
+                "## Chapter 3\n### Scene 2: Breakfast\n- Coffee is ready.\n",
                 encoding="utf-8",
             )
             idea = load_scene_idea_from_plan(tmp, 3, 2)
@@ -103,7 +103,7 @@ class ScenePlanReaderTests(unittest.TestCase):
     def test_saved_scene_idea_takes_priority_over_plan(self):
         with tempfile.TemporaryDirectory() as tmp:
             Path(tmp, "STORY_PLAN.md").write_text(
-                "## Chapter 3\\n### Scene 2: Planned idea\\n- Plan text.\\n",
+                "## Chapter 3\n### Scene 2: Planned idea\n- Plan text.\n",
                 encoding="utf-8",
             )
             app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
@@ -120,7 +120,7 @@ class ScenePlanReaderTests(unittest.TestCase):
     def test_plan_is_used_only_when_saved_idea_is_empty(self):
         with tempfile.TemporaryDirectory() as tmp:
             Path(tmp, "STORY_PLAN.md").write_text(
-                "## Chapter 3\\n### Scene 2: Planned idea\\n- Plan text.\\n",
+                "## Chapter 3\n### Scene 2: Planned idea\n- Plan text.\n",
                 encoding="utf-8",
             )
             app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
