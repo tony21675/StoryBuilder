@@ -19,6 +19,13 @@ from builder.change_assistant import (
     render_change_preview,
     structure_change_request,
 )
+from builder.new_novel_assistant import (
+    apply_new_novel_proposal,
+    build_new_novel_proposal,
+    is_blank_new_package,
+    normalize_new_novel_proposal,
+    render_new_novel_preview,
+)
 from builder.writer_notes import (
     WRITER_NOTES_FILENAME,
     WRITER_NOTES_SYSTEM_PROMPT,
@@ -168,6 +175,14 @@ class StoryBuilderApp(tk.Tk):
         self.change_pending_snapshot = None
         self.change_request_in_progress = False
         self.change_request_thread = None
+        self.new_novel_pending_proposal = None
+        self.new_novel_pending_brief = ""
+        self.new_novel_pending_package = None
+        self.new_novel_assistant_in_progress = False
+        self.new_novel_assistant_worker_running = False
+        self.new_novel_assistant_request_token = 0
+        self.new_novel_assistant_results = queue.Queue()
+        self.new_novel_assistant_thread = None
         self.selected_manuscript_path = None
         self.saved_state_candidate = None
 
@@ -196,6 +211,7 @@ class StoryBuilderApp(tk.Tk):
         self.notebook.pack(fill="both", expand=True, padx=8, pady=(0, 8))
 
         self._build_chat_tab()
+        self._build_new_novel_assistant_tab()
         self._build_story_tab()
         self._build_canon_tab()
         self._build_change_assistant_tab()
@@ -356,7 +372,56 @@ class StoryBuilderApp(tk.Tk):
         )
         self.change_assistant_status.pack(anchor="w")
 
+    def _build_new_novel_assistant_tab(self):
+        page = ttk.Frame(self.notebook.pages)
+        self.notebook.add(page, text="New Novel Assistant")
+        tab = self._make_scrollable_tab(page)
+        ttk.Label(tab, text="Start a Novel in Plain English", font=("", 14, "bold")).pack(anchor="w")
+        ttk.Label(
+            tab,
+            text=(
+                "Describe your idea in a few paragraphs. StoryBuilder will draft the story foundation, character cards, "
+                "relationships, locations, rules, open questions, and starting situation. Everything is a proposal until "
+                "you approve it. Click New Novel first; this tool never overwrites an existing book."
+            ),
+            wraplength=900, justify="left",
+        ).pack(anchor="w", pady=(4, 10))
+        ttk.Label(tab, text="Tell StoryBuilder about the novel", font=("", 11, "bold")).pack(anchor="w")
+        self.new_novel_brief_text = tk.Text(tab, height=9, wrap="word", undo=True)
+        self.new_novel_brief_text.pack(fill="x", pady=(4, 8))
+        ttk.Label(
+            tab,
+            text=(
+                "Include what you already know: premise, people, ages, relationships, secrets, setting, tone, important objects, "
+                "and rules. Unknown details can stay unknown; the review separates open questions and suggestions."
+            ),
+            wraplength=900, justify="left",
+        ).pack(anchor="w", pady=(0, 8))
+        actions = ttk.Frame(tab)
+        actions.pack(fill="x", pady=(0, 8))
+        self.new_novel_prepare_button = ttk.Button(
+            actions, text="Prepare Starter Package", command=self._prepare_new_novel_proposal,
+        )
+        self.new_novel_prepare_button.pack(side="left")
+        self.new_novel_approve_button = ttk.Button(
+            actions, text="Approve and Build Package", command=self._approve_new_novel_proposal, state="disabled",
+        )
+        self.new_novel_approve_button.pack(side="left", padx=(8, 0))
+        self.new_novel_reject_button = ttk.Button(
+            actions, text="Reject Proposal", command=self._reject_new_novel_proposal, state="disabled",
+        )
+        self.new_novel_reject_button.pack(side="left", padx=(8, 0))
+        ttk.Label(tab, text="Review the proposed starter package", font=("", 11, "bold")).pack(anchor="w")
+        self.new_novel_proposal_text = tk.Text(tab, wrap="word", height=19, state="disabled")
+        self.new_novel_proposal_text.pack(fill="both", expand=True, pady=(4, 8))
+        self.new_novel_assistant_status = ttk.Label(
+            tab, text="No proposal pending. Preparing a proposal does not change your novel.",
+            wraplength=900, justify="left",
+        )
+        self.new_novel_assistant_status.pack(anchor="w")
+
     def _build_characters_tab(self):
+
         page = ttk.Frame(self.notebook.pages)
         self.notebook.add(page, text="Characters")
         tab = self._make_scrollable_tab(page)
@@ -5486,6 +5551,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         if not self._save_unsaved_writer_draft():
             return
         self.guided_setup.stop()
+        self._reset_new_novel_assistant(clear_brief=True)
         if hasattr(self, "guided_button"):
             self.guided_button.configure(text="Guided Setup")
         try:
@@ -5544,6 +5610,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             self.writer_engine.stop()
         except Exception:
             pass
+        self._reset_new_novel_assistant(clear_brief=True)
         try:
             self.package = StoryPackage.load(selected_folder)
         except Exception as exc:
@@ -6371,7 +6438,217 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             "current_state_summary": summary,
         }
 
+    def _reset_new_novel_assistant(self, *, clear_brief=False):
+        self.new_novel_assistant_request_token += 1
+        self.new_novel_pending_proposal = None
+        self.new_novel_pending_brief = ""
+        self.new_novel_pending_package = None
+        self.new_novel_assistant_in_progress = False
+        if clear_brief and hasattr(self, "new_novel_brief_text"):
+            self.new_novel_brief_text.delete("1.0", "end")
+        if hasattr(self, "new_novel_proposal_text"):
+            self.new_novel_proposal_text.configure(state="normal")
+            self.new_novel_proposal_text.delete("1.0", "end")
+            self.new_novel_proposal_text.insert("1.0", "No proposal pending.")
+            self.new_novel_proposal_text.configure(state="disabled")
+        if hasattr(self, "new_novel_approve_button"):
+            self.new_novel_approve_button.configure(state="disabled")
+            self.new_novel_reject_button.configure(state="disabled")
+            self.new_novel_prepare_button.configure(
+                state="disabled" if self.new_novel_assistant_worker_running else "normal"
+            )
+        if hasattr(self, "new_novel_assistant_status"):
+            message = (
+                "The previous local-model request is still finishing. Its proposal will be discarded."
+                if self.new_novel_assistant_worker_running
+                else "No proposal pending. Preparing a proposal does not change your novel."
+            )
+            self.new_novel_assistant_status.configure(text=message)
+
+    def _prepare_new_novel_proposal(self):
+        if self.package is None:
+            self._show_copyable_error("New Novel Assistant", "Click New Novel first.")
+            return
+        if self.new_novel_assistant_worker_running:
+            messagebox.showwarning(
+                "New Novel Assistant",
+                "The local model is still preparing the previous proposal. Wait for it to finish before starting another, so StoryBuilder does not load two copies.",
+            )
+            return
+        if not self._apply_all_edits():
+            return
+        if not is_blank_new_package(self.package):
+            messagebox.showwarning(
+                "New Novel Assistant",
+                "This assistant only builds into an untouched New Novel workspace. Click New Novel first. Your existing novel will not be overwritten.",
+            )
+            return
+        brief = self.new_novel_brief_text.get("1.0", "end-1c").strip()
+        if not brief:
+            messagebox.showwarning("New Novel Assistant", "Describe your story idea in plain English first.")
+            return
+        if len(brief) > 12000:
+            messagebox.showwarning("New Novel Assistant", "Keep the story description under 12,000 characters.")
+            return
+        writer_running = self.writer_engine.child is not None and self.writer_engine.child.isalive()
+        if writer_running:
+            messagebox.showwarning(
+                "New Novel Assistant",
+                "Stop the Writer before preparing a starter package. StoryBuilder uses the same local model and should not load it twice.",
+            )
+            return
+        selected = self.writer_model_var.get().strip()
+        model = self.writer_engine.model_path
+        try:
+            if selected:
+                model = WriterEngine.validate_model(selected)
+            elif model is not None:
+                model = WriterEngine.validate_model(model)
+            else:
+                raise ValueError("Select a local GGUF model in the Writer tab first.")
+        except Exception as exc:
+            self._show_copyable_error("New Novel Assistant", str(exc))
+            return
+
+        self.new_novel_pending_proposal = None
+        self.new_novel_pending_brief = brief
+        self.new_novel_pending_package = self.package
+        self.new_novel_assistant_request_token += 1
+        token = self.new_novel_assistant_request_token
+        source_package = self.package
+        self.new_novel_assistant_in_progress = True
+        self.new_novel_assistant_worker_running = True
+        self.new_novel_prepare_button.configure(state="disabled")
+        self.new_novel_approve_button.configure(state="disabled")
+        self.new_novel_reject_button.configure(state="disabled")
+        self.new_novel_assistant_status.configure(
+            text="The selected local model is preparing a draft package. Nothing has been applied."
+        )
+        self.new_novel_proposal_text.configure(state="normal")
+        self.new_novel_proposal_text.delete("1.0", "end")
+        self.new_novel_proposal_text.insert("1.0", "Preparing the starter package with the selected local model...")
+        self.new_novel_proposal_text.configure(state="disabled")
+
+        def work():
+            try:
+                proposal = build_new_novel_proposal(model, author_brief=brief)
+                error = None
+            except Exception as exc:
+                proposal, error = None, str(exc)
+            # Worker thread publishes data only. Tk widgets are updated by the main-thread poller.
+            self.new_novel_assistant_results.put((token, proposal, error, brief, source_package))
+
+        self.new_novel_assistant_thread = threading.Thread(target=work, daemon=True)
+        self.new_novel_assistant_thread.start()
+        self.after(100, self._poll_new_novel_assistant_results)
+
+    def _poll_new_novel_assistant_results(self):
+        if self._closing:
+            return
+        try:
+            token, proposal, error, brief, source_package = self.new_novel_assistant_results.get_nowait()
+        except queue.Empty:
+            if self.new_novel_assistant_worker_running:
+                self.after(100, self._poll_new_novel_assistant_results)
+            return
+        self.new_novel_assistant_worker_running = False
+        if token != self.new_novel_assistant_request_token:
+            if not self.new_novel_assistant_in_progress:
+                self.new_novel_prepare_button.configure(state="normal")
+                self.new_novel_assistant_status.configure(
+                    text="The previous proposal was discarded because the active novel changed."
+                )
+            return
+        self.new_novel_assistant_in_progress = False
+        self.new_novel_prepare_button.configure(state="normal")
+        self._finish_new_novel_proposal(proposal, error, brief, source_package)
+
+    def _finish_new_novel_proposal(self, proposal, error, brief, source_package):
+        if error:
+            self._show_copyable_error("New Novel Assistant", error)
+            self.new_novel_assistant_status.configure(text="Proposal failed. Nothing was changed.")
+            self.new_novel_proposal_text.configure(state="normal")
+            self.new_novel_proposal_text.delete("1.0", "end")
+            self.new_novel_proposal_text.insert("1.0", "No proposal was applied.")
+            self.new_novel_proposal_text.configure(state="disabled")
+            return
+        if source_package is not self.package or not is_blank_new_package(self.package):
+            self.new_novel_assistant_status.configure(
+                text="The active workspace changed while the proposal was prepared. Nothing was applied."
+            )
+            return
+        try:
+            normalized = normalize_new_novel_proposal(proposal, author_brief=brief)
+            preview = render_new_novel_preview(normalized)
+        except Exception as exc:
+            self._show_copyable_error(
+                "New Novel Assistant",
+                "The model's response could not be used safely. Nothing was changed.\n\n" + str(exc),
+            )
+            self.new_novel_assistant_status.configure(text="No proposal applied. Revise the description or try again.")
+            return
+        self.new_novel_pending_proposal = normalized
+        self.new_novel_pending_brief = brief
+        self.new_novel_pending_package = source_package
+        self.new_novel_proposal_text.configure(state="normal")
+        self.new_novel_proposal_text.delete("1.0", "end")
+        self.new_novel_proposal_text.insert("1.0", preview)
+        self.new_novel_proposal_text.configure(state="disabled")
+        self.new_novel_approve_button.configure(state="normal")
+        self.new_novel_reject_button.configure(state="normal")
+        self.new_novel_assistant_status.configure(text="Review the proposed package. Nothing has been applied yet.")
+
+    def _approve_new_novel_proposal(self):
+        proposal = self.new_novel_pending_proposal
+        if not isinstance(proposal, dict) or self.package is None:
+            return
+        if self.new_novel_pending_package is not self.package or not is_blank_new_package(self.package):
+            self._show_copyable_error(
+                "New Novel Assistant",
+                "The workspace changed after this proposal was prepared. No changes were applied. Start with a blank New Novel workspace and prepare another proposal.",
+            )
+            self._reset_new_novel_assistant(clear_brief=False)
+            return
+        try:
+            summary = apply_new_novel_proposal(self.package, proposal)
+        except Exception as exc:
+            self._show_copyable_error("New Novel Assistant", "No changes were applied.\n\n" + str(exc))
+            return
+        self.dirty = True
+        self.new_novel_pending_proposal = None
+        self.new_novel_pending_brief = ""
+        self.new_novel_pending_package = None
+        self.new_novel_approve_button.configure(state="disabled")
+        self.new_novel_reject_button.configure(state="disabled")
+        self.new_novel_proposal_text.configure(state="normal")
+        self.new_novel_proposal_text.delete("1.0", "end")
+        self.new_novel_proposal_text.insert("1.0", "Starter package approved and applied to the working novel.")
+        self.new_novel_proposal_text.configure(state="disabled")
+        self._refresh_all()
+        self.new_novel_assistant_status.configure(
+            text=f"Built the {summary}. Choose Save to name the novel's folder and save the package."
+        )
+        self._chat("Builder", f"Approved New Novel Assistant proposal: {summary}.")
+        self._save()
+
+    def _reject_new_novel_proposal(self):
+        if self.new_novel_pending_proposal is None:
+            return
+        self.new_novel_pending_proposal = None
+        self.new_novel_pending_brief = ""
+        self.new_novel_pending_package = None
+        self.new_novel_approve_button.configure(state="disabled")
+        self.new_novel_reject_button.configure(state="disabled")
+        self.new_novel_proposal_text.configure(state="normal")
+        self.new_novel_proposal_text.delete("1.0", "end")
+        self.new_novel_proposal_text.insert("1.0", "Proposal rejected. Your novel was not changed.")
+        self.new_novel_proposal_text.configure(state="disabled")
+        self.new_novel_assistant_status.configure(
+            text="Proposal rejected. Edit your description and prepare another, or leave the workspace unchanged."
+        )
+
     def _change_assistant_source_signature(self):
+
         if self.package is None:
             return ""
         return json.dumps({
@@ -7317,6 +7594,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             self.themes_text,
             self.open_questions_text,
             self.interview_answer_text,
+            self.new_novel_brief_text,
             self.supporting_person_text,
             self.writer_direction_text,
             self.writer_output_text,
