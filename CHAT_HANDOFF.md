@@ -1,5 +1,25 @@
 # StoryBuilder Chat Handoff
 
+## Latest checkpoint — October 18, 2026: Current State edits did not persist across restart
+
+Tony clarified that he had manually corrected the time to daybreak/early morning during the previous Scene 2 session, but restarting StoryBuilder restored the old value. Source inspection distinguishes **two separate bugs**:
+
+1. The Writer's editable full ending-state preview was ignored by Apply State Update, which applied only the hidden original proposal.
+2. **Current State → Apply State Edits** modified `package.current_state` in memory and marked it dirty, but did not itself write the package to disk. Unless a separate Save followed, the edit could be lost on restart.
+
+**Fixes committed to `main`:**
+- [`a1f43a1`](https://github.com/tony21675/StoryBuilder/commit/a1f43a110064cc7d23fa8f639bd50ca56a8a3ff6) and [`f8c0239`](https://github.com/tony21675/StoryBuilder/commit/f8c02398555ab3073d47fba337154ac45453fe30): apply actual edits made to the ending-state preview.
+- [`a58cd52`](https://github.com/tony21675/StoryBuilder/commit/a58cd526a19e9cb503324130430c792a2df4f04b) and [`92f5720`](https://github.com/tony21675/StoryBuilder/commit/92f5720b8cbf98063091ee3b18f0e0f5eb7cd418): add preview safety tests and preserve invalid preview edits for correction/retry.
+- [`b74ab6a`](https://github.com/tony21675/StoryBuilder/commit/b74ab6a691a1155d63f86a9958ea3ce556bedec9): rename the Current State button to **Apply & Save State Edits** and persist the package immediately when the button is used. The handler reports a clear error if saving fails or the package has no saved folder. It also returns a success flag so a failed/cancelled state change is not treated as successfully applied by the shared Apply All workflow.
+- [`baf6ea1`](https://github.com/tony21675/StoryBuilder/commit/baf6ea122ab91951bbe9c3da112237c46da12c7d): add focused tests for persistence success, save failure, missing package folder, and cancelled state edits.
+
+**Verification limitation:** tests have been added but not executed in this session. GitHub's commit-status endpoint returned no checks for these direct `main` commits. After syncing locally from the StoryBuilder repo root, run:
+`python -m unittest discover -s tests -p 'test_state_preview.py'`
+and
+`python -m unittest discover -s tests -p 'test_state_edits_persist.py'`.
+
+**Next action after the updated StoryBuilder source is on Tony's laptop:** In the open MyNovel package, keep the current Chapter/Scene numbers unchanged, set Time of Day to `daybreak / early morning`, and click **Apply & Save State Edits**. Then restart StoryBuilder and verify the time remains daybreak/early morning. Keep exact time not established. Do not reapply Scene 1 analysis, which could advance the scene pointer again. Do not overwrite the local novel package from the stale GitHub `current_state.json`.
+
 ## Latest checkpoint — October 18, 2026: apply the reviewed ending-state JSON
 
 Found a state-update workflow bug: the **Reconstructed Ending State** text area was editable, but `_apply_state_update()` validated/applied `self.pending_state_patch`, the hidden original proposal. Manual changes made to the displayed JSON, including Tony's correction from "the middle of the night" to daybreak/early morning, were ignored.
