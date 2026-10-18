@@ -69,8 +69,15 @@ def find_scene_idea(markdown: str, chapter: int, scene: int) -> str | None:
 
         level = len(heading_match.group(1))
         heading_title = heading_match.group(2).strip()
+        # A scene title may mention another chapter in its prose. Only update
+        # inherited chapter context from non-scene headings or explicit
+        # "Chapter N, Scene M" headings.
+        is_scene_label = (
+            _SCENE_RE.match(heading_title) is not None
+            or _NUMBERED_SCENE_RE.match(heading_title) is not None
+        )
         chapter_match = _CHAPTER_RE.search(heading_title)
-        if chapter_match:
+        if chapter_match and not is_scene_label:
             current_chapter = int(chapter_match.group(1))
 
         scene_info = _scene_heading(heading_title, current_chapter)

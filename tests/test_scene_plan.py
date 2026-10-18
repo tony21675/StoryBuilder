@@ -7,6 +7,41 @@ import storybuilder as storybuilder_app
 from builder.scene_plan import find_scene_idea, load_scene_idea_from_plan
 
 
+class FakeText:
+    def __init__(self, value=""):
+        self.value = value
+        self.state = "normal"
+
+    def configure(self, **kwargs):
+        if "state" in kwargs:
+            self.state = kwargs["state"]
+
+    def delete(self, _start, _end):
+        self.value = ""
+
+    def insert(self, _index, value):
+        self.value = value
+
+    def get(self, _start, _end):
+        return self.value
+
+
+class FakeLabel:
+    def __init__(self):
+        self.options = {}
+
+    def configure(self, **kwargs):
+        self.options.update(kwargs)
+
+
+class FakeValue:
+    def __init__(self):
+        self.value = None
+
+    def set(self, value):
+        self.value = value
+
+
 class ScenePlanReaderTests(unittest.TestCase):
     def test_reads_current_chapter_scene_and_stops_at_next_sibling_heading(self):
         plan = """# Story Plan
@@ -133,6 +168,70 @@ class ScenePlanReaderTests(unittest.TestCase):
         self.assertEqual(source, "plan")
         self.assertIsNone(error)
 
+
+
+    def make_contract_editor_app(self, package_path, saved_idea=""):
+        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+        app.package = SimpleNamespace(
+            path=Path(package_path),
+            current_state={"chapter": 3, "scene": 2},
+            extra_json={
+                "writing_guidance.json": {
+                    "chapter_plans": {
+                        "3": {"scene_plan": {"2": ({"scene_idea": saved_idea} if saved_idea else {})}}
+                    }
+                }
+            },
+        )
+        app.scene_contract_start_text = FakeText()
+        app.scene_contract_scene_label = FakeLabel()
+        app.scene_idea_text = FakeText()
+        app.scene_contract_direction_text = FakeText()
+        app.scene_contract_end_text = FakeText()
+        app.scene_contract_texts = {"required_beats": FakeText()}
+        app.scene_contract_attempts_var = FakeValue()
+        app.scene_contract_status = FakeLabel()
+        app.scene_contract_reload_idea_button = FakeLabel()
+        app.scene_contract_build_button = FakeLabel()
+        app._scene_contract_start_summary = lambda: "Current beginning state."
+        return app
+
+    def test_contract_editor_prefills_plan_idea_without_saving_it(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            Path(tmp, "STORY_PLAN.md").write_text(
+                "## CONFIRMED: Chapter 3\\n"
+                "### Scene 1: The long night\\n"
+                "- End at daybreak.\\n"
+                "### Scene 2: Breakfast disclosure\\n"
+                "- Tony prepares breakfast.\\n"
+                "- He tells the group once everyone is seated.\\n"
+                "### Confirmed group roles\\n"
+                "- Tony leads.\\n",
+                encoding="utf-8",
+            )
+            app = self.make_contract_editor_app(tmp)
+
+            app._refresh_scene_contract_editor()
+
+            self.assertIn("Breakfast disclosure", app.scene_idea_text.value)
+            self.assertIn("Tony prepares breakfast", app.scene_idea_text.value)
+            self.assertNotIn("Tony leads.", app.scene_idea_text.value)
+            self.assertIn("Loaded planned Scene Idea from STORY_PLAN.md", app.scene_contract_status.options["text"])
+            saved_entry = app.package.extra_json["writing_guidance.json"]["chapter_plans"]["3"]["scene_plan"]["2"]
+            self.assertNotIn("scene_idea", saved_entry)
+
+    def test_contract_editor_never_overwrites_saved_scene_idea_with_plan(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            Path(tmp, "STORY_PLAN.md").write_text(
+                "## Chapter 3\\n### Scene 2: Plan version\\n- Plan content.\\n",
+                encoding="utf-8",
+            )
+            app = self.make_contract_editor_app(tmp, saved_idea="My saved author notes.")
+
+            app._refresh_scene_contract_editor()
+
+            self.assertEqual(app.scene_idea_text.value, "My saved author notes.")
+            self.assertNotIn("Plan content", app.scene_idea_text.value)
 
 if __name__ == "__main__":
     unittest.main()
