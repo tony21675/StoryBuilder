@@ -13,6 +13,20 @@ Read the current versions on GitHub `main` before acting:
 
 **Use the newest checkpoint below as the session handoff. Older conversation context or stale repository copies do not overrule the current author-confirmed checkpoint.**
 
+## Latest checkpoint: New Novel Assistant added — October 17, 2026
+
+Tony explicitly reprioritized the plain-English new-novel workflow. The first version is implemented on `main` in commit [`0cf7a92`](https://github.com/tony21675/StoryBuilder/commit/0cf7a9236270ce051de5cc483811abd0b3686314).
+
+- Added a **New Novel Assistant** tab. The author enters a free-form story description; the selected local GGUF model proposes a starter package containing title/premise, story planning, character cards, supporting people, relationships, locations, canon rules, open questions, suggestions/conflicts, and an opening-state draft.
+- The proposal appears in a plain-English review. Nothing changes until **Approve and Build Package**. **Reject Proposal** leaves the package untouched.
+- The assistant only applies to an untouched **New Novel** workspace. It must not replace a saved/existing novel. It uses the selected model and refuses to start while Writer is running to avoid loading a second model copy.
+- Added `builder/new_novel_assistant.py` and `tests/test_new_novel_assistant.py`.
+- GitHub Actions run [39098877829](https://github.com/tony21675/StoryBuilder/actions/runs/39098877829) succeeded for this exact commit: compilation and all unit tests passed.
+- **Not yet verified:** a live run with Tony's local Gemma model, UI behavior on his laptop, and the model's ability to return a complete package in one pass. Treat model output as a proposal and manually review invented details.
+- Jessica's physical appearance has also been restored in MyNovel `Jessica.json` in [MyNovel commit `3d53e99`](https://github.com/tony21675/MyNovel/commit/3d53e99dcc1e750a145fed03fd5b85b9b62b4ede); her age 38, average build, medium-brown hair, hazel eyes, polished practical style, warm smile, and focused computer-work expression are established, not unknown.
+
+**Next step:** Fast-forward the local StoryBuilder `main` to the latest remote commit. Before closing/restarting an open app, follow the safety instructions below: establish whether Writer contains unsaved prose or a generation/revision is running, preserve any draft, and wait for active work to finish. Then use **New Novel** → **New Novel Assistant** on a blank workspace for the first live-model test. Keep the selected model set in Writer, but stop Writer before preparing the proposal.
+
 
 ## Permanent workflow: FIX NOW / ADD LATER
 
