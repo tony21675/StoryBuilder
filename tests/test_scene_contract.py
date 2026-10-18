@@ -1188,6 +1188,9 @@ Preserve all established character roles and knowledge boundaries; do not invent
         self.assertIn("must not shrink a broader scene to that action", writer_context)
         self.assertIn("as a character's personal memory", writer_context)
         self.assertIn("never transfer another character's eyewitness experience", writer_context)
+        self.assertIn("SCENE PROGRESSION AND SCOPE", writer_context)
+        self.assertIn("does not automatically authorize", writer_context)
+        self.assertIn("Treat the explicit endpoint as a ceiling", writer_context)
         self.assertIn(
             "If an explicit endpoint is named, including a time or passage-of-time boundary, carry the scene through to it",
             writer_context,

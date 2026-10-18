@@ -196,6 +196,46 @@ class ScenePlanReaderTests(unittest.TestCase):
         app._scene_contract_start_summary = lambda: "Current beginning state."
         return app
 
+    def test_load_from_plan_refreshes_stale_saved_idea_without_saving_it(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            Path(tmp, "STORY_PLAN.md").write_text(
+                "## Chapter 3\\n"
+                "### Scene 2: Revised breakfast disclosure\\n"
+                "- Let the group react and ask questions first.\\n",
+                encoding="utf-8",
+            )
+            app = self.make_contract_editor_app(tmp, saved_idea="Old saved Scene Idea.")
+            app.scene_idea_text.insert("1.0", "Old saved Scene Idea.")
+            app._ask_yes_no = lambda *_args: True
+            app._refresh_writer_scene_guidance = lambda: None
+
+            app._load_scene_idea_from_plan()
+
+            self.assertIn("Revised breakfast disclosure", app.scene_idea_text.value)
+            self.assertIn("react and ask questions first", app.scene_idea_text.value)
+            saved_entry = app.package.extra_json["writing_guidance.json"]["chapter_plans"]["3"]["scene_plan"]["2"]
+            self.assertEqual(saved_entry["scene_idea"], "Old saved Scene Idea.")
+            self.assertIn("not saved until you save it or generate the contract", app.scene_contract_status.options["text"])
+
+    def test_load_from_plan_cancel_preserves_current_editor_text(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            Path(tmp, "STORY_PLAN.md").write_text(
+                "## Chapter 3\\n"
+                "### Scene 2: Revised breakfast disclosure\\n"
+                "- Let the group react and ask questions first.\\n",
+                encoding="utf-8",
+            )
+            app = self.make_contract_editor_app(tmp, saved_idea="Old saved Scene Idea.")
+            app.scene_idea_text.insert("1.0", "Unsent author edits.")
+            app._ask_yes_no = lambda *_args: False
+            app._refresh_writer_scene_guidance = lambda: None
+
+            app._load_scene_idea_from_plan()
+
+            self.assertEqual(app.scene_idea_text.value, "Unsent author edits.")
+            saved_entry = app.package.extra_json["writing_guidance.json"]["chapter_plans"]["3"]["scene_plan"]["2"]
+            self.assertEqual(saved_entry["scene_idea"], "Old saved Scene Idea.")
+
     def test_contract_editor_prefills_plan_idea_without_saving_it(self):
         with tempfile.TemporaryDirectory() as tmp:
             Path(tmp, "STORY_PLAN.md").write_text(

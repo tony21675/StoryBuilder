@@ -900,6 +900,12 @@ class StoryBuilderApp(tk.Tk):
             command=self._reload_saved_scene_idea,
         )
         self.scene_contract_reload_idea_button.pack(side="left", padx=(8, 0))
+        self.scene_contract_plan_reload_button = ttk.Button(
+            idea_button_row,
+            text="Load from STORY_PLAN.md",
+            command=self._load_scene_idea_from_plan,
+        )
+        self.scene_contract_plan_reload_button.pack(side="left", padx=(8, 0))
         ttk.Label(
             content,
             text=(
@@ -3706,6 +3712,76 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             )
         self.scene_contract_status.configure(text=status)
 
+    def _load_scene_idea_from_plan(self):
+        """Load the current plan section explicitly, even when an older idea is saved."""
+        if self.package is None or not hasattr(self, "scene_idea_text"):
+            return
+
+        if getattr(self, "scene_contract_building", False) or getattr(
+            self, "writer_generation_in_progress", False
+        ):
+            messagebox.showwarning(
+                "Load Scene Idea from Plan",
+                "Wait for contract building or scene generation to finish before loading from the plan.",
+            )
+            return
+
+        state = self.package.current_state
+        chapter = int(state.get("chapter", 1) or 1)
+        scene = int(state.get("scene", 1) or 1)
+        active_key = (chapter, scene)
+        editor_key = getattr(self, "scene_contract_editor_key", None) or active_key
+        if editor_key != active_key:
+            self._refresh_scene_contract_editor()
+            messagebox.showwarning(
+                "Load Scene Idea from Plan",
+                "The current state and Scene Contract editor were out of sync. I reloaded the current scene. "
+                "Please check its Scene Idea before continuing.",
+            )
+            return
+
+        try:
+            planned_idea = load_scene_idea_from_plan(
+                getattr(self.package, "path", None), chapter, scene
+            )
+        except OSError as exc:
+            self._show_copyable_error(
+                "Load Scene Idea from Plan",
+                f"Could not read STORY_PLAN.md for Chapter {chapter}, Scene {scene}.\n\n{exc}",
+            )
+            return
+
+        if not planned_idea or not planned_idea.strip():
+            messagebox.showwarning(
+                "Load Scene Idea from Plan",
+                f"No matching scene section was found in STORY_PLAN.md for Chapter {chapter}, Scene {scene}.\n\n"
+                "The current Scene Idea and saved novel data were left unchanged.",
+            )
+            return
+
+        planned_idea = planned_idea.strip()
+        current_idea = self.scene_idea_text.get("1.0", "end-1c")
+        if current_idea.strip() != planned_idea:
+            if not self._ask_yes_no(
+                "Load Scene Idea from Plan",
+                f"Replace the text currently in the Scene Idea editor with the matching section from STORY_PLAN.md "
+                f"for Chapter {chapter}, Scene {scene}?\n\n"
+                "This loads the plan into the editor only. The saved Scene Idea and existing generated contract "
+                "will not change until you save the idea or generate/replace the contract.",
+            ):
+                return
+
+        self.scene_idea_text.delete("1.0", "end")
+        self.scene_idea_text.insert("1.0", planned_idea)
+        self.scene_contract_status.configure(
+            text=(
+                f"Loaded the current planned Scene Idea from STORY_PLAN.md for Chapter {chapter}, Scene {scene}. "
+                "Review it; it is not saved until you save it or generate the contract. "
+                "Any existing generated contract remains unchanged."
+            )
+        )
+        self._refresh_writer_scene_guidance()
+
     def _reset_current_scene_contract(self):
         """Clear generated contract fields for this scene while keeping its idea."""
         if self.package is None:
@@ -3838,6 +3914,8 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         self.scene_contract_attempts_var.set(str(attempts))
         if hasattr(self, "scene_contract_reload_idea_button"):
             self.scene_contract_reload_idea_button.configure(state="normal")
+        if hasattr(self, "scene_contract_plan_reload_button"):
+            self.scene_contract_plan_reload_button.configure(state="normal")
         if hasattr(self, "scene_contract_build_button"):
             self.scene_contract_build_button.configure(state="normal")
         if contract_error:

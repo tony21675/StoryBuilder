@@ -1,16 +1,19 @@
 # StoryBuilder Chat Handoff
 
-## Latest checkpoint — October 18, 2026: Chapter 3, Scene 2 needs fresh composition
+## Latest checkpoint — October 18, 2026: plan reload and scene-pacing improvements
 
-The first generated Chapter 3, Scene 2 draft was reviewed and rejected for structure. Tony confirmed it missed too much to justify a chain of Focused Changes. Do not patch half the story. Change the active local Scene Idea/composition, regenerate a fresh draft, and review it fully with Tony before acceptance.
+The first generated Chapter 3, Scene 2 draft was rejected as structurally off-plan. Tony's direction is to improve reusable StoryBuilder behavior rather than manually author a large, novel-specific prompt.
 
-The canonical MyNovel scene plan was revised in [STORY_PLAN.md](https://github.com/tony21675/MyNovel/blob/main/STORY_PLAN.md) at MyNovel commit [cb43eacc](https://github.com/tony21675/MyNovel/commit/cb43eacc567e5e95db971efe6cd54a4f91ccbbf9), and [MyNovel HANDOFF.md](https://github.com/tony21675/MyNovel/blob/main/HANDOFF.md) records the checkpoint and mandatory handoff-update rule at commit [ba38a78f](https://github.com/tony21675/MyNovel/commit/ba38a78f0515469a7a9b36cea75ff8e918c372d0).
+**Source changes in progress in this commit:**
+- Add a distinct **Load from STORY_PLAN.md** control to Scene Contract. It explicitly reloads the current chapter/scene's plan section even if an older Scene Idea is already saved. It asks before replacing visible edits, changes only the editor, and does not save the plan text or alter an existing contract until Tony uses the normal save/Generate-Replace flow.
+- Add a generic per-scene **SCENE PROGRESSION AND SCOPE** prompt instruction. It tells the writer to preserve planned phases and endpoint, match the requested degree of progress, and not automatically jump from a disclosure, discovery, reaction, or offer of help into later investigation, assignments, execution, or resolution.
+- Add tests for refreshing a stale saved idea from the plan without silently saving it, respecting cancellation, and including progression guidance in Writer context.
 
-**Fresh Scene 2 composition:** Start at daybreak. Tony prepares breakfast and gently wakes Maya; she changes privately into clean Tiffany's pajamas before joining him, not the bathrobe. Beth, Chloe, Jessica, and Rick arrive expecting an ordinary breakfast and do not suspect the abduction before everyone is seated. Tony clearly tells them Tiffany was abducted the previous afternoon near the corner. Tony learned the facts from Maya, not first-hand; the kidnapper's identity, motive, and destination remain unknown. Give the group room for shock, disbelief, fear, concern, and questions. Chloe must participate meaningfully and express that she wants to help. Do not rush into operational planning, specific assignments, searches, camera/feed checks, background checks, transport, containment, training, or rescue planning. Nobody calls the police; do not invent clues. End as questions and initial reactions turn into a shared commitment to help find Tiffany.
+This is deliberately generic. No *Taken at Dusk* names, facts, plot beats, or character assignments are being hard-coded into application code.
 
-The contract parser/endpoint code fix remains complete at [commit 1665e923](https://github.com/tony21675/StoryBuilder/commit/1665e9231e77325aa6da7be61ebe02c837be0c24). Do not reopen it unless a new reproducible bug appears.
+The canonical MyNovel plan is in [STORY_PLAN.md](https://github.com/tony21675/MyNovel/blob/main/STORY_PLAN.md). Once this code is pulled locally, use **Load from STORY_PLAN.md** for the active Chapter 3, Scene 2 to load the revised plan into Scene Idea; check its Direction and End, then generate a new attempt. Do not accept the rejected attempt or use a chain of Focused Changes for this structural miss.
 
-**Immediate next step:** In StoryBuilder's active local novel package, update the Scene Idea to match the canonical MyNovel plan. Generate/replace the contract; wait until Direction and End finish populating; verify they match the hard stop above; then generate a fresh Scene 2 draft. Read the whole draft with Tony before any acceptance. Use Focused Change only for a small number of clearly localized corrections. If a draft misses the scene's overall structure or several major beats, change the composition and regenerate instead of patching half the story.
+The contract parser/endpoint fix remains complete at [commit 1665e923](https://github.com/tony21675/StoryBuilder/commit/1665e9231e77325aa6da7be61ebe02c837be0c24). The new tests have not yet been verified by CI at the time of this handoff update.
 
 
 ## Current checkpoint: Chapter 3, Scene 2 and generic plan-to-idea loading, October 18, 2026

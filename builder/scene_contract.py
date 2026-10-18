@@ -1005,6 +1005,18 @@ class SceneContract:
         # contract may focus on one notable action, but that focus must not
         # replace the author's intended whole scene.
         parts.append(
+            "SCENE PROGRESSION AND SCOPE:\\n"
+            "Follow the order and dramatic progression of any phases or turning points named in the Scene Idea, "
+            "including beginning, middle, end, first response, or a hard stop. Match the intended degree of progress: "
+            "a disclosure, discovery, emotional reaction, or initial offer of help does not automatically authorize "
+            "a full investigation, detailed assignments, execution, or resolution. Do not jump ahead to later-stage "
+            "actions merely because they seem like logical next steps when the plan reserves them for later scenes. "
+            "Give questions, reactions, and character interaction room when the scene calls for them, and let relevant "
+            "characters participate naturally without forcing a checklist or equal speaking turns. Treat the explicit "
+            "endpoint as a ceiling on how far the story advances in this scene."
+        )
+
+        parts.append(
             "SCENE SCOPE AND EVENT PROVENANCE:\n"
             "Treat the author's original Scene Idea as the scope of the whole scene. A concise generated "
             "direction may emphasize one action, but it must not shrink a broader scene to that action. "
