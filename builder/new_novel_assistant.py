@@ -67,15 +67,26 @@ def _text_list(value: Any, label: str) -> list[str]:
     return result
 
 
-def _string_map(value: Any, label: str) -> dict[str, str]:
+def _string_map(
+    value: Any,
+    label: str,
+    *,
+    allow_blank_values: bool = False,
+) -> dict[str, str]:
     if value is None:
         return {}
     if not isinstance(value, dict):
         raise ValueError(f"{label} must be an object.")
-    return {
-        _text(key, f"{label} key", True): _text(item, f"{label} value", True)
-        for key, item in value.items()
-    }
+    result: dict[str, str] = {}
+    for raw_key, raw_item in value.items():
+        key = _text(raw_key, f"{label} key", True)
+        item = _text(raw_item, f"{label} value", not allow_blank_values)
+        # An empty appearance field means "not established", not an invalid card.
+        # Omit it from the saved map, but keep populated descriptions intact.
+        if allow_blank_values and not item:
+            continue
+        result[key] = item
+    return result
 
 
 def _safe_filename(name: str) -> str:
@@ -165,7 +176,7 @@ def normalize_new_novel_proposal(raw: dict[str, Any], *, author_brief: str) -> d
         appearance = entry.get("appearance", {})
         if isinstance(appearance, str):
             appearance = {"description": appearance.strip()} if appearance.strip() else {}
-        card["appearance"] = _string_map(appearance, f"{name}'s appearance")
+        card["appearance"] = _string_map(appearance, f"{name}'s appearance", allow_blank_values=True)
         card["relationships"] = _string_map(entry.get("relationships", {}), f"{name}'s relationships")
         card["important_items"] = _string_map(entry.get("important_items", {}), f"{name}'s important items")
         standard = {"name", "status", "age", *CHAR_TEXT, "personality", "appearance", "relationships", "important_items"}
