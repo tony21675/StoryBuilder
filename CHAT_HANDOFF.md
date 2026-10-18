@@ -20,6 +20,24 @@ and
 
 **Next action after the updated StoryBuilder source is on Tony's laptop:** In the open MyNovel package, keep the current Chapter/Scene numbers unchanged, set Time of Day to `daybreak / early morning`, and click **Apply & Save State Edits**. Then restart StoryBuilder and verify the time remains daybreak/early morning. Keep exact time not established. Do not reapply Scene 1 analysis, which could advance the scene pointer again. Do not overwrite the local novel package from the stale GitHub `current_state.json`.
 
+## Latest checkpoint — October 18, 2026: Entry context-menu copy/cut callback fix
+
+Tony ran `./start.sh`; synchronization reported up to date, but a Tkinter callback then raised `TypeError: Entry.get() takes 1 positional argument but 3 were given` in the context-menu `copy()` callback. Root cause: the generic selection handler used `widget.get(start_index, end_index)` for both `tk.Text` and Entry-style widgets. Entry/ttk.Entry/Combobox/Spinbox only accept zero arguments for `get()`.
+
+**Fix committed to StoryBuilder main:**
+- [`5ff19ce`](https://github.com/tony21675/StoryBuilder/commit/5ff19ce025afc8d1e0b82f14be0a8cfc5c74b53f): add `StoryBuilderApp._selected_widget_text()`; Text reads via Tk indices while Entry-style widgets slice the full string returned by `get()`. Both Copy and Cut use the helper.
+- [`3a0d850`](https://github.com/tony21675/StoryBuilder/commit/3a0d8507a4e9394b4fb1fe163eec29cd8bc121bb): add `tests/test_text_edit_context_menu.py` for selected Entry substring extraction.
+
+**Local checkout:** Tony's reported `git status -sb` was `## main...origin/main` plus untracked root-level `FETCH_HEAD`. Do not stage/commit that file as source. The reported `./start.sh` sync happened before this callback-fix commit, so rerun `./start.sh` from `~/Documents/StoryBuilder` to retrieve it. The sync script stashes and restores untracked files automatically.
+
+**Verification:** the test was added but not executed in this session. Once synced locally, run:
+`python -m unittest discover -s tests -p 'test_text_edit_context_menu.py'`
+Then run the two recent state-workflow tests:
+`python -m unittest discover -s tests -p 'test_state_preview.py'`
+`python -m unittest discover -s tests -p 'test_state_edits_persist.py'`
+
+State-persistence and ending-preview fixes remain in the preceding handoff entry. The existing MyNovel package still needs its daybreak correction applied using the new **Apply & Save State Edits** control after StoryBuilder has been updated, then a restart check.
+
 ## Latest checkpoint — October 18, 2026: apply the reviewed ending-state JSON
 
 Found a state-update workflow bug: the **Reconstructed Ending State** text area was editable, but `_apply_state_update()` validated/applied `self.pending_state_patch`, the hidden original proposal. Manual changes made to the displayed JSON, including Tony's correction from "the middle of the night" to daybreak/early morning, were ignored.
