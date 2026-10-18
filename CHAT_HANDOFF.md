@@ -1,5 +1,19 @@
 # StoryBuilder Chat Handoff
 
+## Latest checkpoint — October 18, 2026: apply the reviewed ending-state JSON
+
+Found a state-update workflow bug: the **Reconstructed Ending State** text area was editable, but `_apply_state_update()` validated/applied `self.pending_state_patch`, the hidden original proposal. Manual changes made to the displayed JSON, including Tony's correction from "the middle of the night" to daybreak/early morning, were ignored.
+
+**Fixes committed directly to `main`:**
+- [`a1f43a1`](https://github.com/tony21675/StoryBuilder/commit/a1f43a110064cc7d23fa8f639bd50ca56a8a3ff6): add reviewed-preview-to-patch conversion, protect StoryBuilder-managed navigation fields, reject accidental removal of existing fields.
+- [`f8c0239`](https://github.com/tony21675/StoryBuilder/commit/f8c02398555ab3073d47fba337154ac45453fe30): apply the edited visible preview; clarify the label/help text.
+- [`a58cd52`](https://github.com/tony21675/StoryBuilder/commit/a58cd526a19e9cb503324130430c792a2df4f04b): add `tests/test_state_preview.py` with four focused tests.
+- [`92f5720`](https://github.com/tony21675/StoryBuilder/commit/92f5720b8cbf98063091ee3b18f0e0f5eb7cd418): retain invalid preview text and pending proposal so the author can correct the JSON and retry rather than losing edits.
+
+Tests were added but not executed in this tool session; the commit-status endpoint returned no checks for these direct `main` commits. After syncing, run `python -m unittest discover -s tests -p 'test_state_preview.py'` from the repository root.
+
+This code fix only affects future Apply State Update operations. It does not fix Tony's existing local novel state. For the existing package, safely use **Current State**: set **Time of Day** to `daybreak / early morning`, keep the current Chapter and Scene numbers unchanged, click **Apply State Edits**, then use the normal Save action. `time.exact_time` remains not established. Do not reapply Scene 1's state analysis, which could advance the scene pointer again. Do not overwrite the local novel package with stale remote `current_state.json`.
+
 ## Latest checkpoint — October 18, 2026: plan reload and scene-pacing improvements
 
 The first generated Chapter 3, Scene 2 draft was rejected as structurally off-plan. Tony's direction is to improve reusable StoryBuilder behavior rather than manually author a large, novel-specific prompt.
