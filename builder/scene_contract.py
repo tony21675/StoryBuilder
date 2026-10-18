@@ -633,7 +633,7 @@ def extract_authored_scene_sections(scene_idea: str) -> dict[str, Any]:
                 # In Markdown headings like "**End / HARD STOP:** End here",
                 # the closing emphasis marker sits at the start of inline_value.
                 # Strip that formatting residue so it does not reach Writer.
-                clean_inline_value = re.sub(r"^[*_]{1,3}\\s*", "", inline_value).strip()
+                clean_inline_value = re.sub(r"^[*_]{1,3}\s*", "", inline_value).strip()
                 if clean_inline_value:
                     collected[active_section].append(clean_inline_value)
             continue
