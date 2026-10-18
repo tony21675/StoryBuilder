@@ -1039,8 +1039,8 @@ class StoryBuilderApp(tk.Tk):
         state_button_row.grid(row=7, column=1, sticky="e", pady=8)
         ttk.Button(
             state_button_row,
-            text="Apply State Edits",
-            command=self._apply_state_edits,
+            text="Apply & Save State Edits",
+            command=self._apply_state_edits_and_save,
         ).pack(side="left")
         ttk.Button(
             state_button_row,
@@ -6481,7 +6481,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
 
     def _apply_state_edits(self):
         if self.package is None:
-            return
+            return False
         state = self.package.current_state
         old_chapter = int(state.get("chapter", 1) or 1)
         old_scene = int(state.get("scene", 1) or 1)
@@ -6495,7 +6495,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             if not self._prepare_for_scene_change(target_chapter, target_scene):
                 self.state_vars["chapter"].set(str(old_chapter))
                 self.state_vars["scene"].set(str(old_scene))
-                return
+                return False
             # Save contract edits to the scene currently displayed before the
             # state change refreshes the editor for the destination scene.
             try:
@@ -6507,7 +6507,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                     "Scene Contract",
                     "The current scene contract could not be saved, so the scene was not changed.\n\n" + str(exc),
                 )
-                return
+                return False
 
         chapter = self.state_vars["chapter"].get().strip()
         scene = self.state_vars["scene"].get().strip()
@@ -6551,6 +6551,43 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         if hasattr(self, "_refresh_scene_contract_editor"):
             self._refresh_scene_contract_editor()
         self._build_scene_direction()
+        return True
+
+    def _apply_state_edits_and_save(self):
+        """Apply Current State form edits and persist the package immediately."""
+        if self.package is None:
+            return
+
+        was_dirty = bool(self.dirty)
+        if not self._apply_state_edits():
+            return
+
+        if self.package.path is None:
+            self.dirty = True
+            self._show_copyable_error(
+                "Apply State Edits",
+                "The state changes are applied in the open session, but this novel package "
+                "has no saved folder yet. Use Save / Save As before closing StoryBuilder.",
+            )
+            return
+
+        try:
+            self.package.save()
+            # Do not clear a pre-existing dirty flag here. This button persists
+            # the package's current model, but should not imply other pending
+            # editor text has also been applied.
+            self.dirty = was_dirty
+            self._update_path_label()
+            self._chat("Builder", "Current State edits applied and saved.")
+        except Exception as exc:
+            self.dirty = True
+            self._show_copyable_error(
+                "Apply State Edits",
+                "The state changes are applied in memory but could not be saved to disk. "
+                "They may be lost if StoryBuilder closes. Resolve the save error before restarting.\n\n"
+                + str(exc),
+            )
+
     def _reload_canon_rules_editor(self):
         if self.package is None:
             return
@@ -7115,7 +7152,8 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         self._apply_supporting_person_edit()
         self._apply_relationship_edits()
         self._apply_location_edits()
-        self._apply_state_edits()
+        if not self._apply_state_edits():
+            return False
         return True
 
     def _add_character(self):
