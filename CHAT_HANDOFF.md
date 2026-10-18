@@ -1,5 +1,16 @@
 # StoryBuilder Chat Handoff
 
+## Latest checkpoint — October 18, 2026: Chapter 3, Scene 2 contract endpoint
+
+Tony confirmed that the Scene Idea autofill loaded the revised Chapter 3, Scene 2 plan correctly. The first contract-generation result took a moment to finish displaying; after waiting, the **End** field contained the intended concise stopping instruction. Tony confirmed it was correct. Do not make more code changes for this issue unless a new reproducible failure appears.
+
+**End / HARD STOP intent:** stop after the group begins sketching basic preliminary roles and forms a private effort to find Tiffany. Leave detailed assignments, investigation steps, training, future leads, and rescue planning for later. Do not invent clues or answers; no one calls the police. Tony's grief remains, but he is no longer carrying the crisis entirely alone.
+
+**Contract parser fix:** StoryBuilder main includes the changes to recognize compound author labels such as End / HARD STOP, stop inline endpoint extraction before a blank-line-separated trailing author note, and remove Markdown emphasis residue. The latest code commit is [1665e923](https://github.com/tony21675/StoryBuilder/commit/1665e9231e77325aa6da7be61ebe02c837be0c24). The two new regression tests for compound-label extraction and generated output both pass. The full CI suite ran 187 tests; one unrelated existing test, test_writer_prompt_preserves_uncontradicted_physical_continuity, still fails because of a pre-existing prompt/test wording mismatch. Do not mix that unrelated issue into the endpoint fix.
+
+**Immediate writing next step:** If the generated direction and End line remain correct, proceed to Write Next Scene for Chapter 3, Scene 2, wait for generation to finish, then review the full draft with Tony before accepting or making any edits. Keep to one agreed correction per Focused Change run.
+
+
 ## Current checkpoint: Chapter 3, Scene 2 and generic plan-to-idea loading, October 18, 2026
 
 **Read first:** [MyNovel HANDOFF.md](https://github.com/tony21675/MyNovel/blob/main/HANDOFF.md), [STORY_PLAN.md](https://github.com/tony21675/MyNovel/blob/main/STORY_PLAN.md), and then inspect the active local novel package's current_state.json, writing_guidance.json, accepted immediately preceding scene, and before/after state snapshots. When local novel files differ from GitHub, the current saved local package is authoritative until safely reconciled.
@@ -8,7 +19,7 @@
 
 **Phase 1 implementation status:** Plan-to-Scene-Idea autofill is now implemented in StoryBuilder main. It reads only the `STORY_PLAN.md` at the active novel package root, extracts the matching chapter/scene heading and its body up to the next same-or-higher-level heading, and prefills the Scene Idea only if that scene has no saved author idea. Saved author notes win; prefilled content is not persisted until the user saves it or generates the contract. The Writer's read-only Scene Idea preview uses the same fallback. If the plan/section is absent the editor stays blank; if the plan cannot be read, the issue is shown. This is a deterministic file read and makes no model call. Focused parser and UI integration tests were added.
 
-**Verification status:** The latest GitHub Actions run [39166513505](https://github.com/tony21675/StoryBuilder/actions/runs/39166513505) confirms the compile step passes and all 11 tests in `test_scene_plan.py` pass, including the two Scene Contract UI integration tests. The full suite ran 185 tests with one known unrelated failure: `test_writer_prompt_preserves_uncontradicted_physical_continuity` expects the Writer prompt to contain `Prefer what characters say and do over narration`, which was already absent in the parent commit before this autofill change (also failing in [run 39164671064](https://github.com/tony21675/StoryBuilder/actions/runs/39164671064)). Do not fold a repair of that unrelated prompt/test mismatch into this feature without discussing it separately.
+**Verification status for plan autofill:** The focused test_scene_plan.py suite passed all 11 tests, including both Scene Contract UI integration tests. The later contract-endpoint regression tests also pass. The latest full run [39169607366](https://github.com/tony21675/StoryBuilder/actions/runs/39169607366) ran 187 tests with one unrelated failure: test_writer_prompt_preserves_uncontradicted_physical_continuity expects the Writer prompt to contain 'Prefer what characters say and do over narration', which was already absent in the parent commit before the autofill change. The endpoint tests passed in that run. Do not fold a repair of that unrelated prompt/test mismatch into this feature without discussing it separately.
 
 **Current writing position:** Tony noticed that Chapter 3, Scene 2 in MyNovel's `STORY_PLAN.md` needed a clearer ending. The plan has been updated on MyNovel `main` with a beginning, middle, and explicit endpoint. See MyNovel plan commit `cd3677e0e591c8e75f429cafa985adb0a953d486` and handoff commit `ee037baad227949d2c1c59636307123b07d3e8d6`.
 
