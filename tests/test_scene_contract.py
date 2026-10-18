@@ -71,12 +71,15 @@ class SceneContractTests(unittest.TestCase):
 - Tony tells the group what happened and they begin discussing how to help.
 
 **End / HARD STOP:** End after the group begins sketching basic roles for the private search. Leave detailed assignments and the rescue plan for later scenes. No one calls the police.
+
 Preserve all established character roles and knowledge boundaries; do not invent new clues.
 """
         sections = extract_authored_scene_sections(idea)
 
-        self.assertIn("End after the group begins sketching basic roles", sections["end"])
+        self.assertTrue(sections["end"].startswith("End after the group begins sketching basic roles"))
         self.assertIn("No one calls the police.", sections["end"])
+        self.assertNotIn("Preserve all established character roles", sections["end"])
+        self.assertNotIn("**", sections["end"])
         self.assertNotIn("Tony prepares breakfast", sections["end"])
         self.assertNotIn("Tony tells the group", sections["end"])
         self.assertNotIn("HARD STOP", sections["middle"])
@@ -91,6 +94,8 @@ Preserve all established character roles and knowledge boundaries; do not invent
 - Tony tells the group what happened and they begin discussing how to help.
 
 **End / HARD STOP:** End after the group begins sketching basic roles for the private search. Leave detailed assignments and the rescue plan for later scenes. No one calls the police.
+
+Preserve all established character roles and knowledge boundaries; do not invent new clues.
 """
         with tempfile.TemporaryDirectory() as tmp:
             model_path = Path(tmp, "writer.gguf")
@@ -114,6 +119,8 @@ Preserve all established character roles and knowledge boundaries; do not invent
 
         self.assertIn("End after the group begins sketching basic roles", result["hard_stop"])
         self.assertIn("No one calls the police.", result["hard_stop"])
+        self.assertNotIn("Preserve all established character roles", result["hard_stop"])
+        self.assertNotIn("**", result["hard_stop"])
         self.assertNotIn("Tony prepares breakfast", result["hard_stop"])
         self.assertNotIn("Tony tells the group", result["hard_stop"])
 
