@@ -974,6 +974,23 @@ class SceneContract:
                 "details remain creative choices. Treat wording such as 'can' or 'may' as permission when the "
                 "idea presents an option, not as an extra hard requirement."
             )
+
+        # Place these reminders close to the actual write request. A compact
+        # contract may focus on one notable action, but that focus must not
+        # replace the author's intended whole scene.
+        parts.append(
+            "SCENE SCOPE AND EVENT PROVENANCE:\n"
+            "Treat the author's original Scene Idea as the scope of the whole scene. A concise generated "
+            "direction may emphasize one action, but it must not shrink a broader scene to that action. "
+            "When the idea calls for continuing thought, transition, or development beyond a highlighted "
+            "moment, let the scene continue naturally to the author's endpoint or a natural stopping point "
+            "consistent with it. Do not pad the scene or invent consequential events to extend it.\n"
+            "Knowing that an event happened is not the same as witnessing it. Only present sights, sounds, "
+            "smells, dialogue, or actions as a character's personal memory if the story establishes that the "
+            "character was present and witnessed them. If the character learned about an event second-hand, "
+            "frame references as what they were told or can reasonably infer; never transfer another character's "
+            "eyewitness experience."
+        )
         return "\n\n".join(parts)
 
     @staticmethod

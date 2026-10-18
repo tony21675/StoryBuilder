@@ -1116,9 +1116,11 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             prompt,
         )
         self.assertIn(
-            "Use the Scene Idea to understand the intended movement of the scene",
+            "Use the Scene Idea to understand the intended movement of the whole scene",
             prompt,
         )
+        self.assertIn("Knowing that an event happened is not the same as witnessing it", prompt)
+        self.assertIn("do not shrink the whole scene to the single action emphasized", prompt)
         self.assertIn(
             "Respect the intended endpoint in the original Scene Idea",
             prompt,
