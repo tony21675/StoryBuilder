@@ -45,7 +45,12 @@ from builder.prompt_trace_sync import upload_prompt_trace
 from builder.manuscript import ManuscriptManager
 from builder.scene_flow import review_chapter_flow
 from builder.novel_sync import NovelSyncError, sync_novel_repository
-from builder.state_manager import StateManager, remove_prior_chapter_opening_markers
+from builder.state_manager import (
+    StateManager,
+    merge_patch as merge_state_patch_values,
+    remove_prior_chapter_opening_markers,
+    reviewed_state_preview_to_patch,
+)
 from builder.scene_contract import SceneContract
 from builder.focused_revision import (
     FOCUSED_REVISION_SYSTEM_PROMPT,
@@ -1330,7 +1335,7 @@ class StoryBuilderApp(tk.Tk):
         proposed_state_header.pack(fill="x", pady=(10, 0))
         ttk.Label(
             proposed_state_header,
-            text="Reconstructed Ending State (Preview Only)",
+            text="Reconstructed Ending State (Editable Before Apply)",
             font=("", 11, "bold"),
         ).pack(side="left")
 
@@ -1344,8 +1349,9 @@ class StoryBuilderApp(tk.Tk):
         ttk.Label(
             content_frame,
             text=(
-                "Shows the full merged ending state, including fields preserved from earlier scenes. "
-                "Nothing is applied until you click Apply State Update."
+                "Shows the full merged ending state. You may correct values here before applying; "
+                "those edits are included. Keep existing fields in place. Chapter and scene navigation "
+                "remain controlled by StoryBuilder."
             ),
             wraplength=900,
             justify="left",
@@ -4585,9 +4591,26 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             return
 
         try:
-            StateManager.validate_patch(
+            preview_text = self.writer_state_preview.get("1.0", "end").strip()
+            if not preview_text:
+                raise ValueError("The ending-state preview is empty. Analyze the accepted scene again.")
+
+            reviewed_preview = json.loads(preview_text)
+            expected_preview = StateManager.merge_patch(
                 self.package.current_state,
                 self.pending_state_patch,
+            )
+            preview_edits = reviewed_state_preview_to_patch(
+                expected_preview,
+                reviewed_preview,
+            )
+            patch_to_apply = merge_state_patch_values(
+                self.pending_state_patch,
+                preview_edits,
+            )
+            StateManager.validate_patch(
+                self.package.current_state,
+                patch_to_apply,
             )
         except (TypeError, ValueError) as exc:
             self.pending_state_patch = None
@@ -4613,7 +4636,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
 
             self.package.current_state = StateManager.merge_patch(
                 self.package.current_state,
-                self.pending_state_patch,
+                patch_to_apply,
             )
 
             # Once the first accepted scene has been applied, the story is no
