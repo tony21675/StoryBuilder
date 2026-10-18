@@ -601,6 +601,19 @@ def extract_authored_scene_sections(scene_idea: str) -> dict[str, Any]:
             heading, inline_value = header.split(":", 1)
             candidate = heading.strip().strip("*_ ").casefold()
         section = _AUTHOR_SECTION_ALIASES.get(candidate)
+        if section is None and "/" in candidate:
+            # Labels such as "End / HARD STOP" name one section using two
+            # equivalent terms. Accept slash-combinations only when every
+            # component resolves to the same section; "Beginning / Middle"
+            # remains intentionally ambiguous and is not collapsed.
+            components = [part.strip() for part in candidate.split("/") if part.strip()]
+            component_sections = [_AUTHOR_SECTION_ALIASES.get(part) for part in components]
+            if (
+                len(components) > 1
+                and all(component_sections)
+                and len(set(component_sections)) == 1
+            ):
+                section = component_sections[0]
 
         # A heading without a colon must be a standalone label. This avoids
         # treating ordinary prose beginning with "End" or "Required" as a label.
