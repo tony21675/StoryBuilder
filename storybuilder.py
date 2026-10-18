@@ -37,6 +37,7 @@ from builder.writer_notes import (
     parse_writer_notes_response,
     save_writer_notes,
 )
+from builder.scene_plan import load_scene_idea_from_plan
 from builder.validator import validate_package
 from builder.writer_engine import WriterEngine
 from builder.prompt_trace import PromptTrace, default_prompt_trace_path
@@ -863,12 +864,14 @@ class StoryBuilderApp(tk.Tk):
         ttk.Label(
             content,
             text=(
-                "The Scene Idea is the part you edit. Generate / Replace Contract asks the local model "
-                "for a concise direction and ending. Only items under a clearly labeled Required Beats "
-                "section in your Scene Idea become formal scene-level beats; model-generated suggestions "
-                "do not become mandatory. Separately enabled modules may supply their own requirements. "
-                "The original Scene Idea remains the Writer's primary guidance. If a contract is saved, "
-                "StoryBuilder asks before replacing its generated fields."
+                "The Scene Idea is the part you edit. If this scene has no saved idea, StoryBuilder loads "
+                "the matching scene from STORY_PLAN.md when available. Saved Scene Ideas always take "
+                "priority, and a plan-loaded idea is not saved until you save it or generate the contract. "
+                "Generate / Replace Contract asks the local model for a concise direction and ending. "
+                "Only items under a clearly labeled Required Beats section in your Scene Idea become formal "
+                "scene-level beats; model-generated suggestions do not become mandatory. Separately enabled "
+                "modules may supply their own requirements. The original Scene Idea remains the Writer's "
+                "primary guidance. If a contract is saved, StoryBuilder asks before replacing its generated fields."
             ),
             wraplength=900,
             justify="left",
@@ -2297,7 +2300,7 @@ class StoryBuilderApp(tk.Tk):
             self._refresh_writer_scene_guidance()
 
     def _refresh_writer_scene_guidance(self):
-        """Show the current author Scene Idea and rebuild supporting continuity without model calls."""
+        """Show the current author Scene Idea or plan fallback without model calls."""
         if self.package is None or not hasattr(self, "writer_scene_idea_text"):
             return
 
@@ -2309,10 +2312,12 @@ class StoryBuilderApp(tk.Tk):
         if not isinstance(entry, dict):
             entry = {}
         saved_idea = str(entry.get("scene_idea", "") or "").strip()
+        resolved_idea, resolved_source, idea_error = self._resolve_scene_idea(
+            chapter, scene, entry
+        )
 
         # If the author has edited the Scene Idea but has not saved yet, preview
-        # that exact text. Write Next Scene applies/saves the editor before it
-        # builds the runtime contract, so the model receives the same version.
+        # that exact text. A blank edit is respected rather than silently restored.
         editor_matches_scene = (
             getattr(self, "scene_contract_editor_key", None) == (chapter, scene)
             and hasattr(self, "scene_idea_text")
@@ -2322,8 +2327,18 @@ class StoryBuilderApp(tk.Tk):
             if editor_matches_scene
             else saved_idea
         )
+        if editor_matches_scene:
+            display_idea = editor_idea
+            display_source = (
+                resolved_source
+                if editor_idea == resolved_idea
+                else "editor"
+            )
+        else:
+            display_idea = resolved_idea
+            display_source = resolved_source
+
         is_unsaved = editor_matches_scene and editor_idea != saved_idea
-        display_idea = editor_idea if editor_matches_scene else saved_idea
 
         self.writer_scene_idea_text.configure(state="normal")
         self.writer_scene_idea_text.delete("1.0", "end")
@@ -2331,8 +2346,18 @@ class StoryBuilderApp(tk.Tk):
             self.writer_scene_idea_text.insert("1.0", display_idea)
         self.writer_scene_idea_text.configure(state="disabled")
 
-        if not display_idea:
-            status = f"No Scene Idea is saved for Chapter {chapter}, Scene {scene}."
+        if idea_error:
+            status = f"Could not read STORY_PLAN.md for Chapter {chapter}, Scene {scene}: {idea_error}"
+        elif not display_idea:
+            status = (
+                f"No saved Scene Idea or matching STORY_PLAN.md section exists for "
+                f"Chapter {chapter}, Scene {scene}."
+            )
+        elif display_source == "plan":
+            status = (
+                f"Loaded planned Scene Idea from STORY_PLAN.md for Chapter {chapter}, Scene {scene}. "
+                "Review it in Scene Contract; it is not saved until you save it or generate the contract."
+            )
         elif is_unsaved:
             status = (
                 f"Showing unsaved Scene Idea edits for Chapter {chapter}, Scene {scene}. "
@@ -3614,7 +3639,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         )
 
     def _reload_saved_scene_idea(self):
-        """Clear local Scene Idea edits and reload only the saved idea for this scene."""
+        """Reload the saved Scene Idea, or the matching plan section if none is saved."""
         if self.package is None or not hasattr(self, "scene_idea_text"):
             return
 
@@ -3642,25 +3667,43 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             return
 
         entry = self._editable_scene_guidance_entry(chapter, scene, create=False) or {}
-        saved_idea = str(entry.get("scene_idea", "") or "")
+        loaded_idea, source, error = self._resolve_scene_idea(chapter, scene, entry)
         current_idea = self.scene_idea_text.get("1.0", "end-1c")
-        if current_idea.strip() != saved_idea.strip():
+        if current_idea.strip() != loaded_idea.strip():
+            if source == "saved":
+                source_label = "the saved Scene Idea"
+            elif source == "plan":
+                source_label = "the matching scene section from STORY_PLAN.md"
+            elif source == "error":
+                source_label = "a blank field because STORY_PLAN.md could not be read"
+            else:
+                source_label = "a blank field because no saved idea or matching plan section was found"
             if not self._ask_yes_no(
                 "Clear & Reload Scene Idea",
-                f"Discard the current unsaved Scene Idea edits and reload the saved version for "
+                f"Discard the current unsaved Scene Idea edits and reload {source_label} for "
                 f"Chapter {chapter}, Scene {scene}?\n\n"
                 "The saved novel data and generated contract fields will not be changed.",
             ):
                 return
 
         self.scene_idea_text.delete("1.0", "end")
-        if saved_idea:
-            self.scene_idea_text.insert("1.0", saved_idea)
+        if loaded_idea:
+            self.scene_idea_text.insert("1.0", loaded_idea)
 
-        if saved_idea.strip():
+        if source == "saved":
             status = f"Reloaded the saved Scene Idea for Chapter {chapter}, Scene {scene}."
+        elif source == "plan":
+            status = (
+                f"Loaded the planned Scene Idea from STORY_PLAN.md for Chapter {chapter}, Scene {scene}. "
+                "Review it; it is not saved until you save it or generate the contract."
+            )
+        elif source == "error":
+            status = f"Could not read STORY_PLAN.md for Chapter {chapter}, Scene {scene}: {error}"
         else:
-            status = f"No saved Scene Idea exists for Chapter {chapter}, Scene {scene}. The editor is now blank."
+            status = (
+                f"No saved Scene Idea or matching STORY_PLAN.md section exists for Chapter {chapter}, "
+                f"Scene {scene}. The editor is blank."
+            )
         self.scene_contract_status.configure(text=status)
 
     def _reset_current_scene_contract(self):
@@ -3729,6 +3772,23 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                 f"Could not save the reset contract.\n\n{exc}",
             )
 
+    def _resolve_scene_idea(self, chapter: int, scene: int, entry: dict) -> tuple[str, str, str | None]:
+        """Prefer a saved author idea, falling back to the matching novel plan section."""
+        saved_idea = str(entry.get("scene_idea", "") or "").strip()
+        if saved_idea:
+            return saved_idea, "saved", None
+
+        package_path = getattr(self.package, "path", None)
+        if package_path is None:
+            return "", "none", None
+        try:
+            planned_idea = load_scene_idea_from_plan(package_path, chapter, scene)
+        except OSError as exc:
+            return "", "error", str(exc)
+        if planned_idea:
+            return planned_idea.strip(), "plan", None
+        return "", "none", None
+
     def _refresh_scene_contract_editor(self):
         if not hasattr(self, "scene_contract_start_text") or self.package is None:
             return
@@ -3747,8 +3807,10 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         self.scene_contract_start_text.configure(state="disabled")
 
         entry = self._editable_scene_guidance_entry(chapter, scene, create=False) or {}
+        scene_idea, idea_source, idea_error = self._resolve_scene_idea(chapter, scene, entry)
         self.scene_idea_text.delete("1.0", "end")
-        self.scene_idea_text.insert("1.0", str(entry.get("scene_idea", "") or ""))
+        if scene_idea:
+            self.scene_idea_text.insert("1.0", scene_idea)
         contract_error = None
         try:
             contract = SceneContract.from_guidance(entry, [])
@@ -3781,6 +3843,24 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         if contract_error:
             self.scene_contract_status.configure(
                 text=f"Contract needs attention: {contract_error}",
+            )
+        elif idea_source == "plan":
+            self.scene_contract_status.configure(
+                text=(
+                    f"Loaded planned Scene Idea from STORY_PLAN.md for Chapter {chapter}, Scene {scene}. "
+                    "Review it, then generate the contract. It has not been saved yet."
+                ),
+            )
+        elif idea_source == "error":
+            self.scene_contract_status.configure(
+                text=f"Could not read STORY_PLAN.md for Chapter {chapter}, Scene {scene}: {idea_error}",
+            )
+        elif idea_source == "none":
+            self.scene_contract_status.configure(
+                text=(
+                    f"No saved Scene Idea or matching STORY_PLAN.md section exists for Chapter {chapter}, "
+                    f"Scene {scene}. Enter an idea or add the scene to the plan."
+                ),
             )
         else:
             self.scene_contract_status.configure(
