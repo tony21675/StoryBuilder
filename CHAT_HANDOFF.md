@@ -1,3 +1,13 @@
+## Follow-up verification: echoed-prompt fallback and dark-theme tests, October 19, 2026
+
+The real Scene Planner output still showed the CLI banner/context during Tony's last live use, so the cleanup was hardened rather than treating the helper-only test as proof. builder/scene_planner.py commit [ff12f0f](https://github.com/tony21675/StoryBuilder/commit/ff12f0f9661d3c332dd64813af85b62252e2b521) now strips through the echoed prompt's distinctive final line if whole-prompt matching fails; [403e3fe](https://github.com/tony21675/StoryBuilder/commit/403e3fe51195e00c091fff6d2afa29093e724470) adds a regression for altered prompt prefixes.
+
+Actions [run 39319751978](https://github.com/tony21675/StoryBuilder/actions/runs/39319751978) compiled successfully. The exact-echo cleanup test, fallback cleanup test, proposal extraction test, and all seven appearance tests pass. The full suite ran 245 tests and has only the same five previously known unrelated failures (3 state-preview workflow errors, 1 Writer-prompt assertion, 1 text-selection assertion). Live verification on Tony's desktop is still required.
+
+**Important:** Tony's current Chapter 3, Scene 3 proposal may be visible but is unsaved. Do not ask him to restart/sync StoryBuilder before he has either approved/saved that proposal or explicitly chosen to leave it unsaved, because restarting clears the transient conversation and proposal. The latest proposal body needs an explicit boundaries section before approval. After that decision, use cd ~/Documents/StoryBuilder && ./start.sh and verify that the app opens dark and that the planning conversation no longer displays the llama.cpp banner/context. If bloat remains, treat live output as a new diagnostic and do not claim cleanup complete.
+
+---
+
 ## Latest checkpoint: October 19, 2026: desktop-aware dark appearance
 
 Tony approved adding desktop-aware light/dark styling because bright white StoryBuilder widgets were uncomfortable for his eyes. Implemented on main:
