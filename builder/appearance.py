@@ -80,13 +80,8 @@ def detect_system_appearance(
 
     runner = command_runner or subprocess.run
 
-    # GTK_THEME can be set by the desktop/session to choose a specific GTK theme.
-    gtk_theme = str(env.get("GTK_THEME", "") or "")
-    if gtk_theme:
-        result = _classify_theme_name(gtk_theme)
-        if result:
-            return result
-
+    # Prefer the desktop's actual saved appearance settings over GTK_THEME.
+    # GTK_THEME can be inherited from a launcher or shell and may be stale.
     # Newer GNOME-based desktops expose an explicit color-scheme preference.
     color_scheme = _read_setting(
         ["gsettings", "get", "org.gnome.desktop.interface", "color-scheme"], runner
@@ -107,6 +102,13 @@ def detect_system_appearance(
         appearance = _classify_theme_name(theme_name)
         if appearance:
             return appearance
+
+    # Only consult GTK_THEME when the desktop settings above are unavailable.
+    gtk_theme = str(env.get("GTK_THEME", "") or "")
+    if gtk_theme:
+        result = _classify_theme_name(gtk_theme)
+        if result:
+            return result
 
     # Some terminal sessions expose the foreground/background color indexes.
     color_fg_bg = str(env.get("COLORFGBG", "") or "").strip()
