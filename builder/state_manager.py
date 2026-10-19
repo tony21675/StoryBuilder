@@ -565,7 +565,9 @@ def _clue_identity(value: str) -> str:
         words.intersection({"scratch", "scratched", "scratches", "raked", "rake", "clawed"})
         and words.intersection({"cheek", "face"})
     ):
-        details = words.intersection({"left", "right", "three", "twice", "blood", "bleed", "bleeding"})
+        details = words.intersection({"left", "right", "three", "twice"})
+        if words.intersection({"blood", "bleed", "bleeding", "bled"}):
+            details.add("blood")
         return "facial-scratch:" + ",".join(sorted(details))
 
     if words.intersection({"smell", "smelled", "smells", "scent", "cologne", "cigarette", "cigarettes", "pine"}):
