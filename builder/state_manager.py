@@ -525,7 +525,7 @@ def validate_state_proposal(base: dict[str, Any], patch: dict[str, Any]) -> dict
         raise ValueError(
             "Invalid continuity proposal: unsupported transition field(s): "
             + ", ".join(unsupported)
-            + ". Return only current_situation, location, physical_state, time_of_day, active_objectives, and new_recent_events."
+            + ". Return only current_situation, location, physical_state, time_of_day, active_objectives, new_clues, resolved_clues, new_unresolved_questions, resolved_questions, and new_recent_events."
         )
 
     situation = patch.get("current_situation")
