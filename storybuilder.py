@@ -10,6 +10,7 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, simpledialog, ttk
 
+from builder.appearance import apply_application_appearance
 from builder.conversation import apply_command
 from builder.guided_setup import GuidedSetupSession
 from builder.story_package import StoryPackage
@@ -135,6 +136,7 @@ class CompactTabContainer(ttk.Frame):
 class StoryBuilderApp(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
+        self.appearance_mode = apply_application_appearance(self)
         self.title("StoryBuilder")
         self.geometry("1050x720")
         self.minsize(900, 620)
