@@ -25,6 +25,8 @@ class StateUpdateValidationTests(unittest.TestCase):
                 "Maya": {"location": "Kitchen", "posture": "seated"},
             },
             "active_objectives": {"Tony": "Coordinate the search", "Maya": "Watch the street"},
+            # Legacy packages can duplicate nested character locations at top level.
+            "Maya": "Legacy duplicate location",
         }
         original = json.loads(json.dumps(base))
         patch = {
@@ -37,6 +39,7 @@ class StateUpdateValidationTests(unittest.TestCase):
 
         self.assertEqual(base, original, "Applying a patch must not mutate the approved baseline.")
         self.assertNotIn("Maya", merged["location"])
+        self.assertNotIn("Maya", merged, "Deleting nested location must also remove legacy duplicate.")
         self.assertEqual(merged["physical_state"]["Tony"], {"location": "Kitchen", "posture": "standing"})
         self.assertNotIn("Maya", merged["physical_state"])
         self.assertEqual(merged["active_objectives"], {"Tony": "Coordinate the search"})
