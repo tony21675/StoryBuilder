@@ -320,7 +320,7 @@ def append_recent_events(
         return ""
 
     def identity(item: Any) -> str:
-        return re.sub(r"\\s+", " ", event_text(item)).strip().rstrip(".").casefold()
+        return re.sub(r"\s+", " ", event_text(item)).strip().rstrip(".").casefold()
 
     seen = {identity(item) for item in merged if identity(item)}
     for value in new_events:
@@ -473,6 +473,29 @@ def validate_state_patch(base: dict[str, Any], patch: dict[str, Any]) -> dict[st
 
     if "physical_state" in patch and not isinstance(patch["physical_state"], dict):
         raise ValueError("Invalid state update: 'physical_state' must be an object.")
+
+    if "active_objectives" in patch:
+        objectives = patch["active_objectives"]
+        if not isinstance(objectives, dict):
+            raise ValueError("Invalid state update: 'active_objectives' must be an object.")
+        for character, objective in objectives.items():
+            if not isinstance(objective, str) or not objective.strip():
+                raise ValueError(
+                    f"Invalid state update at 'active_objectives.{character}': objectives must be non-empty text."
+                )
+
+    if "recent_events" in patch:
+        events = patch["recent_events"]
+        if not isinstance(events, list):
+            raise ValueError("Invalid state update: 'recent_events' must be a list.")
+        for index, event in enumerate(events):
+            if isinstance(event, str) and event.strip():
+                continue
+            if isinstance(event, dict) and isinstance(event.get("event"), str) and event["event"].strip():
+                continue
+            raise ValueError(
+                f"Invalid state update at 'recent_events[{index}]': each event must be text or an object with non-empty event text."
+            )
 
     return patch
 
