@@ -1,5 +1,20 @@
 # StoryBuilder Chat Handoff
 
+
+## Latest checkpoint — October 18, 2026: MyNovel sync paused before Chapter 3, Scene 2
+
+StoryBuilder on Tony's laptop was synchronized through `./sync.sh start` and finished clean at `7c5f01d` on `main`. A zero-byte root-level untracked `FETCH_HEAD` had been noticed before sync, but a removal attempt found it already absent; the successful sync finished with a clean status. Do not stage or recreate it. No test commands were run as part of this laptop sync.
+
+The MyNovel laptop checkout at `~/Documents/MyNovel/Taken_at_Dusk` was fast-forwarded from `70ba8d3` to GitHub `c4b1ca1`. The local edits were backed up to `~/Documents/MyNovel_pre_sync_backup_20261018_182247` and saved in `stash@{0}` before fast-forward. Applying the stash conflicted only in `STORY_PLAN.md`; Tony resolved it by choosing the updated branch's plan and staging it. The original stash and older `stash@{1}` remain intact.
+
+At pause, the MyNovel working copy still has staged changes to `current_state.json`, `writing_guidance.json`, and `working_writer_notes.json`, plus an untracked Chapter 3 Scene 1 after-state snapshot. These edits have not been committed or pushed. JSON parsing succeeded and the hard sleepwear rule was confirmed in guidance, but final reconciliation remains incomplete:
+- active state is Chapter 3 Scene 2, `daybreak / early morning`, with exact time not established;
+- Maya's state still carries the stale line that she is wrapped in her robe rather than the clean pajamas established in Chapter 2 Scene 5;
+- the Scene 1 ending snapshot says `the middle of the night` despite describing daybreak;
+- the Scene 2 guidance and snapshot ignore status still need a full read-only inspection with the Git pager disabled.
+
+Continue from the latest [MyNovel handoff](https://github.com/tony21675/MyNovel/blob/main/HANDOFF.md). Preserve `~/Documents/MyNovel_pre_sync_backup_20261018_182247`, `stash@{0}`, and `stash@{1}`; do not run `git stash pop`, discard the snapshot, or start another Scene 2 generation yet. Finish the state/snapshot reconciliation, validate and commit/push MyNovel, then reload the canonical Scene 2 plan in StoryBuilder and generate a fresh attempt. The previous draft beginning with Maya in a robe is unaccepted and must remain unused.
+
 ## Latest checkpoint — October 18, 2026: hard bed-sleepwear rule made persistent in Taken at Dusk
 
 Tony established a hard continuity rule: anyone sleeping in a bed must be either wearing sleepwear or naked. Robes/bathrobes/dressing gowns and ordinary daytime clothing are not sleepwear and must never be what a character sleeps in. If a character uses a robe after a bath, they must privately change into sleepwear (or be explicitly established as naked) before falling asleep. The sleeping outfit carries into the next waking scene until a change is shown.
