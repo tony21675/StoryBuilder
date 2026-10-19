@@ -38,6 +38,10 @@ from builder.writer_notes import (
     save_writer_notes,
 )
 from builder.scene_plan import load_scene_idea_from_plan
+from builder.scene_planner import (
+    generate_scene_planner_reply, prepare_scene_plan_proposal, read_story_plan_file,
+    save_scene_plan_file, update_scene_plan_markdown, validate_scene_plan_fields,
+)
 from builder.validator import validate_package
 from builder.writer_engine import WriterEngine
 from builder.prompt_trace import PromptTrace, default_prompt_trace_path
@@ -192,6 +196,14 @@ class StoryBuilderApp(tk.Tk):
         self.new_novel_assistant_thread = None
         self.selected_manuscript_path = None
         self.saved_state_candidate = None
+        self.scene_planner_messages = []
+        self.scene_planner_target = None
+        self.scene_planner_package_path = None
+        self.scene_planner_start_state = None
+        self.scene_planner_request_in_progress = False
+        self.scene_planner_task_kind = None
+        self.scene_planner_pending_proposal = None
+        self.scene_planner_thread = None
 
         self._build_ui()
         self.protocol("WM_DELETE_WINDOW", self._close_and_sync)
@@ -229,6 +241,7 @@ class StoryBuilderApp(tk.Tk):
         self._build_planning_tab()
         self._build_story_interview_tab()
         self._build_scene_contract_tab()
+        self._build_scene_planner_tab()
         self._build_state_tab()
         self._build_writer_tab()
         self._build_manuscript_tab()
@@ -1007,6 +1020,70 @@ class StoryBuilderApp(tk.Tk):
             anchor="w",
         )
         self.scene_contract_status.pack(side="left", fill="x", expand=True)
+
+    def _build_scene_planner_tab(self):
+        page = ttk.Frame(self.notebook.pages)
+        self.notebook.add(page, text="Scene Planner")
+        tab = self._make_scrollable_tab(page)
+        ttk.Label(tab, text="Plan a Scene Together", font=("", 14, "bold")).pack(anchor="w")
+        ttk.Label(
+            tab,
+            text=("Talk through the scene's purpose, sequence, continuity, and stopping point. "
+                  "The local model helps you think; it does not decide canon or change files during conversation. "
+                  "Prepare a proposal when ready, review or edit it, then explicitly approve the save."),
+            wraplength=900, justify="left",
+        ).pack(anchor="w", pady=(4, 8))
+        self.scene_planner_target_var = tk.StringVar(value="Open a saved novel to plan a scene.")
+        ttk.Label(tab, textvariable=self.scene_planner_target_var, font=("", 11, "bold")).pack(anchor="w", pady=(0, 8))
+        ttk.Label(tab, text="Planning conversation", font=("", 11, "bold")).pack(anchor="w")
+        log_frame = ttk.Frame(tab)
+        log_frame.pack(fill="both", expand=True, pady=(4, 8))
+        self.scene_planner_log = tk.Text(log_frame, height=13, wrap="word", state="disabled")
+        log_scroll = ttk.Scrollbar(log_frame, orient="vertical", command=self.scene_planner_log.yview)
+        self.scene_planner_log.configure(yscrollcommand=log_scroll.set)
+        self.scene_planner_log.pack(side="left", fill="both", expand=True)
+        log_scroll.pack(side="right", fill="y")
+        ttk.Label(tab, text="Your message", font=("", 11, "bold")).pack(anchor="w")
+        self.scene_planner_input_text = tk.Text(tab, height=4, wrap="word", undo=True)
+        self.scene_planner_input_text.pack(fill="x", pady=(4, 8))
+        self.scene_planner_input_text.bind("<Control-Return>", lambda _event: self._send_scene_planner_message() or "break")
+        actions = ttk.Frame(tab)
+        actions.pack(fill="x", pady=(0, 8))
+        self.scene_planner_send_button = ttk.Button(actions, text="Send to Planner", command=self._send_scene_planner_message)
+        self.scene_planner_send_button.pack(side="left")
+        self.scene_planner_prepare_button = ttk.Button(actions, text="Prepare Plan Proposal", command=self._prepare_scene_planner_proposal)
+        self.scene_planner_prepare_button.pack(side="left", padx=(8, 0))
+        self.scene_planner_clear_button = ttk.Button(actions, text="Clear Conversation", command=self._clear_scene_planner_conversation)
+        self.scene_planner_clear_button.pack(side="left", padx=(8, 0))
+        ttk.Label(tab, text="Plan proposal (editable before approval)", font=("", 11, "bold")).pack(anchor="w", pady=(8, 0))
+        ttk.Label(
+            tab,
+            text=("Only this scene section will be inserted or replaced in STORY_PLAN.md. "
+                  "Other chapters and scenes are preserved, and the file is checked for changes before saving."),
+            wraplength=900, justify="left",
+        ).pack(anchor="w", pady=(3, 5))
+        title_row = ttk.Frame(tab)
+        title_row.pack(fill="x", pady=(0, 5))
+        ttk.Label(title_row, text="Scene title", width=14).pack(side="left")
+        self.scene_planner_title_var = tk.StringVar()
+        self.scene_planner_title_entry = ttk.Entry(title_row, textvariable=self.scene_planner_title_var)
+        self.scene_planner_title_entry.pack(side="left", fill="x", expand=True)
+        self.scene_planner_proposal_text = tk.Text(tab, height=13, wrap="word", undo=True)
+        self.scene_planner_proposal_text.pack(fill="both", expand=True, pady=(4, 8))
+        proposal_actions = ttk.Frame(tab)
+        proposal_actions.pack(fill="x")
+        self.scene_planner_approve_button = ttk.Button(
+            proposal_actions, text="Approve & Save Plan", command=self._approve_scene_plan_proposal, state="disabled"
+        )
+        self.scene_planner_approve_button.pack(side="left")
+        self.scene_planner_reject_button = ttk.Button(
+            proposal_actions, text="Reject Proposal", command=self._reject_scene_plan_proposal, state="disabled"
+        )
+        self.scene_planner_reject_button.pack(side="left", padx=(8, 0))
+        self.scene_planner_status = ttk.Label(tab, text="No plan changes have been made.", wraplength=900, justify="left")
+        self.scene_planner_status.pack(anchor="w", fill="x", pady=(8, 0))
+        self._refresh_scene_planner_target()
+        self._update_scene_planner_buttons()
 
     def _build_state_tab(self):
         page = ttk.Frame(self.notebook.pages)
@@ -2077,6 +2154,9 @@ class StoryBuilderApp(tk.Tk):
         }
 
     def _process_story_interview_answer(self):
+        if getattr(self, "scene_planner_request_in_progress", False):
+            messagebox.showwarning("Scene Planner", "Let the current planning request finish before starting another model task.")
+            return
         if not self.interview_active or self.interview_pending_patch is not None:
             return
 
@@ -2727,6 +2807,9 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         self.writer_status.configure(text=status_text)
 
     def _start_writer(self, skip_notes_seed=False):
+        if getattr(self, "scene_planner_request_in_progress", False):
+            messagebox.showwarning("Scene Planner", "Let the current planning request finish before starting another model task.")
+            return
         if getattr(self, "scene_contract_building", False):
             return
         if self.__dict__.get("writer_notes_update_in_progress", False):
@@ -4129,6 +4212,9 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             text=f"Saved Scene Idea for Chapter {chapter}, Scene {scene}.",
         )
     def _build_contract_from_scene_idea(self):
+        if getattr(self, "scene_planner_request_in_progress", False):
+            messagebox.showwarning("Scene Planner", "Let the current planning request finish before starting generating a scene contract.")
+            return
         if getattr(self, "writer_generation_in_progress", False):
             self.scene_contract_status.configure(
                 text="Scene generation is using the local model. Build the contract after it finishes."
@@ -4588,6 +4674,9 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         return names
 
     def _analyze_accepted_scene(self):
+        if getattr(self, "scene_planner_request_in_progress", False):
+            messagebox.showwarning("Scene Planner", "Let the current planning request finish before starting state analysis.")
+            return
         if not self.package or not self.accepted_scene.strip():
             return
         if self.__dict__.get("state_analysis_in_progress", False):
@@ -6246,6 +6335,12 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                 "A Writer task is still running. Let it finish before changing scenes or closing StoryBuilder.",
             )
             return False
+        if getattr(self, "scene_planner_request_in_progress", False):
+            messagebox.showwarning(
+                "Scene Planner",
+                "A Scene Planner request is still running. Let it finish before changing novels or closing StoryBuilder.",
+            )
+            return False
         if getattr(self, "scene_contract_building", False):
             messagebox.showwarning(
                 "Scene Contract",
@@ -6788,6 +6883,9 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             self.new_novel_assistant_status.configure(text=message)
 
     def _prepare_new_novel_proposal(self):
+        if getattr(self, "scene_planner_request_in_progress", False):
+            messagebox.showwarning("Scene Planner", "Let the current planning request finish before starting another model task.")
+            return
         if self.package is None:
             self._show_copyable_error("New Novel Assistant", "Click New Novel first.")
             return
@@ -6979,7 +7077,298 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             "current_state": self.package.current_state,
         }, sort_keys=True, ensure_ascii=False)
 
+    @staticmethod
+    def _scene_planner_canonical_path(path):
+        if path is None:
+            return None
+        try:
+            return str(Path(path).expanduser().resolve())
+        except (OSError, RuntimeError):
+            return str(path)
+
+    def _refresh_scene_planner_target(self):
+        if not hasattr(self, "scene_planner_target_var"):
+            return
+        if self.package is None:
+            self.scene_planner_target_var.set("Open a saved novel to plan a scene.")
+            self.scene_planner_package_path = None
+            self.scene_planner_target = None
+            self.scene_planner_start_state = None
+            self._update_scene_planner_buttons()
+            return
+        state = self.package.current_state
+        current_target = (int(state.get("chapter", 1) or 1), int(state.get("scene", 1) or 1))
+        current_path = self._scene_planner_canonical_path(self.package.path)
+        active = bool(self.scene_planner_messages or self.scene_planner_pending_proposal or self.scene_planner_request_in_progress)
+        if self.scene_planner_target is None or not active:
+            self.scene_planner_target = current_target
+            self.scene_planner_package_path = current_path
+            try:
+                self.scene_planner_start_state = json.loads(json.dumps(state, ensure_ascii=False))
+            except (TypeError, ValueError):
+                self.scene_planner_start_state = dict(state)
+        target = self.scene_planner_target or current_target
+        label = f"Planning target: Chapter {target[0]}, Scene {target[1]}"
+        if current_target != target or current_path != self.scene_planner_package_path:
+            label += " (session pinned; clear the conversation to retarget)"
+        if current_path is None:
+            label += " | Save the novel package first"
+        self.scene_planner_target_var.set(label)
+        self._update_scene_planner_buttons()
+
+    def _update_scene_planner_buttons(self):
+        if not hasattr(self, "scene_planner_send_button"):
+            return
+        busy = bool(self.scene_planner_request_in_progress)
+        saved = bool(self.package is not None and getattr(self.package, "path", None) is not None)
+        pending = isinstance(self.scene_planner_pending_proposal, dict)
+        self.scene_planner_send_button.configure(state="normal" if saved and not busy and not pending else "disabled")
+        self.scene_planner_prepare_button.configure(state="normal" if self.scene_planner_messages and not busy and not pending else "disabled")
+        self.scene_planner_clear_button.configure(state="disabled" if busy else "normal")
+        self.scene_planner_approve_button.configure(state="normal" if pending and not busy else "disabled")
+        self.scene_planner_reject_button.configure(state="normal" if pending and not busy else "disabled")
+
+    def _scene_planner_snapshot(self):
+        if self.package is None:
+            raise ValueError("Open a novel before planning a scene.")
+        if getattr(self.package, "path", None) is None:
+            raise ValueError("Save the novel package before using the Scene Planner.")
+        if self.scene_planner_target is None:
+            self._refresh_scene_planner_target()
+        package_path = self._scene_planner_canonical_path(self.package.path)
+        if package_path != self.scene_planner_package_path:
+            raise ValueError("The open novel changed while this planning conversation was active. Click Clear Conversation to begin a session for the current novel.")
+        chapter, scene = self.scene_planner_target
+        plan_path, plan_text = read_story_plan_file(self.package.path)
+        state = self.scene_planner_start_state or self.package.current_state
+        guidance = getattr(self.package, "extra_json", {}).get("writing_guidance.json", {})
+        entry = self._chapter_scene_guidance(guidance, chapter, scene) or {}
+        context = {
+            "story_bible": self.package.story_bible,
+            "characters": self.package.characters,
+            "current_state": state,
+            "saved_scene_idea": str(entry.get("scene_idea", "") or ""),
+        }
+        return {"package_path": package_path, "plan_path": plan_path, "plan_text": plan_text,
+                "chapter": chapter, "scene": scene, "story_context": context}
+
+    def _scene_planner_model_path(self):
+        selected = self.writer_model_var.get().strip()
+        model = self.writer_engine.model_path
+        if selected:
+            model = WriterEngine.validate_model(selected)
+        elif model is not None:
+            model = WriterEngine.validate_model(model)
+        else:
+            raise ValueError("Select a local GGUF model in the Writer tab first.")
+        return model
+
+    def _scene_planner_model_ready(self):
+        child = getattr(self.writer_engine, "child", None)
+        if child is not None and child.isalive():
+            self._show_copyable_error("Scene Planner", "Stop the Writer before using the Scene Planner so StoryBuilder does not load two copies of the local model.")
+            return False
+        busy_flags = ("writer_generation_in_progress", "scene_contract_building", "state_analysis_in_progress",
+                      "scene_flow_review_in_progress", "change_request_in_progress",
+                      "new_novel_assistant_in_progress", "writer_notes_update_in_progress")
+        if any(bool(getattr(self, name, False)) for name in busy_flags) or bool(self.__dict__.get("focused_revision_in_progress", False)):
+            self._show_copyable_error("Scene Planner", "Another StoryBuilder model task is running. Let it finish before starting the Scene Planner.")
+            return False
+        return True
+
+    def _render_scene_planner_log(self):
+        self.scene_planner_log.configure(state="normal")
+        self.scene_planner_log.delete("1.0", "end")
+        for item in self.scene_planner_messages:
+            label = "You" if item.get("role") == "user" else "Scene Planner"
+            self.scene_planner_log.insert("end", f"{label}:\n{item.get('content', '').strip()}\n\n")
+        self.scene_planner_log.configure(state="disabled")
+        self.scene_planner_log.see("end")
+
+    def _send_scene_planner_message(self):
+        if self.scene_planner_request_in_progress:
+            return
+        if isinstance(self.scene_planner_pending_proposal, dict):
+            self.scene_planner_status.configure(text="Approve or reject the current proposal before continuing the conversation.")
+            return
+        message = self.scene_planner_input_text.get("1.0", "end-1c").strip()
+        if not message:
+            messagebox.showwarning("Scene Planner", "Enter what you want to discuss first.")
+            return
+        if not self._scene_planner_model_ready():
+            return
+        try:
+            model = self._scene_planner_model_path()
+            snap = self._scene_planner_snapshot()
+        except Exception as exc:
+            self._show_copyable_error("Scene Planner", str(exc))
+            return
+        messages = [*self.scene_planner_messages, {"role": "user", "content": message}]
+        self.scene_planner_request_in_progress = True
+        self.scene_planner_task_kind = "conversation"
+        self.scene_planner_status.configure(text="The local model is considering the scene. No plan file is being changed.")
+        self._update_scene_planner_buttons()
+        def work():
+            try:
+                reply = generate_scene_planner_reply(
+                    model, chapter=snap["chapter"], scene=snap["scene"], plan_text=snap["plan_text"],
+                    story_context=snap["story_context"], messages=messages,
+                )
+                error = None
+            except Exception as exc:
+                reply, error = None, str(exc)
+            try:
+                self.after(0, lambda reply=reply, error=error: self._finish_scene_planner_turn(message, reply, error))
+            except tk.TclError:
+                pass
+        self.scene_planner_thread = threading.Thread(target=work, daemon=True)
+        self.scene_planner_thread.start()
+
+    def _finish_scene_planner_turn(self, user_message, reply, error):
+        self.scene_planner_request_in_progress = False
+        self.scene_planner_task_kind = None
+        if error:
+            self.scene_planner_status.configure(text="The conversation turn failed. No plan file was changed. " + str(error))
+        else:
+            self.scene_planner_messages.extend([
+                {"role": "user", "content": user_message},
+                {"role": "assistant", "content": str(reply).strip()},
+            ])
+            self._render_scene_planner_log()
+            self.scene_planner_input_text.delete("1.0", "end")
+            self.scene_planner_status.configure(text="Conversation updated. Nothing has been saved to STORY_PLAN.md.")
+        self._refresh_scene_planner_target()
+        self._update_scene_planner_buttons()
+
+    def _prepare_scene_planner_proposal(self):
+        if self.scene_planner_request_in_progress:
+            return
+        if isinstance(self.scene_planner_pending_proposal, dict):
+            self.scene_planner_status.configure(text="Reject the current proposal before preparing another one.")
+            return
+        if not self.scene_planner_messages:
+            messagebox.showwarning("Scene Planner", "Start a planning conversation and send at least one message before preparing a proposal.")
+            return
+        if self.scene_planner_input_text.get("1.0", "end-1c").strip():
+            messagebox.showwarning("Scene Planner", "Send your latest message before preparing the plan proposal.")
+            return
+        if not self._scene_planner_model_ready():
+            return
+        try:
+            model = self._scene_planner_model_path()
+            snap = self._scene_planner_snapshot()
+        except Exception as exc:
+            self._show_copyable_error("Scene Planner", str(exc))
+            return
+        self.scene_planner_request_in_progress = True
+        self.scene_planner_task_kind = "proposal"
+        self.scene_planner_status.configure(text="Preparing a reviewable scene-plan proposal. The original plan is still unchanged.")
+        self._update_scene_planner_buttons()
+        messages = list(self.scene_planner_messages)
+        def work():
+            try:
+                result = prepare_scene_plan_proposal(
+                    model, chapter=snap["chapter"], scene=snap["scene"], plan_text=snap["plan_text"],
+                    story_context=snap["story_context"], messages=messages,
+                )
+                error = None
+            except Exception as exc:
+                result, error = None, str(exc)
+            try:
+                self.after(0, lambda result=result, error=error: self._finish_scene_planner_proposal(snap, result, error))
+            except tk.TclError:
+                pass
+        self.scene_planner_thread = threading.Thread(target=work, daemon=True)
+        self.scene_planner_thread.start()
+
+    def _finish_scene_planner_proposal(self, snap, result, error):
+        self.scene_planner_request_in_progress = False
+        self.scene_planner_task_kind = None
+        if error:
+            self.scene_planner_status.configure(text="The proposal could not be prepared. No plan file was changed. " + str(error))
+        else:
+            self.scene_planner_title_var.set(result["title"])
+            self.scene_planner_proposal_text.delete("1.0", "end")
+            self.scene_planner_proposal_text.insert("1.0", result["plan_body"])
+            self.scene_planner_pending_proposal = {
+                "path": snap["plan_path"], "source_text": snap["plan_text"],
+                "package_path": snap["package_path"], "chapter": snap["chapter"], "scene": snap["scene"],
+            }
+            self.scene_planner_status.configure(text=f"Review the proposed plan for Chapter {snap['chapter']}, Scene {snap['scene']}. You may edit it; nothing is saved until you click Approve & Save Plan.")
+        self._refresh_scene_planner_target()
+        self._update_scene_planner_buttons()
+
+    def _approve_scene_plan_proposal(self):
+        pending = self.scene_planner_pending_proposal
+        if not isinstance(pending, dict) or self.scene_planner_request_in_progress:
+            return
+        if self.package is None or getattr(self.package, "path", None) is None:
+            self.scene_planner_status.configure(text="No saved novel is open. Nothing was changed.")
+            return
+        if self._scene_planner_canonical_path(self.package.path) != pending["package_path"]:
+            self.scene_planner_status.configure(text="The active novel changed after this proposal was prepared. Nothing was saved. Clear the conversation and prepare a fresh proposal.")
+            self.scene_planner_pending_proposal = None
+            self._update_scene_planner_buttons()
+            return
+        chapter, scene = int(pending["chapter"]), int(pending["scene"])
+        try:
+            fields = validate_scene_plan_fields(
+                self.scene_planner_title_var.get(), self.scene_planner_proposal_text.get("1.0", "end-1c"),
+                chapter=chapter, scene=scene,
+            )
+            current_path, current_text = read_story_plan_file(self.package.path)
+            if (self._scene_planner_canonical_path(current_path) != self._scene_planner_canonical_path(pending["path"])
+                    or current_text != pending["source_text"]):
+                self.scene_planner_pending_proposal = None
+                self.scene_planner_status.configure(text="STORY_PLAN.md changed after this proposal was prepared. Nothing was saved. Review the current plan and prepare a fresh proposal.")
+                self._update_scene_planner_buttons()
+                return
+            updated = update_scene_plan_markdown(current_text or "", chapter, scene, fields["title"], fields["plan_body"])
+            backup_path = save_scene_plan_file(current_path, updated)
+        except Exception as exc:
+            self._show_copyable_error("Scene Planner", "The plan was not saved. Review the proposal and correct the issue before trying again.\n\n" + str(exc))
+            return
+        self.scene_planner_pending_proposal = None
+        self._refresh_scene_contract_editor()
+        self._refresh_writer_scene_guidance()
+        backup_note = f" Previous plan backed up locally to {backup_path}." if backup_path is not None else " A new STORY_PLAN.md file was created."
+        self.scene_planner_status.configure(
+            text=f"Approved plan saved for Chapter {chapter}, Scene {scene} in STORY_PLAN.md."
+                 + backup_note
+                 + " Any existing saved Scene Idea was preserved; use Scene Contract > Load from STORY_PLAN.md to refresh it."
+        )
+        self._update_scene_planner_buttons()
+
+    def _reject_scene_plan_proposal(self):
+        self.scene_planner_pending_proposal = None
+        self.scene_planner_title_var.set("")
+        self.scene_planner_proposal_text.delete("1.0", "end")
+        self.scene_planner_status.configure(text="Proposal rejected. STORY_PLAN.md and all saved novel data remain unchanged.")
+        self._update_scene_planner_buttons()
+
+    def _clear_scene_planner_conversation(self):
+        if self.scene_planner_request_in_progress:
+            messagebox.showwarning("Scene Planner", "Wait for the current local-model request to finish before clearing the conversation.")
+            return
+        self.scene_planner_messages = []
+        self.scene_planner_pending_proposal = None
+        self.scene_planner_title_var.set("")
+        self.scene_planner_proposal_text.delete("1.0", "end")
+        self.scene_planner_input_text.delete("1.0", "end")
+        self.scene_planner_log.configure(state="normal")
+        self.scene_planner_log.delete("1.0", "end")
+        self.scene_planner_log.configure(state="disabled")
+        self.scene_planner_target = None
+        self.scene_planner_package_path = None
+        self.scene_planner_start_state = None
+        self._refresh_scene_planner_target()
+        self.scene_planner_status.configure(text="Conversation cleared. The current novel and scene are ready for a new planning session.")
+        self._update_scene_planner_buttons()
+
     def _prepare_change_request(self):
+        if getattr(self, "scene_planner_request_in_progress", False):
+            messagebox.showwarning("Scene Planner", "Let the current planning request finish before starting another model task.")
+            return
         if self.package is None:
             self._show_copyable_error("Change Assistant", "Open or create a novel first.")
             return
@@ -7534,6 +7923,8 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             self._refresh_interview_targets(reset=False)
         if hasattr(self, "writer_scene_idea_text"):
             self._refresh_writer_scene_guidance()
+        if hasattr(self, "scene_planner_target_var"):
+            self._refresh_scene_planner_target()
         self._update_path_label()
 
     @staticmethod
@@ -7918,6 +8309,8 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             self.open_questions_text,
             self.interview_answer_text,
             self.new_novel_brief_text,
+            self.scene_planner_input_text,
+            self.scene_planner_proposal_text,
             self.supporting_person_text,
             self.writer_direction_text,
             self.writer_output_text,
