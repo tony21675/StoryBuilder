@@ -28,7 +28,8 @@ Rules:
 - Preserve specific consequential facts. Do not replace several distinct facts with a vague summary.
 - If a before-state item says a character does not know a fact, and the completed prose shows that character now learns it, remove the obsolete negative statement and record the actual knowledge instead.
 - Never omit a valid prior fact merely because the completed section does not repeat it. The application also preserves prior facts as a safeguard against incomplete model output.
-- Temporary physical state is not cumulative character knowledge. Current location, posture, contact, movement, and temporary clothing such as borrowed pajamas belong in physical_state, not character_knowledge. If the accepted prose changes a temporary physical detail that appears in prior knowledge, list that exact outdated item under _superseded_facts. Preserve durable identifying details and established ongoing wear conventions, such as Tiffany always wearing Tony's dog tags.
+- Temporary physical state is not cumulative character knowledge. Current location, posture, contact, movement, clothing, and immediate activity belong in physical_state, not character_knowledge. If the completed prose shows that a prior knowledge item describing temporary status is no longer current (for example, someone is no longer asleep, being carried, holding an object, or wearing a temporary outfit), list that exact prior item under _superseded_facts.
+- Remove only temporary or explicitly contradicted facts whose current-state meaning is stale. Preserve durable identifying details and consequential history, including the abduction, violence, injuries, observed behavior, and clues, even after those events have passed. Do not erase a fact merely because the current scene does not repeat it.
 - Only when the completed prose directly corrects, contradicts, or resolves a prior fact, list that exact prior fact under the optional "_superseded_facts" object for its character. Do not list a fact as superseded merely because it was omitted from your knowledge summary.
 - If you do not find any prior fact that is explicitly superseded, omit the "_superseded_facts" object and use the normal character-name arrays.
 - Do not keep contradictory positive and negative knowledge statements when the completed prose resolves the contradiction.
@@ -153,13 +154,16 @@ Rules:
 - The most important output is current_situation: ALWAYS return a concise, factual, non-empty description of what is true at the absolute end of the completed prose. This is an ending-state summary, not a list of events and not a guess about what happens next.
 - Follow the final paragraphs when describing ending state. Do not report an earlier intermediate action as the ending if later prose shows the characters in a different place or position.
 - Do not return a singular "event" field or character_knowledge; a separate knowledge audit handles character knowledge.
-- Return only these transition fields: current_situation, location, physical_state, time_of_day, active_objectives, and new_recent_events. Do not return chapter/scene flags, scene_cast, continuity requirements/notes, or unrelated metadata. Use new_recent_events as a temporary output field only; StoryBuilder appends those new facts to the preserved recent-event history.
-- Do not return event/event-log fields directly, character_knowledge, scene flags, continuity notes, or unrelated metadata. New event additions must use the separate new_recent_events field.
+- Return only these transition fields: current_situation, location, physical_state, time_of_day, active_objectives, new_clues, resolved_clues, new_unresolved_questions, resolved_questions, and new_recent_events. Do not return chapter/scene flags, scene_cast, continuity requirements/notes, active_clues, character_knowledge, or unrelated metadata. StoryBuilder processes the temporary resolved/new clue and question fields; new_clues also replaces the previous scene's new_clues list, and newly established clues are reconciled into active_clues.
+- Do not return event/event-log fields directly, character_knowledge, scene flags, continuity notes, active_clues, or unrelated metadata. New event additions must use the separate new_recent_events field. New clue and unresolved-question changes must use new_clues, resolved_clues, new_unresolved_questions, and resolved_questions rather than rewriting the complete existing lists.
 - Location is a nested state field. When the baseline current_state has a location object, never return character or primary location values at the top level. Normalize any legacy top-level location fields into the location object before returning the patch.
 - Strict field shape: location must be an object whose primary and per-character entries are plain text location descriptions. Never put lists, knowledge facts, or nested objects under location. physical_state must be an object describing each character's actual final location, position, posture, contact, movement, and (when explicitly established and continuity-relevant) clothing.
 - Do not repeat unchanged fields.
 - For changed nested objects, include only changed nested keys.
 - For arrays, replace the array only when that array truly changed.
+- JSON null in a partial update is an explicit deletion marker for an existing object key; StoryBuilder removes that key instead of storing null. Use it only when the prose establishes that a prior field/item is no longer applicable or an active objective has ended. For example, set a stale physical_state subfield such as position, posture, contact, movement, condition, activity, interaction, a temporarily held object, or temporary clothing to null when it no longer applies and is not replaced by a new value. Set active_objectives.Character to null when that objective is complete, abandoned, or superseded. Do not use null for facts that are merely absent from this scene, and never delete a character's location just because the character is off-screen. Do not put null inside arrays.
+- Examine the full completed prose for newly introduced, concrete clues. Return new_clues as concise observable facts (use [] when there are none), not interpretations or guessed explanations. Return resolved_clues only for exact existing active_clues entries that the prose explicitly resolves or disproves. Do not remove an existing clue merely because it is not repeated.
+- Return new_unresolved_questions only for concrete factual unknowns made salient by this scene that remain unanswered. Return resolved_questions only for exact existing unresolved_questions entries answered by the completed prose. Preserve all other existing clues and questions; StoryBuilder will apply additions and explicit removals without asking the model to regenerate the whole historical list.
 - Treat current_situation as a live scene-state field, not as a scene-plan instruction. When the completed section ends in a materially different immediate situation, update current_situation to a concise description of that ending state so it can serve as the starting state for the next scene.
 - Do not copy scene-plan wording, future-scene instructions, hard stops, or author directions into current_situation.
 - When the section crosses a scene boundary, describe what is true at the end of the completed section, not what should happen afterward.
@@ -175,7 +179,7 @@ Rules:
 - Determine the resulting state from what is true at the ABSOLUTE END of the completed section, using the final actions and final paragraphs as the primary evidence.
 - The current state is the BEFORE-state baseline only. Never copy a before-state location, clothing detail, or situation into the update when the completed prose clearly changes it.
 - For any character whose location or immediate situation changes during the section, include that changed character under location even if the before-state already listed a different location.
-- Update active_objectives only for characters whose current goal or role is changed or newly established by the accepted prose. Return a partial object with concise replacement text for those characters only. If a group has only agreed to help, keep the objective broad and do not invent assignments, leads, investigation steps, or rescue plans. Replace objectives directly contradicted by the scene instead of carrying them forward unchanged.
+- Update active_objectives only for characters whose current goal or role is changed or newly established by the accepted prose. Return a partial object with concise replacement text for those characters only; use null for a character whose prior objective is no longer active. If a group has only agreed to help, keep the objective broad and do not invent assignments, leads, investigation steps, or rescue plans. Replace objectives directly contradicted by the scene; use null to remove objectives that are completed, abandoned, or superseded instead of carrying them forward unchanged.
 - Return new_recent_events as an array of concise factual event strings newly established in the completed section, in chronological order. Do not repeat events already present in the before-state recent_events list, do not include interpretations or future plans, and use an empty array if no meaningful new events occurred. The application appends these to the existing history and keeps the most recent twelve entries.
 - Use the supplied scene end guidance only to clarify the intended scene boundary. The actual completed prose is authoritative for what happened.
 - Do not invent motives, identities, locations, evidence, backstory, or other consequential facts.
@@ -186,14 +190,42 @@ Rules:
 
 
 def merge_patch(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
+    """Apply a recursive partial update; null values explicitly delete stale keys."""
     result = dict(base)
 
     for key, value in patch.items():
-        if isinstance(value, dict) and isinstance(result.get(key), dict):
-            result[key] = merge_patch(result[key], value)
+        if value is None:
+            result.pop(key, None)
+        elif isinstance(value, dict) and isinstance(result.get(key), dict):
+            nested = merge_patch(result[key], value)
+            if nested:
+                result[key] = nested
+            else:
+                # A recursive deletion can leave a character or state section
+                # empty. Prune that shell instead of preserving an empty stale
+                # object in the saved state.
+                result.pop(key, None)
         else:
             result[key] = value
 
+    return result
+
+def combine_state_patches(
+    base_patch: dict[str, Any],
+    override_patch: dict[str, Any],
+) -> dict[str, Any]:
+    """Overlay two partial patches while preserving null deletion markers.
+
+    Unlike merge_patch(), this composes proposals rather than applying them to
+    the stored state. A null in the override must survive so the eventual
+    state-application step can delete the corresponding saved field.
+    """
+    result = dict(base_patch)
+    for key, value in override_patch.items():
+        if isinstance(value, dict) and isinstance(result.get(key), dict):
+            result[key] = combine_state_patches(result[key], value)
+        else:
+            result[key] = value
     return result
 
 
@@ -431,6 +463,55 @@ def append_recent_events(
         seen.add(key)
 
     return merged[-max(1, int(limit)):]
+
+
+def reconcile_string_items(
+    existing_items: Any,
+    additions: list[str],
+    removals: list[str],
+) -> list[Any]:
+    """Reconcile cumulative string items while preserving order and explicit history."""
+    existing = list(existing_items) if isinstance(existing_items, list) else []
+    additions = additions if isinstance(additions, list) else []
+    removals = removals if isinstance(removals, list) else []
+
+    def identity(value: str) -> str:
+        return re.sub(r"\s+", " ", value).strip().rstrip(".!?").casefold()
+
+    removed = {
+        identity(value.strip())
+        for value in removals
+        if isinstance(value, str) and value.strip()
+    }
+    merged: list[Any] = []
+    seen: set[str] = set()
+
+    for item in existing:
+        if not isinstance(item, str):
+            # Unknown legacy shapes are not safe to rewrite as part of a
+            # string-list reconciliation.
+            merged.append(item)
+            continue
+        text_value = item.strip()
+        key = identity(text_value)
+        if not key or key in removed or key in seen:
+            continue
+        merged.append(text_value)
+        seen.add(key)
+
+    for item in additions:
+        if not isinstance(item, str) or not item.strip():
+            continue
+        text_value = item.strip()
+        key = identity(text_value)
+        if not key or key in removed or key in seen:
+            continue
+        merged.append(text_value)
+        seen.add(key)
+
+    return merged
+
+
 OPTIONAL_STATE_PATCH_FIELDS = {
     # These fields are valid even in older packages that predate their storage.
     "current_situation",
@@ -441,6 +522,9 @@ OPTIONAL_STATE_PATCH_FIELDS = {
     "recent_events",
     "active_objectives",
     "continuity_requirements",
+    "active_clues",
+    "new_clues",
+    "unresolved_questions",
 }
 
 
@@ -450,6 +534,10 @@ END_STATE_PROPOSAL_FIELDS = {
     "physical_state",
     "time_of_day",
     "active_objectives",
+    "new_clues",
+    "resolved_clues",
+    "new_unresolved_questions",
+    "resolved_questions",
     "new_recent_events",
 }
 
@@ -464,7 +552,7 @@ def validate_state_proposal(base: dict[str, Any], patch: dict[str, Any]) -> dict
         raise ValueError(
             "Invalid continuity proposal: unsupported transition field(s): "
             + ", ".join(unsupported)
-            + ". Return only current_situation, location, physical_state, time_of_day, active_objectives, and new_recent_events."
+            + ". Return only current_situation, location, physical_state, time_of_day, active_objectives, new_clues, resolved_clues, new_unresolved_questions, resolved_questions, and new_recent_events."
         )
 
     situation = patch.get("current_situation")
@@ -476,26 +564,44 @@ def validate_state_proposal(base: dict[str, Any], patch: dict[str, Any]) -> dict
     objectives = patch.get("active_objectives")
     if objectives is not None:
         if not isinstance(objectives, dict):
-            raise ValueError("Invalid state update: 'active_objectives' must be an object.")
+            raise ValueError("Invalid state update: 'active_objectives' must be an object or null for deletion.")
         for character, objective in objectives.items():
-            if not isinstance(objective, str) or not objective.strip():
+            if objective is not None and (not isinstance(objective, str) or not objective.strip()):
                 raise ValueError(
-                    f"Invalid state update at 'active_objectives.{character}': objectives must be non-empty text."
+                    f"Invalid state update at 'active_objectives.{character}': objectives must be non-empty text or null to remove a stale objective."
                 )
 
-    new_events = patch.get("new_recent_events")
-    if new_events is not None:
-        if not isinstance(new_events, list) or any(
-            not isinstance(event, str) or not event.strip()
-            for event in new_events
+    for field in ("new_clues", "resolved_clues", "new_unresolved_questions", "resolved_questions"):
+        if field not in patch:
+            continue
+        values = patch[field]
+        if not isinstance(values, list) or any(
+            not isinstance(item, str) or not item.strip() for item in values
         ):
             raise ValueError(
-                "Invalid state update: 'new_recent_events' must be a list of non-empty event strings."
+                f"Invalid state update: '{field}' must be a list of non-empty strings (use [] when empty, not null)."
             )
+
+    new_events = patch.get("new_recent_events")
+    if "new_recent_events" in patch and (
+        not isinstance(new_events, list) or any(
+            not isinstance(event, str) or not event.strip()
+            for event in new_events
+        )
+    ):
+        raise ValueError(
+            "Invalid state update: 'new_recent_events' must be a list of non-empty event strings (use [] when empty, not null)."
+        )
 
     # new_recent_events is model-only and never persisted as a state key.
     persisted_patch = dict(patch)
-    persisted_patch.pop("new_recent_events", None)
+    for transient_field in (
+        "new_recent_events",
+        "resolved_clues",
+        "new_unresolved_questions",
+        "resolved_questions",
+    ):
+        persisted_patch.pop(transient_field, None)
     validate_state_patch(base, persisted_patch)
     return patch
 
@@ -545,6 +651,8 @@ def validate_state_patch(base: dict[str, Any], patch: dict[str, Any]) -> dict[st
         if not isinstance(location, dict):
             raise ValueError("Invalid state update: 'location' must be an object.")
         for field, value in location.items():
+            if value is None:
+                continue  # Explicit deletion of a stale location entry.
             if not isinstance(value, str):
                 raise ValueError(
                     f"Invalid state update at 'location.{field}': location entries must be text. "
@@ -561,26 +669,29 @@ def validate_state_patch(base: dict[str, Any], patch: dict[str, Any]) -> dict[st
 
     if "character_knowledge" in patch:
         knowledge = patch["character_knowledge"]
-        if not isinstance(knowledge, dict):
-            raise ValueError("Invalid state update: 'character_knowledge' must be an object.")
-        for character, facts in knowledge.items():
-            if not isinstance(facts, list) or any(not isinstance(fact, str) for fact in facts):
-                raise ValueError(
-                    f"Invalid state update at 'character_knowledge.{character}': "
-                    "each character's knowledge must be a list of text facts."
-                )
+        if knowledge is not None and not isinstance(knowledge, dict):
+            raise ValueError("Invalid state update: 'character_knowledge' must be an object or null for deletion.")
+        if isinstance(knowledge, dict):
+            for character, facts in knowledge.items():
+                if facts is None:
+                    continue  # Explicitly remove an obsolete character entry.
+                if not isinstance(facts, list) or any(not isinstance(fact, str) for fact in facts):
+                    raise ValueError(
+                        f"Invalid state update at 'character_knowledge.{character}': "
+                        "each character's knowledge must be a list of text facts or null for deletion."
+                    )
 
     if "physical_state" in patch and not isinstance(patch["physical_state"], dict):
         raise ValueError("Invalid state update: 'physical_state' must be an object.")
 
-    if "active_objectives" in patch:
+    if "active_objectives" in patch and patch["active_objectives"] is not None:
         objectives = patch["active_objectives"]
         if not isinstance(objectives, dict):
-            raise ValueError("Invalid state update: 'active_objectives' must be an object.")
+            raise ValueError("Invalid state update: 'active_objectives' must be an object or null for deletion.")
         for character, objective in objectives.items():
-            if not isinstance(objective, str) or not objective.strip():
+            if objective is not None and (not isinstance(objective, str) or not objective.strip()):
                 raise ValueError(
-                    f"Invalid state update at 'active_objectives.{character}': objectives must be non-empty text."
+                    f"Invalid state update at 'active_objectives.{character}': objectives must be non-empty text or null to delete an obsolete objective."
                 )
 
     if "recent_events" in patch:
@@ -595,6 +706,16 @@ def validate_state_patch(base: dict[str, Any], patch: dict[str, Any]) -> dict[st
             raise ValueError(
                 f"Invalid state update at 'recent_events[{index}]': each event must be text or an object with non-empty event text."
             )
+
+    for field in ("active_clues", "new_clues", "unresolved_questions"):
+        if field in patch and patch[field] is not None:
+            values = patch[field]
+            if not isinstance(values, list) or any(
+                not isinstance(item, str) or not item.strip() for item in values
+            ):
+                raise ValueError(
+                    f"Invalid state update: '{field}' must be a list of non-empty strings or null for deletion."
+                )
 
     return patch
 
@@ -633,12 +754,9 @@ def reviewed_state_preview_to_patch(
             changes: dict[str, Any] = {}
             for key in before:
                 if key not in after:
-                    field_path = f"{path}.{key}" if path else key
-                    raise ValueError(
-                        f"The reviewed ending-state preview removed the existing "
-                        f"field '{field_path}'. Keep existing fields in place and "
-                        "change their values instead."
-                    )
+                    # JSON merge-patch uses null to explicitly delete nested keys.
+                    # This lets authors remove stale state from the full preview.
+                    changes[key] = None
             for key, after_value in after.items():
                 field_path = f"{path}.{key}" if path else key
                 if key not in before:
@@ -710,16 +828,20 @@ def reconcile_merged_state_locations(
     if not isinstance(location, dict):
         return result
 
-    # Remove legacy top-level duplicates, but retain unrelated top-level state.
-    for name in location:
+    location_patch = patch.get("location") if isinstance(patch, dict) else None
+
+    # Remove legacy top-level duplicates for both retained and explicitly
+    # deleted nested names, but retain unrelated top-level state.
+    duplicate_names = set(location)
+    if isinstance(location_patch, dict):
+        duplicate_names.update(location_patch)
+    for name in duplicate_names:
         if name == "primary":
             continue
         if name in result and isinstance(result[name], str):
             result.pop(name, None)
     if isinstance(result.get("primary"), str):
         result.pop("primary", None)
-
-    location_patch = patch.get("location") if isinstance(patch, dict) else None
     physical_state = result.get("physical_state")
     if not isinstance(location_patch, dict) or not isinstance(physical_state, dict):
         return result
@@ -727,10 +849,23 @@ def reconcile_merged_state_locations(
     updated_physical_state = dict(physical_state)
     changed = False
     for name, final_location in location_patch.items():
-        if name == "primary" or not isinstance(final_location, str):
+        if name == "primary":
             continue
         character_state = physical_state.get(name)
-        if not isinstance(character_state, dict):
+        if final_location is None:
+            # Removing a location entry must not leave a contradictory nested
+            # physical_state.location behind.
+            if not isinstance(character_state, dict) or "location" not in character_state:
+                continue
+            updated_character_state = dict(character_state)
+            updated_character_state.pop("location", None)
+            if updated_character_state:
+                updated_physical_state[name] = updated_character_state
+            else:
+                updated_physical_state.pop(name, None)
+            changed = True
+            continue
+        if not isinstance(final_location, str) or not isinstance(character_state, dict):
             continue
         if character_state.get("location") == final_location:
             continue
@@ -1106,9 +1241,9 @@ class StateManager:
             "the actual immediate situation at the absolute end of the completed section, not the starting "
             "situation and not what should happen in the next scene. Keep it concise and factual. "
             "Do not copy planning instructions or future events into it. "
-            "Always return non-empty current_situation. Return only changed location, physical_state, time_of_day, and active_objectives fields, plus new_recent_events as a list of newly established event strings (use [] if none). "
-            "Do not return character_knowledge, recent_events directly, event/event-log fields, scene flags, continuity requirements, or other metadata. Include physical_state.clothing when the prose explicitly establishes a continuity-relevant outfit change. "
-            "Update only objectives changed by the completed prose and keep any group commitment broad when no assignments have been made."
+            "Always return non-empty current_situation. Return only changed location, physical_state, time_of_day, and active_objectives fields, plus new_clues (use [] if none), resolved_clues, new_unresolved_questions, resolved_questions, and new_recent_events (use [] if none). "
+            "Do not return character_knowledge, active_clues, unresolved_questions directly, recent_events directly, event/event-log fields, scene flags, continuity requirements, or other metadata. Include physical_state.clothing when the prose explicitly establishes a continuity-relevant outfit change. "
+            "Use null to remove stale object keys as described by the system rules. Update only objectives changed by the completed prose and keep any group commitment broad when no assignments have been made."
         ])
         prompt = "".join(prompt_parts)
 
@@ -1236,7 +1371,7 @@ class StateManager:
                                 clean_location = {
                                     name: value
                                     for name, value in raw_location.items()
-                                    if isinstance(value, str)
+                                    if isinstance(value, str) or value is None
                                 }
                                 if clean_location:
                                     recovered["location"] = clean_location
@@ -1278,9 +1413,9 @@ class StateManager:
                     "rejected by the application's state validator. Correct the same proposal "
                     "using only facts supported by the completed prose. Do not invent new events.\n"
                     + f"VALIDATION ERROR: {exc}\n"
-                    + "SCHEMA REMINDER: return ONLY current_situation, location, physical_state, time_of_day, active_objectives (partial object of changed characters only), and new_recent_events (list of new factual event strings; use [] if none). Do not return event, events, recent_events directly, character_knowledge, or unrelated metadata. "
+                    + "SCHEMA REMINDER: return ONLY current_situation, location, physical_state, time_of_day, active_objectives (partial object; use null to delete stale objectives), new_clues, resolved_clues, new_unresolved_questions, resolved_questions, and new_recent_events. Use [] for empty list outputs. Do not return event, events, recent_events, active_clues, unresolved_questions, character_knowledge, or unrelated metadata. JSON null deletes an explicitly stale object key; never use it for information that is merely unmentioned. "
                     "Always include a non-empty current_situation describing what is true at the absolute end of the completed prose, not an earlier action. "
-                    "If supplied, location must be an object with plain-text primary and per-character location descriptions; physical_state must be an object. "
+                    "If supplied, location must be an object with plain-text descriptions or null deletion markers; physical_state must be an object. "
                     "Do not turn actions the characters performed into knowledge facts. Return corrected JSON only.\n"
                     + "PREVIOUS INVALID RESPONSE TO CORRECT:\n"
                     + (output or "")[-3000:]
@@ -1296,8 +1431,35 @@ class StateManager:
         # Consume the transient event-addition field before exposing the patch
         # to preview/apply. Preserve previous history and append only new events.
         new_recent_events = patch.pop("new_recent_events", [])
+        new_clues = patch.pop("new_clues", [])
+        resolved_clues = patch.pop("resolved_clues", [])
+        new_questions = patch.pop("new_unresolved_questions", [])
+        resolved_questions = patch.pop("resolved_questions", [])
+
+        # new_clues is a per-scene report. Replace the previous report even
+        # when this scene adds none, so old additions do not linger as "new".
+        if "new_clues" in current_state or new_clues:
+            patch["new_clues"] = new_clues
+
+        previous_clues = current_state.get("active_clues", [])
+        if "active_clues" in current_state or new_clues or resolved_clues:
+            updated_clues = reconcile_string_items(previous_clues, new_clues, resolved_clues)
+            if updated_clues != previous_clues:
+                patch["active_clues"] = updated_clues
+
+        previous_questions = current_state.get("unresolved_questions", [])
+        if "unresolved_questions" in current_state or new_questions or resolved_questions:
+            updated_questions = reconcile_string_items(
+                previous_questions,
+                new_questions,
+                resolved_questions,
+            )
+            if updated_questions != previous_questions:
+                patch["unresolved_questions"] = updated_questions
+
         # Models sometimes repeat unchanged state. Normalize that away so a
-        # proposal contains only actual changes.
+        # proposal contains only actual changes, while retaining null tombstones
+        # for stale nested keys.
         patch = remove_unchanged(current_state, patch)
         if new_recent_events:
             previous_events = current_state.get("recent_events", [])
