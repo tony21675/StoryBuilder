@@ -1,6 +1,19 @@
 # StoryBuilder Chat Handoff
 
 
+## Latest checkpoint — October 18, 2026: evidence-backed continuity audit and Saturday scene-time anchor
+
+Tony approved the next focused StoryBuilder change before implementation. The audit now requires five distinct checks: timeline/event order, character presence and knowledge, physical/location continuity, unsupported consequential details, and the scene hard stop. Any reported conflict must cite an exact excerpt from the draft and an exact excerpt from the original scene direction, starting-state JSON, or stable author guidance. The app verifies both quotes against the supplied text. Missing categories, unsupported quotes, uncertain categories, or disagreement between the semantic validator and the evidence-backed audit preserve the original draft rather than triggering a rewrite. Only a fully structured, evidence-backed conflict permits one full-scene retry. A continuation for missing beats is appended only when the entire combined draft receives a clear audit.
+
+Tests added for absent-character viewpoint, previous-afternoon vs. last-night chronology, private clothing change, exceeding the investigation hard stop, unverifiable evidence, missing audit categories, uncertainty fail-closed behavior, and the retry flow. Full-suite results need checking after the push; earlier runs still showed five pre-existing failures in unrelated workflow-safety and text-selection tests.
+
+**Novel plan time label:** `MyNovel/STORY_PLAN.md` now identifies Chapter 3, Scene 2 as `Location: Tony's home` and `Time: Saturday morning at daybreak`. The local MyNovel checkout was not edited by this remote change; follow its existing reconciliation steps and do not overwrite its pending local state/guidance edits blindly. After the local package is safely reconciled, reload the Scene Idea from `STORY_PLAN.md` and refresh the contract before generating.
+
+**Required collaboration workflow:** Read this handoff first. For changes to code, story files, prompts, or repository state, diagnose first, report the concrete findings and recommend a focused change, then stop and ask Tony for explicit approval. Do not edit, commit, or push those changes until approval is given. After approval, implement the agreed scope, test it, update this handoff, and report exactly what passed and failed. Never treat a request to discuss a problem as permission to change files.
+
+**Next step after the latest code is pushed:** Tony should sync once from `~/Documents/StoryBuilder` with `./start.sh`, then test the new Writer behavior after the MyNovel plan has been safely reconciled. Keep accepted Chapter 3, Scene 1 untouched. Never auto-accept Scene 2 or apply its state update.
+
+---
 ## Follow-up — October 18, 2026: Chapter 1, Scene 5 fact check
 
 Correction to the draft critique: Tiffany's resistance during the abduction is established in `Manuscript/Chapters/Chapter_01/Chapter_01_Section_05.txt` and repeated in `current_state.json`: two elbow strikes to the solar plexus, a kick to the thigh, a slap to the jaw, and scratches to the kidnapper's left cheek. Maya witnesses this. Do not label those details invented or treat them as a continuity violation. The independent audit receives the whole current state, which explicitly carries those facts forward.
