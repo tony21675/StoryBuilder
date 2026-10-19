@@ -1,5 +1,20 @@
 # StoryBuilder Chat Handoff
 
+## Latest checkpoint — October 19, 2026: Scene 2 state applied; pause at unplanned Scene 3
+
+Tony synchronized the latest StoryBuilder code after the focused physical-state proposal repair. He ran **Analyze Accepted Scene** for accepted Chapter 3, Scene 2, and this time received an editable full ending-state preview instead of the earlier unsupported top-level Beth/Jessica/Rick validation error.
+
+Tony pasted a reviewed JSON ending-state preview and clicked **Apply State Update**. StoryBuilder cleared the preview, refreshed Writer direction, and showed the separate message: “Writing notes reviewed. No new recurring craft lesson was strong enough to add.” The refreshed Writer direction now identifies **Chapter 3, Scene 3** and its starting situation summarizes the group beginning a private effort to find Tiffany. This is strong evidence the apply flow completed locally and advanced the in-memory/saved scene pointer. Do not rerun Scene 2 analysis or reapply the JSON.
+
+**Scene 3 planning status:** Scene 3 and later scenes have not yet been planned. Remote `STORY_PLAN.md` has an approved plan for Chapter 3, Scene 1 and Scene 2, but no Chapter 3, Scene 3 section. Do not click **Write Next Scene** or invent a plan. The next creative task, after syncing and pausing, is to agree Scene 3's purpose, beats, and hard stop with Tony, then update `STORY_PLAN.md` only after approval.
+
+**Sync safety is the immediate next step:** A read-only check of GitHub showed the remote MyNovel `current_state.json` still at Chapter 3, Scene 2 with the pre-breakfast state. The local app's new Chapter 3, Scene 3 state has not yet been verified on GitHub. Do not pull/overwrite remote MyNovel state or guidance from another direction. Tony should use the app's **Close & Sync Novel** action to sync the active local MyNovel package, then share the final sync result if it reports a conflict or error. Only after that result is confirmed should the MyNovel handoff be updated to say the Scene 2 ending state is remotely synced.
+
+**Current StoryBuilder code status:** Physical-state normalization and diagnostic changes are on main at [`ea19601`](https://github.com/tony21675/StoryBuilder/commit/ea196012559b7117947edf263f5a273ba93803ea) and [`e887395`](https://github.com/tony21675/StoryBuilder/commit/e887395449c61a89a5a99267e08c62c485f6a169); [handoff verification commit](https://github.com/tony21675/StoryBuilder/commit/4b0f4ecd7b7ed0138ffd8cb6f696a03a42007906). Actions [run 39215058007](https://github.com/tony21675/StoryBuilder/actions/runs/39215058007): compile succeeded; both new state-analysis regression tests and the existing malformed-location recovery test passed. The full suite ran 226 tests and retained the same five older failures (three empty-state-preview workflow errors, one writer-prompt wording assertion, one text-selection assertion).
+
+**No local MyNovel checkout was directly inspected by ChatGPT in this step.** Keep existing MyNovel local edits and both saved stashes intact. Do not reset, stash-drop, or blindly pull. The active local package is authoritative until sync is confirmed.
+
+---
 ## Latest checkpoint — October 19, 2026: recover misplaced per-character physical-state fields
 
 Tony approved a focused fix after **Analyze Accepted Scene** rejected the proposal with unsupported top-level fields for later arrivals (Beth, Jessica, and Rick), even though those fields described their physical positions. No state changes had been applied, and this patch does not edit the novel package or accepted manuscript.
