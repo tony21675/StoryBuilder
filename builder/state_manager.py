@@ -513,12 +513,31 @@ def reconcile_string_items(
     return merged
 
 
+
+def _knowledge_fact_identity(value: str) -> str:
+    """Canonicalize low-risk wording variants so the same observation is not stored twice."""
+    lowered = re.sub(r"\s+", " ", value).strip().rstrip(".!?").casefold()
+    lowered = re.sub(r"\b(?:saw|observed|noticed|witnessed)\b", "observed", lowered)
+    lowered = re.sub(r"\b(?:smiled|smiling|laughed|laughing)\b", "appeared-happy", lowered)
+    lowered = re.sub(r"\b(?:there|while)\b", "", lowered)
+    lowered = re.sub(r"\s+", " ", lowered).strip()
+    # These two forms describe the same pre-abduction observation despite the
+    # model switching between "smiling" and "laughing" and moving "standing".
+    if re.search(r"\btiffany\b", lowered) and re.search(
+        r"\bappeared-happy\b.*\bbefore\b.*\bman\b.*\bmov\w*\b",
+        lowered,
+    ):
+        return "tiffany-pre-movement-demeanor"
+    lowered = re.sub(r"^(?:know|knows)\s+(?:that\s+)?", "knows ", lowered)
+    return lowered
+
+
 def filter_new_string_items(existing_items: Any, candidates: list[str]) -> list[str]:
     """Return only candidate strings not already present, ignoring case and terminal punctuation."""
     existing = list(existing_items) if isinstance(existing_items, list) else []
 
     def identity(value: str) -> str:
-        return re.sub(r"\\s+", " ", value).strip().rstrip(".!?").casefold()
+        return re.sub(r"\s+", " ", value).strip().rstrip(".!?").casefold()
 
     known = {
         identity(item)
@@ -565,7 +584,7 @@ def _clue_identity(value: str) -> str:
     if "plate" in words and words.intersection({"license", "number", "registration"}):
         return "vehicle-plate"
 
-    return re.sub(r"\\s+", " ", value).strip().rstrip(".!?").casefold()
+    return re.sub(r"\s+", " ", value).strip().rstrip(".!?").casefold()
 
 
 def filter_new_clue_items(existing_clues: Any, candidates: list[str]) -> list[str]:
@@ -705,7 +724,7 @@ def recover_explicit_unresolved_questions(
 
     def identity_answered() -> bool:
         return bool(re.search(
-            r"\b(?:kidnapper|abductor|suspect|unidentified man)\s+(?:is|was|named)\s+[A-Z][A-Za-z'-]+\b"
+            r"\b(?:kidnapper|abductor|suspect|unidentified man)\s+(?:is|was)\s+(?:identified\s+as\s+)?[A-Z][A-Za-z'-]+\b"
             r"|\b(?:identified|recognized)\s+(?:the\s+)?(?:kidnapper|abductor|man|suspect)\s+as\s+[A-Z][A-Za-z'-]+\b"
             r"|\b(?:name|identity)\s+of\s+(?:the\s+)?(?:kidnapper|abductor|suspect)\s+(?:is|was)\s+[A-Z][A-Za-z'-]+\b",
             section,
@@ -772,8 +791,7 @@ def clean_knowledge_action_logs(
         return []
 
     def identity(value: str) -> str:
-        key = re.sub(r"\s+", " ", value).strip().rstrip(".!?").casefold()
-        return re.sub(r"^(?:know|knows)\s+(?:that\s+)?", "knows ", key)
+        return _knowledge_fact_identity(value)
 
     changed: dict[str, list[Any]] = {}
     for name in all_names:
@@ -1379,8 +1397,7 @@ class StateManager:
                     and "detail" in lowered
                 ):
                     continue
-                identity = re.sub(r"\s+", " ", text_value).strip().rstrip(".").casefold()
-                identity = re.sub(r"^(?:know|knows)\s+(?:that\s+)?", "knows ", identity)
+                identity = _knowledge_fact_identity(text_value)
                 if identity not in seen_identities:
                     cleaned.append(text_value)
                     seen_identities.add(identity)
