@@ -53,12 +53,15 @@ class ReviewedStatePreviewTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "managed by StoryBuilder"):
             reviewed_state_preview_to_patch(self.expected_preview, reviewed)
 
-    def test_rejects_removing_existing_fields_from_the_full_preview(self):
+    def test_accepts_removing_stale_fields_from_the_full_preview(self):
         reviewed = copy.deepcopy(self.expected_preview)
         del reviewed["time"]["exact_time"]
 
-        with self.assertRaisesRegex(ValueError, "removed the existing field 'time.exact_time'"):
-            reviewed_state_preview_to_patch(self.expected_preview, reviewed)
+        preview_edits = reviewed_state_preview_to_patch(self.expected_preview, reviewed)
+
+        self.assertIsNone(preview_edits["time"]["exact_time"])
+        applied = StateManager.merge_patch(self.expected_preview, preview_edits)
+        self.assertEqual(applied["time"], {"period": "the middle of the night"})
 
     def test_unchanged_preview_produces_no_manual_override(self):
         reviewed = copy.deepcopy(self.expected_preview)
