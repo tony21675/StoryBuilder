@@ -197,7 +197,14 @@ def merge_patch(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
         if value is None:
             result.pop(key, None)
         elif isinstance(value, dict) and isinstance(result.get(key), dict):
-            result[key] = merge_patch(result[key], value)
+            nested = merge_patch(result[key], value)
+            if nested:
+                result[key] = nested
+            else:
+                # A recursive deletion can leave a character or state section
+                # empty. Prune that shell instead of preserving an empty stale
+                # object in the saved state.
+                result.pop(key, None)
         else:
             result[key] = value
 
