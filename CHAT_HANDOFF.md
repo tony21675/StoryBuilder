@@ -1,6 +1,17 @@
 # StoryBuilder Chat Handoff
 
 
+## Latest checkpoint — October 18, 2026: independent scene-integrity audit and bounded full retry
+
+The next Chapter 3, Scene 2 draft reached the intended rough endpoint but still contained major continuity/scope failures: it assigned Chloe eyewitness knowledge despite her being home sick, asserted unestablished details about Tiffany fighting the abductor, misplaced the timing of the abduction, and advanced into operational investigation. This showed completion checking alone was not enough.
+
+**Second generic mechanics improvement:** the post-generation workflow now runs an independent, conservative continuity/scope audit using the existing local model sequentially. It checks timeline, presence/knowledge, consequential unsupported claims, explicit no-go constraints, and scene hard stop. Ordinary atmosphere and plausible details, including familiar household scents, must not be flagged merely because they are not spelled out in the plan. A material conflict triggers at most one full-scene retry. The regenerated scene must pass both the existing semantic completion review and a follow-up integrity audit before replacing the initial draft. If verification fails, StoryBuilder keeps the original draft and shows a review notice. A safe but incomplete draft may still receive one append-only continuation, which is audited before it is retained. Nothing is auto-accepted and no state is advanced.
+
+`tests/test_scene_completion.py` now covers a full retry when a material conflict is flagged, rechecking after retry, audit failure preserving the original, and refusing an unsafe append-only continuation. Check GitHub Actions before telling Tony this second change is fully verified.
+
+**Next step:** Tony has already pulled the first completion-recovery change and tried a new Scene 2. Do not ask him to make manual prose edits. After the latest code is pushed and checked enough to pull, use the existing `./start.sh` workflow from `~/Documents/StoryBuilder`, then regenerate Chapter 3, Scene 2. Load the current `STORY_PLAN.md` scene plan first if the saved Scene Idea has not been refreshed. Keep Scene 1 accepted, and do not accept Scene 2 or apply its state update without Tony's review.
+
+---
 ## Latest checkpoint — October 18, 2026: bounded completion recovery for incomplete scene drafts
 
 Tony approved a generic StoryBuilder mechanics change after Chapter 3, Scene 2 ended immediately after the first disclosure instead of carrying through the planned group response and initial role formation.
