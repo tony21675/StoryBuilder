@@ -7,6 +7,8 @@ from builder.state_manager import (
     STATE_SYSTEM_PROMPT,
     StateManager,
     append_recent_events,
+    normalize_location_patch,
+    normalize_physical_state_patch,
     validate_state_proposal,
 )
 
@@ -162,6 +164,82 @@ class StateAnalysisTransitionTests(unittest.TestCase):
             self.assertIn(name, names)
         self.assertEqual(len(names), len({name.casefold() for name in names}))
 
+    def test_misplaced_later_arrival_physical_states_are_nested_safely(self):
+        base = {
+            "scene_cast": ["Tony", "Maya"],
+            "location": {
+                "primary": "Tony's home",
+                "Tony": "Kitchen area",
+                "Beth": "Kitchen area",
+                "Jessica": "Kitchen area",
+                "Rick": "Kitchen area",
+            },
+            "physical_state": {
+                "Tony": {"location": "Kitchen area", "posture": "standing"},
+            },
+            "character_knowledge": {},
+            "active_objectives": {},
+        }
+        malformed = {
+            "current_situation": "The group has begun forming a private effort to find Tiffany.",
+            "physical_state": {
+                "Tony": {"location": "Kitchen area", "posture": "receiving hug"},
+            },
+            "Beth": {
+                "location": "Kitchen area",
+                "position": "seated at the table",
+                "posture": "focused",
+                "contact": "near Tony",
+                "movement": "stationary",
+            },
+            "Jessica": {
+                "location": "Kitchen area",
+                "position": "seated at the table",
+                "posture": "concentrating",
+                "contact": "none",
+                "movement": "stationary",
+            },
+            "Rick": {
+                "location": "Kitchen area",
+                "position": "seated at the table",
+                "posture": "alert",
+                "contact": "none",
+                "movement": "stationary",
+            },
+        }
+
+        normalized = normalize_location_patch(base, malformed)
+        normalized = normalize_physical_state_patch(
+            base,
+            normalized,
+            scene_characters=["Tony", "Maya", "Beth", "Jessica", "Rick"],
+        )
+        validate_state_proposal(base, normalized)
+
+        self.assertEqual(
+            set(normalized["physical_state"]),
+            {"Tony", "Beth", "Jessica", "Rick"},
+        )
+        for character in ("Beth", "Jessica", "Rick"):
+            self.assertEqual(
+                normalized["physical_state"][character]["position"],
+                "seated at the table",
+            )
+            self.assertNotIn(character, normalized)
+
+    def test_physical_state_normalizer_leaves_unknown_fields_for_validation(self):
+        base = {
+            "scene_cast": ["Tony"],
+            "physical_state": {"Tony": {"location": "Kitchen area"}},
+        }
+        malformed = {
+            "current_situation": "The scene ends in the kitchen.",
+            "unrecognized_metadata": {"location": "do not relocate"},
+        }
+
+        normalized = normalize_physical_state_patch(base, malformed)
+        with self.assertRaisesRegex(ValueError, "unrecognized_metadata"):
+            validate_state_proposal(base, normalized)
 
 if __name__ == "__main__":
     unittest.main()

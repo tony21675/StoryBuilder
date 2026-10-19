@@ -271,7 +271,10 @@ def normalize_location_patch(base: dict[str, Any], patch: dict[str, Any]) -> dic
     for key in list(result.keys()):
         if key == "location":
             continue
-        if key in top_level_location_keys:
+        # Legacy top-level location entries are text. A character's physical-state
+        # object can also share the character's name, so never route dictionaries
+        # into location before the physical-state normalizer has inspected them.
+        if key in top_level_location_keys and isinstance(result[key], str):
             location_patch[key] = result.pop(key)
             moved = True
 
@@ -280,6 +283,93 @@ def normalize_location_patch(base: dict[str, Any], patch: dict[str, Any]) -> dic
 
     return result
 
+PHYSICAL_STATE_CHARACTER_FIELDS = {
+    "location",
+    "position",
+    "posture",
+    "contact",
+    "movement",
+    "clothing",
+    "condition",
+    "activity",
+    "interaction",
+}
+
+
+def normalize_physical_state_patch(
+    base: dict[str, Any],
+    patch: dict[str, Any],
+    scene_characters: list[str] | None = None,
+) -> dict[str, Any]:
+    """Move unambiguously misplaced per-character physical state under physical_state.
+
+    Some local models emit later-arriving characters at the proposal's top level
+    instead of nesting them under physical_state. Only known character names
+    with a recognizable physical-state object are moved; arbitrary unsupported
+    fields are deliberately left in place for validation to reject.
+    """
+    if not isinstance(patch, dict):
+        return patch
+
+    current_physical = patch.get("physical_state", {})
+    if not isinstance(current_physical, dict):
+        return patch
+
+    known_names: dict[str, str] = {}
+
+    def remember_names(values: Any) -> None:
+        if isinstance(values, dict):
+            names = values.keys()
+        elif isinstance(values, list):
+            names = values
+        else:
+            return
+        for raw_name in names:
+            name = str(raw_name).strip()
+            if name and name.casefold() != "primary":
+                known_names.setdefault(name.casefold(), name)
+
+    remember_names(base.get("scene_cast"))
+    remember_names(scene_characters)
+    for field in ("physical_state", "character_knowledge", "active_objectives", "location"):
+        remember_names(base.get(field))
+
+    result = dict(patch)
+    physical_patch = dict(current_physical)
+    nested_names = {str(name).casefold() for name in physical_patch}
+    moved = False
+    transition_fields = {
+        "current_situation",
+        "location",
+        "physical_state",
+        "time_of_day",
+        "active_objectives",
+        "new_recent_events",
+    }
+
+    for key, value in list(result.items()):
+        if key in transition_fields or not isinstance(value, dict):
+            continue
+        canonical_name = known_names.get(str(key).casefold())
+        if canonical_name is None:
+            continue
+        if not PHYSICAL_STATE_CHARACTER_FIELDS.intersection(value):
+            continue
+        # If a character already has a nested entry, two competing descriptions
+        # are ambiguous. Leave the extra key untouched so normal validation
+        # reports it instead of silently choosing one version.
+        if canonical_name.casefold() in nested_names:
+            continue
+
+        physical_patch[canonical_name] = value
+        nested_names.add(canonical_name.casefold())
+        result.pop(key, None)
+        moved = True
+
+    if moved:
+        result["physical_state"] = physical_patch
+
+    return result
 
 def remove_unchanged(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
     """Remove values that are identical to the baseline."""
@@ -1077,12 +1167,19 @@ class StateManager:
         output = run_model(prompt)
         patch = None
 
-        # Local models occasionally place character knowledge lists under
-        # location. Reject the malformed proposal, ask for one corrected JSON
-        # patch, and strictly validate the corrected response as well.
+        # Local models occasionally misnest a character's ending physical state
+        # at the proposal's top level. Normalize only recognizable objects for
+        # known characters; all other unsupported fields remain validation errors.
+        parsed_proposal_for_error: dict[str, Any] | None = None
         for attempt in range(2):
             try:
-                candidate = extract_json_object(output)
+                parsed_candidate = extract_json_object(output)
+                # Preserve the exact parsed shape before normalizers change it so
+                # a failed proposal can be diagnosed from the error message.
+                parsed_proposal_for_error = json.loads(
+                    json.dumps(parsed_candidate, ensure_ascii=False)
+                )
+                candidate = dict(parsed_candidate)
                 # Knowledge is produced by a dedicated audit below. Never let
                 # the general state model turn scene actions into "knowledge"
                 # or replace cumulative facts with an event log.
@@ -1090,6 +1187,11 @@ class StateManager:
                 if "location" in candidate and not isinstance(candidate["location"], dict):
                     raise ValueError("Invalid state update: 'location' must be an object.")
                 candidate = normalize_location_patch(current_state, candidate)
+                candidate = normalize_physical_state_patch(
+                    current_state,
+                    candidate,
+                    scene_characters=scene_characters,
+                )
                 validate_state_proposal(current_state, candidate)
                 patch = candidate
                 break
@@ -1116,6 +1218,11 @@ class StateManager:
                                 current_state,
                                 recovered,
                             )
+                            recovered = normalize_physical_state_patch(
+                                current_state,
+                                recovered,
+                                scene_characters=scene_characters,
+                            )
                             raw_location = recovered.get("location")
                             if isinstance(raw_location, dict):
                                 clean_location = {
@@ -1139,11 +1246,22 @@ class StateManager:
                             # the full validator detail for diagnosis.
                             pass
 
-                    excerpt = (output or "")[-1800:]
+                    excerpt = (output or "")[-1200:]
+                    if parsed_proposal_for_error is not None:
+                        parsed_detail = json.dumps(
+                            parsed_proposal_for_error,
+                            indent=2,
+                            ensure_ascii=False,
+                        )
+                    else:
+                        parsed_detail = "(No complete JSON object could be extracted from the model response.)"
                     raise ValueError(
                         "The continuity model returned an invalid state update even after one "
                         "automatic correction attempt. No state changes were applied.\n\n"
-                        f"Validation detail: {exc}\n\nLast model response:\n{excerpt}"
+                        f"Validation detail: {exc}\n\n"
+                        "Parsed proposal before normalization (exact JSON shape):\n"
+                        f"{parsed_detail}\n\n"
+                        f"Last model response excerpt (last 1200 characters):\n{excerpt}"
                     ) from exc
 
                 repair_prompt = (

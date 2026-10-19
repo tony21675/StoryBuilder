@@ -1,5 +1,22 @@
 # StoryBuilder Chat Handoff
 
+## Latest checkpoint — October 19, 2026: recover misplaced per-character physical-state fields
+
+Tony approved a focused fix after **Analyze Accepted Scene** rejected the proposal with unsupported top-level fields for later arrivals (Beth, Jessica, and Rick), even though those fields described their physical positions. No state changes had been applied, and this patch does not edit the novel package or accepted manuscript.
+
+**Implemented on main:**
+- The state-analysis path now recognizes a top-level character object as misplaced physical state only when its name belongs to the known scene/state character roster and the object contains recognizable physical-state fields. It moves those unambiguous entries beneath `physical_state`; unknown metadata and conflicting duplicate character entries remain validation errors.
+- Legacy top-level location normalization now moves only text values into `location`. It no longer mistakes a character's dictionary-shaped physical state for a location description just because that character also appears in the location map.
+- If validation still fails after the correction attempt, the error includes the exact parsed JSON proposal before normalization, plus a shorter raw-response excerpt. This should make the next failure diagnosable without guessing from a truncated tail.
+- Added regression coverage for Beth/Jessica/Rick-style misnesting and for refusing to move unrecognized metadata.
+
+**Verification:** Post-commit Actions verification is pending; do not treat the fix as verified until the focused tests' result is checked.
+
+**Next step:** Sync StoryBuilder with the usual `cd ~/Documents/StoryBuilder && ./start.sh` workflow, then open Writer and run **Analyze Accepted Scene** again. Review the proposal before applying it. The accepted prose and MyNovel state were not changed by this code patch.
+
+**Collaboration boundary:** This patch only addresses the malformed state proposal. Do not add other prompt or story changes as part of this repair.
+---
+
 ## Latest checkpoint — October 19, 2026: accepted-scene state analysis follows scene transitions
 
 Tony approved a focused StoryBuilder fix after the accepted Chapter 3, Scene 2 produced an ending-state proposal with stale details. The accepted scene text is confirmed saved and synced at `MyNovel/Taken_at_Dusk/Manuscript/Chapters/Chapter_03/Chapter_03_Section_02.txt`; Git status in the local MyNovel checkout was clean. No StoryBuilder change in this checkpoint edits the novel or accepted manuscript.
