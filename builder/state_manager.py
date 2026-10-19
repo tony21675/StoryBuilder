@@ -18,7 +18,8 @@ When a prior fact is explicitly superseded by the completed prose, you may addit
 Older callers may only consume the character-name arrays, so keep those arrays complete and valid.
 
 Rules:
-- Audit only the supplied scene cast.
+- The supplied character roster can include names mentioned in the prose because scene_cast records the opening cast, not every later arrival. Use the complete prose and starting locations to identify who actually participates.
+- Return cumulative knowledge for characters who are physically present, enter the scene, hear relevant dialogue, or directly observe an event. A named character who is elsewhere or merely discussed does not learn from the conversation; preserve their prior knowledge unchanged and never add new knowledge to them.
 - Return each current-scene character's COMPLETE cumulative knowledge after the completed section.
 - Preserve every valid fact already known before the section, then add every fact newly learned during the completed prose.
 - A character learns information they hear from another character's dialogue, directly observe, read, or personally experience.
@@ -27,6 +28,7 @@ Rules:
 - Preserve specific consequential facts. Do not replace several distinct facts with a vague summary.
 - If a before-state item says a character does not know a fact, and the completed prose shows that character now learns it, remove the obsolete negative statement and record the actual knowledge instead.
 - Never omit a valid prior fact merely because the completed section does not repeat it. The application also preserves prior facts as a safeguard against incomplete model output.
+- Temporary physical state is not cumulative character knowledge. Current location, posture, contact, movement, and temporary clothing such as borrowed pajamas belong in physical_state, not character_knowledge. If the accepted prose changes a temporary physical detail that appears in prior knowledge, list that exact outdated item under _superseded_facts. Preserve durable identifying details and established ongoing wear conventions, such as Tiffany always wearing Tony's dog tags.
 - Only when the completed prose directly corrects, contradicts, or resolves a prior fact, list that exact prior fact under the optional "_superseded_facts" object for its character. Do not list a fact as superseded merely because it was omitted from your knowledge summary.
 - If you do not find any prior fact that is explicitly superseded, omit the "_superseded_facts" object and use the normal character-name arrays.
 - Do not keep contradictory positive and negative knowledge statements when the completed prose resolves the contradiction.
@@ -150,10 +152,11 @@ Rules:
 - Record only changes actually caused by the supplied completed story section.
 - The most important output is current_situation: ALWAYS return a concise, factual, non-empty description of what is true at the absolute end of the completed prose. This is an ending-state summary, not a list of events and not a guess about what happens next.
 - Follow the final paragraphs when describing ending state. Do not report an earlier intermediate action as the ending if later prose shows the characters in a different place or position.
-- Do not return a singular "event" field. Do not return character_knowledge; a separate knowledge audit handles that field.
+- Do not return a singular "event" field or character_knowledge; a separate knowledge audit handles character knowledge.
+- Return only these transition fields: current_situation, location, physical_state, time_of_day, active_objectives, and new_recent_events. Do not return chapter/scene flags, scene_cast, continuity requirements/notes, or unrelated metadata. Use new_recent_events as a temporary output field only; StoryBuilder appends those new facts to the preserved recent-event history.
 - Return only these ending-state fields: current_situation, location, physical_state, and time_of_day. Do not return event/event-log fields, character_knowledge, scene flags, continuity notes, or unrelated metadata.
 - Location is a nested state field. When the baseline current_state has a location object, never return character or primary location values at the top level. Normalize any legacy top-level location fields into the location object before returning the patch.
-- Strict field shape: location must be an object whose primary and per-character entries are plain text location descriptions. Never put lists, knowledge facts, or nested objects under location. physical_state must be an object describing each character's actual final position, posture, contact, and movement where established by the prose.
+- Strict field shape: location must be an object whose primary and per-character entries are plain text location descriptions. Never put lists, knowledge facts, or nested objects under location. physical_state must be an object describing each character's actual final location, position, posture, contact, movement, and (when explicitly established and continuity-relevant) clothing.
 - Do not repeat unchanged fields.
 - For changed nested objects, include only changed nested keys.
 - For arrays, replace the array only when that array truly changed.
@@ -164,13 +167,15 @@ Rules:
 - Never turn an unknown fact into a known fact.
 - Character knowledge is handled by a separate knowledge audit. Do not analyze, return, or rewrite character_knowledge in this state proposal.
 - Treat continuity_notes as editorial reminders only. They are not authoritative story facts, scene instructions, or character knowledge. Never use them as evidence for what happened, never promote them into permanent facts, and never copy them into a new state update unless the completed prose independently establishes the same fact.
-- Treat physical_state as a first-class continuity field. It records each character's physical location, position, posture, contact with other characters, and movement state at the absolute end of the supplied section.
-- When the completed prose clearly establishes or changes a character's final physical state, include those changed fields under physical_state for that character.
-- Physical continuity must follow the actual final prose. Do not move or reposition a character in physical_state merely because a new scene could logically use a different arrangement.
+- Treat physical_state as a first-class continuity field. It records each character's physical location, position, posture, contact with other characters, movement state, and explicitly established continuity-relevant clothing at the absolute end of the supplied section.
+- When the completed prose clearly establishes or changes a character's final physical state, include those changed fields under physical_state for that character. An explicit change from sleepwear to daytime clothing must replace a stale temporary-outfit detail.
+- Physical continuity must follow the actual final prose. Read the final paragraphs for every character's last movement or interaction; do not assume a character returns to a previous seat after standing, or infer an unshown movement.
 - Record only facts established by the supplied story section.
 - Determine the resulting state from what is true at the ABSOLUTE END of the completed section, using the final actions and final paragraphs as the primary evidence.
-- The current state is the BEFORE-state baseline only. Never copy a before-state location or situation into the update when the completed section clearly changes it.
+- The current state is the BEFORE-state baseline only. Never copy a before-state location, clothing detail, or situation into the update when the completed prose clearly changes it.
 - For any character whose location or immediate situation changes during the section, include that changed character under location even if the before-state already listed a different location.
+- Update active_objectives only for characters whose current goal or role is changed or newly established by the accepted prose. Return a partial object with concise replacement text for those characters only. If a group has only agreed to help, keep the objective broad and do not invent assignments, leads, investigation steps, or rescue plans. Replace objectives directly contradicted by the scene instead of carrying them forward unchanged.
+- Return new_recent_events as an array of concise factual event strings newly established in the completed section, in chronological order. Do not repeat events already present in the before-state recent_events list, do not include interpretations or future plans, and use an empty array if no meaningful new events occurred. The application appends these to the existing history and keeps the most recent twelve entries.
 - Use the supplied scene end guidance only to clarify the intended scene boundary. The actual completed prose is authoritative for what happened.
 - Do not invent motives, identities, locations, evidence, backstory, or other consequential facts.
 - The application owns scene navigation and workflow flags. NEVER return the keys chapter, scene, status, scene_completed, chapter_completed, or scene_cast in a state patch; those are updated by StoryBuilder after the reviewed patch is applied.
@@ -295,6 +300,38 @@ def remove_unchanged(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, A
     return result
 
 
+
+
+def append_recent_events(
+    existing_events: Any,
+    new_events: list[str],
+    *,
+    limit: int = 12,
+) -> list[Any]:
+    """Append new scene events without rewriting prior history or keeping duplicates."""
+    existing = list(existing_events) if isinstance(existing_events, list) else []
+    merged = list(existing)
+
+    def event_text(item: Any) -> str:
+        if isinstance(item, str):
+            return item.strip()
+        if isinstance(item, dict):
+            return str(item.get("event", "") or "").strip()
+        return ""
+
+    def identity(item: Any) -> str:
+        return re.sub(r"\\s+", " ", event_text(item)).strip().rstrip(".").casefold()
+
+    seen = {identity(item) for item in merged if identity(item)}
+    for value in new_events:
+        event = str(value or "").strip()
+        key = identity(event)
+        if not event or not key or key in seen:
+            continue
+        merged.append({"event": event})
+        seen.add(key)
+
+    return merged[-max(1, int(limit)):]
 OPTIONAL_STATE_PATCH_FIELDS = {
     # These fields are valid even in older packages that predate their storage.
     "current_situation",
@@ -313,20 +350,22 @@ END_STATE_PROPOSAL_FIELDS = {
     "location",
     "physical_state",
     "time_of_day",
+    "active_objectives",
+    "new_recent_events",
 }
 
 
 def validate_state_proposal(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
-    """Validate the narrower output contract used by the main continuity pass."""
+    """Validate ending-state changes and model-only additions to recent events."""
     if not isinstance(patch, dict):
         raise ValueError("The proposed state update must be a JSON object.")
 
     unsupported = sorted(set(patch) - END_STATE_PROPOSAL_FIELDS)
     if unsupported:
         raise ValueError(
-            "Invalid continuity proposal: unsupported ending-state field(s): "
+            "Invalid continuity proposal: unsupported transition field(s): "
             + ", ".join(unsupported)
-            + ". Return only current_situation, location, physical_state, and time_of_day."
+            + ". Return only current_situation, location, physical_state, time_of_day, active_objectives, and new_recent_events."
         )
 
     situation = patch.get("current_situation")
@@ -335,8 +374,31 @@ def validate_state_proposal(base: dict[str, Any], patch: dict[str, Any]) -> dict
             "Invalid state update: 'current_situation' is required and must describe the actual end of the scene."
         )
 
-    return validate_state_patch(base, patch)
+    objectives = patch.get("active_objectives")
+    if objectives is not None:
+        if not isinstance(objectives, dict):
+            raise ValueError("Invalid state update: 'active_objectives' must be an object.")
+        for character, objective in objectives.items():
+            if not isinstance(objective, str) or not objective.strip():
+                raise ValueError(
+                    f"Invalid state update at 'active_objectives.{character}': objectives must be non-empty text."
+                )
 
+    new_events = patch.get("new_recent_events")
+    if new_events is not None:
+        if not isinstance(new_events, list) or any(
+            not isinstance(event, str) or not event.strip()
+            for event in new_events
+        ):
+            raise ValueError(
+                "Invalid state update: 'new_recent_events' must be a list of non-empty event strings."
+            )
+
+    # new_recent_events is model-only and never persisted as a state key.
+    persisted_patch = dict(patch)
+    persisted_patch.pop("new_recent_events", None)
+    validate_state_patch(base, persisted_patch)
+    return patch
 
 APP_MANAGED_STATE_FIELDS = {
     "chapter",
