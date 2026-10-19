@@ -121,8 +121,8 @@ class StateAnalysisTransitionTests(unittest.TestCase):
         self.assertIn("new_recent_events", STATE_SYSTEM_PROMPT)
         self.assertIn("sleepwear", STATE_SYSTEM_PROMPT)
         self.assertIn("Replace objectives directly contradicted", STATE_SYSTEM_PROMPT)
-        self.assertIn("merely mentioned do not learn", KNOWLEDGE_AUDIT_SYSTEM_PROMPT)
-        self.assertIn("later arrivals may participate", KNOWLEDGE_AUDIT_SYSTEM_PROMPT)
+        self.assertIn("merely discussed does not learn from the conversation", KNOWLEDGE_AUDIT_SYSTEM_PROMPT)
+        self.assertIn("not every later arrival", KNOWLEDGE_AUDIT_SYSTEM_PROMPT)
 
     def test_state_analysis_candidates_include_later_named_characters(self):
         app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
