@@ -450,7 +450,7 @@ Preserve all established character roles and knowledge boundaries; do not invent
 
         self.assertTrue(result["pass"], result)
         self.assertIn(
-            "Treat Required Beats as narrative-level goals, not a word-for-word checklist",
+            "Treat Planned Beats and Required Beats as narrative-level goals, not a word-for-word checklist",
             captured["prompt"],
         )
         self.assertIn(
@@ -1657,6 +1657,118 @@ Later in the idea, someone might mention the time in a sentence.
 The story's location is Tony's home."""
         self.assertEqual(extract_scene_header_metadata(idea), {})
 
+
+    def test_planned_beats_and_boundaries_become_structured_author_constraints(self):
+        idea = """Forming the Private Effort
+
+**Purpose:** Transition from the initial shock to a preliminary private effort.
+
+**Starting Point:** Immediately after the group commits to helping find Tiffany.
+
+**Planned Beats:**
+* **Emotional Connection:** Tony shares a long, emotional hug with Chloe, sincerely thanks her, and calls her "my little wildcat" for the first time; Chloe accepts the nickname.
+* **Shifting Focus:** The conversation naturally turns toward forming a preliminary private approach to locating Tiffany.
+* **Skill Integration:** Jessica's technical expertise, Beth's community connections, and Rick's practical military/logistical thinking emerge organically.
+* **Group Input:** Maya and Chloe contribute meaningful perspectives suited to their current abilities.
+* **Tentative Roles:** Tony gently connects the ideas into broad, tentative roles without finalizing assignments.
+
+**Hard Stop:** End when the rough framework for the private effort begins to take shape among the group.
+
+**Boundaries:** Do not introduce new clues, identify the kidnapper or a buyer, or call the police. Do not finalize assignments or begin detailed investigation, training, or rescue planning. Maya and Chloe must contribute meaningful ideas suited to their current abilities.
+"""
+        sections = extract_authored_scene_sections(idea)
+        self.assertEqual(len(sections["required_beats"]), 5)
+        self.assertIn("my little wildcat", sections["required_beats"][0])
+        self.assertIn("Tony gently connects", sections["required_beats"][4])
+        self.assertEqual(len(sections["boundaries"]), 1)
+        self.assertIn("call the police", sections["boundaries"][0])
+
+        generated = {
+            "direction": "Move toward the preliminary framework.",
+            "hard_stop": "A model-generated stop that must be replaced.",
+            "required_beats": ["Model-invented beat must be ignored."],
+            "max_attempts": 3,
+        }
+        with patch.object(Path, "is_file", return_value=True), patch.object(
+            scene_contract, "_run_contract_builder", return_value=generated
+        ):
+            contract = SceneContract.generate_from_idea(
+                "/tmp/test-model.gguf",
+                {"chapter": 3, "scene": 3, "current_situation": "The group has committed to help."},
+                idea,
+            )
+
+        self.assertEqual(contract["required_beats"], sections["required_beats"])
+        self.assertEqual(contract["boundaries"], sections["boundaries"])
+        self.assertIn("rough framework for the private effort begins", contract["hard_stop"])
+        self.assertNotIn("Model-invented beat must be ignored.", contract["required_beats"])
+
+    def test_boundaries_survive_saved_guidance_and_reach_writer_and_validator(self):
+        idea = """Scene 3
+
+**Planned Beats:**
+- Tony thanks Chloe and calls her "my little wildcat".
+- The group begins identifying broad, tentative roles.
+
+**Hard Stop:** End as the rough framework begins to take shape.
+
+**Boundaries:** Do not identify the kidnapper. Do not call the police. Do not begin rescue planning.
+"""
+        guidance = {
+            "scene_idea": idea,
+            "direction": "The group is at Tony's home.",
+            "scene_contract": {
+                "required_beats": ["Old model-generated beat must be replaced."],
+                "hard_stop": "Old stop must be replaced.",
+                "max_attempts": 3,
+            },
+        }
+        contract = SceneContract.from_guidance(guidance)
+        self.assertEqual(
+            contract["required_beats"],
+            [
+                'Tony thanks Chloe and calls her "my little wildcat".',
+                "The group begins identifying broad, tentative roles.",
+            ],
+        )
+        self.assertEqual(
+            contract["boundaries"],
+            ["Do not identify the kidnapper. Do not call the police. Do not begin rescue planning."],
+        )
+        writer_context = SceneContract.writer_prompt_context("Current scene context.", contract)
+        self.assertIn("AUTHOR-DEFINED BOUNDARIES (MANDATORY)", writer_context)
+        self.assertIn("Do not identify the kidnapper.", writer_context)
+        self.assertIn("Do not call the police.", writer_context)
+
+        validator_result = {
+            "pass": True,
+            "missed_beats": [],
+            "violations": [],
+            "checks": [
+                {
+                    "requirement": "Tony thanks Chloe.",
+                    "status": "met",
+                    "evidence": 'Tony thanked Chloe and called her "my little wildcat".',
+                }
+            ],
+            "notes": "",
+        }
+        captured = {}
+        def fake_validator(_model, prompt):
+            captured["prompt"] = prompt
+            return validator_result
+
+        with patch.object(scene_contract, "_run_validator", side_effect=fake_validator):
+            result = SceneContract.validate_with_engine(
+                FakeEngine(),
+                contract,
+                {"chapter": 3, "scene": 3, "scene_cast": ["Tony", "Chloe"]},
+                'Tony thanked Chloe and called her "my little wildcat".',
+            )
+        self.assertTrue(result["pass"], result)
+        self.assertIn('"boundaries"', captured["prompt"])
+        self.assertIn("Do not identify the kidnapper.", captured["prompt"])
+        self.assertIn("Do not begin rescue planning.", captured["prompt"])
 
 if __name__ == "__main__":
     unittest.main()
