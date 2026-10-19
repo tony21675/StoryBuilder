@@ -7,6 +7,7 @@ from unittest.mock import patch
 import builder.state_manager as state_manager_module
 from builder.state_manager import (
     StateManager,
+    combine_state_patches,
     extract_json_object,
     reconcile_string_items,
     remove_prior_chapter_opening_markers,
@@ -43,6 +44,40 @@ class StateUpdateValidationTests(unittest.TestCase):
         self.assertEqual(merged["physical_state"]["Tony"], {"location": "Kitchen", "posture": "standing"})
         self.assertNotIn("Maya", merged["physical_state"])
         self.assertEqual(merged["active_objectives"], {"Tony": "Coordinate the search"})
+
+    def test_preview_deletion_survives_patch_composition(self):
+        baseline = {
+            "current_situation": "Tony is preparing to coordinate the search.",
+            "physical_state": {
+                "Tony": {
+                    "posture": "standing",
+                    "movement": "stationary",
+                    "contact": "Maya",
+                }
+            },
+        }
+        model_patch = {
+            "current_situation": "Tony is coordinating the search.",
+            "physical_state": {"Tony": {"posture": "authoritative"}},
+        }
+        preview_edit = {
+            "physical_state": {
+                "Tony": {
+                    "movement": None,
+                    "contact": None,
+                }
+            }
+        }
+
+        combined = combine_state_patches(model_patch, preview_edit)
+        self.assertIsNone(combined["physical_state"]["Tony"]["movement"])
+        self.assertIsNone(combined["physical_state"]["Tony"]["contact"])
+
+        final_state = StateManager.merge_patch(baseline, combined)
+        self.assertEqual(
+            final_state["physical_state"]["Tony"],
+            {"posture": "authoritative"},
+        )
 
     def test_reviewed_preview_can_remove_stale_nested_fields(self):
         expected = {
