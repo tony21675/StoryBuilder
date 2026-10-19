@@ -57,6 +57,7 @@ from builder.focused_revision import (
     apply_focused_replacement,
     build_focused_revision_prompt,
 )
+from builder.scene_completion import generate_scene_with_completion_check
 from builder.story_interview import (
     CHARACTER_QUESTIONS,
     RELATIONSHIP_QUESTIONS,
@@ -3023,6 +3024,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             answer = ""
             trace_result = None
             error = None
+            completion_notice = ""
             try:
                 if model is None:
                     raise RuntimeError("The Writer model is not available.")
@@ -3036,8 +3038,22 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                         is_focused_revision=False,
                         prompt_characters=len(base_prompt),
                     )
-                answer = self.writer_engine.generate(base_prompt)
+                answer, completion_notice = generate_scene_with_completion_check(
+                    engine=self.writer_engine,
+                    model_path=model,
+                    writer_system_prompt=system_prompt,
+                    initial_prompt=base_prompt,
+                    scene_context=writer_context,
+                    contract=contract,
+                    current_state=current_state,
+                    author_guidance=author_guidance,
+                )
                 if prompt_trace is not None:
+                    prompt_trace.record_event(
+                        "scene_completion_check",
+                        notice=completion_notice,
+                        response_characters=len(answer),
+                    )
                     prompt_trace.record_event(
                         "writer_attempt_finished",
                         attempt=1,
@@ -3069,13 +3085,15 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             self.after(
                 0,
                 lambda: self._finish_generated_scene(
-                    answer, error, trace_result
+                    answer, error, trace_result, completion_notice
                 ),
             )
 
         self.writer_thread = threading.Thread(target=work, daemon=True)
         self.writer_thread.start()
-    def _finish_generated_scene(self, answer, error, trace_result=None):
+    def _finish_generated_scene(
+        self, answer, error, trace_result=None, completion_notice=""
+    ):
         target = getattr(self, "writer_generation_context", None)
         if trace_result is not None:
             self.active_prompt_trace = None
@@ -3159,13 +3177,14 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         if self.__dict__.get("writer_revision_request_entry") is not None:
             self.writer_revision_request_entry.delete("1.0", "end")
         self._update_writer_buttons()
-        self.writer_status.configure(
-            text=(
-                f"Draft generated for Chapter {self.generated_scene_context[0]}, "
-                f"Scene {self.generated_scene_context[1]}. Review it, request a focused change, "
-                "regenerate it, or accept it when you are satisfied."
-            )
+        status_text = (
+            f"Draft generated for Chapter {self.generated_scene_context[0]}, "
+            f"Scene {self.generated_scene_context[1]}. Review it, request a focused change, "
+            "regenerate it, or accept it when you are satisfied."
         )
+        if completion_notice:
+            status_text += "\n\n" + completion_notice
+        self.writer_status.configure(text=status_text)
     def _regenerate_generated_scene(self):
         if not self._has_pending_generated_scene():
             return

@@ -1,6 +1,17 @@
 # StoryBuilder Chat Handoff
 
 
+## Latest checkpoint — October 18, 2026: bounded completion recovery for incomplete scene drafts
+
+Tony approved a generic StoryBuilder mechanics change after Chapter 3, Scene 2 ended immediately after the first disclosure instead of carrying through the planned group response and initial role formation.
+
+**Implemented on main in one commit:** `builder/scene_completion.py` runs the existing semantic Scene Contract review after a generated scene. If review reports missing author-intended events but no continuity violations, and the scene contract allows retries, StoryBuilder resets the same local model to the Writer prompt and requests one append-only continuation. It keeps all original draft text verbatim, appends only the continuation, and leaves acceptance/state changes to Tony. If the check fails, reports a continuity contradiction, or cannot safely continue, the original draft stays intact and the Writer status displays a review notice. This behavior is generic; it contains no novel-specific names or plot facts.
+
+Added `tests/test_scene_completion.py` to cover successful review, missing-beat continuation, avoiding append-only repair when continuity is contradicted, validator failure, a missing saved Scene Idea, and retry-limit behavior. GitHub Actions must be checked after the commit; do not claim the full suite passed until its result is visible. The repository already had one previously documented unrelated prompt/test wording mismatch; keep that separate from this focused fix.
+
+**Tony's next action after pulling once:** Close StoryBuilder safely after confirming no generation is running and no unsaved draft needs keeping. From `~/Documents/StoryBuilder`, use the existing `./start.sh` sync workflow to fast-forward `main` and launch the updated app. For Chapter 3, Scene 2, use **Load from STORY_PLAN.md** once if the saved Scene Idea is stale, then generate a fresh attempt. Review the entire combined draft; automatic continuation is bounded to one pass and is not automatic acceptance. Do not touch accepted Scene 1 or apply a state update before Tony approves Scene 2.
+
+---
 ## Latest checkpoint — October 18, 2026: MyNovel sync paused before Chapter 3, Scene 2
 
 StoryBuilder on Tony's laptop was synchronized through `./sync.sh start` and finished clean at `7c5f01d` on `main`. A zero-byte root-level untracked `FETCH_HEAD` had been noticed before sync, but a removal attempt found it already absent; the successful sync finished with a clean status. Do not stage or recreate it. No test commands were run as part of this laptop sync.
