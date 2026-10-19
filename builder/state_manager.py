@@ -203,6 +203,24 @@ def merge_patch(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
 
     return result
 
+def combine_state_patches(
+    base_patch: dict[str, Any],
+    override_patch: dict[str, Any],
+) -> dict[str, Any]:
+    """Overlay two partial patches while preserving null deletion markers.
+
+    Unlike merge_patch(), this composes proposals rather than applying them to
+    the stored state. A null in the override must survive so the eventual
+    state-application step can delete the corresponding saved field.
+    """
+    result = dict(base_patch)
+    for key, value in override_patch.items():
+        if isinstance(value, dict) and isinstance(result.get(key), dict):
+            result[key] = combine_state_patches(result[key], value)
+        else:
+            result[key] = value
+    return result
+
 
 def extract_json_object(text: str) -> dict[str, Any]:
     """Extract the last complete JSON object from model-runner output.
