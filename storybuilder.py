@@ -889,8 +889,9 @@ class StoryBuilderApp(tk.Tk):
                 "the matching scene from STORY_PLAN.md when available. Saved Scene Ideas always take "
                 "priority, and a plan-loaded idea is not saved until you save it or generate the contract. "
                 "Generate / Replace Contract asks the local model for a concise direction and ending. "
-                "Only items under a clearly labeled Required Beats section in your Scene Idea become formal "
-                "scene-level beats; model-generated suggestions do not become mandatory. Separately enabled "
+                "Items under clearly labeled Required Beats or Planned Beats sections in your Scene Idea become formal "
+                "scene-level beats; model-generated suggestions do not become mandatory. Explicit Boundaries "
+                "are carried separately as constraints. Separately enabled "
                 "modules may supply their own requirements. The original Scene Idea remains the Writer's "
                 "primary guidance. If a contract is saved, StoryBuilder asks before replacing its generated fields."
             ),
@@ -975,12 +976,14 @@ class StoryBuilderApp(tk.Tk):
         )
         self.scene_contract_texts = {
             "required_beats": tk.Text(form, height=5, wrap="word", state="disabled"),
+            "boundaries": tk.Text(form, height=4, wrap="word", state="disabled"),
         }
 
         fields = [
             ("direction", "Beginning / Middle Direction", self.scene_contract_direction_text),
             ("end", "End / Hard Stop", self.scene_contract_end_text),
-            ("required_beats", "Required Beats (one per line)", self.scene_contract_texts["required_beats"]),
+            ("required_beats", "Planned / Required Beats (one per line)", self.scene_contract_texts["required_beats"]),
+            ("boundaries", "Author Boundaries (one per line)", self.scene_contract_texts["boundaries"]),
         ]
 
         for row, (_key, label, widget) in enumerate(fields):
@@ -994,7 +997,7 @@ class StoryBuilderApp(tk.Tk):
             widget.grid(row=row, column=1, sticky="nsew", pady=4)
 
         for row in range(len(fields)):
-            form.rowconfigure(row, weight=1 if row in (0, 1, 2) else 0)
+            form.rowconfigure(row, weight=1)
         form.columnconfigure(1, weight=1)
 
         attempts_row = ttk.Frame(content)
@@ -2643,7 +2646,7 @@ class StoryBuilderApp(tk.Tk):
 Rules:
 Author-defined canon rules supplied in the scene reference are hard constraints across the novel. Stable author writing guidance supplied there is also binding whenever relevant. Preserve the meaning of rules, avoidances, and creative permissions without turning permissive guidance into mandatory beats. Do not contradict, discard, or weaken author-defined constraints unless the author explicitly revises them. They outrank improvisation and optional planning guidance.
 
-1. The original plain-English Scene Idea gives the intended direction, key intentions, and endpoint. Current story state controls what has already happened, physical continuity, and character knowledge. Generated scene direction and compact contract are supporting context only. Follow explicit boundaries and clearly named Required Beats, but do not treat every sentence of the idea as a checklist; use creative judgment for natural execution.
+1. The original plain-English Scene Idea gives the intended direction, key intentions, and endpoint. Current story state controls what has already happened, physical continuity, and character knowledge. Generated scene direction and compact contract are supporting context only. Follow explicit boundaries and clearly labeled Planned Beats or Required Beats, but do not treat every sentence of the idea as a checklist; use creative judgment for natural execution.
 2. The current_situation in scene_state.json is the exact narrative and physical starting point for this scene. Treat statements that are already completed there as already true before writing begins. Do not replay them as new events.
 3. Treat explicit knowledge transfers already completed in current_situation as established knowledge at scene start. If it says one character has told, informed, warned, shown, or otherwise communicated a fact to another character, the receiving character already knows that fact.
 4. Never make a character discover, ask whether, or react as though new something that the current_situation explicitly says they already know. They may ask for clarification or additional details that have not yet been established.
@@ -3713,6 +3716,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         """Drop obsolete hidden contract/state hints after the author rebuilds from the idea."""
         for key in (
             "required_beats",
+            "boundaries",
             "required_facts",
             "required_sequence",
             "forbidden",
@@ -4265,9 +4269,10 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                     (
                         f"A contract is already saved for Chapter {chapter}, Scene {scene}.\n\n"
                         "This action asks the local model to CREATE A NEW CONTRACT. "
-                        "Its concise direction and ending may change. Only Required Beats explicitly "
-                        "labeled in the original Scene Idea are enforced; model-generated suggestions "
-                        "are not turned into mandatory stops. Separately enabled modules may supply "
+                        "Its concise direction and ending may change. Required Beats and Planned Beats explicitly "
+                        "labeled in the original Scene Idea are enforced; explicit Boundaries are carried "
+                        "separately as constraints. Model-generated suggestions are not turned into mandatory stops. "
+                        "Separately enabled modules may supply "
                         "their own requirements. Continuing will replace the saved generated fields.\n\n"
                         "Choose No to keep the existing fields. If your goal is to restore or reload "
                         "previously saved fields, choose No; this button does not restore an earlier version. "
@@ -4365,6 +4370,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         # Newly generated contracts persist only the agreed minimal fields.
         contract = {
             "required_beats": list(result.get("required_beats", []) or []),
+            "boundaries": list(result.get("boundaries", []) or []),
             "max_attempts": result.get("max_attempts", 3) or 3,
         }
         if end_text:
