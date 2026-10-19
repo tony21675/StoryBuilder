@@ -447,6 +447,8 @@ def reconcile_string_items(
 ) -> list[Any]:
     """Reconcile cumulative string items while preserving order and explicit history."""
     existing = list(existing_items) if isinstance(existing_items, list) else []
+    additions = additions if isinstance(additions, list) else []
+    removals = removals if isinstance(removals, list) else []
 
     def identity(value: str) -> str:
         return re.sub(r"\s+", " ", value).strip().rstrip(".!?").casefold()
@@ -545,24 +547,26 @@ def validate_state_proposal(base: dict[str, Any], patch: dict[str, Any]) -> dict
                 )
 
     for field in ("new_clues", "resolved_clues", "new_unresolved_questions", "resolved_questions"):
-        values = patch.get(field)
-        if values is not None and (
-            not isinstance(values, list)
-            or any(not isinstance(item, str) or not item.strip() for item in values)
+        if field not in patch:
+            continue
+        values = patch[field]
+        if not isinstance(values, list) or any(
+            not isinstance(item, str) or not item.strip() for item in values
         ):
             raise ValueError(
-                f"Invalid state update: '{field}' must be a list of non-empty strings."
+                f"Invalid state update: '{field}' must be a list of non-empty strings (use [] when empty, not null)."
             )
 
     new_events = patch.get("new_recent_events")
-    if new_events is not None:
-        if not isinstance(new_events, list) or any(
+    if "new_recent_events" in patch and (
+        not isinstance(new_events, list) or any(
             not isinstance(event, str) or not event.strip()
             for event in new_events
-        ):
-            raise ValueError(
-                "Invalid state update: 'new_recent_events' must be a list of non-empty event strings."
-            )
+        )
+    ):
+        raise ValueError(
+            "Invalid state update: 'new_recent_events' must be a list of non-empty event strings (use [] when empty, not null)."
+        )
 
     # new_recent_events is model-only and never persisted as a state key.
     persisted_patch = dict(patch)
