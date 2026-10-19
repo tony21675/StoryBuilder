@@ -32,6 +32,7 @@ Rules:
 - Remove only temporary or explicitly contradicted facts whose current-state meaning is stale. Preserve durable identifying details and consequential history, including the abduction, violence, injuries, observed behavior, and clues, even after those events have passed. Do not erase a fact merely because the current scene does not repeat it.
 - Only when the completed prose directly corrects, contradicts, or resolves a prior fact, list that exact prior fact under the optional "_superseded_facts" object for its character. Do not list a fact as superseded merely because it was omitted from your knowledge summary.
 - If you do not find any prior fact that is explicitly superseded, omit the "_superseded_facts" object and use the normal character-name arrays.
+- Deduplicate paraphrases of the same observation within a character's knowledge list. For example, two descriptions of Tiffany smiling/laughing before the same man moved are one observation, not two independent facts. Keep distinct physical actions and identifying details separate.
 - Do not keep contradictory positive and negative knowledge statements when the completed prose resolves the contradiction.
 - Read the entire completed section, not only its ending.
 - Never infer future events, motives, hidden information, or unstated conclusions.
@@ -162,7 +163,7 @@ Rules:
 - For changed nested objects, include only changed nested keys.
 - For arrays, replace the array only when that array truly changed.
 - JSON null in a partial update is an explicit deletion marker for an existing object key; StoryBuilder removes that key instead of storing null. Use it only when the prose establishes that a prior field/item is no longer applicable or an active objective has ended. For example, set a stale physical_state subfield such as position, posture, contact, movement, condition, activity, interaction, a temporarily held object, or temporary clothing to null when it no longer applies and is not replaced by a new value. Set active_objectives.Character to null when that objective is complete, abandoned, or superseded. Do not use null for facts that are merely absent from this scene, and never delete a character's location just because the character is off-screen. Do not put null inside arrays.
-- Examine the full completed prose for newly introduced, concrete clues. Return new_clues as concise observable facts (use [] when there are none), not interpretations or guessed explanations. Return resolved_clues only for exact existing active_clues entries that the prose explicitly resolves or disproves. Do not remove an existing clue merely because it is not repeated.
+- Examine the full completed prose for newly introduced, concrete clues. Include concrete identifying evidence such as a visible injury or mark inflicted during the event, a specific scent, a vehicle detail or movement, a plate detail, a distinctive sound, or a directly observed route. Do not leave an investigative detail only in character_knowledge when it is relevant to finding a person or vehicle. Return new_clues as concise observable facts (use [] when there are none), not interpretations or guessed explanations. Keep one observation's details together: do not invent an additional scent, split one smell into multiple scents, or strengthen a witness's uncertain comparison into certainty. Return resolved_clues only for exact existing active_clues entries that the prose explicitly resolves or disproves. Do not remove an existing clue merely because it is not repeated. Do not report a clue as new when the same clue is already in active_clues; the application also filters duplicates.
 - Return new_unresolved_questions only for concrete factual unknowns made salient by this scene that remain unanswered. Return resolved_questions only for exact existing unresolved_questions entries answered by the completed prose. Preserve all other existing clues and questions; StoryBuilder will apply additions and explicit removals without asking the model to regenerate the whole historical list.
 - Treat current_situation as a live scene-state field, not as a scene-plan instruction. When the completed section ends in a materially different immediate situation, update current_situation to a concise description of that ending state so it can serve as the starting state for the next scene.
 - Do not copy scene-plan wording, future-scene instructions, hard stops, or author directions into current_situation.
@@ -180,7 +181,7 @@ Rules:
 - The current state is the BEFORE-state baseline only. Never copy a before-state location, clothing detail, or situation into the update when the completed prose clearly changes it.
 - For any character whose location or immediate situation changes during the section, include that changed character under location even if the before-state already listed a different location.
 - Update active_objectives only for characters whose current goal or role is changed or newly established by the accepted prose. Return a partial object with concise replacement text for those characters only; use null for a character whose prior objective is no longer active. If a group has only agreed to help, keep the objective broad and do not invent assignments, leads, investigation steps, or rescue plans. Replace objectives directly contradicted by the scene; use null to remove objectives that are completed, abandoned, or superseded instead of carrying them forward unchanged.
-- Return new_recent_events as an array of concise factual event strings newly established in the completed section, in chronological order. Do not repeat events already present in the before-state recent_events list, do not include interpretations or future plans, and use an empty array if no meaningful new events occurred. The application appends these to the existing history and keeps the most recent twelve entries.
+- Return new_recent_events as an array of concise factual event strings newly established in the completed section, in chronological order. Preserve separate, consequential beats within an interaction instead of collapsing them into a generic emotional summary. In particular, record meaningful quoted relationship milestones such as a first-time nickname and the other character's acceptance or rejection, as well as the surrounding hug or gesture when both matter. Do not repeat events already present in the before-state recent_events list, do not include interpretations or future plans, and use an empty array if no meaningful new events occurred. The application appends these to the existing history and keeps the most recent twelve entries.
 - Use the supplied scene end guidance only to clarify the intended scene boundary. The actual completed prose is authoritative for what happened.
 - Do not invent motives, identities, locations, evidence, backstory, or other consequential facts.
 - The application owns scene navigation and workflow flags. NEVER return the keys chapter, scene, status, scene_completed, chapter_completed, or scene_cast in a state patch; those are updated by StoryBuilder after the reviewed patch is applied.
@@ -510,6 +511,290 @@ def reconcile_string_items(
         seen.add(key)
 
     return merged
+
+
+def filter_new_string_items(existing_items: Any, candidates: list[str]) -> list[str]:
+    """Return only candidate strings not already present, ignoring case and terminal punctuation."""
+    existing = list(existing_items) if isinstance(existing_items, list) else []
+
+    def identity(value: str) -> str:
+        return re.sub(r"\\s+", " ", value).strip().rstrip(".!?").casefold()
+
+    known = {
+        identity(item)
+        for item in existing
+        if isinstance(item, str) and item.strip()
+    }
+    result: list[str] = []
+    for item in candidates if isinstance(candidates, list) else []:
+        if not isinstance(item, str) or not item.strip():
+            continue
+        value = item.strip()
+        key = identity(value)
+        if key and key not in known:
+            result.append(value)
+            known.add(key)
+    return result
+
+
+def _clue_identity(value: str) -> str:
+    """Build a conservative identity for common paraphrases of the same clue."""
+    lowered = value.casefold()
+    words = set(re.findall(r"[a-z0-9]+", lowered))
+
+    if (
+        words.intersection({"scratch", "scratched", "scratches", "raked", "rake", "clawed"})
+        and words.intersection({"cheek", "face"})
+    ):
+        details = words.intersection({"left", "right", "three", "twice", "blood", "bleed", "bleeding"})
+        return "facial-scratch:" + ",".join(sorted(details))
+
+    if words.intersection({"smell", "smelled", "smells", "scent", "cologne", "cigarette", "cigarettes", "pine"}):
+        descriptors = words.intersection(
+            {"cigarette", "cigarettes", "cologne", "pine", "needles", "sweet", "smoke", "tobacco", "gasoline", "chemical", "mint", "alcohol"}
+        )
+        if descriptors:
+            return "scent:" + ",".join(sorted(descriptors))
+
+    if words.intersection({"van", "vehicle", "car", "truck"}) and words.intersection(
+        {"accelerated", "accelerate", "accelerating", "rapidly", "quickly", "speed", "sped", "acceleration"}
+    ):
+        details = words.intersection({"van", "vehicle", "car", "truck", "rapidly", "quickly", "speed", "accelerated", "accelerating"})
+        return "vehicle-movement:" + ",".join(sorted(details))
+
+    if "plate" in words and words.intersection({"license", "number", "registration"}):
+        return "vehicle-plate"
+
+    return re.sub(r"\\s+", " ", value).strip().rstrip(".!?").casefold()
+
+
+def filter_new_clue_items(existing_clues: Any, candidates: list[str]) -> list[str]:
+    """Filter new-clue reports against the existing ledger and semantic duplicates."""
+    known = {
+        _clue_identity(item)
+        for item in (existing_clues if isinstance(existing_clues, list) else [])
+        if isinstance(item, str) and item.strip()
+    }
+    result: list[str] = []
+    for item in candidates if isinstance(candidates, list) else []:
+        if not isinstance(item, str) or not item.strip():
+            continue
+        value = item.strip()
+        key = _clue_identity(value)
+        if key and key not in known:
+            result.append(value)
+            known.add(key)
+    return result
+
+
+def recover_clues_from_knowledge(character_knowledge: Any) -> list[str]:
+    """Backfill concrete investigative evidence omitted from the active-clue ledger."""
+    if not isinstance(character_knowledge, dict):
+        return []
+
+    known_names = [str(name).strip() for name in character_knowledge if str(name).strip()]
+    evidence_patterns = (
+        r"\b(?:license plate|number plate|plate number)\b",
+        r"\b(?:smell(?:ed|s|ing)?|scent|cologne|cigarettes?|pine needles?)\b",
+        r"\b(?:scratch(?:ed|es|ing)?|raked?|clawed?)\b.{0,80}\b(?:cheek|face|blood|bleed)\b",
+        r"\b(?:cheek|face)\b.{0,80}\b(?:scratch|rake|claw|blood|bleed)\b",
+        r"\b(?:tattoo|scar|birthmark|distinctive mark|identifying mark)\b",
+        r"\b(?:van|vehicle|car|truck)\b.{0,70}\b(?:accelerat\w*|rapidly|quickly|speed|direction|dark|nondescript|license|plate|damage|dent|make|model|color|colour)\b",
+        r"\b(?:accelerat\w*|rapidly|quickly|speed)\b.{0,70}\b(?:van|vehicle|car|truck)\b",
+    )
+
+    recovered: list[str] = []
+    for values in character_knowledge.values():
+        items = values if isinstance(values, list) else [values] if isinstance(values, str) else []
+        for raw in items:
+            if not isinstance(raw, str) or not raw.strip():
+                continue
+            candidate = raw.strip()
+            if is_routine_action_log_knowledge(candidate, known_names):
+                continue
+
+            for _ in range(3):
+                previous = candidate
+                candidate = re.sub(
+                    r"^(?:now\s+)?knows?\s+(?:from\s+.+?\s+)?that\s+",
+                    "",
+                    candidate,
+                    flags=re.IGNORECASE,
+                )
+                candidate = re.sub(
+                    r"^(?:has\s+)?learned\s+(?:from\s+.+?\s+)?that\s+",
+                    "",
+                    candidate,
+                    flags=re.IGNORECASE,
+                )
+                candidate = re.sub(
+                    r"^(?:now\s+)?knows?\s+",
+                    "",
+                    candidate,
+                    flags=re.IGNORECASE,
+                )
+                candidate = re.sub(
+                    r"^(?:observed|saw|noticed|smelled|heard|witnessed)\s+",
+                    "",
+                    candidate,
+                    flags=re.IGNORECASE,
+                )
+                if candidate == previous:
+                    break
+
+            if any(re.search(pattern, candidate, re.IGNORECASE) for pattern in evidence_patterns):
+                recovered.append(candidate.strip())
+
+    return filter_new_clue_items([], recovered)
+
+
+def recover_explicit_unresolved_questions(
+    current_state: dict[str, Any],
+    resolved_questions: list[str] | None = None,
+    completed_text: str = "",
+) -> list[str]:
+    """Restore concrete open questions directly stated as unknown in the before-state."""
+    knowledge = current_state.get("character_knowledge", {})
+    if not isinstance(knowledge, dict):
+        return []
+
+    facts: list[str] = []
+    for values in knowledge.values():
+        items = values if isinstance(values, list) else [values] if isinstance(values, str) else []
+        facts.extend(str(item).strip() for item in items if str(item).strip())
+    lowered = "\n".join(facts).casefold()
+    resolved = [str(item).casefold() for item in (resolved_questions or []) if str(item).strip()]
+    section = completed_text or ""
+
+    known_names: list[str] = []
+    for field in ("character_knowledge", "active_objectives", "location"):
+        value = current_state.get(field)
+        if isinstance(value, dict):
+            known_names.extend(str(name).strip() for name in value if str(name).strip())
+    if isinstance(current_state.get("scene_cast"), list):
+        known_names.extend(str(name).strip() for name in current_state["scene_cast"] if str(name).strip())
+    known_names = list(dict.fromkeys(known_names))
+
+    victim = ""
+    action_pattern = re.compile(r"\b(?:abducted|kidnapped|taken|captured|missing|gone)\b", re.IGNORECASE)
+    for fact in facts:
+        for action in action_pattern.finditer(fact):
+            prefix = fact[:action.start()]
+            closest = None
+            closest_position = -1
+            for name in known_names:
+                matches = list(re.finditer(r"\b" + re.escape(name) + r"\b", prefix, re.IGNORECASE))
+                if matches and matches[-1].start() > closest_position:
+                    closest = name
+                    closest_position = matches[-1].start()
+            if closest:
+                victim = closest
+                break
+        if victim:
+            break
+
+    def removal_covers(topic: str) -> bool:
+        for question in resolved:
+            if topic == "who" and re.search(r"\b(?:who|identity|name|kidnapper|abductor|suspect)\b", question):
+                return True
+            if topic == "where" and re.search(r"\b(?:where|destination|location|taken|held)\b", question):
+                return True
+            if topic == "plate" and re.search(r"\b(?:license|number) plate\b", question):
+                return True
+        return False
+
+    def identity_answered() -> bool:
+        return bool(re.search(
+            r"\b(?:kidnapper|abductor|suspect|unidentified man)\s+(?:is|was|named)\s+[A-Z][A-Za-z'-]+\b"
+            r"|\b(?:identified|recognized)\s+(?:the\s+)?(?:kidnapper|abductor|man|suspect)\s+as\s+[A-Z][A-Za-z'-]+\b"
+            r"|\b(?:name|identity)\s+of\s+(?:the\s+)?(?:kidnapper|abductor|suspect)\s+(?:is|was)\s+[A-Z][A-Za-z'-]+\b",
+            section,
+        ))
+
+    def destination_answered() -> bool:
+        target_pattern = rf"(?:{re.escape(victim)}|her|him|them)" if victim else r"(?:her|him|them)"
+        return bool(re.search(
+            r"\b(?:took|brought|drove|transported|moved)\s+" + target_pattern +
+            r"\s+to\s+(?:the\s+)?[A-Z][A-Za-z0-9' -]{1,60}",
+            section,
+        ))
+
+    def plate_answered() -> bool:
+        return bool(re.search(
+            r"\b(?:license|number) plate\b.{0,30}\b(?:was|read|showed|displayed|said)\s+[A-Z0-9-]{3,}\b"
+            r"|\bplate number\s+[A-Z0-9-]{3,}\b",
+            section,
+            re.IGNORECASE,
+        ))
+
+    questions: list[str] = []
+    unknown_identity = bool(re.search(
+        r"\b(?:does not know|doesn't know|do not know|don't know)\b.{0,90}\b(?:who|identity|name)\b",
+        lowered,
+    ))
+    if unknown_identity and not removal_covers("who") and not identity_answered():
+        questions.append(f"Who abducted {victim}?" if victim else "Who is the kidnapper?")
+
+    unknown_destination = bool(re.search(
+        r"\b(?:does not know|doesn't know|do not know|don't know)\b.{0,100}\b(?:where|destination|location)\b",
+        lowered,
+    ))
+    if unknown_destination and not removal_covers("where") and not destination_answered():
+        questions.append(f"Where was {victim} taken?" if victim else "Where was the abducted person taken?")
+
+    no_plate = bool(re.search(
+        r"\b(?:no|without|lacks?|lack of)\b.{0,50}\b(?:concrete\s+)?(?:license|number) plate\b",
+        lowered,
+    ))
+    if no_plate and not removal_covers("plate") and not plate_answered():
+        questions.append("What was the van's license plate?")
+
+    return filter_new_string_items(current_state.get("unresolved_questions", []), questions)
+
+
+def clean_knowledge_action_logs(
+    base_knowledge: Any,
+    proposed_knowledge: Any,
+    character_names: list[str] | None = None,
+) -> dict[str, list[Any]]:
+    """Remove routine action logs deterministically, even if the LLM audit fails."""
+    base = base_knowledge if isinstance(base_knowledge, dict) else {}
+    proposed = proposed_knowledge if isinstance(proposed_knowledge, dict) else {}
+    all_names = list(dict.fromkeys(
+        [str(name).strip() for name in [*base.keys(), *proposed.keys(), *(character_names or [])] if str(name).strip()]
+    ))
+
+    def as_list(value: Any) -> list[Any]:
+        if isinstance(value, list):
+            return list(value)
+        if isinstance(value, str) and value.strip():
+            return [value.strip()]
+        return []
+
+    def identity(value: str) -> str:
+        key = re.sub(r"\s+", " ", value).strip().rstrip(".!?").casefold()
+        return re.sub(r"^(?:know|knows)\s+(?:that\s+)?", "knows ", key)
+
+    changed: dict[str, list[Any]] = {}
+    for name in all_names:
+        original = as_list(base.get(name, []))
+        candidate = as_list(proposed.get(name, original))
+        cleaned: list[Any] = []
+        seen: set[str] = set()
+        for item in candidate:
+            if not isinstance(item, str):
+                cleaned.append(item)
+                continue
+            value = item.strip()
+            if not value or is_routine_action_log_knowledge(value, all_names):
+                continue
+            key = identity(value)
+            if key not in seen:
+                cleaned.append(value)
+                seen.add(key)
+        if cleaned != original:
+            changed[name] = cleaned
+    return changed
 
 
 OPTIONAL_STATE_PATCH_FIELDS = {
@@ -1242,7 +1527,7 @@ class StateManager:
             "situation and not what should happen in the next scene. Keep it concise and factual. "
             "Do not copy planning instructions or future events into it. "
             "Always return non-empty current_situation. Return only changed location, physical_state, time_of_day, and active_objectives fields, plus new_clues (use [] if none), resolved_clues, new_unresolved_questions, resolved_questions, and new_recent_events (use [] if none). "
-            "Do not return character_knowledge, active_clues, unresolved_questions directly, recent_events directly, event/event-log fields, scene flags, continuity requirements, or other metadata. Include physical_state.clothing when the prose explicitly establishes a continuity-relevant outfit change. "
+            "Do not return character_knowledge, active_clues, unresolved_questions directly, recent_events directly, event/event-log fields, scene flags, continuity requirements, or other metadata. For new_clues, include specific sensory/physical/vehicle evidence, preserve witness qualifiers, and never invent an extra scent or split one observation into additional clues. Do not repeat an existing active clue as new. Keep exact first-time nicknames and whether they are accepted or rejected as distinct new_recent_events, not just a generic hug. Include physical_state.clothing when the prose explicitly establishes a continuity-relevant outfit change. "
             "Use null to remove stale object keys as described by the system rules. Update only objectives changed by the completed prose and keep any group commitment broad when no assignments have been made."
         ])
         prompt = "".join(prompt_parts)
@@ -1436,22 +1721,43 @@ class StateManager:
         new_questions = patch.pop("new_unresolved_questions", [])
         resolved_questions = patch.pop("resolved_questions", [])
 
+        # Recover concrete evidence already present in cumulative knowledge but missed
+        # by an earlier state pass. Such backfilled evidence is active, but is not
+        # incorrectly labeled as newly introduced in this scene.
+        previous_clues = current_state.get("active_clues", [])
+        recovered_clues = recover_clues_from_knowledge(
+            current_state.get("character_knowledge", {})
+        )
+        known_before_scene = filter_new_clue_items(previous_clues, recovered_clues)
+        reportable_new_clues = filter_new_clue_items(
+            [*previous_clues, *recovered_clues],
+            new_clues,
+        )
+        reportable_new_clues = filter_new_clue_items(resolved_clues, reportable_new_clues)
+
         # new_clues is a per-scene report. Replace the previous report even
         # when this scene adds none, so old additions do not linger as "new".
-        if "new_clues" in current_state or new_clues:
-            patch["new_clues"] = new_clues
+        if "new_clues" in current_state or reportable_new_clues or recovered_clues:
+            patch["new_clues"] = reportable_new_clues
 
-        previous_clues = current_state.get("active_clues", [])
-        if "active_clues" in current_state or new_clues or resolved_clues:
-            updated_clues = reconcile_string_items(previous_clues, new_clues, resolved_clues)
+        clue_additions = [*known_before_scene, *new_clues]
+        if "active_clues" in current_state or clue_additions or resolved_clues:
+            updated_clues = reconcile_string_items(previous_clues, clue_additions, resolved_clues)
+            updated_clues = filter_new_clue_items(resolved_clues, updated_clues)
             if updated_clues != previous_clues:
                 patch["active_clues"] = updated_clues
 
         previous_questions = current_state.get("unresolved_questions", [])
-        if "unresolved_questions" in current_state or new_questions or resolved_questions:
+        recovered_questions = recover_explicit_unresolved_questions(
+            current_state,
+            resolved_questions=resolved_questions,
+            completed_text=completed_text,
+        )
+        question_additions = [*new_questions, *recovered_questions]
+        if "unresolved_questions" in current_state or question_additions or resolved_questions:
             updated_questions = reconcile_string_items(
                 previous_questions,
-                new_questions,
+                question_additions,
                 resolved_questions,
             )
             if updated_questions != previous_questions:
@@ -1489,6 +1795,21 @@ class StateManager:
             # The main state proposal remains usable if the optional knowledge
             # audit cannot be parsed or completed. Do not fabricate knowledge.
             pass
+
+        # Routine scene logistics do not belong in cumulative knowledge. Run this
+        # deterministic cleanup regardless of whether the optional knowledge model
+        # returned usable JSON; preserve consequential facts and witness evidence.
+        cleaned_knowledge = clean_knowledge_action_logs(
+            current_state.get("character_knowledge", {}),
+            patch.get("character_knowledge", {}),
+            character_names=scene_characters,
+        )
+        if cleaned_knowledge:
+            knowledge_patch = patch.get("character_knowledge", {})
+            if not isinstance(knowledge_patch, dict):
+                knowledge_patch = {}
+            knowledge_patch.update(cleaned_knowledge)
+            patch["character_knowledge"] = knowledge_patch
 
         # End-state hints are included in the prompt as planning context only.
         # Never merge a planned state directly over facts inferred from accepted
