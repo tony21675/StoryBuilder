@@ -55,10 +55,16 @@ def _clean_model_output(output: str, prompt: str) -> str:
     cleaned = re.sub(r"\x1b(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])", "", cleaned)
 
     # Some llama.cpp builds still echo --prompt even with --no-display-prompt.
-    # If it is present, discard everything through the exact prompt we supplied.
+    # Prefer the exact full prompt, then fall back to its distinctive final line
+    # in case the CLI alters leading characters or spacing while echoing it.
     prompt_index = cleaned.find(prompt) if prompt else -1
     if prompt_index >= 0:
         cleaned = cleaned[prompt_index + len(prompt):]
+    elif prompt:
+        prompt_tail = prompt.rstrip().rsplit("\n", 1)[-1]
+        tail_index = cleaned.rfind(prompt_tail) if prompt_tail else -1
+        if tail_index >= 0:
+            cleaned = cleaned[tail_index + len(prompt_tail):]
 
     # These are CLI timing/exit lines, not part of the model's answer.
     cleaned = re.sub(r"(?m)^[ \t]*\[[ \t]*Prompt:.*\][ \t]*$", "", cleaned)
