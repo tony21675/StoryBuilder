@@ -1,5 +1,18 @@
 # StoryBuilder Chat Handoff
 
+## Latest checkpoint — October 18, 2026: hard bed-sleepwear rule made persistent in Taken at Dusk
+
+Tony established a hard continuity rule: anyone sleeping in a bed must be either wearing sleepwear or naked. Robes/bathrobes/dressing gowns and ordinary daytime clothing are not sleepwear and must never be what a character sleeps in. If a character uses a robe after a bath, they must privately change into sleepwear (or be explicitly established as naked) before falling asleep. The sleeping outfit carries into the next waking scene until a change is shown.
+
+The rule has been recorded in all three canonical MyNovel planning/guidance locations:
+- [story_bible.json](https://github.com/tony21675/MyNovel/commit/b5353b7cf924b5ac9b9bb0020ff2dc15fc76cbdc): permanent canon rule.
+- [writing_guidance.json](https://github.com/tony21675/MyNovel/commit/41800c458acb75f5d2bffdd0d0afea77ce1dfc2d): first recurring instruction so the writer receives it across future scenes.
+- [STORY_PLAN.md](https://github.com/tony21675/MyNovel/commit/34a9616d1e85c73c087afab417506c7739fa0577): confirmed global hard rule; Chapter 2 Scene 5 requires Tony to offer clean pajamas and give Maya privacy to change before bed.
+
+Chapter 2 Scene 5 prose was already corrected in [commit 4e80dcf](https://github.com/tony21675/MyNovel/commit/4e80dcfa88f676ffc3f77158dc36c8d1ccb1a206); compiled Chapter 2 was updated in [commit c481aec](https://github.com/tony21675/MyNovel/commit/c481aeccb7712b12c6a277dc0a046ecce3f325a8). The Scene 5 saved guidance now also makes sleepwear a required beat. Chapter 3 Scene 2 in-progress draft has Maya waking in a robe and must not be accepted; regenerate after the corrected local files are reconciled.
+
+**Local package safety:** the changes above are committed to the MyNovel GitHub copy. Local MyNovel state/guidance files had known unsynchronized edits. Do not pull/overwrite the novel package blindly. Inspect local MyNovel `git status -sb`, preserve local `current_state.json`, and deliberately reconcile only the changed Chapter 2 Scene 5 prose, compiled Chapter 2, STORY_PLAN.md, story_bible.json, and writing_guidance.json.
+
 ## Latest checkpoint — October 18, 2026: Maya's robe-to-bed continuity repaired in MyNovel
 
 Review of the actual manuscript confirmed that Chapter 2, Scene 5 explicitly had Maya wrapped in a thick white robe when Tony settled her onto Tiffany's bed, followed by her falling asleep. Chapter 3, Scene 1 starts with her asleep under the duvet but says nothing about clothing, so the prior scene implicitly left her sleeping in the robe.
