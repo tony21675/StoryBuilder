@@ -1,5 +1,4 @@
 import unittest
-from pathlib import Path
 from types import SimpleNamespace
 
 import storybuilder as storybuilder_app
@@ -36,6 +35,13 @@ class StateAnalysisTransitionTests(unittest.TestCase):
                 {"event": "Rick pushed his chair back."},
             ],
         )
+
+    def test_recent_event_identity_normalizes_whitespace(self):
+        updated = append_recent_events(
+            [{"event": "Tony   told Beth the news."}],
+            ["Tony told Beth the news."],
+        )
+        self.assertEqual(len(updated), 1)
 
     def test_recent_events_are_capped_to_latest_twelve(self):
         existing = [{"event": f"Earlier event {index}"} for index in range(12)]
@@ -121,6 +127,7 @@ class StateAnalysisTransitionTests(unittest.TestCase):
         self.assertIn("new_recent_events", STATE_SYSTEM_PROMPT)
         self.assertIn("sleepwear", STATE_SYSTEM_PROMPT)
         self.assertIn("Replace objectives directly contradicted", STATE_SYSTEM_PROMPT)
+        self.assertNotIn("Return only these ending-state fields", STATE_SYSTEM_PROMPT)
         self.assertIn("merely discussed does not learn from the conversation", KNOWLEDGE_AUDIT_SYSTEM_PROMPT)
         self.assertIn("not every later arrival", KNOWLEDGE_AUDIT_SYSTEM_PROMPT)
 
