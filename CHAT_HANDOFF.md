@@ -1,5 +1,17 @@
 # StoryBuilder Chat Handoff
 
+## October 19, 2026: Scene Planner implementation
+
+The dedicated Scene Planner tab is now on main. It uses the selected local GGUF model for a multi-turn planning conversation, then builds an editable title/body proposal. Conversation and proposal generation do not write files. Only **Approve & Save Plan** changes the active novel's STORY_PLAN.md.
+
+The save path is limited to one identified chapter/scene section. Before saving, the app confirms that the active novel and exact plan contents still match the proposal snapshot. Duplicate or ambiguous headings are rejected. Existing plan files are backed up outside the novel repository at `~/.local/share/storybuilder/scene_plan_backups` and replaced atomically. Existing saved Scene Ideas are preserved; refresh one through **Scene Contract → Load from STORY_PLAN.md** when needed.
+
+Implementation commits: `829fc68` (planner engine), `6642858` (9 focused tests), `fc3edd2` (tab and workflow), `36a0770` (README), and `871c7de` (headless-safe busy checks). GitHub Actions run [39253355987](https://github.com/tony21675/StoryBuilder/actions/runs/39253355987): compilation passed and all 9 new tests passed. The full 235-test suite has the same 5 failures as the baseline run [39219602262](https://github.com/tony21675/StoryBuilder/actions/runs/39219602262): 3 existing workflow test errors and 2 existing assertion failures. The MyNovel repository and manuscript were not changed.
+
+Next: pull StoryBuilder main using `cd ~/Documents/StoryBuilder && ./start.sh`. Open the novel, select **Scene Planner**, and work through the active scene purpose, beats, and hard stop before preparing a proposal. Review the proposal before saving.
+
+---
+
 ## Follow-up checkpoint — October 19, 2026: MyNovel sync confirmed; pause at Scene 3 planning
 
 Tony clicked **Close & Sync Novel** and reported that StoryBuilder closed normally without errors. Remote MyNovel was verified at commit [`86d0e4f`](https://github.com/tony21675/MyNovel/commit/86d0e4f19de7c6a79c47b0b9e75e6e8a37a9aee3). Its `current_state.json` now points to **Chapter 3, Scene 3**, with the reviewed Scene 2 ending situation, changed physical state, daytime clothing for Maya, knowledge updates for Beth/Jessica/Chloe/Rick, broad group objectives, and recent breakfast/disclosure events. The MyNovel handoff was then updated at [`2a2b1b2`](https://github.com/tony21675/MyNovel/commit/2a2b1b2f9ca2c2cd1f98efd17a6e94d4262df595) to record this confirmed sync.
