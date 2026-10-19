@@ -1681,7 +1681,7 @@ The story's location is Tony's home."""
         self.assertIn("my little wildcat", sections["required_beats"][0])
         self.assertIn("Tony gently connects", sections["required_beats"][4])
         self.assertEqual(len(sections["boundaries"]), 1)
-        self.assertIn("Do not call the police", sections["boundaries"][0].replace("or call the police", "Do not call the police"))
+        self.assertIn("call the police", sections["boundaries"][0])
 
         generated = {
             "direction": "Move toward the preliminary framework.",
