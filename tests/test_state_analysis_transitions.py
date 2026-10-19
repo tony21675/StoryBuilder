@@ -290,6 +290,7 @@ class StateAnalysisTransitionTests(unittest.TestCase):
                 "Now knows from Maya that Tiffany scratched the unidentified man's left cheek three times, causing it to bleed.",
                 "Now knows from Maya that the kidnapper smelled like old cigarettes and something sweet, like cheap cologne, with pine needles.",
                 "Now knows from Maya that the kidnapper's van accelerated rapidly upon arrival.",
+            "Knows she raked three furious lines down the side of the kidnapper's left cheek, drawing blood.",
             ],
             "Maya": [
                 "Observed Tiffany scratch the kidnapper three times down his left cheek, causing it to bleed.",
