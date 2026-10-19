@@ -49,9 +49,36 @@ def read_story_plan_file(package_path: str | Path) -> tuple[Path, str | None]:
         return path, None
 
 
-def _extract_object(raw: str) -> dict[str, Any]:
+def _clean_model_output(output: str, prompt: str) -> str:
+    """Return generated text only, omitting echoed prompt and llama.cpp footer noise."""
+    cleaned = str(output or "")
+    cleaned = re.sub(r"\x1b(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])", "", cleaned)
+
+    # Some llama.cpp builds still echo --prompt even with --no-display-prompt.
+    # If it is present, discard everything through the exact prompt we supplied.
+    prompt_index = cleaned.find(prompt) if prompt else -1
+    if prompt_index >= 0:
+        cleaned = cleaned[prompt_index + len(prompt):]
+
+    # These are CLI timing/exit lines, not part of the model's answer.
+    cleaned = re.sub(r"(?m)^[ \t]*\[[ \t]*Prompt:.*\][ \t]*$", "", cleaned)
+    cleaned = re.sub(r"(?m)^[ \t]*Exiting\.\.\.[ \t]*$", "", cleaned)
+    return cleaned.strip()
+
+
+def _extract_object(
+    raw: str, *, required_string_fields: Sequence[str] = ()
+) -> dict[str, Any]:
+    """Extract the last JSON object matching the requested fields.
+
+    The generated text may be preceded by echoed context containing other JSON
+    objects. Choosing the first dictionary can accidentally select that context
+    instead of the model's actual response.
+    """
     cleaned = (raw or "").strip()
     decoder = json.JSONDecoder()
+    matching: list[dict[str, Any]] = []
+    found_dict = False
     for index, char in enumerate(cleaned):
         if char != "{":
             continue
@@ -59,8 +86,19 @@ def _extract_object(raw: str) -> dict[str, Any]:
             value, _ = decoder.raw_decode(cleaned[index:])
         except json.JSONDecodeError:
             continue
-        if isinstance(value, dict):
-            return value
+        if not isinstance(value, dict):
+            continue
+        found_dict = True
+        if all(isinstance(value.get(key), str) for key in required_string_fields):
+            matching.append(value)
+
+    if matching:
+        return matching[-1]
+    if found_dict and required_string_fields:
+        fields = " and ".join(required_string_fields)
+        raise ValueError(
+            f"The local model's proposal must contain string fields {fields}. No file was changed."
+        )
     raise ValueError(
         "The local model did not return a readable scene-plan proposal. "
         "Your conversation and existing plan were left unchanged. Try preparing the proposal again."
@@ -255,20 +293,23 @@ def _run_model(model_path: str | Path, *, system_prompt: str, prompt: str,
     proc = None
     try:
         proc = subprocess.Popen(
-            args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env,
+            args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env,
             text=True, encoding="utf-8", errors="replace",
         )
-        output, _ = proc.communicate(timeout=600)
+        output, diagnostics = proc.communicate(timeout=600)
     except subprocess.TimeoutExpired as exc:
         if proc is not None:
             proc.kill()
             proc.communicate()
         raise TimeoutError("The local model timed out while planning. No plan file was changed.") from exc
     if proc.returncode not in (0, None):
-        raise RuntimeError("The local model failed while planning.\n" + (output or "")[-3000:])
-    response = (output or "").strip()
+        details = (diagnostics or output or "").strip()
+        raise RuntimeError("The local model failed while planning.\n" + details[-3000:])
+    response = _clean_model_output(output or "", prompt)
     if not response:
-        raise ValueError("The local model returned an empty response. No plan file was changed.")
+        details = (diagnostics or "").strip()
+        suffix = f" Diagnostics: {details[-1200:]}" if details else ""
+        raise ValueError("The local model returned an empty response. No plan file was changed." + suffix)
     return response
 
 
@@ -358,9 +399,7 @@ def prepare_scene_plan_proposal(model_path: str | Path, *, chapter: int, scene: 
         model_path, system_prompt=system_prompt, prompt=prompt,
         max_predict=1900, temperature="0.10",
     )
-    proposal = _extract_object(raw)
-    if not isinstance(proposal.get("title"), str) or not isinstance(proposal.get("plan_body"), str):
-        raise ValueError("The local model's proposal must contain string fields title and plan_body. No file was changed.")
+    proposal = _extract_object(raw, required_string_fields=("title", "plan_body"))
     return validate_scene_plan_fields(
         proposal["title"], proposal["plan_body"], chapter=chapter, scene=scene,
     )
