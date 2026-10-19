@@ -4524,6 +4524,69 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         )
         return True
 
+    def _state_analysis_character_candidates(
+        self,
+        story_text: str,
+        chapter: int,
+        scene: int,
+    ) -> list[str]:
+        """Collect the opening cast and known characters named in the accepted prose.
+
+        scene_cast is only the opening cast. Later arrivals must also be available
+        to the knowledge audit, which uses the prose and starting locations to
+        distinguish participants from characters who are merely mentioned.
+        """
+        if not self.package:
+            return []
+
+        state = getattr(self.package, "current_state", {}) or {}
+        names: list[str] = []
+        seen: set[str] = set()
+
+        def add_name(value: Any, *, require_mention: bool = False) -> None:
+            name = str(value or "").strip()
+            if not name:
+                return
+            if require_mention and not re.search(
+                r"(?<!\w)" + re.escape(name) + r"(?!\w)",
+                story_text,
+                flags=re.IGNORECASE,
+            ):
+                return
+            key = name.casefold()
+            if key not in seen:
+                names.append(name)
+                seen.add(key)
+
+        # Always retain the actual opening cast, then add explicitly planned
+        # cast entries and characters whose names appear in the accepted scene.
+        opening_cast = state.get("scene_cast", [])
+        if isinstance(opening_cast, list):
+            for name in opening_cast:
+                add_name(name)
+        for name in self._scene_plan_cast(chapter, scene):
+            add_name(name)
+
+        character_cards = getattr(self.package, "characters", {})
+        if isinstance(character_cards, dict):
+            for filename, data in character_cards.items():
+                name = str(data.get("name", "") or "").strip() if isinstance(data, dict) else ""
+                if not name:
+                    name = Path(str(filename)).stem
+                add_name(name, require_mention=True)
+
+        # Also support established state entries when an older package has no
+        # matching character card. These are candidates, not proof of presence.
+        for field in ("location", "physical_state", "character_knowledge", "active_objectives"):
+            values = state.get(field, {})
+            if not isinstance(values, dict):
+                continue
+            for name in values:
+                if str(name).strip().casefold() != "primary":
+                    add_name(name, require_mention=True)
+
+        return names
+
     def _analyze_accepted_scene(self):
         if not self.package or not self.accepted_scene.strip():
             return
@@ -4543,6 +4606,11 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             return
 
         scene_end_guidance = self._scene_end_guidance(completed_chapter, completed_scene)
+        scene_characters = self._state_analysis_character_candidates(
+            story_text,
+            completed_chapter,
+            completed_scene,
+        )
         model = self.writer_engine.model_path
 
         self.state_analysis_in_progress = True
@@ -4558,6 +4626,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                     current_state,
                     story_text,
                     scene_end_guidance=scene_end_guidance,
+                    scene_characters=scene_characters,
                 )
                 error = None
             except Exception as exc:
