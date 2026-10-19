@@ -20,7 +20,7 @@ class SelectedWidgetTextTests(unittest.TestCase):
         entry = FakeEntry("daybreak / early morning")
 
         selected = storybuilder_app.StoryBuilderApp._selected_widget_text(
-            entry, 10, 15
+            entry, 11, 16
         )
 
         self.assertEqual(selected, "early")
