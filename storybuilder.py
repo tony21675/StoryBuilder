@@ -2154,7 +2154,7 @@ class StoryBuilderApp(tk.Tk):
         }
 
     def _process_story_interview_answer(self):
-        if getattr(self, "scene_planner_request_in_progress", False):
+        if self.__dict__.get("scene_planner_request_in_progress", False):
             messagebox.showwarning("Scene Planner", "Let the current planning request finish before starting another model task.")
             return
         if not self.interview_active or self.interview_pending_patch is not None:
@@ -2807,7 +2807,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         self.writer_status.configure(text=status_text)
 
     def _start_writer(self, skip_notes_seed=False):
-        if getattr(self, "scene_planner_request_in_progress", False):
+        if self.__dict__.get("scene_planner_request_in_progress", False):
             messagebox.showwarning("Scene Planner", "Let the current planning request finish before starting another model task.")
             return
         if getattr(self, "scene_contract_building", False):
@@ -4212,7 +4212,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             text=f"Saved Scene Idea for Chapter {chapter}, Scene {scene}.",
         )
     def _build_contract_from_scene_idea(self):
-        if getattr(self, "scene_planner_request_in_progress", False):
+        if self.__dict__.get("scene_planner_request_in_progress", False):
             messagebox.showwarning("Scene Planner", "Let the current planning request finish before starting generating a scene contract.")
             return
         if getattr(self, "writer_generation_in_progress", False):
@@ -4674,7 +4674,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         return names
 
     def _analyze_accepted_scene(self):
-        if getattr(self, "scene_planner_request_in_progress", False):
+        if self.__dict__.get("scene_planner_request_in_progress", False):
             messagebox.showwarning("Scene Planner", "Let the current planning request finish before starting state analysis.")
             return
         if not self.package or not self.accepted_scene.strip():
@@ -6335,7 +6335,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                 "A Writer task is still running. Let it finish before changing scenes or closing StoryBuilder.",
             )
             return False
-        if getattr(self, "scene_planner_request_in_progress", False):
+        if self.__dict__.get("scene_planner_request_in_progress", False):
             messagebox.showwarning(
                 "Scene Planner",
                 "A Scene Planner request is still running. Let it finish before changing novels or closing StoryBuilder.",
@@ -6883,7 +6883,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             self.new_novel_assistant_status.configure(text=message)
 
     def _prepare_new_novel_proposal(self):
-        if getattr(self, "scene_planner_request_in_progress", False):
+        if self.__dict__.get("scene_planner_request_in_progress", False):
             messagebox.showwarning("Scene Planner", "Let the current planning request finish before starting another model task.")
             return
         if self.package is None:
@@ -7087,7 +7087,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             return str(path)
 
     def _refresh_scene_planner_target(self):
-        if not hasattr(self, "scene_planner_target_var"):
+        if "scene_planner_target_var" not in self.__dict__:
             return
         if self.package is None:
             self.scene_planner_target_var.set("Open a saved novel to plan a scene.")
@@ -7117,7 +7117,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         self._update_scene_planner_buttons()
 
     def _update_scene_planner_buttons(self):
-        if not hasattr(self, "scene_planner_send_button"):
+        if "scene_planner_send_button" not in self.__dict__:
             return
         busy = bool(self.scene_planner_request_in_progress)
         saved = bool(self.package is not None and getattr(self.package, "path", None) is not None)
@@ -7366,7 +7366,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         self._update_scene_planner_buttons()
 
     def _prepare_change_request(self):
-        if getattr(self, "scene_planner_request_in_progress", False):
+        if self.__dict__.get("scene_planner_request_in_progress", False):
             messagebox.showwarning("Scene Planner", "Let the current planning request finish before starting another model task.")
             return
         if self.package is None:
@@ -7923,7 +7923,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             self._refresh_interview_targets(reset=False)
         if hasattr(self, "writer_scene_idea_text"):
             self._refresh_writer_scene_guidance()
-        if hasattr(self, "scene_planner_target_var"):
+        if "scene_planner_target_var" in self.__dict__:
             self._refresh_scene_planner_target()
         self._update_path_label()
 
