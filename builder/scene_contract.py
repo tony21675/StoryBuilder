@@ -48,7 +48,7 @@ Use current_situation as the authoritative narrative snapshot for what has alrea
 
 Explicit scene-header authority: If the original Scene Idea includes a Scene header with a Location or Time value, that exact author-supplied value is authoritative for the planned scene. Do not replace a more specific authored value with a broader current-state label. The current state's time and location describe the opening snapshot unless the author has not set explicit scene-wide metadata. Treat scene_cast as who is physically present at the opening instant, not as a ban on characters entering later; preserve arrivals and appearances the Scene Idea calls for.
 
-Do not turn the idea into a checklist. Keep direction brief and high-level. Always return required_beats as an empty list; the application carries forward only beats the author explicitly labels in the original Scene Idea. Never turn ordinary prose or your own summary into mandatory stops. When the idea gives a clear endpoint, put that endpoint in hard_stop. Preserve it even when expressed as a temporal boundary or a passage-of-time boundary rather than a final action. Do not replace such an endpoint with the most prominent action mentioned earlier. If no endpoint is clear, leave hard_stop empty rather than inventing one.
+Do not turn ordinary prose or your own summary into mandatory stops. Keep direction brief and high-level. Always return required_beats as an empty list; the application carries forward only beats the author explicitly labels under Required Beats or Planned Beats in the original Scene Idea. Treat Planned Beats as a small, event-level list, not a word-for-word checklist. Preserve explicit Boundaries as separate constraints, not as positive beats. When the idea gives a clear endpoint, put that endpoint in hard_stop. Preserve it even when expressed as a temporal boundary or a passage-of-time boundary rather than a final action. Do not replace such an endpoint with the most prominent action mentioned earlier. If no endpoint is clear, leave hard_stop empty rather than inventing one.
 
 Do not invent events or rules. Leave the Writer freedom over natural dialogue, gestures, pacing, transitions, and connective actions. max_attempts is 3. Output JSON only.
 """
@@ -579,7 +579,14 @@ _AUTHOR_SECTION_ALIASES = {
     "required": "required_beats",
     "required beat": "required_beats",
     "required beats": "required_beats",
+    "planned beat": "required_beats",
+    "planned beats": "required_beats",
+    "key beats": "required_beats",
     "must include": "required_beats",
+    "boundary": "boundaries",
+    "boundaries": "boundaries",
+    "scene boundaries": "boundaries",
+    "constraints": "boundaries",
 }
 
 
@@ -656,6 +663,14 @@ def extract_authored_scene_sections(scene_idea: str) -> dict[str, Any]:
             required_beats.append(item)
     if required_beats:
         sections["required_beats"] = required_beats
+
+    boundaries = []
+    for raw_item in collected.get("boundaries", []):
+        item = re.sub(r"^\s*(?:[-*•]+|\d+[.)])\s*", "", str(raw_item)).strip()
+        if item:
+            boundaries.append(item)
+    if boundaries:
+        sections["boundaries"] = boundaries
 
     return sections
 
@@ -741,6 +756,7 @@ class SceneContract:
 
         for key in (
             "required_beats",
+            "boundaries",
             "required_facts",
             "required_sequence",
             "forbidden",
@@ -804,8 +820,9 @@ class SceneContract:
             "direction": str(raw.get("direction", "") or "").strip(),
             "hard_stop": str(raw.get("hard_stop", "") or "").strip(),
             # Model-generated beat lists must never become mandatory. Only the
-            # author's clearly labeled Required Beats are carried into the contract.
+            # author's explicitly labeled Required Beats or Planned Beats become beats.
             "required_beats": list(authored_sections.get("required_beats", [])),
+            "boundaries": list(authored_sections.get("boundaries", [])),
             "max_attempts": raw.get("max_attempts", 3),
         }
 
@@ -869,6 +886,7 @@ class SceneContract:
 
         for key in (
             "required_beats",
+            "boundaries",
             "required_facts",
             "required_sequence",
             "forbidden",
@@ -901,7 +919,7 @@ class SceneContract:
         guidance: dict[str, Any] | None,
         module_guidance: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
-        """Build the small runtime contract from positive beats and one ending."""
+        """Build the runtime contract from authored beats, boundaries, and one ending."""
         source = guidance if isinstance(guidance, dict) else {}
         explicit = source.get("scene_contract")
         if "scene_contract" in source and explicit is not None and not isinstance(explicit, dict):
@@ -935,9 +953,15 @@ class SceneContract:
             # Previously generated contract beats are not author requirements.
             # Re-derive the mandatory list from clearly labeled author input so
             # old saved contracts cannot keep enforcing an AI-written checklist.
-            contract["required_beats"] = list(
-                extract_authored_scene_sections(author_idea).get("required_beats", [])
-            )
+            authored_sections = extract_authored_scene_sections(author_idea)
+            contract["required_beats"] = list(authored_sections.get("required_beats", []))
+            authored_boundaries = list(authored_sections.get("boundaries", []))
+            if authored_boundaries:
+                contract["boundaries"] = authored_boundaries
+            else:
+                # Do not let boundaries from an older saved contract survive
+                # after the author removes or renames that section in the idea.
+                contract.pop("boundaries", None)
 
         def append_beats(values: Any) -> None:
             if not isinstance(values, list):
@@ -993,7 +1017,7 @@ class SceneContract:
         # Keep only the fields that are useful for the writer and validator.
         contract = {
             key: contract[key]
-            for key in ("author_idea", "direction", "required_beats", "hard_stop", "max_attempts")
+            for key in ("author_idea", "direction", "required_beats", "boundaries", "hard_stop", "max_attempts")
             if key in contract
         }
         if not contract:
@@ -1017,6 +1041,17 @@ class SceneContract:
                 + author_idea
             )
 
+        boundaries = (
+            [str(item).strip() for item in contract.get("boundaries", []) if str(item).strip()]
+            if isinstance(contract.get("boundaries", []), list)
+            else []
+        )
+        if boundaries:
+            parts.append(
+                "AUTHOR-DEFINED BOUNDARIES (MANDATORY):\n"
+                + "\n".join(f"- {item}" for item in boundaries)
+            )
+
         direction_text = str(direction or "").strip()
         if direction_text:
             parts.append(
@@ -1038,7 +1073,9 @@ class SceneContract:
         if author_idea:
             parts.append(
                 "Priority: Treat the Scene Idea as the primary source for intended direction, key actions, "
-                "important moments, and endpoint. It is not a word-for-word prose checklist. Generated "
+                "important moments, and endpoint. Clearly labeled Planned Beats and Required Beats are "
+                "event-level requirements; explicit Boundaries are mandatory constraints. These do not require "
+                "word-for-word prose. It is not a word-for-word prose checklist. Generated "
                 "direction and contract are supporting hints and must not overrule or contradict the author's intent. "
                 "AUTHOR ACTION FIDELITY: Concrete actions and objects the idea specifies as intended choices "
                 "must keep their identity. Do not replace one with a materially different alternative just "
@@ -1225,7 +1262,7 @@ class SceneContract:
         # generated auxiliary fields so they cannot become extra validation gates.
         contract = {
             key: contract[key]
-            for key in ("author_idea", "direction", "required_beats", "hard_stop", "max_attempts")
+            for key in ("author_idea", "direction", "required_beats", "boundaries", "hard_stop", "max_attempts")
             if key in contract
         }
         if not contract:
@@ -1254,7 +1291,7 @@ class SceneContract:
         # wording that the model should be forced to reproduce.
         semantic_contract = {
             key: contract[key]
-            for key in ("author_idea", "direction", "required_beats", "hard_stop")
+            for key in ("author_idea", "direction", "required_beats", "boundaries", "hard_stop")
             if key in contract
         }
         requires_coverage = bool(str(semantic_contract.get("author_idea", "") or "").strip())
@@ -1298,7 +1335,7 @@ class SceneContract:
             + "VALIDATOR TASK:\n"
             + "Validate against the author's original idea, relevant author guidance, and starting state. "
             + "The idea is primary; generated hints are secondary. "
-            + "Treat Required Beats as narrative-level goals, not a word-for-word checklist. "
+            + "Treat Planned Beats and Required Beats as narrative-level goals, not a word-for-word checklist. "
             + "A specified bubble bath replaced with a shower is a material substitution; preserve defining objects, source locations, order, and history. "
             + "Check explicit requests, preferences, boundaries, or needs against later actions; flag ignored acknowledgments. "
             + "Report material omissions, substitutions, sequence/location errors, or ignored requests. "
