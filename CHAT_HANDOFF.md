@@ -1,6 +1,15 @@
 # StoryBuilder Chat Handoff
 
 
+## Follow-up — October 18, 2026: Chapter 1, Scene 5 fact check
+
+Correction to the draft critique: Tiffany's resistance during the abduction is established in `Manuscript/Chapters/Chapter_01/Chapter_01_Section_05.txt` and repeated in `current_state.json`: two elbow strikes to the solar plexus, a kick to the thigh, a slap to the jaw, and scratches to the kidnapper's left cheek. Maya witnesses this. Do not label those details invented or treat them as a continuity violation. The independent audit receives the whole current state, which explicitly carries those facts forward.
+
+The valid eyewitness problem in the attempted Chapter 3, Scene 2 draft is assigning Chloe firsthand knowledge of the abduction although she was home sick. Other valid review concerns include the loose 'last night' timing (the abduction begins in late afternoon in Chapter 1, Scene 5), having Maya change clothes in the kitchen rather than privately, and pushing into operational investigation beyond the Scene 2 hard stop.
+
+CI follow-up for the generic scene completion/audit change: fixed a mismatch between a new test's expected notice capitalization and the actual notice. The full suite may still report the same five pre-existing failures documented in the prior checkpoint; verify the latest Actions run before asking Tony to sync. Do not ask for another manual prose correction.
+
+---
 ## Latest checkpoint — October 18, 2026: independent scene-integrity audit and bounded full retry
 
 The next Chapter 3, Scene 2 draft reached the intended rough endpoint but still contained major continuity/scope failures: it assigned Chloe eyewitness knowledge despite her being home sick, asserted unestablished details about Tiffany fighting the abductor, misplaced the timing of the abduction, and advanced into operational investigation. This showed completion checking alone was not enough.

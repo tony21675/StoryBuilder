@@ -168,7 +168,7 @@ class SceneCompletionTests(unittest.TestCase):
             current_state=self.state,
         )
         self.assertEqual(draft, "Safe but incomplete draft.")
-        self.assertIn("original draft preserved", notice)
+        self.assertIn("Original draft preserved", notice)
         self.assertEqual(len(self.engine.prompts), 2)
 
 
