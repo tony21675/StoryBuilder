@@ -15,13 +15,14 @@ from builder.scene_planner import (
 class ScenePlannerModelOutputTests(unittest.TestCase):
     def test_clean_output_removes_banner_echoed_prompt_and_cli_footer(self):
         prompt = (
-            "TARGET SCENE:\\n{\\\"chapter\\\": 3, \\\"scene\\\": 3}\\n"
-            "PLANNING CONVERSATION SO FAR:\\nAUTHOR:\\nHelp plan this scene."
+            'TARGET SCENE:\n{"chapter": 3, "scene": 3}\n'
+            "PLANNING CONVERSATION SO FAR:\nAUTHOR:\nHelp plan this scene."
         )
         raw = (
-            "llama.cpp startup banner\\nbuild: test-build\\n"
-            "> " + prompt + "\\n\\nHere is the actual planner reply.\\n"
-            "[ Prompt: 120 t/s | Generation: 20 t/s ]\\nExiting...\\n"
+            "llama.cpp startup banner\nbuild: test-build\n> "
+            + prompt
+            + "\n\nHere is the actual planner reply.\n"
+            "[ Prompt: 120 t/s | Generation: 20 t/s ]\nExiting...\n"
         )
         cleaned = _clean_model_output(raw, prompt)
         self.assertEqual(cleaned, "Here is the actual planner reply.")
@@ -32,8 +33,8 @@ class ScenePlannerModelOutputTests(unittest.TestCase):
 
     def test_proposal_extraction_chooses_last_valid_object_not_scene_context_or_example(self):
         raw = (
-            'TARGET SCENE: {"chapter": 3, "scene": 3}\\n'
-            'Example: {"title": "Short scene title", "plan_body": "Purpose and planned beats..."}\\n'
+            'TARGET SCENE: {"chapter": 3, "scene": 3}\n'
+            'Example: {"title": "Short scene title", "plan_body": "Purpose and planned beats..."}\n'
             'Actual answer: {"title": "The first steps", "plan_body": "The real plan body."}'
         )
         proposal = _extract_object(raw, required_string_fields=("title", "plan_body"))
