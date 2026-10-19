@@ -8,11 +8,113 @@ import builder.state_manager as state_manager_module
 from builder.state_manager import (
     StateManager,
     extract_json_object,
+    reconcile_string_items,
     remove_prior_chapter_opening_markers,
+    reviewed_state_preview_to_patch,
+    validate_state_proposal,
 )
 
 
 class StateUpdateValidationTests(unittest.TestCase):
+    def test_explicit_null_patch_removes_stale_nested_state(self):
+        base = {
+            "current_situation": "Tony and Maya are in the kitchen.",
+            "location": {"primary": "Tony's home", "Tony": "Kitchen", "Maya": "Kitchen"},
+            "physical_state": {
+                "Tony": {"location": "Kitchen", "posture": "standing", "movement": "stationary", "contact": "Maya"},
+                "Maya": {"location": "Kitchen", "posture": "seated"},
+            },
+            "active_objectives": {"Tony": "Coordinate the search", "Maya": "Watch the street"},
+        }
+        original = json.loads(json.dumps(base))
+        patch = {
+            "location": {"Maya": None},
+            "physical_state": {"Tony": {"movement": None, "contact": None}, "Maya": {"posture": None}},
+            "active_objectives": {"Maya": None},
+        }
+
+        merged = StateManager.merge_patch(base, patch)
+
+        self.assertEqual(base, original, "Applying a patch must not mutate the approved baseline.")
+        self.assertNotIn("Maya", merged["location"])
+        self.assertEqual(merged["physical_state"]["Tony"], {"location": "Kitchen", "posture": "standing"})
+        self.assertNotIn("Maya", merged["physical_state"])
+        self.assertEqual(merged["active_objectives"], {"Tony": "Coordinate the search"})
+
+    def test_reviewed_preview_can_remove_stale_nested_fields(self):
+        expected = {
+            "story_format_version": "1.0",
+            "chapter": 3, "scene": 3, "status": "in_progress",
+            "scene_completed": False, "chapter_completed": False, "scene_cast": ["Tony", "Maya"],
+            "current_situation": "The group is organizing a search.",
+            "location": {"primary": "Tony's home", "Tony": "Kitchen", "Maya": "Kitchen"},
+            "physical_state": {
+                "Tony": {"location": "Kitchen", "posture": "standing", "movement": "stationary", "contact": "Maya"},
+                "Maya": {"location": "Kitchen", "posture": "seated"},
+            },
+            "active_objectives": {"Tony": "Coordinate the search", "Maya": "Watch the street"},
+            "character_knowledge": {"Tony": ["Knows Tiffany is missing."], "Maya": ["Knows Tiffany is missing."]},
+        }
+        reviewed = json.loads(json.dumps(expected))
+        del reviewed["location"]["Maya"]
+        del reviewed["physical_state"]["Tony"]["movement"]
+        del reviewed["physical_state"]["Tony"]["contact"]
+        del reviewed["active_objectives"]["Maya"]
+        del reviewed["character_knowledge"]["Maya"]
+
+        patch = reviewed_state_preview_to_patch(expected, reviewed)
+
+        self.assertIsNone(patch["location"]["Maya"])
+        self.assertIsNone(patch["physical_state"]["Tony"]["movement"])
+        self.assertIsNone(patch["physical_state"]["Tony"]["contact"])
+        self.assertIsNone(patch["active_objectives"]["Maya"])
+        self.assertIsNone(patch["character_knowledge"]["Maya"])
+        merged = StateManager.merge_patch(expected, patch)
+        self.assertNotIn("Maya", merged["location"])
+        self.assertNotIn("contact", merged["physical_state"]["Tony"])
+        self.assertNotIn("movement", merged["physical_state"]["Tony"])
+        self.assertNotIn("Maya", merged["active_objectives"])
+        self.assertNotIn("Maya", merged["character_knowledge"])
+
+    def test_state_proposal_accepts_explicit_stale_item_deletions(self):
+        base = {
+            "current_situation": "The group is searching.",
+            "location": {"primary": "Home", "Maya": "Corner"},
+            "physical_state": {"Tony": {"movement": "stationary"}},
+            "active_objectives": {"Tony": "Find Tiffany"},
+            "character_knowledge": {"Tony": ["Knows Tiffany is missing."]},
+            "active_clues": ["Old clue"],
+            "new_clues": ["Old scene clue"],
+            "unresolved_questions": ["Where is Tiffany?"],
+        }
+        proposal = {
+            "current_situation": "The group has assigned initial search responsibilities.",
+            "location": {"Maya": None},
+            "physical_state": {"Tony": {"movement": None}},
+            "active_objectives": {"Tony": None},
+            "new_clues": ["The van accelerated unusually fast."],
+            "resolved_clues": ["Old clue"],
+            "new_unresolved_questions": ["Why did Tiffany appear happy?"],
+            "resolved_questions": ["Where is Tiffany?"],
+            "new_recent_events": [],
+        }
+
+        self.assertIs(validate_state_proposal(base, proposal), proposal)
+
+    def test_reconcile_string_items_adds_deduplicates_and_removes_only_explicit_items(self):
+        existing = ["Van smelled of pine.", "An unresolved identity question", "Old clue"]
+        reconciled = reconcile_string_items(
+            existing,
+            ["van smelled of pine", "Tiffany smiled before the abduction"],
+            ["Old clue"],
+        )
+
+        self.assertEqual(
+            reconciled,
+            ["Van smelled of pine.", "An unresolved identity question", "Tiffany smiled before the abduction"],
+        )
+        self.assertEqual(existing, ["Van smelled of pine.", "An unresolved identity question", "Old clue"])
+
     def test_extracts_final_patch_instead_of_echoed_before_state(self):
         before_state = {
             "story_format_version": "1.0",
@@ -458,6 +560,84 @@ class StateUpdateValidationTests(unittest.TestCase):
             current_state["character_knowledge"]["Tony"],
             ["Knows Tiffany is his daughter."],
         )
+
+    def test_propose_reconciles_new_and_resolved_clues_and_questions(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            model = root / "writer.gguf"
+            llama = root / "llama-cli"
+            model.touch()
+            llama.touch()
+
+            current_state = {
+                "chapter": 3,
+                "scene": 3,
+                "status": "in_progress",
+                "scene_completed": False,
+                "chapter_completed": False,
+                "scene_cast": ["Tony", "Maya", "Chloe", "Beth", "Jessica", "Rick"],
+                "current_situation": "The group is responding to Tiffany's abduction.",
+                "location": {"primary": "Tony's home", "Tony": "Kitchen", "Maya": "Kitchen"},
+                "physical_state": {"Tony": {"posture": "standing"}, "Maya": {"posture": "seated"}},
+                "active_objectives": {"Tony": "Find Tiffany"},
+                "active_clues": ["Van color is unknown", "An old clue now resolved"],
+                "new_clues": ["Last scene's new clue"],
+                "unresolved_questions": ["Who abducted Tiffany?", "Where is Tiffany?"],
+                "recent_events": [],
+                "character_knowledge": {},
+            }
+            proposal = {
+                "current_situation": "The group has defined three initial investigative lanes.",
+                "new_clues": [
+                    "The van accelerated unusually fast.",
+                    "The reported scent combined pine needles, cheap cologne, and old cigarettes.",
+                ],
+                "resolved_clues": ["An old clue now resolved"],
+                "new_unresolved_questions": ["Why did Tiffany appear happy before the abduction?"],
+                "resolved_questions": ["Where is Tiffany?"],
+                "new_recent_events": [],
+            }
+
+            class FakeProcess:
+                returncode = 0
+
+                def communicate(self, timeout=None):
+                    return json.dumps(proposal), None
+
+            with (
+                patch.object(state_manager_module, "DEFAULT_LLAMA", llama),
+                patch.object(state_manager_module.subprocess, "Popen", return_value=FakeProcess()),
+                patch.object(StateManager, "_detect_accelerator", return_value=None),
+                patch.object(StateManager, "_propose_knowledge_delta", return_value={}),
+            ):
+                result = StateManager.propose(
+                    model,
+                    current_state,
+                    "Maya describes the van's unusual speed and smell. Chloe describes Tiffany smiling before the abduction.",
+                )
+
+        self.assertEqual(
+            result["new_clues"],
+            [
+                "The van accelerated unusually fast.",
+                "The reported scent combined pine needles, cheap cologne, and old cigarettes.",
+            ],
+        )
+        self.assertEqual(
+            result["active_clues"],
+            [
+                "Van color is unknown",
+                "The van accelerated unusually fast.",
+                "The reported scent combined pine needles, cheap cologne, and old cigarettes.",
+            ],
+        )
+        self.assertEqual(
+            result["unresolved_questions"],
+            ["Who abducted Tiffany?", "Why did Tiffany appear happy before the abduction?"],
+        )
+        self.assertNotIn("resolved_clues", result)
+        self.assertNotIn("resolved_questions", result)
+        self.assertNotIn("new_unresolved_questions", result)
 
     def test_rejects_unrecognized_singular_event_field(self):
         with self.assertRaisesRegex(ValueError, "unsupported singular 'event' field"):
