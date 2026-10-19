@@ -1,3 +1,21 @@
+## Latest checkpoint: October 19, 2026: Scene Planner proposal error, pause for tomorrow
+
+Tony tested the new Scene Planner for Chapter 3, Scene 3 in the local StoryBuilder app using the Gemma 4 E4B instruction-tuned GGUF model. The multi-turn planning conversation itself works: Gemma produced several outlines, and the latest outline correctly captures the emotional opening, organically emerging tentative roles, meaningful ideas from Maya and Chloe, Tony gently connecting the ideas, and a hard stop once the initial framework begins taking shape.
+
+**Current blocker:** Tony clicked **Prepare Plan Proposal** and received an error. He was getting ready for bed and could not copy the exact error, so its cause is unknown. The title/body proposal has not been successfully reviewed or approved. There is no confirmation that a proposal was saved; assume no plan was saved and retry tomorrow. The canonical MyNovel STORY_PLAN.md was not intentionally edited during this test. Do not change the accepted manuscript, current state, writing guidance, or plan as part of diagnosing this error.
+
+**Next session:** Reopen StoryBuilder normally with cd ~/Documents/StoryBuilder && ./start.sh. Return to **Scene Planner**, target Chapter 3, Scene 3. If the old conversation survived, retry **Prepare Plan Proposal** once and capture the exact error, preferably with a screenshot if selecting or copying the error is difficult. If the conversation did not survive, restart it with a short summary rather than pasting the full transcript:
+
+> Plan Chapter 3, Scene 3. Start Saturday morning at Tony's home immediately after Scene 2. Tony holds Chloe in a long, emotional hug, tears forming, sincerely thanks her, and calls her “my little wildcat” for the first time; Chloe likes the nickname. Then let Jessica's technical skills, Beth's community connections, Rick's practical/Army experience, and meaningful ideas from Maya and Chloe emerge naturally. Tony gently connects their ideas into tentative broad roles. End when a preliminary framework is beginning to form, before specific assignments, investigation steps, new leads, training, or rescue planning. Scene 2 already ends with the group committed to privately helping find Tiffany. No invented clues, no kidnapper or buyer identification, and no police call. Prepare an editable plan proposal for review; do not save it until approved.
+
+Review the generated proposal before clicking **Approve & Save Plan**. If proposal generation fails again, record the exact error before retrying further; do not repeatedly click without seeing what failed.
+
+**Readability backlog, not implemented:** Tony found the planning display hard to read because each model call shows the llama.cpp startup banner and a large TARGET SCENE / CURRENT STARTING STATE context dump. Later, discuss a focused UI/logging improvement to keep the context available to the model but hide it from the normal conversation view, leaving user messages and planner replies visible. Tony explicitly said not to change this now; finish basic Scene Planner testing first. When sharing results in ChatGPT, only the newest planner reply or the error screenshot is needed, not the full transcript.
+
+No code changes were made in this checkpoint. This note records a live-test blocker only; it does not establish the root cause.
+
+---
+
 # StoryBuilder Chat Handoff
 
 ## October 19, 2026: Scene Planner implementation
