@@ -45,6 +45,20 @@ class StateUpdateValidationTests(unittest.TestCase):
         self.assertNotIn("Maya", merged["physical_state"])
         self.assertEqual(merged["active_objectives"], {"Tony": "Coordinate the search"})
 
+    def test_recursive_deletion_prunes_empty_parent_objects(self):
+        base = {
+            "current_situation": "Tony is standing in the kitchen.",
+            "physical_state": {"Tony": {"movement": "stationary"}},
+        }
+
+        merged = StateManager.merge_patch(
+            base,
+            {"physical_state": {"Tony": {"movement": None}}},
+        )
+
+        self.assertEqual(merged.get("physical_state", {}), {})
+        self.assertNotIn("Tony", merged.get("physical_state", {}))
+
     def test_preview_deletion_survives_patch_composition(self):
         baseline = {
             "current_situation": "Tony is preparing to coordinate the search.",
