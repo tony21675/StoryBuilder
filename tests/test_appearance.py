@@ -47,6 +47,23 @@ class AppearanceDetectionTests(unittest.TestCase):
 
         self.assertEqual(detect_system_appearance({}, runner), "dark")
 
+    def test_saved_cinnamon_theme_overrides_stale_gtk_theme_environment(self):
+        def runner(command, **_kwargs):
+            if command == [
+                "gsettings", "get", "org.gnome.desktop.interface", "color-scheme"
+            ]:
+                return subprocess.CompletedProcess(command, 0, "'default'\\n", "")
+            if command == [
+                "gsettings", "get", "org.cinnamon.desktop.interface", "gtk-theme"
+            ]:
+                return subprocess.CompletedProcess(command, 0, "'Mint-Y-Dark-Aqua'\\n", "")
+            return subprocess.CompletedProcess(command, 1, "", "unavailable")
+
+        self.assertEqual(
+            detect_system_appearance({"GTK_THEME": "Mint-Y"}, runner),
+            "dark",
+        )
+
     def test_unsuffixed_cinnamon_theme_is_treated_as_light(self):
         def runner(command, **_kwargs):
             if command == [
