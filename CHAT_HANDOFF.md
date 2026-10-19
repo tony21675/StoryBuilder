@@ -1,3 +1,21 @@
+## Latest checkpoint — October 19, 2026: preserve Planned Beats and Boundaries through Scene Contract
+
+Tony approved repairing the reusable Scene Planner → Scene Contract → Writer handoff after Chapter 3, Scene 3's plan contained all agreed details but the generated read-only contract compressed them into a generic direction and endpoint.
+
+**Implemented on PR #33, branch fix/planned-beats-boundaries:**
+- Scene Contract now recognizes explicit **Planned Beats** as author-authored event-level requirements as well as **Required Beats**. Model-invented beats are still ignored.
+- Explicit **Boundaries** are parsed separately, retained in the runtime contract, shown in a read-only **Author Boundaries** field, and passed prominently to both Writer and semantic validator prompts.
+- Scene Idea remains the editable source of truth; generated beginning/middle and end fields remain read-only. Regenerating the contract re-derives beat and boundary data from the original idea and prevents stale generated values from surviving.
+- Writer prompt guidance and UI help now describe Planned Beats and Boundaries consistently.
+- Added regression tests for the exact Scene 3 plan format, including all five planned beats, hard-stop preservation, and boundary propagation.
+
+**Verification:** On commit b3b22848c61dc55c512798deaadf1f8f13fe4cc7, GitHub Actions compiled the application and builder modules successfully. Both new focused tests passed. The full 248-test suite still has five previously known unrelated failures: three state-workflow tests (empty ending-state preview/Tk mock behavior), one writer-prompt wording assertion, and one text-selection assertion. No new test failures remain from this change; the complete suite is not fully green. The initial run also exposed a prompt-wording regression, which was corrected and the latest run no longer reports that failure.
+
+**Novel safety boundary:** No MyNovel files, STORY_PLAN.md, writing_guidance.json, current_state.json, accepted manuscript prose, or Scene 3 plan text were changed by this repair. After the code is merged and Tony syncs StoryBuilder, reload/check the Scene Contract for Chapter 3, Scene 3 and regenerate it from the saved Scene Idea. Confirm the five Planned Beats and Boundaries appear in the read-only fields before writing. Do not sync the novel merely to apply the reusable code fix.
+
+PR: https://github.com/tony21675/StoryBuilder/pull/33
+
+---
 ## Latest checkpoint: October 19, 2026: dark theme detection priority corrected
 
 Tony shared a screenshot after syncing/restarting StoryBuilder: the app still showed a light palette even though his Linux Mint desktop/window theme was dark. The screenshot's window/field colors corresponded to the light palette, pointing to theme detection rather than a failed code sync.
