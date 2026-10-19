@@ -1,3 +1,11 @@
+## Follow-up diagnostic: exact Scene Planner error, October 19, 2026
+
+Tony subsequently supplied the exact error from **Prepare Plan Proposal**: `the local model's proposal must contain string fields title and plan_body.`
+
+This narrows the immediate diagnostic: the proposal-generation path rejected the local model's output because the parsed proposal did not satisfy the required `title` and `plan_body` string-field contract. The exact raw model response and parsed object are not available yet, so do not assume whether the model emitted malformed JSON, omitted/renamed a field, or whether the parser/response handling is at fault. Tomorrow, inspect the proposal-generation code and error path, capture or log a bounded/safe excerpt of the raw model output and parsed structure, and add a focused regression test for the observed failure. Do not change the expected schema or patch the implementation by guesswork. No app code has been changed in response to this error yet.
+
+---
+
 ## Latest checkpoint: October 19, 2026: Scene Planner proposal error, pause for tomorrow
 
 Tony tested the new Scene Planner for Chapter 3, Scene 3 in the local StoryBuilder app using the Gemma 4 E4B instruction-tuned GGUF model. The multi-turn planning conversation itself works: Gemma produced several outlines, and the latest outline correctly captures the emotional opening, organically emerging tentative roles, meaningful ideas from Maya and Chloe, Tony gently connecting the ideas, and a hard stop once the initial framework begins taking shape.
