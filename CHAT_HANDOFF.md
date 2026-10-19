@@ -1,6 +1,19 @@
 # StoryBuilder Chat Handoff
 
 
+## Latest checkpoint — October 18, 2026: prevent stale starting-state metadata from overriding the Scene Idea
+
+Tony approved this focused fix after finding the Writer's Scene Idea said `Time: Saturday morning at daybreak` and required Beth, Chloe, Jessica, and Rick to arrive later, while the Writer direction showed `Time: daybreak / early morning` and `Cast: Tony, Maya`. The starting state's time/cast describe the scene's opening snapshot; they must not override explicit scene-wide author metadata or exclude later arrivals.
+
+**Code change:** `builder/scene_contract.py` provides `extract_scene_header_metadata()` to retrieve explicit `Location:`/`Time:` from the author's Scene header, and the contract-builder prompt now gives those fields priority over broad state summaries. `storybuilder.py` reuses the same saved Scene Idea plan entry used by the Writer preview; the direction uses explicit author header values when present, labels `scene_cast` as the opening cast only, labels physical positions as opening continuity, and explicitly permits later arrivals named in the Scene Idea. State still controls completed events, knowledge, and starting positions.
+
+**Regression tests:** parser tests cover explicit Saturday time/location and ensure metadata is not inferred from body prose. A Writer-direction integration test exercises the actual UI-direction builder: explicit author time overrides `daybreak / early morning`, opening cast is clearly scoped, and later arrivals remain allowed. Verify the latest GitHub Actions run before asking Tony to sync.
+
+**Next step after verification:** Let the current unaccepted generation finish, but do not accept it. Once code and tests are confirmed, Tony should run `./start.sh` from `~/Documents/StoryBuilder` to sync and launch, then click Writer's `Build Scene Direction` button to refresh the displayed direction before regenerating Chapter 3, Scene 2. Keep accepted Scene 1 untouched. MyNovel's `STORY_PLAN.md` already has the approved `Saturday morning at daybreak` header.
+
+**Required collaboration workflow:** Read the handoff first. Diagnose, recommend a narrow fix, and ask Tony for explicit approval before modifying code, prompts, story files, or repository state. Implement only after approval; then test, update this handoff, and report exact results. Discussing a problem is not permission to change files.
+
+---
 ## Latest checkpoint — October 18, 2026: evidence-backed continuity audit and Saturday scene-time anchor
 
 Tony approved the next focused StoryBuilder change before implementation. The audit now requires five distinct checks: timeline/event order, character presence and knowledge, physical/location continuity, unsupported consequential details, and the scene hard stop. Any reported conflict must cite an exact excerpt from the draft and an exact excerpt from the original scene direction, starting-state JSON, or stable author guidance. The app verifies both quotes against the supplied text. Missing categories, unsupported quotes, uncertain categories, or disagreement between the semantic validator and the evidence-backed audit preserve the original draft rather than triggering a rewrite. Only a fully structured, evidence-backed conflict permits one full-scene retry. A continuation for missing beats is appended only when the entire combined draft receives a clear audit.

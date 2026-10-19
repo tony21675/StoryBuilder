@@ -1493,6 +1493,53 @@ class SceneResetSafetyTests(unittest.TestCase):
         confirm.assert_called_once()
 
 
+    def test_writer_direction_prefers_explicit_scene_header_and_labels_opening_cast(self):
+        idea = """Breakfast disclosure and the first offers to help
+
+**Scene header:**
+
+CHAPTER 3, SCENE 2
+Location: Tony's home
+Time: Saturday morning at daybreak
+
+**Starting point:** Beth, Chloe, Jessica, and Rick arrive later for breakfast.
+"""
+        app = self.make_writer_scene_idea_app(idea)
+        app.package.current_state.update({
+            "chapter": 3,
+            "scene": 2,
+            "time": {"period": "daybreak / early morning", "exact_time": "not established"},
+            "location": {"primary": "Tony's home"},
+            "scene_cast": ["Tony", "Maya"],
+            "current_situation": "Tony is at home. Maya is asleep in Tiffany's bedroom.",
+            "physical_state": {
+                "Tony": {"location": "Tony's bedroom", "position": "near the window"},
+                "Maya": {"location": "Tiffany's bedroom", "position": "on the bed", "posture": "sleeping"},
+            },
+        })
+        app.package.extra_json["writing_guidance.json"]["chapter_plans"] = {
+            "3": {"scene_plan": {"2": {
+                "scene_idea": idea,
+                "direction": "The guests arrive after Tony wakes Maya.",
+                "end_condition": "End as the group begins committing to a private effort.",
+            }}}
+        }
+        # Other tests shadow the UI handler with a Mock; remove it so the real
+        # application method is exercised.
+        del app._build_scene_direction
+
+        storybuilder_app.StoryBuilderApp._build_scene_direction(app, update_status=False)
+        direction = app.writer_direction_text.value
+
+        self.assertIn("Location: Tony's home", direction)
+        self.assertIn("Time: Saturday morning at daybreak", direction)
+        self.assertNotIn("Time: daybreak / early morning", direction)
+        self.assertIn("Opening cast (present at scene start only; not the full scene cast): Tony, Maya", direction)
+        self.assertIn("Opening physical continuity (starting positions only):", direction)
+        self.assertIn("do not exclude later arrivals named in the original Scene Idea", direction)
+        self.assertNotIn("\nCast: Tony, Maya", direction)
+
+
 if __name__ == "__main__":
     unittest.main()
 

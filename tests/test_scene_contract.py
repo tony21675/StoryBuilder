@@ -11,6 +11,7 @@ from builder.scene_contract import (
     SceneContractResponseError,
     SceneContractValidationUnavailable,
     extract_authored_scene_sections,
+    extract_scene_header_metadata,
 )
 
 
@@ -1632,6 +1633,29 @@ Required Beats
         self.assertNotIn("unrelated_archive_blob", engine.calls[1][1])
         self.assertEqual(os.environ.get("STORY_WRITER_CONTEXT"), old_context)
         self.assertEqual(os.environ.get("STORY_WRITER_MAX_TOKENS"), old_tokens)
+
+
+    def test_extract_scene_header_metadata_preserves_authored_time_and_location(self):
+        idea = """Breakfast disclosure and the first offers to help
+
+**Scene header:**
+
+CHAPTER 3, SCENE 2
+Location: Tony's home
+Time: Saturday morning at daybreak
+
+**Starting point:** Continue after Scene 1.
+Later in the idea, someone might mention the time in a sentence.
+"""
+        self.assertEqual(
+            extract_scene_header_metadata(idea),
+            {"location": "Tony's home", "time": "Saturday morning at daybreak"},
+        )
+
+    def test_extract_scene_header_metadata_does_not_infer_from_body_text(self):
+        idea = """Tony prepares breakfast at daybreak.
+The story's location is Tony's home."""
+        self.assertEqual(extract_scene_header_metadata(idea), {})
 
 
 if __name__ == "__main__":

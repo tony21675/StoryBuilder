@@ -51,7 +51,7 @@ from builder.state_manager import (
     remove_prior_chapter_opening_markers,
     reviewed_state_preview_to_patch,
 )
-from builder.scene_contract import SceneContract
+from builder.scene_contract import SceneContract, extract_scene_header_metadata
 from builder.focused_revision import (
     FOCUSED_REVISION_SYSTEM_PROMPT,
     apply_focused_replacement,
@@ -2399,10 +2399,26 @@ class StoryBuilderApp(tk.Tk):
         cast = [str(name) for name in state.get("scene_cast", []) if str(name).strip()]
         situation = str(state.get("current_situation", "") or "").strip()
 
+        # Use the same saved Scene Idea shown in the Writer preview. Its
+        # explicit scene-wide metadata outranks the broader state snapshot.
+        plan = self.package.extra_json.get("writing_guidance.json")
+        guidance = (
+            self._chapter_scene_guidance(plan, chapter, scene)
+            if isinstance(plan, dict)
+            else None
+        )
+        scene_idea = (
+            str(guidance.get("scene_idea", "") or "").strip()
+            if isinstance(guidance, dict)
+            else ""
+        )
+        scene_header = extract_scene_header_metadata(scene_idea)
+
         if isinstance(location, dict):
             primary_location = str(location.get("primary", "") or "").strip()
         else:
             primary_location = str(location or "").strip()
+        primary_location = scene_header.get("location", primary_location).strip()
 
         if isinstance(time_data, dict):
             time_text = str(time_data.get("period", "") or "").strip()
@@ -2411,21 +2427,25 @@ class StoryBuilderApp(tk.Tk):
                 time_text = f"{time_text} ({exact})"
         else:
             time_text = str(time_data or "").strip()
+        time_text = scene_header.get("time", time_text).strip()
 
         lines = [
             f"CHAPTER {chapter}, SCENE {scene}",
             f"Location: {primary_location or 'not established'}",
             f"Time: {time_text or 'not established'}",
-            "Cast: " + ", ".join(cast),
+            "Opening cast (present at scene start only; not the full scene cast): "
+            + (", ".join(cast) if cast else "not established"),
             f"Current state: {situation or 'continue from the exact current state.'}",
+            "Author-header precedence: An explicit Location or Time in the original Scene Idea's Scene header is authoritative for the planned scene and overrides a broader current-state label.",
+            "Opening-cast rule: The current-state cast and physical positions describe only who is present at the start. They do not exclude later arrivals named in the original Scene Idea.",
             "Starting-state rule: The current situation above has already happened before this scene begins. Do not replay completed revelations or make characters rediscover facts explicitly stated there.",
             "Starting-knowledge rule: When the current situation says one character has already told, informed, warned, shown, or communicated a fact to another, the receiving character already knows that fact and dialogue should reflect that knowledge.",
             "State precedence: Current situation controls completed narrative facts and any physical details it explicitly states. Preserve stored physical continuity for details current situation does not address. Treat a physical-state detail as stale only when directly contradicted by current situation or an explicit action in this scene. Do not replace an established position, posture, contact, or movement merely because current situation does not repeat it.",
         ]
 
         # Physical state is the automatic handoff from the previous accepted
-        # scene. Show only current-scene characters so unrelated positions do
-        # not leak into the direction.
+        # scene. Show only characters present at the opening; this is not a
+        # restriction on later arrivals explicitly named in the Scene Idea.
         physical_state = state.get("physical_state", {})
         if isinstance(physical_state, dict):
             physical_lines = []
@@ -2448,18 +2468,15 @@ class StoryBuilderApp(tk.Tk):
                     physical_lines.append(f"{name}: " + "; ".join(details))
 
             if physical_lines:
-                lines.append("Physical continuity:\n" + "\n".join(physical_lines))
+                lines.append("Opening physical continuity (starting positions only):\n" + "\n".join(physical_lines))
 
         # Current situation defines where the scene starts. The current scene
         # plan defines what should happen from that starting point. Keep both:
         # suppressing the plan when a situation exists hides the actual scene
         # action and leaves the writer with only a starting-state description.
         current_plan_end = None
-        plan = self.package.extra_json.get("writing_guidance.json")
-        if isinstance(plan, dict):
-            guidance = self._chapter_scene_guidance(plan, chapter, scene)
-            if isinstance(guidance, dict):
-                current_plan_end = str(
+        if isinstance(guidance, dict):
+            current_plan_end = str(
                     guidance.get("end_condition", "") or ""
                 ).strip()
                 direction = str(guidance.get("direction", "") or "").strip()
@@ -2526,9 +2543,11 @@ class StoryBuilderApp(tk.Tk):
 
         lines.append(
             "Write natural prose only. Current state controls what has already happened, "
-            "physical continuity, and character knowledge. The original plain-English "
-            "Scene Idea controls requested events, order, and ending; generated direction "
-            "is supporting context only."
+            "physical continuity, and character knowledge. Explicit Location and Time values "
+            "from the original Scene Idea header control planned scene metadata. The opening "
+            "cast is not the full scene cast; later arrivals specified by the Scene Idea must "
+            "remain eligible to enter. The original plain-English Scene Idea controls requested "
+            "events, order, and ending; generated direction is supporting context only."
         )
 
         self.writer_direction_text.delete("1.0", "end")

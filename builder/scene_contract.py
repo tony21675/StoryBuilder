@@ -46,6 +46,8 @@ Return only JSON:
 
 Use current_situation as the authoritative narrative snapshot for what has already happened. If they conflict, follow current_situation and preserve physical_state details not contradicted. The full original plain-English idea is also given directly to the Writer; it provides the scene's direction, key intentions, and natural endpoint.
 
+Explicit scene-header authority: If the original Scene Idea includes a Scene header with a Location or Time value, that exact author-supplied value is authoritative for the planned scene. Do not replace a more specific authored value with a broader current-state label. The current state's time and location describe the opening snapshot unless the author has not set explicit scene-wide metadata. Treat scene_cast as who is physically present at the opening instant, not as a ban on characters entering later; preserve arrivals and appearances the Scene Idea calls for.
+
 Do not turn the idea into a checklist. Keep direction brief and high-level. Always return required_beats as an empty list; the application carries forward only beats the author explicitly labels in the original Scene Idea. Never turn ordinary prose or your own summary into mandatory stops. When the idea gives a clear endpoint, put that endpoint in hard_stop. Preserve it even when expressed as a temporal boundary or a passage-of-time boundary rather than a final action. Do not replace such an endpoint with the most prominent action mentioned earlier. If no endpoint is clear, leave hard_stop empty rather than inventing one.
 
 Do not invent events or rules. Leave the Writer freedom over natural dialogue, gestures, pacing, transitions, and connective actions. max_attempts is 3. Output JSON only.
@@ -657,6 +659,51 @@ def extract_authored_scene_sections(scene_idea: str) -> dict[str, Any]:
 
     return sections
 
+
+
+def extract_scene_header_metadata(scene_idea: str) -> dict[str, str]:
+    """Read explicit Location/Time labels from the author's Scene header.
+
+    Current-state metadata is a starting snapshot; these explicit labels are
+    the source of truth for planned scene-wide location and time.
+    """
+    lines = str(scene_idea or "").splitlines()
+    header_marker = None
+    for index, raw_line in enumerate(lines):
+        cleaned = raw_line.strip().strip("*_ " + chr(96)).strip()
+        if cleaned.casefold().rstrip(":").strip() == "scene header":
+            header_marker = index + 1
+            break
+
+    if header_marker is None:
+        for index, raw_line in enumerate(lines):
+            cleaned = raw_line.strip().strip("*_ " + chr(96)).strip()
+            if re.match(r"^CHAPTER\s+\d+\s*,\s*SCENE\s+\d+\b", cleaned, re.IGNORECASE):
+                header_marker = index
+                break
+
+    if header_marker is None:
+        return {}
+
+    metadata: dict[str, str] = {}
+    for raw_line in lines[header_marker:]:
+        cleaned = raw_line.strip().strip("*_ " + chr(96)).strip()
+        if not cleaned:
+            if metadata:
+                break
+            continue
+        if re.match(r"^CHAPTER\s+\d+\s*,\s*SCENE\s+\d+\b", cleaned, re.IGNORECASE):
+            continue
+        match = re.match(r"^(Location|Time)\s*:\s*(.+?)\s*$", cleaned, re.IGNORECASE)
+        if match:
+            value = match.group(2).strip().strip("*_ " + chr(96)).strip()
+            if value:
+                metadata.setdefault(match.group(1).casefold(), value)
+            continue
+        # Do not accidentally harvest metadata from the Scene Idea's body.
+        break
+
+    return metadata
 
 def _append_author_section(direction: str, label: str, text: str) -> str:
     """Keep explicit opening/progression intent when the model compresses it away."""
