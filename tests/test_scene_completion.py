@@ -11,6 +11,7 @@ from builder.scene_completion import (
 
 PASS_AUDIT = {"pass": True, "status": "clear", "issues": [], "details": []}
 CONFLICT_AUDIT = {"pass": False, "status": "conflict", "issues": ["Timeline conflict."], "details": []}
+EYEWITNESS_CONFLICT_AUDIT = {"pass": False, "status": "conflict", "issues": ["presence_and_character_knowledge: draft evidence \"Unsupported eyewitness claim.\"; source evidence \"At home sick.\"; unsupported firsthand knowledge."], "details": []}
 UNCERTAIN_AUDIT = {"pass": False, "status": "uncertain", "issues": [], "details": ["The timeline check is uncertain."]}
 
 
@@ -116,7 +117,7 @@ class SceneCompletionTests(unittest.TestCase):
         self.assertEqual(len(self.engine.prompts), 2)
         self.assertIn("Timeline conflict", self.engine.prompts[1])
 
-    @patch("builder.scene_completion._run_scene_integrity_audit", side_effect=[CONFLICT_AUDIT, PASS_AUDIT])
+    @patch("builder.scene_completion._run_scene_integrity_audit", side_effect=[EYEWITNESS_CONFLICT_AUDIT, PASS_AUDIT])
     @patch("builder.scene_completion.SceneContract.validate_with_engine")
     def test_independent_integrity_issue_triggers_full_retry_and_recheck(self, validate, _audit):
         validate.return_value = {"pass": True, "missed_beats": [], "violations": []}

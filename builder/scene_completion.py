@@ -66,7 +66,7 @@ def _audit_prompt(scene_context, current_state, author_guidance, prose):
         + str(author_guidance or "").strip()
         + "\n\nCOMPLETED SCENE TO AUDIT:\n"
         + str(prose or "").strip()
-        + "\n\nAudit all five required categories. For any conflict, draft_evidence must be an exact quote "
+        + "\n\nRequired category keys: timeline_and_event_order, presence_and_character_knowledge, physical_and_location_continuity, unsupported_consequential_details, scene_scope_and_hard_stop.\nAudit all five required categories. For any conflict, draft_evidence must be an exact quote "
         "from the completed scene and source_evidence an exact quote from source block A, B, or C. "
         "If even one category cannot be verified, mark it uncertain. JSON only; no prose outside the object."
     )
