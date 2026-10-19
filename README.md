@@ -10,6 +10,7 @@ StoryBuilder is a small standalone desktop utility for creating and maintaining 
 - Add, edit, and remove character cards
 - Guided novel setup through a reusable question-and-answer flow
 - Optional story-planning fields with explicit room for undecided details
+- Conversational scene planning with proposal review and targeted updates to STORY_PLAN.md
 - Edit current chapter/scene state
 - Make simple natural-language changes such as:
   - "Change Maya's age to 22"
