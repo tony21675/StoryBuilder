@@ -1,5 +1,14 @@
 # StoryBuilder Chat Handoff
 
+## Follow-up checkpoint — October 19, 2026: MyNovel sync confirmed; pause at Scene 3 planning
+
+Tony clicked **Close & Sync Novel** and reported that StoryBuilder closed normally without errors. Remote MyNovel was verified at commit [`86d0e4f`](https://github.com/tony21675/MyNovel/commit/86d0e4f19de7c6a79c47b0b9e75e6e8a37a9aee3). Its `current_state.json` now points to **Chapter 3, Scene 3**, with the reviewed Scene 2 ending situation, changed physical state, daytime clothing for Maya, knowledge updates for Beth/Jessica/Chloe/Rick, broad group objectives, and recent breakfast/disclosure events. The MyNovel handoff was then updated at [`2a2b1b2`](https://github.com/tony21675/MyNovel/commit/2a2b1b2f9ca2c2cd1f98efd17a6e94d4262df595) to record this confirmed sync.
+
+**Next writing step is planning, not generation.** Remote `STORY_PLAN.md` covers Chapter 3, Scenes 1 and 2 only. There is no Scene 3 plan yet; the blank `"3": {}` created in `writing_guidance.json` is just an empty scene placeholder, not a plan. At the next session, discuss Scene 3's purpose, sequence, and hard stop with Tony. Do not create or edit the plan until its content has been agreed; do not click **Write Next Scene** before Scene 3 is planned.
+
+**Project pause status:** StoryBuilder code repair is pushed and documented; the focused regression tests and existing malformed-location recovery test pass. Latest Actions run [39215058007](https://github.com/tony21675/StoryBuilder/actions/runs/39215058007) compiled successfully and ran 226 tests with five previously known failures. MyNovel state is saved and remotely synced; no further application or repository changes are needed before pausing.
+
+---
 ## Latest checkpoint — October 19, 2026: Scene 2 state applied; pause at unplanned Scene 3
 
 Tony synchronized the latest StoryBuilder code after the focused physical-state proposal repair. He ran **Analyze Accepted Scene** for accepted Chapter 3, Scene 2, and this time received an editable full ending-state preview instead of the earlier unsupported top-level Beth/Jessica/Rick validation error.
