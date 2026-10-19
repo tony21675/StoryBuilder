@@ -625,7 +625,7 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             app.writer_generation_in_progress = False
             app.scene_contract_building = False
             app.writer_output_text = FakeText()
-            app.writer_state_preview = FakeText()
+            app.writer_state_preview = FakeText(json.dumps({**state, **app.pending_state_patch}))
             app.writer_status = SimpleLabel()
             app._writer_editor_prose = lambda: ""
             app._save_unsaved_writer_draft = lambda: True
@@ -689,7 +689,7 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             app.writer_generation_in_progress = False
             app.scene_contract_building = False
             app.writer_output_text = FakeText()
-            app.writer_state_preview = FakeText()
+            app.writer_state_preview = FakeText(json.dumps({**state, **app.pending_state_patch}))
             app.writer_status = SimpleLabel()
             app._writer_editor_prose = lambda: ""
             app._save_unsaved_writer_draft = lambda: True
@@ -1287,9 +1287,9 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             "_apply_supporting_person_edit",
             "_apply_relationship_edits",
             "_apply_location_edits",
-            "_apply_state_edits",
         ):
             setattr(app, method_name, lambda: None)
+        app._apply_state_edits = lambda: True
         return app, persisted
 
     def test_normal_save_applies_and_persists_current_situation(self):
