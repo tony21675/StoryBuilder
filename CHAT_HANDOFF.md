@@ -3,7 +3,7 @@
 
 ## Follow-up — October 18, 2026: indentation correction in authored-header direction fix
 
-The first CI run for the Scene Idea metadata fix stopped at compilation with an IndentationError in storybuilder.py while reorganizing the scene-plan lookup. The plan-guidance block has been reindented to use the one already-resolved guidance record. Keep this correction in the same focused scope, and verify the next Actions run before asking Tony to sync.
+The first CI run exposed an indentation error in storybuilder.py, which has been fixed; the next run passed compilation. Its one new Writer-direction test then revealed it had been appended to a test class without the helper it relied on, so the test now builds its lightweight app fixture directly. Verify the next Actions run before asking Tony to sync.
 
 ---
 ## Latest checkpoint — October 18, 2026: prevent stale starting-state metadata from overriding the Scene Idea
