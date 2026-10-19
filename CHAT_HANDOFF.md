@@ -1,6 +1,19 @@
 # StoryBuilder Chat Handoff
 
 
+## Latest checkpoint — October 18, 2026: Writer direction now honors explicit Scene Idea metadata
+
+Tony approved a focused source-of-truth fix after the Writer tab showed `Time: daybreak / early morning` and `Cast: Tony, Maya`, while the loaded original Scene Idea specified `Time: Saturday morning at daybreak` and said Beth, Chloe, Jessica, and Rick would arrive later. The previous direction builder copied time and cast straight from `current_state.json` without identifying them as opening-state details.
+
+**Implemented across the actual Writer direction path:** `builder/scene_contract.py` now extracts explicit `Location:` and `Time:` from the author's Scene header. The contract-builder prompt gives those fields priority over broad state summaries. `storybuilder.py` reuses the exact saved Scene Idea shown in Writer: explicit header values override state labels; `scene_cast` is labeled as the opening cast only; physical positions are labeled opening continuity; and characters named to arrive later are not excluded. State still controls completed events, character knowledge, and starting physical position.
+
+**Verification at code/test commit `57a8513`:** compilation succeeded. All three new regression tests passed, including the test against the real `_build_scene_direction` method; two parser tests also passed. The full suite ran 216 tests and showed five older failures also present before this change: three workflow-safety errors (empty ending-state preview), one existing Writer-prompt assertion, and one existing text-selection assertion. No new regression test failed. [Actions run](https://github.com/tony21675/StoryBuilder/actions/runs/39201291424).
+
+**Next step:** The in-progress/unaccepted Chapter 3, Scene 2 draft was generated with the prior stale direction. Do not accept it. After it finishes, sync the current StoryBuilder code using `cd ~/Documents/StoryBuilder && ./start.sh`. Then, before generating another draft, click Writer's **Build Scene Direction** to refresh the display. Verify it shows `Time: Saturday morning at daybreak` and `Opening cast (present at scene start only; not the full scene cast): Tony, Maya`, with the explicit rule that later arrivals from the Scene Idea may enter. Regenerate Scene 2 only after that check. Keep accepted Scene 1 untouched and do not apply Scene 2 state until Tony reviews it.
+
+**Required collaboration workflow:** Read the handoff first. Diagnose, recommend the narrow fix, and ask Tony for explicit approval before modifying code, prompts, story files, or repository state. Implement only after approval; then test, update this handoff, and report exact results. Discussing a problem is not permission to change files.
+
+---
 ## Follow-up — October 18, 2026: indentation correction in authored-header direction fix
 
 The first CI run exposed an indentation error in storybuilder.py, which has been fixed; the next run passed compilation. Its one new Writer-direction test then revealed it had been appended to a test class without the helper it relied on, so the test now builds its lightweight app fixture directly. Verify the next Actions run before asking Tony to sync.
