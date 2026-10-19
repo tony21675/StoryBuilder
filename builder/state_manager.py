@@ -271,10 +271,18 @@ def normalize_location_patch(base: dict[str, Any], patch: dict[str, Any]) -> dic
     for key in list(result.keys()):
         if key == "location":
             continue
-        # Legacy top-level location entries are text. A character's physical-state
-        # object can also share the character's name, so never route dictionaries
-        # into location before the physical-state normalizer has inspected them.
-        if key in top_level_location_keys and isinstance(result[key], str):
+        if key in top_level_location_keys:
+            value = result[key]
+            # A known character's dictionary containing physical-state fields is
+            # not a location value; leave it for the physical-state normalizer.
+            # Preserve legacy handling of other malformed location values so the
+            # bounded recovery path can discard them without losing good fields.
+            looks_like_physical_state = (
+                isinstance(value, dict)
+                and bool(PHYSICAL_STATE_CHARACTER_FIELDS.intersection(value))
+            )
+            if looks_like_physical_state:
+                continue
             location_patch[key] = result.pop(key)
             moved = True
 

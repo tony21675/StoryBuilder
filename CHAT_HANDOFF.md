@@ -6,7 +6,7 @@ Tony approved a focused fix after **Analyze Accepted Scene** rejected the propos
 
 **Implemented on main:**
 - The state-analysis path now recognizes a top-level character object as misplaced physical state only when its name belongs to the known scene/state character roster and the object contains recognizable physical-state fields. It moves those unambiguous entries beneath `physical_state`; unknown metadata and conflicting duplicate character entries remain validation errors.
-- Legacy top-level location normalization now moves only text values into `location`. It no longer mistakes a character's dictionary-shaped physical state for a location description just because that character also appears in the location map.
+- Legacy top-level location normalization leaves recognizable character physical-state dictionaries for the physical-state normalizer, while preserving bounded recovery for older malformed location values.
 - If validation still fails after the correction attempt, the error includes the exact parsed JSON proposal before normalization, plus a shorter raw-response excerpt. This should make the next failure diagnosable without guessing from a truncated tail.
 - Added regression coverage for Beth/Jessica/Rick-style misnesting and for refusing to move unrecognized metadata.
 
