@@ -161,7 +161,7 @@ Rules:
 - Do not repeat unchanged fields.
 - For changed nested objects, include only changed nested keys.
 - For arrays, replace the array only when that array truly changed.
-- JSON null in a partial update is an explicit deletion marker for an existing object key; StoryBuilder removes that key instead of storing null. Use it only when the prose establishes that a prior field/item is no longer applicable or an active objective has ended. For example, set a stale physical_state subfield such as movement, contact, activity, or temporary clothing to null when it no longer applies and is not replaced by a new value. Set active_objectives.Character to null when that objective is complete, abandoned, or superseded. Do not use null for facts that are merely absent from this scene, and never delete a character's location just because the character is off-screen. Do not put null inside arrays.
+- JSON null in a partial update is an explicit deletion marker for an existing object key; StoryBuilder removes that key instead of storing null. Use it only when the prose establishes that a prior field/item is no longer applicable or an active objective has ended. For example, set a stale physical_state subfield such as position, posture, contact, movement, condition, activity, interaction, a temporarily held object, or temporary clothing to null when it no longer applies and is not replaced by a new value. Set active_objectives.Character to null when that objective is complete, abandoned, or superseded. Do not use null for facts that are merely absent from this scene, and never delete a character's location just because the character is off-screen. Do not put null inside arrays.
 - Examine the full completed prose for newly introduced, concrete clues. Return new_clues as concise observable facts (use [] when there are none), not interpretations or guessed explanations. Return resolved_clues only for exact existing active_clues entries that the prose explicitly resolves or disproves. Do not remove an existing clue merely because it is not repeated.
 - Return new_unresolved_questions only for concrete factual unknowns made salient by this scene that remain unanswered. Return resolved_questions only for exact existing unresolved_questions entries answered by the completed prose. Preserve all other existing clues and questions; StoryBuilder will apply additions and explicit removals without asking the model to regenerate the whole historical list.
 - Treat current_situation as a live scene-state field, not as a scene-plan instruction. When the completed section ends in a materially different immediate situation, update current_situation to a concise description of that ending state so it can serve as the starting state for the next scene.
@@ -803,16 +803,20 @@ def reconcile_merged_state_locations(
     if not isinstance(location, dict):
         return result
 
-    # Remove legacy top-level duplicates, but retain unrelated top-level state.
-    for name in location:
+    location_patch = patch.get("location") if isinstance(patch, dict) else None
+
+    # Remove legacy top-level duplicates for both retained and explicitly
+    # deleted nested names, but retain unrelated top-level state.
+    duplicate_names = set(location)
+    if isinstance(location_patch, dict):
+        duplicate_names.update(location_patch)
+    for name in duplicate_names:
         if name == "primary":
             continue
         if name in result and isinstance(result[name], str):
             result.pop(name, None)
     if isinstance(result.get("primary"), str):
         result.pop("primary", None)
-
-    location_patch = patch.get("location") if isinstance(patch, dict) else None
     physical_state = result.get("physical_state")
     if not isinstance(location_patch, dict) or not isinstance(physical_state, dict):
         return result
