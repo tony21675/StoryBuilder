@@ -288,7 +288,7 @@ class StateAnalysisTransitionTests(unittest.TestCase):
         knowledge = {
             "Tony": [
                 "Now knows from Maya that Tiffany scratched the unidentified man's left cheek three times, causing it to bleed.",
-                "Now knows from Maya that the kidnapper smelled like old cigarettes and cheap cologne, with pine needles.",
+                "Now knows from Maya that the kidnapper smelled like old cigarettes and something sweet, like cheap cologne, with pine needles.",
                 "Now knows from Maya that the kidnapper's van accelerated rapidly upon arrival.",
             ],
             "Maya": [
