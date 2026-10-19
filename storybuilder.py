@@ -52,7 +52,7 @@ from builder.scene_flow import review_chapter_flow
 from builder.novel_sync import NovelSyncError, sync_novel_repository
 from builder.state_manager import (
     StateManager,
-    merge_patch as merge_state_patch_values,
+    combine_state_patches,
     remove_prior_chapter_opening_markers,
     reviewed_state_preview_to_patch,
 )
@@ -4808,7 +4808,10 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                 expected_preview,
                 reviewed_preview,
             )
-            patch_to_apply = merge_state_patch_values(
+            # Compose the generated patch with author edits without consuming
+            # explicit null deletion markers. Nulls are applied only when the
+            # final patch is merged into the saved state.
+            patch_to_apply = combine_state_patches(
                 self.pending_state_patch,
                 preview_edits,
             )
