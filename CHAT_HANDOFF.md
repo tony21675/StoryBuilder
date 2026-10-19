@@ -1,3 +1,20 @@
+## Latest checkpoint: October 19, 2026: Scene Planner output parsing and clutter cleanup
+
+Tony approved two focused changes after Prepare Plan Proposal failed with `the local model's proposal must contain string fields title and plan_body`.
+
+**Implemented on StoryBuilder main:**
+- `builder/scene_planner.py` commit [`c12c9dd`](https://github.com/tony21675/StoryBuilder/commit/c12c9dd6c10e8725cc00658c0f1bdbf3cdcb5131) now separates llama.cpp stdout from stderr rather than merging startup diagnostics into the text shown as the model's answer. It strips an echoed copy of the exact prompt and common timing/exit footer lines when present, so the visible planner conversation should show the actual reply rather than the banner and TARGET SCENE / CURRENT STARTING STATE dump.
+- Proposal JSON extraction now scans candidates and selects the last object with string fields `title` and `plan_body`, instead of stopping at the first dictionary in the echoed context. This covers both the scene-context JSON and the example proposal JSON preceding Gemma's generated answer.
+- `tests/test_scene_planner.py` adds two regressions. The corrected tests are in [commit `acc1125`](https://github.com/tony21675/StoryBuilder/commit/acc11253d21cedf5bfb16ba2d48aeae37a0510d0).
+
+**Verification:** GitHub Actions [run 39317293682](https://github.com/tony21675/StoryBuilder/actions/runs/39317293682) passed compilation. Both new tests passed: echoed prompt/banner/footer cleanup, and selection of the actual proposal instead of context/example objects. The full suite ran 237 tests and still has the same five known unrelated failures (three state-preview workflow errors, one Writer-prompt assertion, and one text-selection assertion). The run therefore is not fully green; no new test failed.
+
+**Next step for Tony:** In `~/Documents/StoryBuilder`, run the usual `./start.sh` sync/start workflow, open Taken_at_Dusk, and return to Scene Planner for Chapter 3, Scene 3. If the old conversation remains, click **Prepare Plan Proposal** again. The expected result is an editable Scene title and plan body, without llama.cpp startup/context clutter in the visible conversation. Review the content carefully before **Approve & Save Plan**. If it still errors, report the newest error message; the dialog should now be easier to copy. Do not click approve until the proposal is reviewed.
+
+**Novel boundary:** No manuscript prose, `current_state.json`, `writing_guidance.json`, or `STORY_PLAN.md` changes were made by this code fix. Chapter 3, Scene 3 remains unplanned in the novel until Tony reviews and approves a valid proposal.
+
+---
+
 ## Follow-up diagnostic: exact Scene Planner error, October 19, 2026
 
 Tony subsequently supplied the exact error from **Prepare Plan Proposal**: `the local model's proposal must contain string fields title and plan_body.`
