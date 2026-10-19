@@ -2477,17 +2477,17 @@ class StoryBuilderApp(tk.Tk):
         current_plan_end = None
         if isinstance(guidance, dict):
             current_plan_end = str(
-                    guidance.get("end_condition", "") or ""
-                ).strip()
-                direction = str(guidance.get("direction", "") or "").strip()
-                pacing = str(guidance.get("pacing", "") or "").strip()
-                if direction:
-                    lines.append(f"Scene direction: {direction}")
-                if pacing:
-                    lines.append(f"Pacing: {pacing}")
-                # Required Beats are added to the runtime prompt only after
-                # SceneContract.from_guidance filters out old model-generated
-                # lists. Never copy the raw saved list into Scene Direction.
+                guidance.get("end_condition", "") or ""
+            ).strip()
+            direction = str(guidance.get("direction", "") or "").strip()
+            pacing = str(guidance.get("pacing", "") or "").strip()
+            if direction:
+                lines.append(f"Scene direction: {direction}")
+            if pacing:
+                lines.append(f"Pacing: {pacing}")
+            # Required Beats are added to the runtime prompt only after
+            # SceneContract.from_guidance filters out old model-generated
+            # lists. Never copy the raw saved list into Scene Direction.
 
         module_endings = []
         module_beats = []

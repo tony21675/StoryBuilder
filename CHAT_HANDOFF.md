@@ -1,6 +1,11 @@
 # StoryBuilder Chat Handoff
 
 
+## Follow-up — October 18, 2026: indentation correction in authored-header direction fix
+
+The first CI run for the Scene Idea metadata fix stopped at compilation with an IndentationError in storybuilder.py while reorganizing the scene-plan lookup. The plan-guidance block has been reindented to use the one already-resolved guidance record. Keep this correction in the same focused scope, and verify the next Actions run before asking Tony to sync.
+
+---
 ## Latest checkpoint — October 18, 2026: prevent stale starting-state metadata from overriding the Scene Idea
 
 Tony approved this focused fix after finding the Writer's Scene Idea said `Time: Saturday morning at daybreak` and required Beth, Chloe, Jessica, and Rick to arrive later, while the Writer direction showed `Time: daybreak / early morning` and `Cast: Tony, Maya`. The starting state's time/cast describe the scene's opening snapshot; they must not override explicit scene-wide author metadata or exclude later arrivals.
