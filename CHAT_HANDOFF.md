@@ -10,7 +10,9 @@ Tony approved a focused fix after **Analyze Accepted Scene** rejected the propos
 - If validation still fails after the correction attempt, the error includes the exact parsed JSON proposal before normalization, plus a shorter raw-response excerpt. This should make the next failure diagnosable without guessing from a truncated tail.
 - Added regression coverage for Beth/Jessica/Rick-style misnesting and for refusing to move unrecognized metadata.
 
-**Verification:** Post-commit Actions verification is pending; do not treat the fix as verified until the focused tests' result is checked.
+**Implementation commits:** [`ea19601`](https://github.com/tony21675/StoryBuilder/commit/ea196012559b7117947edf263f5a273ba93803ea) adds the normalization, diagnostics, and two regression tests; [`e887395`](https://github.com/tony21675/StoryBuilder/commit/e887395449c61a89a5a99267e08c62c485f6a169) preserves legacy malformed-location recovery.
+
+**Verification:** GitHub Actions [run 39215058007](https://github.com/tony21675/StoryBuilder/actions/runs/39215058007) compiled the application and builder modules successfully and ran 226 tests. Both new physical-state regression tests passed, as did the existing malformed-location recovery test. The whole suite still fails on the same five older tests: three `SceneWorkflowSafety` errors because mocked tests have an empty ending-state preview, one Writer-prompt assertion expecting `Prefer what characters say and do over narration`, and one text-selection assertion returning `' earl'` instead of `'early'`. No new regression test failed.
 
 **Next step:** Sync StoryBuilder with the usual `cd ~/Documents/StoryBuilder && ./start.sh` workflow, then open Writer and run **Analyze Accepted Scene** again. Review the proposal before applying it. The accepted prose and MyNovel state were not changed by this code patch.
 
