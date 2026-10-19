@@ -31,6 +31,18 @@ class ScenePlannerModelOutputTests(unittest.TestCase):
         self.assertNotIn("Prompt:", cleaned)
         self.assertNotIn("Exiting", cleaned)
 
+    def test_clean_output_falls_back_to_the_prompt_tail_if_whole_echo_differs(self):
+        prompt = (
+            'TARGET SCENE:\n{"chapter": 3, "scene": 3}\n'
+            "PLANNING CONVERSATION SO FAR:\nAUTHOR:\nHelp plan this scene."
+            "\nReply to the author's latest message. Do not force decisions."
+        )
+        # Simulate a CLI echo whose prefix differs slightly, so the whole prompt
+        # no longer matches byte-for-byte although its final instruction remains.
+        echoed = prompt.replace("TARGET SCENE:", "TARGET SCENE :")
+        raw = "llama.cpp banner\n> " + echoed + "\n\nActual answer.\nExiting...\n"
+        self.assertEqual(_clean_model_output(raw, prompt), "Actual answer.")
+
     def test_proposal_extraction_chooses_last_valid_object_not_scene_context_or_example(self):
         raw = (
             'TARGET SCENE: {"chapter": 3, "scene": 3}\n'
