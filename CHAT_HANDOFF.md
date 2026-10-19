@@ -1,5 +1,18 @@
 # StoryBuilder Chat Handoff
 
+## Latest checkpoint — October 18, 2026: Maya's robe-to-bed continuity repaired in MyNovel
+
+Review of the actual manuscript confirmed that Chapter 2, Scene 5 explicitly had Maya wrapped in a thick white robe when Tony settled her onto Tiffany's bed, followed by her falling asleep. Chapter 3, Scene 1 starts with her asleep under the duvet but says nothing about clothing, so the prior scene implicitly left her sleeping in the robe.
+
+The canonical MyNovel GitHub copy has now been corrected:
+- [Chapter 2, Scene 5](https://github.com/tony21675/MyNovel/commit/4e80dcfa88f676ffc3f77158dc36c8d1ccb1a206): Tony offers the clean pajamas previously noticed on Tiffany's bed, gives Maya privacy to change, and returns after she's changed and beneath the duvet.
+- [Compiled Chapter 2](https://github.com/tony21675/MyNovel/commit/c481aeccb7712b12c6a277dc0a046ecce3f325a8): synchronized to the same prose.
+- [STORY_PLAN.md](https://github.com/tony21675/MyNovel/commit/4f6e050e93f531b3c837a28bb160785f090087cb): Maya wakes wearing the borrowed clean pajamas, then privately changes into ordinary daytime clothes before breakfast.
+
+Chapter 3, Scene 1 itself was left unchanged because it does not specify the outfit. The scene state snapshots don't store Maya's clothing, so none were altered. The recent generated Chapter 3, Scene 2 draft is now inconsistent with this corrected canon when it has Maya in a robe on waking; keep it unaccepted and regenerate after the local plan/manuscript is safely synchronized.
+
+**Local/remote caution:** These manuscript/plan changes were committed to the MyNovel GitHub copy only. The local package has known unsynchronized current-state/writing-guidance edits. Do not blindly pull/overwrite those files. Inspect the local MyNovel repo status and synchronize/reconcile only the specific manuscript, compiled chapter, and STORY_PLAN files deliberately.
+
 ## Latest checkpoint — October 18, 2026: review of regenerated Chapter 3, Scene 2
 
 A fresh Chapter 3, Scene 2 draft has been generated after the Scene Contract check. It has **not yet been accepted or explicitly rejected by Tony**. Initial review recommends another generation rather than a chain of focused edits because several major scene-level constraints are missed:
