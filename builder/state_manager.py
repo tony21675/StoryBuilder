@@ -647,13 +647,20 @@ class StateManager:
         model: Path,
         current_state: dict[str, Any],
         story_text: str,
+        scene_characters: list[str] | None = None,
     ) -> dict[str, Any]:
-        """Run a focused pass that returns cumulative post-scene knowledge."""
-        cast = [
-            str(name).strip()
-            for name in current_state.get("scene_cast", [])
-            if str(name).strip()
-        ]
+        """Audit the opening cast plus characters named as possible participants."""
+        supplied = scene_characters if isinstance(scene_characters, list) else []
+        if not supplied:
+            supplied = current_state.get("scene_cast", [])
+        cast = []
+        seen_names = set()
+        for raw_name in [*current_state.get("scene_cast", []), *supplied]:
+            name = str(raw_name).strip()
+            key = name.casefold()
+            if name and key not in seen_names:
+                cast.append(name)
+                seen_names.add(key)
         if not cast:
             return {}
 
@@ -673,6 +680,8 @@ class StateManager:
                     ]
                 elif isinstance(values, str) and values.strip():
                     knowledge_before[name] = [values.strip()]
+                else:
+                    knowledge_before[name] = []
 
         audit_prompt = (
             "Audit the entire completed story section and produce the complete cumulative knowledge "
@@ -687,6 +696,17 @@ class StateManager:
             + json.dumps(cast, indent=2, ensure_ascii=False)
             + "\n\nCHARACTER KNOWLEDGE BEFORE THIS SECTION:\n"
             + json.dumps(knowledge_before, indent=2, ensure_ascii=False)
+            + "\n\nSTARTING SITUATION AND LOCATIONS (CONTEXT ONLY):\n"
+            + json.dumps(
+                {
+                    "current_situation": current_state.get("current_situation", ""),
+                    "location": current_state.get("location", {}),
+                    "physical_state": current_state.get("physical_state", {}),
+                    "scene_cast_at_opening": current_state.get("scene_cast", []),
+                },
+                indent=2,
+                ensure_ascii=False,
+            )
             + "\n\nCOMPLETED STORY SECTION:\n"
             + story_text
         )
@@ -774,12 +794,14 @@ class StateManager:
         current_state: dict[str, Any],
         patch: dict[str, Any],
         delta: dict[str, Any],
+        scene_characters: list[str] | None = None,
     ) -> None:
         """Merge audited knowledge while guarding against omitted prior facts."""
-        scene_characters = [
-            str(name).strip()
-            for name in current_state.get("scene_cast", [])
-            if str(name).strip()
+        supplied = scene_characters if isinstance(scene_characters, list) else []
+        if not supplied:
+            supplied = current_state.get("scene_cast", [])
+        scene_character_names = [
+            str(name).strip() for name in supplied if str(name).strip()
         ]
 
         def normalize_knowledge(
@@ -797,11 +819,12 @@ class StateManager:
                 or "now knows " in fact.casefold()
                 for fact in learned_facts
             )
+            seen_identities: set[str] = set()
             for value in values:
                 text_value = str(value).strip()
                 if not text_value:
                     continue
-                if is_routine_action_log_knowledge(text_value, scene_characters):
+                if is_routine_action_log_knowledge(text_value, scene_character_names):
                     continue
                 # A broad negative such as "does not know the details" becomes
                 # stale when this audit has also established newly learned
@@ -814,8 +837,11 @@ class StateManager:
                     and "detail" in lowered
                 ):
                     continue
-                if text_value not in cleaned:
+                identity = re.sub(r"\s+", " ", text_value).strip().rstrip(".").casefold()
+                identity = re.sub(r"^(?:know|knows)\s+(?:that\s+)?", "knows ", identity)
+                if identity not in seen_identities:
                     cleaned.append(text_value)
+                    seen_identities.add(identity)
             return cleaned
         base_knowledge = current_state.get("character_knowledge", {})
         if not isinstance(base_knowledge, dict):
@@ -906,6 +932,7 @@ class StateManager:
         current_state: dict[str, Any],
         story_text: str,
         scene_end_guidance: str | None = None,
+        scene_characters: list[str] | None = None,
     ) -> dict[str, Any]:
         if not story_text.strip():
             raise ValueError("There is no story text to analyze.")
@@ -957,8 +984,9 @@ class StateManager:
             "the actual immediate situation at the absolute end of the completed section, not the starting "
             "situation and not what should happen in the next scene. Keep it concise and factual. "
             "Do not copy planning instructions or future events into it. "
-            "Always return non-empty current_situation, plus only changed location, physical_state, and/or time_of_day fields. "
-            "Do not return character_knowledge, event/event-log fields, scene flags, or other metadata."
+            "Always return non-empty current_situation. Return only changed location, physical_state, time_of_day, and active_objectives fields, plus new_recent_events as a list of newly established event strings (use [] if none). "
+            "Do not return character_knowledge, recent_events directly, event/event-log fields, scene flags, continuity requirements, or other metadata. Include physical_state.clothing when the prose explicitly establishes a continuity-relevant outfit change. "
+            "Update only objectives changed by the completed prose and keep any group commitment broad when no assignments have been made."
         ])
         prompt = "".join(prompt_parts)
 
@@ -1100,7 +1128,7 @@ class StateManager:
                     "rejected by the application's state validator. Correct the same proposal "
                     "using only facts supported by the completed prose. Do not invent new events.\n"
                     + f"VALIDATION ERROR: {exc}\n"
-                    + "SCHEMA REMINDER: return ONLY current_situation, location, physical_state, and time_of_day. Do not return event, events, recent_events, character_knowledge, or other fields. "
+                    + "SCHEMA REMINDER: return ONLY current_situation, location, physical_state, time_of_day, active_objectives (partial object of changed characters only), and new_recent_events (list of new factual event strings; use [] if none). Do not return event, events, recent_events directly, character_knowledge, or unrelated metadata. "
                     "Always include a non-empty current_situation describing what is true at the absolute end of the completed prose, not an earlier action. "
                     "If supplied, location must be an object with plain-text primary and per-character location descriptions; physical_state must be an object. "
                     "Do not turn actions the characters performed into knowledge facts. Return corrected JSON only.\n"
@@ -1115,9 +1143,17 @@ class StateManager:
                 "No state changes were applied."
             )
 
+        # Consume the transient event-addition field before exposing the patch
+        # to preview/apply. Preserve previous history and append only new events.
+        new_recent_events = patch.pop("new_recent_events", [])
         # Models sometimes repeat unchanged state. Normalize that away so a
         # proposal contains only actual changes.
         patch = remove_unchanged(current_state, patch)
+        if new_recent_events:
+            previous_events = current_state.get("recent_events", [])
+            updated_events = append_recent_events(previous_events, new_recent_events)
+            if updated_events != previous_events:
+                patch["recent_events"] = updated_events
 
         # Knowledge changes are audited separately because a broad continuity
         # pass can miss facts learned through dialogue when physical state does
@@ -1128,12 +1164,14 @@ class StateManager:
                 model,
                 current_state,
                 completed_text,
+                scene_characters=scene_characters,
             )
             if knowledge_delta:
                 StateManager._merge_knowledge_delta(
                     current_state,
                     patch,
                     knowledge_delta,
+                    scene_characters=scene_characters,
                 )
         except (ValueError, RuntimeError):
             # The main state proposal remains usable if the optional knowledge
