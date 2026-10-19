@@ -101,6 +101,25 @@ class StateUpdateValidationTests(unittest.TestCase):
 
         self.assertIs(validate_state_proposal(base, proposal), proposal)
 
+    def test_state_proposal_rejects_null_for_transient_list_fields(self):
+        base = {"current_situation": "The group is searching."}
+        for field in (
+            "new_clues",
+            "resolved_clues",
+            "new_unresolved_questions",
+            "resolved_questions",
+            "new_recent_events",
+        ):
+            with self.subTest(field=field):
+                with self.assertRaisesRegex(ValueError, "use \\[\\] when empty"):
+                    validate_state_proposal(
+                        base,
+                        {
+                            "current_situation": "The group has a preliminary plan.",
+                            field: None,
+                        },
+                    )
+
     def test_reconcile_string_items_adds_deduplicates_and_removes_only_explicit_items(self):
         existing = ["Van smelled of pine.", "An unresolved identity question", "Old clue"]
         reconciled = reconcile_string_items(
