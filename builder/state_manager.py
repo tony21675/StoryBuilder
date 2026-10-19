@@ -734,7 +734,7 @@ def recover_explicit_unresolved_questions(
         target_pattern = rf"(?:{re.escape(victim)}|her|him|them)" if victim else r"(?:her|him|them)"
         return bool(re.search(
             r"\b(?:took|brought|drove|transported|moved)\s+" + target_pattern +
-            r"\s+to\s+(?:the\s+)?[A-Z][A-Za-z0-9' -]{1,60}",
+            r"\s+to\s+(?:the\s+)?[A-Za-z][A-Za-z0-9' -]{1,60}",
             section,
         ))
 
