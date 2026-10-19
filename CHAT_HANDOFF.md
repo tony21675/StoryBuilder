@@ -1,3 +1,16 @@
+## Latest checkpoint: October 19, 2026: desktop-aware dark appearance
+
+Tony approved adding desktop-aware light/dark styling because bright white StoryBuilder widgets were uncomfortable for his eyes. Implemented on main:
+- Added `builder/appearance.py` ([commit `42df251`](https://github.com/tony21675/StoryBuilder/commit/42df25197e050a5aff9a1ee58da48e2b06c8e15e)), which detects GNOME/Cinnamon/XFCE appearance preferences and common GTK theme names, with `STORYBUILDER_THEME=dark|light` as an override and dark mode as the fallback.
+- Applied the palette before UI construction in `storybuilder.py` ([commit `aeecad9`](https://github.com/tony21675/StoryBuilder/commit/aeecad9ddffee710417487f239b593a798fc738d)). It styles ttk controls and classic Tk widgets (text areas, entry/list/menu/canvas defaults), using a dark palette with soft off-white text and muted borders or a matching light palette.
+- Added 7 focused detection/palette tests in `tests/test_appearance.py` ([commit `911943f`](https://github.com/tony21675/StoryBuilder/commit/911943f1c1af8cd1c1cf56bf11aea4db4f40216e)).
+
+**Verification:** [Actions run 39319396216](https://github.com/tony21675/StoryBuilder/actions/runs/39319396216) compiled successfully and all 7 appearance tests passed. The full suite ran 244 tests and retained the same five known unrelated failures (3 empty ending-state preview workflow errors, 1 Writer prompt assertion, and 1 text-selection assertion). This is not a fully green run. The appearance change is committed but has not yet been visually verified in Tony's local desktop session.
+
+**Next step:** Before running the app's `./start.sh` sync/restart, preserve the current unsaved Chapter 3, Scene 3 proposal shown in the app. The plan body has been shared in chat, but no **Approve & Save Plan** action has been confirmed. Do not let a restart silently discard it. After Tony has finished reviewing/saving the proposal (or has explicitly chosen to leave it unsaved), run `cd ~/Documents/StoryBuilder && ./start.sh`, then visually check that StoryBuilder opens dark on his Linux Mint desktop. If detection doesn't match his setting, report which Mint desktop session is in use and we can make a focused adjustment. Do not modify novel state or accepted prose as part of theme validation.
+
+---
+
 ## Latest checkpoint: October 19, 2026: Scene Planner output parsing and clutter cleanup
 
 Tony approved two focused changes after Prepare Plan Proposal failed with `the local model's proposal must contain string fields title and plan_body`.
