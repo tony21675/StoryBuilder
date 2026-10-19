@@ -1126,6 +1126,7 @@ class SceneContract:
         errors: list[str] = []
         list_keys = (
             "required_beats",
+            "boundaries",
             "required_facts",
             "required_sequence",
             "forbidden",
