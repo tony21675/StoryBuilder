@@ -128,6 +128,7 @@ class StateAnalysisTransitionTests(unittest.TestCase):
         self.assertIn("sleepwear", STATE_SYSTEM_PROMPT)
         self.assertIn("Replace objectives directly contradicted", STATE_SYSTEM_PROMPT)
         self.assertNotIn("Return only these ending-state fields", STATE_SYSTEM_PROMPT)
+        self.assertIn("Treat legacy cast restrictions", STATE_SYSTEM_PROMPT)
         self.assertIn("merely discussed does not learn from the conversation", KNOWLEDGE_AUDIT_SYSTEM_PROMPT)
         self.assertIn("not every later arrival", KNOWLEDGE_AUDIT_SYSTEM_PROMPT)
 
