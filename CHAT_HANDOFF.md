@@ -1,3 +1,15 @@
+## Latest checkpoint: October 19, 2026: dark theme detection priority corrected
+
+Tony shared a screenshot after syncing/restarting StoryBuilder: the app still showed a light palette even though his Linux Mint desktop/window theme was dark. The screenshot's window/field colors corresponded to the light palette, pointing to theme detection rather than a failed code sync.
+
+**Focused fix on main:** [commit `24a874b`](https://github.com/tony21675/StoryBuilder/commit/24a874b0fd9d86c046ed370cc4d0921387a0c54f) moves `GTK_THEME` environment-variable detection behind the desktop's saved settings. The environment variable can be inherited/stale; now the app checks GNOME's explicit color scheme and Cinnamon/GNOME/XFCE selected theme first. Added a regression in [commit `18fb9fb`](https://github.com/tony21675/StoryBuilder/commit/18fb9fbf6bee3b20bcda664dd75de5d13916ecbb) that simulates `GTK_THEME=Mint-Y` conflicting with Cinnamon's `Mint-Y-Dark-Aqua` and verifies that the desktop's dark setting wins.
+
+**Verification:** GitHub Actions [run 39321100829](https://github.com/tony21675/StoryBuilder/actions/runs/39321100829) compiled successfully; the new conflict-priority test passed and the 8 appearance tests had no failures. The complete suite ran 246 tests, still with the same five known unrelated failures (3 state-preview workflow errors, 1 Writer prompt assertion, 1 text-selection assertion). This is not a fully green suite. The dark theme still needs live verification after the next sync/start on Tony's laptop.
+
+**Next step:** Tony has already approved/saved the Chapter 3, Scene 3 proposal locally and restarted StoryBuilder; screenshot shows its title `Forming the Private Effort` loaded into Writer's Scene Idea preview. The remote MyNovel `STORY_PLAN.md` is still at blob SHA `64163da22d9f0f5bf7e170f47c035720a49dc0d2` and has no Scene 3 heading, so the approved plan appears to be local-only so far. Do not overwrite or pull stale MyNovel files. Run `cd ~/Documents/StoryBuilder && ./start.sh` to fetch the latest detector-priority fix, then verify the UI is dark. If it remains light, report this before any novel sync; we can use `STORYBUILDER_THEME=dark` as a session override and inspect the actual desktop settings. Once the theme is confirmed, use the app's **Close & Sync Novel** only when ready to push the saved local Scene 3 plan to MyNovel's GitHub main. Chapters 3, Scenes 1 and 2 and accepted prose remain protected.
+
+---
+
 ## Follow-up verification: echoed-prompt fallback and dark-theme tests, October 19, 2026
 
 The real Scene Planner output still showed the CLI banner/context during Tony's last live use, so the cleanup was hardened rather than treating the helper-only test as proof. builder/scene_planner.py commit [ff12f0f](https://github.com/tony21675/StoryBuilder/commit/ff12f0f9661d3c332dd64813af85b62252e2b521) now strips through the echoed prompt's distinctive final line if whole-prompt matching fails; [403e3fe](https://github.com/tony21675/StoryBuilder/commit/403e3fe51195e00c091fff6d2afa29093e724470) adds a regression for altered prompt prefixes.
