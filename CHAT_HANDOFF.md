@@ -1,5 +1,23 @@
 # StoryBuilder Chat Handoff
 
+## Latest checkpoint — October 19, 2026: accepted-scene state analysis follows scene transitions
+
+Tony approved a focused StoryBuilder fix after the accepted Chapter 3, Scene 2 produced an ending-state proposal with stale details. The accepted scene text is confirmed saved and synced at `MyNovel/Taken_at_Dusk/Manuscript/Chapters/Chapter_03/Chapter_03_Section_02.txt`; Git status in the local MyNovel checkout was clean. No StoryBuilder change in this checkpoint edits the novel or accepted manuscript.
+
+**Implemented on main:**
+- `builder/state_manager.py` now allows the main state proposal to update a partial `active_objectives` object and emit transient `new_recent_events`. StoryBuilder appends new events to the existing recent-event history, normalizes whitespace/case for duplicate checks, and keeps the latest 12 events rather than requiring the model to rewrite the history.
+- State-analysis prompt now explicitly asks for ending positions that match final prose, including standing/embracing interactions, and continuity-relevant clothing changes such as sleepwear to daytime clothes. It can replace stale objectives directly contradicted by accepted prose without inventing tasks or plans. A stale prompt line that prohibited objective/event updates was removed.
+- State-analysis character candidates now combine the opening `scene_cast`, planned cast, and known characters named in the accepted prose. The knowledge audit is instructed to distinguish actual participants from characters merely mentioned or off-scene, so later arrivals can be assigned knowledge they learned while unrelated characters retain their prior knowledge.
+- Knowledge merging removes simple duplicate variants such as `Know...` / `Knows that...`, and temporary physical/clothing details are kept separate from durable character knowledge. Legacy rule `Only characters explicitly listed for a scene are physically present and participating in that scene` is explicitly treated as stale schema wording in state analysis. Stored continuity requirements are not rewritten by the analysis patch.
+
+**Regression coverage:** Added `tests/test_state_analysis_transitions.py` with eight tests covering recent-event append/deduplication/cap, output validation, objective changes, knowledge deduplication/supersession, state-prompt rules, and inclusion of later named characters in the analysis candidate roster.
+
+**CI result at head `4a2eaa7`:** compilation succeeded and all eight new tests passed. The whole suite ran 224 tests; it still has the same five unrelated failures recorded before this work: three `SceneWorkflowSafety` errors because the ending-state preview is empty in older mocked tests (then the Tk error dialog recurses in headless CI), one old Writer-prompt assertion expecting `Prefer what characters say and do over narration`, and one text-selection test getting ` earl` rather than `early`. No new regression test failed. [Latest Actions run](https://github.com/tony21675/StoryBuilder/actions/runs/39212141787).
+
+**Next step for Tony:** When ready, run the normal application sync once from `~/Documents/StoryBuilder` with `./start.sh`. Open `Taken_at_Dusk`, use **Reload Saved Scene** if Writer does not already show the accepted scene, then **Analyze Accepted Scene**. Review the proposed state; do not blindly apply it. Confirm Maya's daytime clothing, Chloe's changed objective and hug, the arrivals' knowledge, final positions, and breakfast/hug recent events. Keep the accepted prose untouched; no novel-state changes have been applied by this code work.
+
+**Collaboration workflow remains mandatory:** Diagnose, recommend the focused fix, and get Tony's approval before any code, prompt, story file, or repository changes. Implement only the approved scope, test, update this handoff, and report precise results. Never edit or reset local MyNovel changes as part of a StoryBuilder code sync.
+---
 
 ## Latest checkpoint — October 18, 2026: Writer direction now honors explicit Scene Idea metadata
 
