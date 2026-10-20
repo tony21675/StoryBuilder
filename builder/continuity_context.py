@@ -247,7 +247,7 @@ def build_historical_relevance_query(
         str(end_condition or ""),
         str(direction or ""),
     ]
-    return "\\n".join(part.strip() for part in parts if part and part.strip())
+    return "\n".join(part.strip() for part in parts if part and part.strip())
 
 
 def select_relevant_records(
