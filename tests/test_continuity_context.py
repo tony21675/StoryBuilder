@@ -113,6 +113,23 @@ class ContinuityContextTests(unittest.TestCase):
         self.assertFalse(any("grape soda" in fact for fact in facts))
         self.assertFalse(any("tea the previous night" in fact for fact in facts))
 
+    def test_location_overlap_does_not_keep_incidental_tea_or_bathing_details(self):
+        ledger = {
+            "Tony": [
+                "Tony sat with Maya at the kitchen table drinking tea.",
+                "Tony helped Maya get cleaned up in the bathroom and tub.",
+            ],
+            "Maya": [],
+        }
+        active, _metrics = select_active_character_knowledge(
+            ledger,
+            "Tony thanks Chloe for the hug as the group plans search roles from Tony's kitchen.",
+            character_names=["Tony", "Maya", "Chloe", "Tiffany"],
+        )
+        facts = [fact for values in active.values() for fact in values]
+        self.assertFalse(any("drinking tea" in fact for fact in facts))
+        self.assertFalse(any("bathroom and tub" in fact for fact in facts))
+
     def test_author_pinned_continuity_focus_selects_specific_historical_facts(self):
         ledger = {
             "Maya": [
@@ -223,15 +240,15 @@ class ContinuityContextTests(unittest.TestCase):
             chapter_dir = root / "Manuscript" / "Chapters" / "Chapter_01"
             chapter_dir.mkdir(parents=True)
             (chapter_dir / "Chapter_01_Section_01.txt").write_text(
-                "Even though no one called the police, the group's focus immediately shifted.\\n",
+                "Even though no one called the police, the group's focus immediately shifted.\n",
                 encoding="utf-8",
             )
             (chapter_dir / "Chapter_01_Section_02.txt").write_text(
-                "Maya remained standing on the rough concrete after the shock of the abduction.\\n",
+                "Maya remained standing on the rough concrete after the shock of the abduction.\n",
                 encoding="utf-8",
             )
             (chapter_dir / "Chapter_01_Section_03.txt").write_text(
-                "Maya and Tiffany shared grape soda at lunch and chatted casually.\\n",
+                "Maya and Tiffany shared grape soda at lunch and chatted casually.\n",
                 encoding="utf-8",
             )
 
