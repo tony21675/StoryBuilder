@@ -3259,12 +3259,15 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         self._update_writer_buttons()
 
     def _writer_scene_boundary_prompt(self):
-        """Return concise scene-specific instructions; global rules live in the system prompt."""
+        """Give the current scene a short creative brief without duplicating a long rule list."""
         return (
-            "SCENE BOUNDARY:\n"
-            "Honor the original Scene Idea's specific actions, objects, optionality, and endpoint; do not substitute a different action for a similar purpose. "
-            "Current state controls what has happened, physical continuity, and character knowledge. Do not replay completed events. "
-            "Use creative freedom for dialogue, gestures, pacing, and transitions.\n\n"
+            "SCENE INTENT:\\n"
+            "Write one complete scene from the author's original idea and saved story state. "
+            "Preserve established facts, character knowledge, any explicit boundary, and the intended ending. "
+            "The idea gives purpose and direction, not a script. Use judgment for natural dialogue, "
+            "emotional progression, atmosphere, incidental details, connective actions, and fitting story turns. "
+            "Do not stop after only the first highlighted action when the scene's movement continues; "
+            "do not cross a stated hard stop.\\n\\n"
             "Write the scene now. Output only the prose."
         )
 
