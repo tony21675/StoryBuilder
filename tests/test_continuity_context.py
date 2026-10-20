@@ -90,7 +90,8 @@ class ContinuityContextTests(unittest.TestCase):
         self.assertLess(metrics["after_chars"], metrics["before_chars"])
         self.assertGreater(metrics["reduction_percent"], 65.0)
         self.assertFalse(any("routinely watched television" in fact for fact in all_active))
-        self.assertFalse(any("promised to keep" in fact for fact in all_active))
+        self.assertTrue(any("promised to keep" in fact for fact in all_active),
+                        "A secret about Tiffany's location directly affects the search.")
         self.assertTrue(any("identifying scratch" in fact for fact in all_active))
 
     def test_unrelated_protected_facts_do_not_leak_into_scene_context(self):
