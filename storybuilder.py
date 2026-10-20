@@ -48,6 +48,12 @@ from builder.writer_engine import WriterEngine
 from builder.prompt_trace import PromptTrace, default_prompt_trace_path
 from builder.prompt_trace_sync import upload_prompt_trace
 from builder.manuscript import ManuscriptManager
+from builder.continuity_context import (
+    context_size_report,
+    estimate_tokens_from_chars,
+    select_active_character_knowledge,
+    select_relevant_records,
+)
 from builder.scene_flow import review_chapter_flow
 from builder.novel_sync import NovelSyncError, sync_novel_repository
 from builder.state_manager import (
@@ -1679,15 +1685,32 @@ class StoryBuilderApp(tk.Tk):
 
         files = []
 
-        # Keep the persistent writer context compact. The model only needs
-        # the current scene state, the cards for characters actually present,
-        # and relationships that matter to those characters.
+        # Query active context against the author-defined current scene rather
+        # than every historical fact in the package. The complete ledgers stay
+        # persisted; this is only the transient prompt view.
         location = state.get("location", "")
         primary_location = (
             str(location.get("primary", "") or "").strip()
             if isinstance(location, dict)
             else str(location or "").strip()
         )
+        chapter = int(state.get("chapter", 1) or 1)
+        scene = int(state.get("scene", 1) or 1)
+        guidance_plan = self.package.extra_json.get("writing_guidance.json", {})
+        guidance_entry = (
+            self._chapter_scene_guidance(guidance_plan, chapter, scene)
+            if isinstance(guidance_plan, dict) else None
+        )
+        if not isinstance(guidance_entry, dict):
+            guidance_entry = {}
+        context_query = "\n".join([
+            *scene_cast_names,
+            primary_location,
+            str(state.get("current_situation", "") or ""),
+            str(guidance_entry.get("scene_idea", "") or ""),
+            str(guidance_entry.get("direction", "") or ""),
+            str(guidance_entry.get("end_condition", "") or ""),
+        ]).strip()
         time_data = state.get("time", state.get("time_of_day", ""))
         scene_state = {
             "chapter": int(state.get("chapter", 1) or 1),
@@ -1705,12 +1728,25 @@ class StoryBuilderApp(tk.Tk):
         working_notes = normalize_writer_notes(
             getattr(self.package, "writer_notes", {})
         )
-        if working_notes.get("learned_notes"):
+        all_learned_notes = [
+            item for item in working_notes.get("learned_notes", [])
+            if isinstance(item, dict) and item.get("note")
+        ]
+        # Keep small note sets intact. If the notebook grows, retrieve only
+        # scene-relevant craft observations; the persisted notebook is untouched.
+        if len(all_learned_notes) > 24:
+            prompt_learned_notes = select_relevant_records(
+                all_learned_notes, context_query, text_key="note", limit=24
+            )
+            if not prompt_learned_notes:
+                prompt_learned_notes = all_learned_notes[-8:]
+        else:
+            prompt_learned_notes = all_learned_notes
+        if prompt_learned_notes:
             prompt_notes = {
                 "learned_notes": [
                     {"note": item["note"]}
-                    for item in working_notes["learned_notes"]
-                    if isinstance(item, dict) and item.get("note")
+                    for item in prompt_learned_notes
                 ]
             }
             files.append((
@@ -1748,7 +1784,7 @@ class StoryBuilderApp(tk.Tk):
         # prevents one character from inheriting facts that only another
         # character has learned.
         character_knowledge = state.get("character_knowledge", {})
-        scene_knowledge = {}
+        all_scene_knowledge = {}
         if isinstance(character_knowledge, dict):
             for name in scene_cast_names:
                 values = character_knowledge.get(name)
@@ -1758,13 +1794,19 @@ class StoryBuilderApp(tk.Tk):
                             values = candidate
                             break
                 if isinstance(values, list):
-                    scene_knowledge[name] = [
+                    all_scene_knowledge[name] = [
                         str(item).strip()
                         for item in values
                         if str(item).strip()
                     ]
                 elif isinstance(values, str) and values.strip():
-                    scene_knowledge[name] = [values.strip()]
+                    all_scene_knowledge[name] = [values.strip()]
+        scene_knowledge, knowledge_metrics = select_active_character_knowledge(
+            all_scene_knowledge,
+            context_query,
+            max_items_per_character=18,
+            max_total_items=72,
+        )
         files.append((
             "scene_character_knowledge.json",
             json.dumps(scene_knowledge, indent=2, ensure_ascii=False),
@@ -1861,10 +1903,21 @@ class StoryBuilderApp(tk.Tk):
         # material into the 8K context.
         supporting_people = self.package.story_bible.get("supporting_people", {})
         supporting_context = {}
+        query_text = context_query.casefold()
         if isinstance(supporting_people, dict):
             for name, value in supporting_people.items():
                 name_text = str(name).strip()
                 if not name_text:
+                    continue
+                explicitly_relevant = (
+                    name_text.casefold() in scene_cast
+                    or bool(re.search(
+                        r"(?<!\\w)" + re.escape(name_text) + r"(?!\\w)",
+                        query_text,
+                        flags=re.IGNORECASE,
+                    ))
+                )
+                if not explicitly_relevant:
                     continue
                 if isinstance(value, str):
                     supporting_context[name_text] = value
@@ -1898,9 +1951,34 @@ class StoryBuilderApp(tk.Tk):
         if author_guidance:
             files.append(("author_writing_guidance.txt", author_guidance))
 
-        # Do not place recent manuscript prose or active module plans into the
-        # persistent system prompt. Those belong in the per-scene direction
-        # and short continuation handoff.
+        # Do not place full historical prose in the persistent system prompt.
+        # Older accepted prose is searched on demand for the current scene only.
+        active_detail_chars = (
+            len(json.dumps(scene_knowledge, ensure_ascii=False))
+            + len(json.dumps(prompt_learned_notes if all_learned_notes else [], ensure_ascii=False))
+            + len(json.dumps(supporting_context, ensure_ascii=False))
+        )
+        candidate_detail_chars = (
+            len(json.dumps(all_scene_knowledge, ensure_ascii=False))
+            + len(json.dumps(all_learned_notes, ensure_ascii=False))
+            + len(json.dumps(supporting_people if isinstance(supporting_people, dict) else {}, ensure_ascii=False))
+        )
+        self.writer_last_context_metrics = {
+            "knowledge": knowledge_metrics,
+            "detail_context_before_chars": candidate_detail_chars,
+            "detail_context_after_chars": active_detail_chars,
+            "detail_context_before_estimated_tokens": estimate_tokens_from_chars(candidate_detail_chars),
+            "detail_context_after_estimated_tokens": estimate_tokens_from_chars(active_detail_chars),
+            "detail_context_reduction_percent": round(
+                (candidate_detail_chars - active_detail_chars) * 100 / candidate_detail_chars, 1
+            ) if candidate_detail_chars else 0.0,
+            "active_knowledge_items": sum(len(values) for values in scene_knowledge.values()),
+            "candidate_knowledge_items": sum(len(values) for values in all_scene_knowledge.values()),
+            "active_writer_notes": len(prompt_learned_notes),
+            "candidate_writer_notes": len(all_learned_notes),
+            "historical_archive_characters": 0,
+            "historical_archive_estimated_tokens": 0,
+        }
         return files
 
     def _story_interview_questions(self):
