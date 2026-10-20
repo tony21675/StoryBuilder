@@ -27,7 +27,11 @@ _PROTECTED_FACT = re.compile(
     r"nickname|accepted it|trust\w*|betray\w*|letter|emergenc\w*|died|death|birth|"
     r"told (?:him|her|them)|learned from|does not know|doesn't know|unidentified|"
     r"first time|for the first time|relationship|engaged|married|divorc\w*|"
-    r"afraid of|allergic|medication|diagnos\w*|timeline|before sunrise|after midnight)\b",
+    r"afraid of|allergic|medication|diagnos\w*|timeline|deadline|birthday|anniversary|"
+    r"before sunrise|before dawn|after midnight|sunrise|hours later|tomorrow|yesterday|"
+    r"attack|assault|violence|shot|stab\w*|strangl\w*|drug\w*|poison\w*|chok\w*|"
+    r"blood|bleed\w*|punch\w*|hit by|grabbed|forced|rescued|escaped|police|fingerprint|"
+    r"scent|smell\w*|cigarette|cologne|pine needle)\b",
     re.IGNORECASE,
 )
 _DISPOSABLE_DETAIL = re.compile(
