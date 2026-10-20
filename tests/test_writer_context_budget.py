@@ -83,6 +83,35 @@ class WriterContextBudgetTests(unittest.TestCase):
                 safety_margin_tokens=100,
             )
 
+    def test_diagnostic_mode_reports_over_budget_without_weakening_default_guard(self):
+        files = [
+            ("scene_state.json", "x" * 4000),
+            ("author_writing_guidance.txt", "preserve stable guidance " * 200),
+        ]
+        fitted, metrics = fit_writer_context_files(
+            files,
+            prompt_builder=self._render,
+            base_prompt="Current scene direction.",
+            context_window_tokens=700,
+            reserved_output_tokens=200,
+            safety_margin_tokens=100,
+            raise_on_overflow=False,
+        )
+        self.assertGreater(metrics["final_conservative_tokens"], metrics["input_token_budget"])
+        self.assertTrue(metrics["required_context_over_budget"])
+        self.assertGreater(metrics["estimated_overage_tokens"], 0)
+        self.assertIn("scene_state.json", dict(fitted))
+        self.assertIn("author_writing_guidance.txt", dict(fitted))
+        with self.assertRaisesRegex(WriterContextBudgetError, "Required Writer context still exceeds"):
+            fit_writer_context_files(
+                files,
+                prompt_builder=self._render,
+                base_prompt="Current scene direction.",
+                context_window_tokens=700,
+                reserved_output_tokens=200,
+                safety_margin_tokens=100,
+            )
+
     def test_estimate_is_conservative_and_repeatable(self):
         self.assertEqual(conservative_token_estimate("x" * 300), 100)
 
