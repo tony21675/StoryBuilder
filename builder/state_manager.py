@@ -1431,7 +1431,7 @@ class StateManager:
             return {}
 
         existing = current_state.get("character_knowledge", {})
-        knowledge_before = {}
+        all_knowledge_before = {}
         if isinstance(existing, dict):
             for name in cast:
                 values = existing.get(name)
@@ -1441,33 +1441,32 @@ class StateManager:
                             values = candidate
                             break
                 if isinstance(values, list):
-                    knowledge_before[name] = [
+                    all_knowledge_before[name] = [
                         str(item).strip() for item in values if str(item).strip()
                     ]
                 elif isinstance(values, str) and values.strip():
-                    knowledge_before[name] = [values.strip()]
+                    all_knowledge_before[name] = [values.strip()]
                 else:
-                    knowledge_before[name] = []
+                    all_knowledge_before[name] = []
+        knowledge_before = select_relevant_knowledge_context(
+            all_knowledge_before, story_text, max_items_per_character=8, max_total_items=36
+        )
 
         audit_prompt = (
-            "Audit the entire completed story section and produce the complete cumulative knowledge "
-            "for every current-scene character after the section. Preserve all valid before-state facts, "
-            "add all facts learned during the section, and remove obsolete negative statements when the "
-            "character now knows the corresponding fact. Do not omit a prior fact just because it is not "
-            "repeated in this section. If and only if the completed prose directly corrects, contradicts, "
-            "or resolves a prior fact, optionally return a top-level \"_superseded_facts\" object mapping "
-            "the character name to exact prior fact strings that are no longer current. Older models may "
-            "omit this optional field; do not require it for ordinary outputs.\n\n"
+            "Return only knowledge deltas for the supplied section. The application retains all existing "
+            "facts automatically, so do not re-emit the cumulative list. Return only new facts for affected "
+            "characters and exact supplied prior facts that the prose directly supersedes. This is not a "
+            "request to rebuild the character profiles.\n\n"
             "SCENE CAST:\n"
             + json.dumps(cast, indent=2, ensure_ascii=False)
-            + "\n\nCHARACTER KNOWLEDGE BEFORE THIS SECTION:\n"
+            + "\n\nSELECTED EXISTING KNOWLEDGE CONTEXT (THE APP KEEPS THE FULL LEDGER):\n"
             + json.dumps(knowledge_before, indent=2, ensure_ascii=False)
             + "\n\nSTARTING SITUATION AND LOCATIONS (CONTEXT ONLY):\n"
             + json.dumps(
                 {
                     "current_situation": current_state.get("current_situation", ""),
-                    "location": current_state.get("location", {}),
-                    "physical_state": current_state.get("physical_state", {}),
+                    "location": build_state_analysis_context(current_state, cast).get("location", {}),
+                    "physical_state": build_state_analysis_context(current_state, cast).get("physical_state", {}),
                     "scene_cast_at_opening": current_state.get("scene_cast", []),
                 },
                 indent=2,
@@ -1715,9 +1714,10 @@ class StateManager:
         end_guidance = (scene_end_guidance or "").strip()
         final_excerpt = completed_text[-3000:]
 
+        state_context = build_state_analysis_context(current_state, scene_characters)
         prompt_parts = [
-            "CURRENT STATE BEFORE THIS SECTION:\n",
-            json.dumps(current_state, indent=2, ensure_ascii=False),
+            "COMPACT CURRENT-STATE CONTEXT BEFORE THIS SECTION (THE APPLICATION RETAINS THE FULL STATE):\n",
+            json.dumps(state_context, indent=2, ensure_ascii=False),
         ]
 
         prompt_parts.extend([
@@ -1743,7 +1743,7 @@ class StateManager:
             "Read the entire section, but give special weight to the final actions and final paragraph. "
             "If the expected ending-state hint agrees with the completed prose, the returned patch should "
             "reflect that ending rather than the initial state. "
-            "The current state above describes what was true BEFORE the section and must not override what "
+            "The compact current-state context describes what was true BEFORE the section and must not override what "
             "the completed prose establishes at the end. For each character whose final location, physical position, contact, or immediate "
             "situation changed, include the changed value under physical_state and/or location as appropriate. Update current_situation to describe "
             "the actual immediate situation at the absolute end of the completed section, not the starting "
@@ -1751,7 +1751,7 @@ class StateManager:
             "Do not copy planning instructions or future events into it. "
             "Always return non-empty current_situation. Return only changed location, physical_state, time_of_day, and active_objectives fields, plus new_clues (use [] if none), resolved_clues, new_unresolved_questions, resolved_questions, and new_recent_events (use [] if none). "
             "Do not return character_knowledge, active_clues, unresolved_questions directly, recent_events directly, event/event-log fields, scene flags, continuity requirements, or other metadata. For new_clues, include specific sensory/physical/vehicle evidence, preserve witness qualifiers, and never invent an extra scent or split one observation into additional clues. Do not repeat an existing active clue as new. Keep exact first-time nicknames and whether they are accepted or rejected as distinct new_recent_events, not just a generic hug. Include physical_state.clothing when the prose explicitly establishes a continuity-relevant outfit change. "
-            "Use null to remove stale object keys as described by the system rules. Update only objectives changed by the completed prose and keep any group commitment broad when no assignments have been made."
+            "Use null to remove stale object keys as described by the system rules. Update only objectives changed by the completed prose and keep any group commitment broad when no assignments have been made. The compact context omits full character knowledge and editorial reminders; do not treat omitted facts as false."
         ])
         prompt = "".join(prompt_parts)
 
