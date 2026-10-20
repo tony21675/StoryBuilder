@@ -9,42 +9,26 @@ from typing import Any
 
 from builder.workspace import LLAMA as DEFAULT_LLAMA
 
-KNOWLEDGE_AUDIT_SYSTEM_PROMPT = """You are a character-knowledge auditor for an ongoing fictional novel.
+KNOWLEDGE_AUDIT_SYSTEM_PROMPT = """You are a delta auditor for character knowledge in an ongoing fictional novel.
 
-Return ONLY valid JSON. The normal shape is:
-{"CharacterName": ["complete fact known after the section", "another complete fact known after the section"]}
-When a prior fact is explicitly superseded by the completed prose, you may additionally include:
-"_superseded_facts": {"CharacterName": ["exact prior fact that is now false or obsolete"]}
-Older callers may only consume the character-name arrays, so keep those arrays complete and valid.
+Return ONLY valid JSON in this shape:
+{"CharacterName": ["one specific NEW fact learned in this section"], "_superseded_facts": {"CharacterName": ["exact supplied prior fact made obsolete by this section"]}}
+
+This is a DELTA, not a regenerated character profile. The application retains all prior knowledge and merges your additions. For a character who learned nothing new, omit their key or return an empty array. Never copy existing knowledge into the answer.
 
 Rules:
-- The supplied character roster can include names mentioned in the prose because scene_cast records the opening cast, not every later arrival. Use the complete prose and starting locations to identify who actually participates.
-- Return cumulative knowledge for characters who are physically present, enter the scene, hear relevant dialogue, or directly observe an event. A named character who is elsewhere or merely discussed does not learn from the conversation; preserve their prior knowledge unchanged and never add new knowledge to them.
-- Return each current-scene character's COMPLETE cumulative knowledge after the completed section.
-- Preserve every valid fact already known before the section, then add every fact newly learned during the completed prose.
-- A character learns information they hear from another character's dialogue, directly observe, read, or personally experience.
-- When one character tells another a consequential fact, the listener knows that fact after the conversation.
-- Do not give information to characters who did not hear, observe, read, or experience it.
-- Preserve specific consequential facts. Do not replace several distinct facts with a vague summary.
-- If a before-state item says a character does not know a fact, and the completed prose shows that character now learns it, remove the obsolete negative statement and record the actual knowledge instead.
-- Never omit a valid prior fact merely because the completed section does not repeat it. The application also preserves prior facts as a safeguard against incomplete model output.
-- Temporary physical state is not cumulative character knowledge. Current location, posture, contact, movement, clothing, and immediate activity belong in physical_state, not character_knowledge. If the completed prose shows that a prior knowledge item describing temporary status is no longer current (for example, someone is no longer asleep, being carried, holding an object, or wearing a temporary outfit), list that exact prior item under _superseded_facts.
-- Remove only temporary or explicitly contradicted facts whose current-state meaning is stale. Preserve durable identifying details and consequential history, including the abduction, violence, injuries, observed behavior, and clues, even after those events have passed. Do not erase a fact merely because the current scene does not repeat it.
-- Only when the completed prose directly corrects, contradicts, or resolves a prior fact, list that exact prior fact under the optional "_superseded_facts" object for its character. Do not list a fact as superseded merely because it was omitted from your knowledge summary.
-- If you do not find any prior fact that is explicitly superseded, omit the "_superseded_facts" object and use the normal character-name arrays.
-- Deduplicate paraphrases of the same observation within a character's knowledge list. For example, two descriptions of Tiffany smiling/laughing before the same man moved are one observation, not two independent facts. Keep distinct physical actions and identifying details separate.
-- Do not keep contradictory positive and negative knowledge statements when the completed prose resolves the contradiction.
-- Read the entire completed section, not only its ending.
-- Never infer future events, motives, hidden information, or unstated conclusions.
-- Return knowledge facts and beliefs only, not a log of actions performed in the scene.
-- Do not record routine scene actions such as calling or inviting friends, suggesting a bath, helping someone sit up, guiding someone to a bathroom, closing a door, brewing tea, offering a mug, or lowering someone into a bath. These are scene events, not cumulative knowledge.
-- Do not record a character's act of telling, asking, offering, or suggesting something as that character's knowledge. Record the consequential fact learned by the listener instead. For example, write "Tony knows from Maya that Tiffany is missing", not "Maya told Tony that Tiffany is missing".
-- Never list a character's own actions as things that character knows. For example, "Tony helped Maya into the bath" is an event, not a knowledge fact.
-- Preserve consequential facts from important events, including the abduction, violence, injuries, identifying details, and clues. Do not delete those facts just because they describe actions.
-- A valid entry states what the character knows about the world, another person, or an event, such as "Tony knows from Maya that Tiffany is missing."
-- Preserve character knowledge separately from location, physical_state, current_situation, and event history.
-- If a character learned nothing, return that character's before-state knowledge unchanged.
-- Output JSON only. No markdown, commentary, or explanations.
+- Use the full completed prose to identify who is physically present, enters, hears relevant dialogue, reads information, or directly observes an event. scene_cast records the opening cast, not every later arrival. A person merely mentioned or elsewhere learns nothing; a character merely discussed does not learn from the conversation.
+- Return only facts newly learned in this section. The before-state facts are a small relevance-selected sample, not a complete list; do not infer that an omitted fact is false.
+- State each addition as a durable, specific proposition about the world, a person, or an event. Do not summarize cumulative knowledge or repeat the supplied before-state facts.
+- A character learns facts they hear in dialogue, directly observe, read, or personally experience. Do not give anyone knowledge they did not receive.
+- Preserve distinct consequential details, including abduction, actions used to resist it, injuries, witness descriptions, sensory evidence, and other identifying clues. Do not compress several facts into a vague summary.
+- Do not invent motives, identities, locations, evidence, history, or unstated conclusions.
+- Knowledge is not an event log. Never list routine scene actions, a character's own actions, or the act of telling/asking/offering as knowledge. "Tony brewed tea" is an event, not a knowledge fact; "Tony learned from Maya that Tiffany is missing" is a fact learned by Tony.
+- Temporary physical state, location, posture, contact, movement, clothing, and immediate activity belong in physical_state, not cumulative knowledge. Do not add them as new knowledge unless they have independent lasting significance.
+- Only supersede an exact fact present in the supplied selected existing-knowledge context, and only when the prose directly contradicts or resolves it. Do not supersede facts merely because the current scene omits them.
+- Deduplicate paraphrases of the same observation in your output. Keep independently consequential details separate.
+- If there are no valid new facts or supersessions, return {}.
+- Output JSON only, without markdown or explanations.
 """
 
 
@@ -817,6 +801,226 @@ def clean_knowledge_action_logs(
     return changed
 
 
+def build_state_analysis_context(
+    current_state: dict[str, Any],
+    scene_characters: list[str] | None = None,
+) -> dict[str, Any]:
+    """Build a compact baseline for state transitions; the full state remains app-owned."""
+    fields = (
+        "chapter", "scene", "scene_cast", "current_situation", "time", "time_of_day",
+        "location", "physical_state", "active_objectives", "active_clues",
+        "unresolved_questions", "recent_events",
+    )
+    context: dict[str, Any] = {}
+    supplied = scene_characters or current_state.get("scene_cast", [])
+    names = {str(name).casefold() for name in supplied if str(name).strip()}
+    names.update(str(name).casefold() for name in current_state.get("scene_cast", []) if str(name).strip())
+    for field in fields:
+        if field not in current_state:
+            continue
+        value = current_state[field]
+        if field in {"location", "physical_state", "active_objectives"} and isinstance(value, dict):
+            filtered = {}
+            for name, item in value.items():
+                if field == "location" and str(name).casefold() == "primary":
+                    filtered[name] = item
+                elif str(name).casefold() in names:
+                    filtered[name] = item
+            context[field] = filtered
+        elif field == "recent_events" and isinstance(value, list):
+            context[field] = value[-8:]
+        else:
+            context[field] = value
+    return context
+
+
+def _knowledge_relevance_tokens(text: str) -> set[str]:
+    stop_words = {
+        "about", "after", "again", "against", "also", "and", "are", "around", "because",
+        "been", "before", "being", "between", "but", "came", "could", "did", "does",
+        "during", "each", "from", "get", "got", "had", "has", "have", "her", "hers",
+        "him", "his", "into", "its", "just", "know", "knows", "learned", "like", "made",
+        "make", "more", "most", "near", "not", "now", "onto", "our", "out", "over",
+        "said", "same", "she", "should", "some", "such", "than", "that", "the", "their",
+        "them", "then", "there", "these", "they", "this", "those", "through", "told",
+        "under", "very", "was", "were", "what", "when", "where", "which", "while", "who",
+        "will", "with", "would", "you", "your",
+    }
+    return {
+        token for token in re.findall(r"[a-z0-9]+", str(text).casefold())
+        if len(token) >= 3 and token not in stop_words
+    }
+
+
+def select_relevant_knowledge_context(
+    knowledge_by_character: dict[str, list[str]],
+    story_text: str,
+    *,
+    max_items_per_character: int = 8,
+    max_total_items: int = 36,
+) -> dict[str, list[str]]:
+    """Select bounded prior context while retaining the complete knowledge ledger in app state."""
+    story_tokens = _knowledge_relevance_tokens(story_text)
+    ranked: list[tuple[int, int, str, str]] = []
+    for character, values in knowledge_by_character.items():
+        if not isinstance(values, list):
+            continue
+        for index, raw in enumerate(values):
+            value = str(raw).strip()
+            if not value:
+                continue
+            tokens = _knowledge_relevance_tokens(value)
+            overlap = len(tokens.intersection(story_tokens))
+            recency_bonus = 2 if index >= max(0, len(values) - 3) else 0
+            temporary_bonus = 3 if re.search(
+                r"\b(?:asleep|sleeping|wearing|holding|carrying|sitting|standing|lying|inside the van|in the bathroom|in the bedroom|at the kitchen table)\b",
+                value,
+                re.IGNORECASE,
+            ) else 0
+            ranked.append((overlap + recency_bonus + temporary_bonus, index, str(character), value))
+
+    ranked.sort(key=lambda item: (item[0], item[1]), reverse=True)
+    selected: dict[str, list[tuple[int, str]]] = {}
+    for _score, index, character, value in ranked:
+        if len(selected.get(character, [])) >= max_items_per_character:
+            continue
+        if sum(len(items) for items in selected.values()) >= max_total_items:
+            break
+        selected.setdefault(character, []).append((index, value))
+    return {
+        character: [value for _index, value in sorted(values, key=lambda item: item[0])]
+        for character, values in selected.items()
+    }
+
+
+def _display_diff_value(value: Any, max_chars: int = 360) -> str:
+    """Format one state value compactly for human change review."""
+    text_value = value.strip() if isinstance(value, str) else json.dumps(
+        value, ensure_ascii=False, sort_keys=True
+    )
+    text_value = re.sub(r"\s+", " ", text_value).strip()
+    if len(text_value) > max_chars:
+        text_value = text_value[:max_chars - 1].rstrip() + "…"
+    return text_value
+
+
+def build_state_change_summary(
+    before: dict[str, Any],
+    after: dict[str, Any],
+    *,
+    max_changes: int = 80,
+) -> str:
+    """Report only changed state paths; unchanged canon is deliberately hidden."""
+    categories = {
+        "Situation and time": {"current_situation", "time", "time_of_day"},
+        "Locations and physical state": {"location", "physical_state"},
+        "Objectives": {"active_objectives"},
+        "Character knowledge": {"character_knowledge"},
+        "Investigative leads": {"active_clues", "new_clues", "unresolved_questions"},
+        "Recent events": {"recent_events"},
+    }
+    order = list(categories) + ["Other state changes"]
+    changes: dict[str, list[str]] = {name: [] for name in order}
+    ignored_managed = {"chapter", "scene", "status", "scene_completed", "chapter_completed"}
+    found = 0
+
+    def category(path: str) -> str:
+        root = path.split(".", 1)[0].split("[", 1)[0]
+        return next((key for key, fields in categories.items() if root in fields), "Other state changes")
+
+    def identity(value: Any) -> str:
+        if isinstance(value, dict) and "event" in value:
+            value = value.get("event", "")
+        if isinstance(value, str):
+            return re.sub(r"\s+", " ", value).strip().rstrip(".!?").casefold()
+        return json.dumps(value, ensure_ascii=False, sort_keys=True)
+
+    def add(path: str, kind: str, value: Any = None, old: Any = None) -> None:
+        nonlocal found
+        if found >= max_changes:
+            return
+        line = f"{kind} {path}"
+        if kind == "Changed":
+            line += f"\n    Before: {_display_diff_value(old)}\n    After:  {_display_diff_value(value)}"
+        elif kind in {"Added", "Removed"}:
+            line += f": {_display_diff_value(value)}"
+        changes[category(path)].append(line)
+        found += 1
+
+    def compare(path: str, old: Any, new: Any, old_exists: bool = True, new_exists: bool = True) -> None:
+        if found >= max_changes or (old_exists and new_exists and old == new):
+            return
+        if not old_exists:
+            if isinstance(new, dict) and new:
+                for key, value in new.items():
+                    compare(f"{path}.{key}" if path else str(key), None, value, False, True)
+            elif isinstance(new, list):
+                for value in new:
+                    add(path, "Added", value)
+            else:
+                add(path, "Added", new)
+            return
+        if not new_exists:
+            if isinstance(old, dict) and old:
+                for key, value in old.items():
+                    compare(f"{path}.{key}" if path else str(key), value, None, True, False)
+            elif isinstance(old, list):
+                for value in old:
+                    add(path, "Removed", value)
+            else:
+                add(path, "Removed", old)
+            return
+        if isinstance(old, dict) and isinstance(new, dict):
+            for key in dict.fromkeys([*old.keys(), *new.keys()]):
+                compare(
+                    f"{path}.{key}" if path else str(key),
+                    old.get(key), new.get(key), key in old, key in new,
+                )
+            return
+        if isinstance(old, list) and isinstance(new, list):
+            old_map: dict[str, Any] = {}
+            new_map: dict[str, Any] = {}
+            for value in old:
+                old_map.setdefault(identity(value), value)
+            for value in new:
+                new_map.setdefault(identity(value), value)
+            removed = [value for key, value in old_map.items() if key not in new_map]
+            added = [value for key, value in new_map.items() if key not in old_map]
+            if not removed and not added and old != new:
+                add(path, "Changed", new, old)
+            else:
+                for value in removed:
+                    add(path, "Removed", value)
+                for value in added:
+                    add(path, "Added", value)
+            return
+        add(path, "Changed", new, old)
+
+    all_keys = [key for key in dict.fromkeys([*before.keys(), *after.keys()]) if key not in ignored_managed]
+    for key in all_keys:
+        compare(str(key), before.get(key), after.get(key), key in before, key in after)
+        if found >= max_changes:
+            break
+    lines = [
+        "PROPOSED ENDING-STATE CHANGES",
+        "Only differences are shown. Fields not listed remain unchanged.",
+        "",
+    ]
+    wrote = False
+    for group in order:
+        if changes[group]:
+            wrote = True
+            lines.append(group.upper())
+            lines.extend(f"  {item}" for item in changes[group])
+            lines.append("")
+    if not wrote:
+        lines.append("No state changes detected. Check whether that is expected before applying.")
+    if found >= max_changes:
+        lines.append(f"Output capped at {max_changes} changes. Inspect Full State JSON for more.")
+    lines.append("Full State JSON is available in the advanced tab if a correction is needed.")
+    return "\n".join(lines).strip()
+
+
 OPTIONAL_STATE_PATCH_FIELDS = {
     # These fields are valid even in older packages that predate their storage.
     "current_situation",
@@ -1227,7 +1431,7 @@ class StateManager:
             return {}
 
         existing = current_state.get("character_knowledge", {})
-        knowledge_before = {}
+        all_knowledge_before = {}
         if isinstance(existing, dict):
             for name in cast:
                 values = existing.get(name)
@@ -1237,33 +1441,32 @@ class StateManager:
                             values = candidate
                             break
                 if isinstance(values, list):
-                    knowledge_before[name] = [
+                    all_knowledge_before[name] = [
                         str(item).strip() for item in values if str(item).strip()
                     ]
                 elif isinstance(values, str) and values.strip():
-                    knowledge_before[name] = [values.strip()]
+                    all_knowledge_before[name] = [values.strip()]
                 else:
-                    knowledge_before[name] = []
+                    all_knowledge_before[name] = []
+        knowledge_before = select_relevant_knowledge_context(
+            all_knowledge_before, story_text, max_items_per_character=8, max_total_items=36
+        )
 
         audit_prompt = (
-            "Audit the entire completed story section and produce the complete cumulative knowledge "
-            "for every current-scene character after the section. Preserve all valid before-state facts, "
-            "add all facts learned during the section, and remove obsolete negative statements when the "
-            "character now knows the corresponding fact. Do not omit a prior fact just because it is not "
-            "repeated in this section. If and only if the completed prose directly corrects, contradicts, "
-            "or resolves a prior fact, optionally return a top-level \"_superseded_facts\" object mapping "
-            "the character name to exact prior fact strings that are no longer current. Older models may "
-            "omit this optional field; do not require it for ordinary outputs.\n\n"
+            "Return only knowledge deltas for the supplied section. The application retains all existing "
+            "facts automatically, so do not re-emit the cumulative list. Return only new facts for affected "
+            "characters and exact supplied prior facts that the prose directly supersedes. This is not a "
+            "request to rebuild the character profiles.\n\n"
             "SCENE CAST:\n"
             + json.dumps(cast, indent=2, ensure_ascii=False)
-            + "\n\nCHARACTER KNOWLEDGE BEFORE THIS SECTION:\n"
+            + "\n\nSELECTED EXISTING KNOWLEDGE CONTEXT (THE APP KEEPS THE FULL LEDGER):\n"
             + json.dumps(knowledge_before, indent=2, ensure_ascii=False)
             + "\n\nSTARTING SITUATION AND LOCATIONS (CONTEXT ONLY):\n"
             + json.dumps(
                 {
                     "current_situation": current_state.get("current_situation", ""),
-                    "location": current_state.get("location", {}),
-                    "physical_state": current_state.get("physical_state", {}),
+                    "location": build_state_analysis_context(current_state, cast).get("location", {}),
+                    "physical_state": build_state_analysis_context(current_state, cast).get("physical_state", {}),
                     "scene_cast_at_opening": current_state.get("scene_cast", []),
                 },
                 indent=2,
@@ -1509,11 +1712,10 @@ class StateManager:
 
         completed_text = story_text.strip()
         end_guidance = (scene_end_guidance or "").strip()
-        final_excerpt = completed_text[-3000:]
-
+        state_context = build_state_analysis_context(current_state, scene_characters)
         prompt_parts = [
-            "CURRENT STATE BEFORE THIS SECTION:\n",
-            json.dumps(current_state, indent=2, ensure_ascii=False),
+            "COMPACT CURRENT-STATE CONTEXT BEFORE THIS SECTION (THE APPLICATION RETAINS THE FULL STATE):\n",
+            json.dumps(state_context, indent=2, ensure_ascii=False),
         ]
 
         prompt_parts.extend([
@@ -1533,13 +1735,13 @@ class StateManager:
             ])
 
         prompt_parts.extend([
-            "\n\nFINAL PART OF COMPLETED STORY SECTION:\n",
-            final_excerpt,
-            "\n\nDetermine the smallest state update needed AFTER this completed section. "
+            "\n\nENDING-STATE EMPHASIS:\n",
+            "The full accepted scene text appears above exactly once. Do not rely on a repeated excerpt; inspect the final actions and paragraph in the original scene. ",
+            "Determine the smallest state update needed AFTER this completed section. "
             "Read the entire section, but give special weight to the final actions and final paragraph. "
             "If the expected ending-state hint agrees with the completed prose, the returned patch should "
             "reflect that ending rather than the initial state. "
-            "The current state above describes what was true BEFORE the section and must not override what "
+            "The compact current-state context describes what was true BEFORE the section and must not override what "
             "the completed prose establishes at the end. For each character whose final location, physical position, contact, or immediate "
             "situation changed, include the changed value under physical_state and/or location as appropriate. Update current_situation to describe "
             "the actual immediate situation at the absolute end of the completed section, not the starting "
@@ -1547,7 +1749,7 @@ class StateManager:
             "Do not copy planning instructions or future events into it. "
             "Always return non-empty current_situation. Return only changed location, physical_state, time_of_day, and active_objectives fields, plus new_clues (use [] if none), resolved_clues, new_unresolved_questions, resolved_questions, and new_recent_events (use [] if none). "
             "Do not return character_knowledge, active_clues, unresolved_questions directly, recent_events directly, event/event-log fields, scene flags, continuity requirements, or other metadata. For new_clues, include specific sensory/physical/vehicle evidence, preserve witness qualifiers, and never invent an extra scent or split one observation into additional clues. Do not repeat an existing active clue as new. Keep exact first-time nicknames and whether they are accepted or rejected as distinct new_recent_events, not just a generic hug. Include physical_state.clothing when the prose explicitly establishes a continuity-relevant outfit change. "
-            "Use null to remove stale object keys as described by the system rules. Update only objectives changed by the completed prose and keep any group commitment broad when no assignments have been made."
+            "Use null to remove stale object keys as described by the system rules. Update only objectives changed by the completed prose and keep any group commitment broad when no assignments have been made. The compact context omits full character knowledge and editorial reminders; do not treat omitted facts as false."
         ])
         prompt = "".join(prompt_parts)
 

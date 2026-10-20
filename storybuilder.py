@@ -48,10 +48,17 @@ from builder.writer_engine import WriterEngine
 from builder.prompt_trace import PromptTrace, default_prompt_trace_path
 from builder.prompt_trace_sync import upload_prompt_trace
 from builder.manuscript import ManuscriptManager
+from builder.continuity_context import (
+    context_size_report,
+    estimate_tokens_from_chars,
+    select_active_character_knowledge,
+    select_relevant_records,
+)
 from builder.scene_flow import review_chapter_flow
 from builder.novel_sync import NovelSyncError, sync_novel_repository
 from builder.state_manager import (
     StateManager,
+    build_state_change_summary,
     combine_state_patches,
     remove_prior_chapter_opening_markers,
     reviewed_state_preview_to_patch,
@@ -1418,13 +1425,13 @@ class StoryBuilderApp(tk.Tk):
         proposed_state_header.pack(fill="x", pady=(10, 0))
         ttk.Label(
             proposed_state_header,
-            text="Reconstructed Ending State (Editable Before Apply)",
+            text="Proposed Changes (Review Before Apply)",
             font=("", 11, "bold"),
         ).pack(side="left")
 
         self.writer_copy_state_button = ttk.Button(
             proposed_state_header,
-            text="Copy JSON",
+            text="Copy Full JSON",
             command=self._copy_proposed_state,
         )
         self.writer_copy_state_button.pack(side="right")
@@ -1432,18 +1439,53 @@ class StoryBuilderApp(tk.Tk):
         ttk.Label(
             content_frame,
             text=(
-                "Shows the full merged ending state. You may correct values here before applying; "
-                "those edits are included. Keep existing fields in place. Chapter and scene navigation "
-                "remain controlled by StoryBuilder."
+                "The first tab shows only what this scene changes. Fields not listed are preserved. "
+                "Use Full State JSON (Advanced) only when a manual correction is needed. Applying the "
+                "proposal merges those edits into the saved state; scene navigation remains app-controlled."
             ),
             wraplength=900,
             justify="left",
         ).pack(anchor="w", pady=(4, 0))
 
-        self.writer_state_preview = tk.Text(
-            content_frame, height=12, wrap="none", undo=True
+        self.writer_state_review_notebook = ttk.Notebook(content_frame)
+        self.writer_state_review_notebook.pack(fill="both", expand=True, pady=(4, 0))
+
+        self.writer_state_diff_tab = ttk.Frame(self.writer_state_review_notebook)
+        self.writer_state_json_tab = ttk.Frame(self.writer_state_review_notebook)
+        self.writer_state_review_notebook.add(
+            self.writer_state_diff_tab, text="Changes to Review"
         )
-        self.writer_state_preview.pack(fill="x", pady=(4, 0))
+        self.writer_state_review_notebook.add(
+            self.writer_state_json_tab, text="Full State JSON (Advanced)"
+        )
+
+        diff_frame = ttk.Frame(self.writer_state_diff_tab)
+        diff_frame.pack(fill="both", expand=True)
+        diff_scrollbar = ttk.Scrollbar(diff_frame, orient="vertical")
+        self.writer_state_diff_preview = tk.Text(
+            diff_frame,
+            height=16,
+            wrap="word",
+            yscrollcommand=diff_scrollbar.set,
+            state="disabled",
+        )
+        diff_scrollbar.configure(command=self.writer_state_diff_preview.yview)
+        self.writer_state_diff_preview.pack(side="left", fill="both", expand=True)
+        diff_scrollbar.pack(side="right", fill="y")
+
+        json_frame = ttk.Frame(self.writer_state_json_tab)
+        json_frame.pack(fill="both", expand=True)
+        json_scrollbar = ttk.Scrollbar(json_frame, orient="vertical")
+        self.writer_state_preview = tk.Text(
+            json_frame,
+            height=18,
+            wrap="none",
+            undo=True,
+            yscrollcommand=json_scrollbar.set,
+        )
+        json_scrollbar.configure(command=self.writer_state_preview.yview)
+        self.writer_state_preview.pack(side="left", fill="both", expand=True)
+        json_scrollbar.pack(side="right", fill="y")
 
         self._refresh_writer_models()
         self._update_writer_buttons()
@@ -1643,15 +1685,66 @@ class StoryBuilderApp(tk.Tk):
 
         files = []
 
-        # Keep the persistent writer context compact. The model only needs
-        # the current scene state, the cards for characters actually present,
-        # and relationships that matter to those characters.
+        # Query active context against the author-defined current scene rather
+        # than every historical fact in the package. The complete ledgers stay
+        # persisted; this is only the transient prompt view.
         location = state.get("location", "")
         primary_location = (
             str(location.get("primary", "") or "").strip()
             if isinstance(location, dict)
             else str(location or "").strip()
         )
+        chapter = int(state.get("chapter", 1) or 1)
+        scene = int(state.get("scene", 1) or 1)
+        guidance_plan = self.package.extra_json.get("writing_guidance.json", {})
+        guidance_entry = (
+            self._chapter_scene_guidance(guidance_plan, chapter, scene)
+            if isinstance(guidance_plan, dict) else None
+        )
+        if not isinstance(guidance_entry, dict):
+            guidance_entry = {}
+        scene_plan_text = "\n".join([
+            str(guidance_entry.get("scene_idea", "") or ""),
+            str(guidance_entry.get("direction", "") or ""),
+            str(guidance_entry.get("end_condition", "") or ""),
+        ]).strip()
+        context_query = "\n".join([
+            *scene_cast_names,
+            primary_location,
+            str(state.get("current_situation", "") or ""),
+            scene_plan_text,
+        ]).strip()
+        # State cast and physical continuity refer to the opening only. Include
+        # cards/knowledge for additional characters explicitly named in the
+        # author-authored plan, but keep their facts attributed to them.
+        scene_context_names = set(scene_cast_names)
+        scene_context_order = list(dict.fromkeys(scene_cast_names))
+        scene_context_name_keys = {str(name).casefold() for name in scene_context_order}
+
+        def add_scene_context_name(raw_name):
+            name = str(raw_name or "").strip()
+            key = name.casefold()
+            if name and key not in scene_context_name_keys:
+                scene_context_names.add(name)
+                scene_context_order.append(name)
+                scene_context_name_keys.add(key)
+
+        planned_cast = guidance_entry.get("cast", [])
+        if isinstance(planned_cast, list):
+            for name in planned_cast:
+                add_scene_context_name(name)
+        character_cards_for_context = getattr(self.package, "characters", {})
+        if isinstance(character_cards_for_context, dict):
+            for filename, data in sorted(character_cards_for_context.items()):
+                name = str(data.get("name", "") or "").strip() if isinstance(data, dict) else ""
+                if not name:
+                    name = Path(str(filename)).stem
+                if name and re.search(
+                    r"(?<!\\w)" + re.escape(name) + r"(?!\\w)",
+                    scene_plan_text,
+                    flags=re.IGNORECASE,
+                ):
+                    add_scene_context_name(name)
         time_data = state.get("time", state.get("time_of_day", ""))
         scene_state = {
             "chapter": int(state.get("chapter", 1) or 1),
@@ -1669,12 +1762,25 @@ class StoryBuilderApp(tk.Tk):
         working_notes = normalize_writer_notes(
             getattr(self.package, "writer_notes", {})
         )
-        if working_notes.get("learned_notes"):
+        all_learned_notes = [
+            item for item in working_notes.get("learned_notes", [])
+            if isinstance(item, dict) and item.get("note")
+        ]
+        # Keep small note sets intact. If the notebook grows, retrieve only
+        # scene-relevant craft observations; the persisted notebook is untouched.
+        if len(all_learned_notes) > 24:
+            prompt_learned_notes = select_relevant_records(
+                all_learned_notes, context_query, text_key="note", limit=24
+            )
+            if not prompt_learned_notes:
+                prompt_learned_notes = all_learned_notes[-8:]
+        else:
+            prompt_learned_notes = all_learned_notes
+        if prompt_learned_notes:
             prompt_notes = {
                 "learned_notes": [
                     {"note": item["note"]}
-                    for item in working_notes["learned_notes"]
-                    if isinstance(item, dict) and item.get("note")
+                    for item in prompt_learned_notes
                 ]
             }
             files.append((
@@ -1712,9 +1818,9 @@ class StoryBuilderApp(tk.Tk):
         # prevents one character from inheriting facts that only another
         # character has learned.
         character_knowledge = state.get("character_knowledge", {})
-        scene_knowledge = {}
+        all_scene_knowledge = {}
         if isinstance(character_knowledge, dict):
-            for name in scene_cast_names:
+            for name in scene_context_order:
                 values = character_knowledge.get(name)
                 if values is None:
                     for key, candidate in character_knowledge.items():
@@ -1722,13 +1828,35 @@ class StoryBuilderApp(tk.Tk):
                             values = candidate
                             break
                 if isinstance(values, list):
-                    scene_knowledge[name] = [
+                    all_scene_knowledge[name] = [
                         str(item).strip()
                         for item in values
                         if str(item).strip()
                     ]
                 elif isinstance(values, str) and values.strip():
-                    scene_knowledge[name] = [values.strip()]
+                    all_scene_knowledge[name] = [values.strip()]
+        active_character_names = set(scene_cast_names)
+        if isinstance(getattr(self.package, "characters", {}), dict):
+            for filename, data in self.package.characters.items():
+                name = str(data.get("name", "") or "").strip() if isinstance(data, dict) else ""
+                active_character_names.add(name or Path(str(filename)).stem)
+        supporting_name_data = self.package.story_bible.get("supporting_people", {})
+        if isinstance(supporting_name_data, dict):
+            active_character_names.update(str(name).strip() for name in supporting_name_data if str(name).strip())
+        for field in ("location", "physical_state", "character_knowledge", "active_objectives"):
+            values = state.get(field, {})
+            if isinstance(values, dict):
+                active_character_names.update(
+                    str(name).strip() for name in values
+                    if str(name).strip() and str(name).strip().casefold() != "primary"
+                )
+        scene_knowledge, knowledge_metrics = select_active_character_knowledge(
+            all_scene_knowledge,
+            context_query,
+            max_items_per_character=18,
+            max_total_items=72,
+            character_names=sorted(active_character_names),
+        )
         files.append((
             "scene_character_knowledge.json",
             json.dumps(scene_knowledge, indent=2, ensure_ascii=False),
@@ -1739,7 +1867,7 @@ class StoryBuilderApp(tk.Tk):
             data = self.package.characters[filename]
             name = str(data.get("name", "") or "").strip()
             filename_stem = Path(filename).stem.strip()
-            if name.casefold() not in scene_cast and filename_stem.casefold() not in scene_cast:
+            if name.casefold() not in {value.casefold() for value in scene_context_names} and filename_stem.casefold() not in {value.casefold() for value in scene_context_names}:
                 continue
             scene_characters[name or filename_stem] = data
 
@@ -1762,7 +1890,13 @@ class StoryBuilderApp(tk.Tk):
                     continue
 
                 name_text = str(name).strip()
-                if not name_text or name_text.casefold() in scene_cast:
+                if not name_text or name_text.casefold() in {value.casefold() for value in scene_context_names}:
+                    continue
+                if not re.search(
+                    r"(?<!\w)" + re.escape(name_text) + r"(?!\w)",
+                    context_query,
+                    flags=re.IGNORECASE,
+                ):
                     continue
 
                 offscene_anchors[name_text] = {
@@ -1782,13 +1916,18 @@ class StoryBuilderApp(tk.Tk):
         # exactly what the writer needs when an off-scene person is mentioned,
         # such as knowing who a sick friend's mother is.
         relationships = self.package.story_bible.get("relationships", {})
-        context_names = set(scene_cast_names)
+        context_names = set(scene_context_names)
         if isinstance(location_data, dict):
-            context_names.update(
-                str(name).strip()
-                for name in location_data
-                if str(name).strip() and str(name) != "primary"
-            )
+            for name in location_data:
+                name_text = str(name).strip()
+                if not name_text or name_text.casefold() == "primary" or name_text.casefold() in {value.casefold() for value in scene_context_names}:
+                    continue
+                if re.search(
+                    r"(?<!\w)" + re.escape(name_text) + r"(?!\w)",
+                    context_query,
+                    flags=re.IGNORECASE,
+                ):
+                    context_names.add(name_text)
 
         if isinstance(relationships, dict):
             relevant_facts = {}
@@ -1825,10 +1964,21 @@ class StoryBuilderApp(tk.Tk):
         # material into the 8K context.
         supporting_people = self.package.story_bible.get("supporting_people", {})
         supporting_context = {}
+        query_text = context_query.casefold()
         if isinstance(supporting_people, dict):
             for name, value in supporting_people.items():
                 name_text = str(name).strip()
                 if not name_text:
+                    continue
+                explicitly_relevant = (
+                    name_text.casefold() in scene_cast
+                    or bool(re.search(
+                        r"(?<!\w)" + re.escape(name_text) + r"(?!\w)",
+                        query_text,
+                        flags=re.IGNORECASE,
+                    ))
+                )
+                if not explicitly_relevant:
                     continue
                 if isinstance(value, str):
                     supporting_context[name_text] = value
@@ -1862,9 +2012,34 @@ class StoryBuilderApp(tk.Tk):
         if author_guidance:
             files.append(("author_writing_guidance.txt", author_guidance))
 
-        # Do not place recent manuscript prose or active module plans into the
-        # persistent system prompt. Those belong in the per-scene direction
-        # and short continuation handoff.
+        # Do not place full historical prose in the persistent system prompt.
+        # Older accepted prose is searched on demand for the current scene only.
+        active_detail_chars = (
+            len(json.dumps(scene_knowledge, ensure_ascii=False))
+            + len(json.dumps(prompt_learned_notes if all_learned_notes else [], ensure_ascii=False))
+            + len(json.dumps(supporting_context, ensure_ascii=False))
+        )
+        candidate_detail_chars = (
+            len(json.dumps(all_scene_knowledge, ensure_ascii=False))
+            + len(json.dumps(all_learned_notes, ensure_ascii=False))
+            + len(json.dumps(supporting_people if isinstance(supporting_people, dict) else {}, ensure_ascii=False))
+        )
+        self.writer_last_context_metrics = {
+            "knowledge": knowledge_metrics,
+            "detail_context_before_chars": candidate_detail_chars,
+            "detail_context_after_chars": active_detail_chars,
+            "detail_context_before_estimated_tokens": estimate_tokens_from_chars(candidate_detail_chars),
+            "detail_context_after_estimated_tokens": estimate_tokens_from_chars(active_detail_chars),
+            "detail_context_reduction_percent": round(
+                (candidate_detail_chars - active_detail_chars) * 100 / candidate_detail_chars, 1
+            ) if candidate_detail_chars else 0.0,
+            "active_knowledge_items": sum(len(values) for values in scene_knowledge.values()),
+            "candidate_knowledge_items": sum(len(values) for values in all_scene_knowledge.values()),
+            "active_writer_notes": len(prompt_learned_notes),
+            "candidate_writer_notes": len(all_learned_notes),
+            "historical_archive_characters": 0,
+            "historical_archive_estimated_tokens": 0,
+        }
         return files
 
     def _story_interview_questions(self):
@@ -2674,6 +2849,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
 26. Preserve the emotional cause-and-effect established by author direction and character continuity. When a familiar, trusted care gesture is established as reassuring, let it reassure the character unless the current scene explicitly establishes a different response. Do not invent distress caused by the gesture; connect renewed distress to the authored trigger or remembered event. Do not reverse an established emotional response just to add drama. When a character pauses to regain composure or becomes overwhelmed while trying to speak, and the scene and relationship support comfort, allow the other character to offer brief, natural reassurance, patient words, or a familiar calming gesture. Let the support respond to the person's actual distress without forcing it into every pause, repeating the same reassurance, or rushing the person past the difficult moment. Comfort may help the character continue without instantly removing their fear, grief, or struggle. Follow the scene-specific author direction and hard stop.
 27. When a character states a direct request, preference, boundary, or need and another character acknowledges or agrees to it, keep subsequent actions consistent with it unless a clear in-story reason supports a different choice. Do not add an unmotivated contradiction as decorative atmosphere; for example, do not introduce music after agreeing to keep things quiet.
 28. Output only natural story prose.
+29. Any section labelled RETRIEVED HISTORICAL CONTINUITY ARCHIVE is a searchable excerpt from an earlier accepted scene, included because the current scene may need that detail. It is historical evidence, not the current state. The current saved state and explicit present-scene direction take precedence over stale archived descriptions. Use an archived detail only for the fact it supports; do not infer additional facts from it. If the needed historical detail cannot be found or the source is ambiguous, do not invent a memory or claim certainty. Characters may acknowledge that they do not remember or do not know.
 
 """
         parts = [base, "\nSCENE REFERENCE\n"]
@@ -3066,7 +3242,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             return
 
         self.writer_write_button.configure(state="disabled")
-        self.writer_status.configure(text="Writing scene...")
+        self.writer_status.configure(text="Preparing scene context...")
 
         chapter = int(self.package.current_state.get("chapter", 1) or 1)
         scene = int(self.package.current_state.get("scene", 1) or 1)
@@ -3088,14 +3264,98 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         model = self.writer_engine.model_path
         author_guidance = self._author_writing_guidance()
         writer_context = SceneContract.writer_prompt_context(direction, contract)
+        historical_archive = {
+            "snippets": [],
+            "text": "",
+            "characters": 0,
+            "estimated_tokens": 0,
+        }
+        archive_search_error = ""
+        try:
+            if self.package.path is not None:
+                archive_character_names = [
+                    str(name).strip()
+                    for name in current_state.get("scene_cast", [])
+                    if str(name).strip()
+                ]
+                character_cards = getattr(self.package, "characters", {})
+                if isinstance(character_cards, dict):
+                    for filename, data in character_cards.items():
+                        name = str(data.get("name", "") or "").strip() if isinstance(data, dict) else ""
+                        if not name:
+                            name = Path(str(filename)).stem
+                        archive_character_names.append(name)
+                historical_archive = ManuscriptManager(Path(self.package.path)).search_historical_context(
+                    "\n".join([
+                        direction,
+                        json.dumps(contract, ensure_ascii=False),
+                        str(current_state.get("current_situation", "") or ""),
+                    ]),
+                    before_chapter=chapter,
+                    before_scene=scene,
+                    character_names=archive_character_names,
+                    limit=4,
+                    max_chars=2400,
+                )
+        except Exception as exc:
+            # Archive retrieval is advisory; an archive read failure must not
+            # block writing or change the canon/state ledger.
+            archive_search_error = str(exc)
+
+        archive_prompt = ""
+        if historical_archive.get("text"):
+            archive_prompt = (
+                "\n\nRETRIEVED HISTORICAL CONTINUITY ARCHIVE (READ ONLY; NOT CURRENT STATE):\n"
+                "The following excerpts come from earlier accepted manuscript sections. "
+                "They were retrieved because their wording overlaps the current scene direction. "
+                "Use them only for supported historical details. The current saved state and scene "
+                "direction outrank any outdated physical or situational detail. Do not infer anything "
+                "that is not stated in an excerpt.\n\n"
+                + historical_archive["text"]
+            )
+
         prompt_parts = [
             writer_context,
+            archive_prompt,
             "\n\n",
             "SCENE BOUNDARY:\n",
             "The original plain-English Scene Idea defines intended actions, important moments, and endpoint. It is not a line-by-line wording checklist, but concrete actions and objects specified as intended choices must keep their identity; do not replace one with a materially different alternative (a bubble bath is not a shower). Preserve distinctive details that define an intended action and the stated history or relationships that give an object meaning; do not treat them as disposable decoration. If the idea phrases an action as optional, preserve that choice instead of making it a new requirement. Current story state controls what has already happened, physical continuity, and character knowledge; generated direction and contract are secondary hints. Do not replay completed events. Preserve established opening position/contact unless this scene changes them. Use creative freedom for how actions unfold, dialogue, gestures, pacing, transitions, and connective actions.\n\n",
             "Write the scene now. Output only the prose."
         ]
         base_prompt = "".join(prompt_parts)
+        context_budget = context_size_report(system_prompt + base_prompt)
+        context_metrics = dict(getattr(self, "writer_last_context_metrics", {}) or {})
+        pruned_detail_chars = max(
+            0,
+            int(context_metrics.get("detail_context_before_chars", 0) or 0)
+            - int(context_metrics.get("detail_context_after_chars", 0) or 0),
+        )
+        estimated_before_chars = context_budget["characters"] + pruned_detail_chars
+        context_metrics.update({
+            "assembled_prompt_characters": context_budget["characters"],
+            "assembled_prompt_estimated_tokens": context_budget["estimated_tokens"],
+            "assembled_prompt_before_pruning_characters_estimated": estimated_before_chars,
+            "assembled_prompt_before_pruning_tokens_estimated": estimate_tokens_from_chars(estimated_before_chars),
+            "assembled_prompt_tokens_reduced_estimated": max(
+                0,
+                estimate_tokens_from_chars(estimated_before_chars) - context_budget["estimated_tokens"],
+            ),
+            "historical_archive_characters": int(historical_archive.get("characters", 0) or 0),
+            "historical_archive_estimated_tokens": int(historical_archive.get("estimated_tokens", 0) or 0),
+            "historical_archive_snippets": len(historical_archive.get("snippets", [])),
+            "archive_search_error": archive_search_error,
+        })
+        self.writer_last_context_metrics = context_metrics
+        reduction_percent = float(context_metrics.get("detail_context_reduction_percent", 0) or 0)
+        before_tokens = context_metrics["assembled_prompt_before_pruning_tokens_estimated"]
+        after_tokens = context_budget["estimated_tokens"]
+        self.writer_status.configure(
+            text=(
+                f"Writing scene... prompt approximately {before_tokens:,} → {after_tokens:,} tokens "
+                f"(rough estimate; active-detail reduction: {reduction_percent:.1f}%; "
+                f"historical excerpts: {len(historical_archive.get('snippets', []))})."
+            )
+        )
 
         prompt_trace = None
         if getattr(self, "prompt_trace_armed", False):
@@ -3144,6 +3404,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                         max_attempts=1,
                         is_focused_revision=False,
                         prompt_characters=len(base_prompt),
+                        context_budget=context_metrics,
                     )
                 answer, completion_notice = generate_scene_with_completion_check(
                     engine=self.writer_engine,
@@ -3586,6 +3847,10 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             self.generated_scene_context = (chapter, scene)
             self.pending_state_patch = None
             self.writer_state_preview.delete("1.0", "end")
+            if "writer_state_diff_preview" in self.__dict__:
+                self.writer_state_diff_preview.configure(state="normal")
+                self.writer_state_diff_preview.delete("1.0", "end")
+                self.writer_state_diff_preview.configure(state="disabled")
             self._refresh_manuscript()
             self._chat("Builder", f"Accepted Chapter {chapter}, Scene {scene} and saved it to {path}.")
             self._update_writer_buttons()
@@ -4609,6 +4874,10 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         self.writer_output_text.delete("1.0", "end")
         self.writer_output_text.insert("1.0", prose)
         self.writer_state_preview.delete("1.0", "end")
+        if "writer_state_diff_preview" in self.__dict__:
+            self.writer_state_diff_preview.configure(state="normal")
+            self.writer_state_diff_preview.delete("1.0", "end")
+            self.writer_state_diff_preview.configure(state="disabled")
         self._update_writer_buttons()
         self.writer_status.configure(
             text=(
@@ -4748,6 +5017,10 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             self.pending_state_patch = None
             if hasattr(self, "writer_state_preview"):
                 self.writer_state_preview.delete("1.0", "end")
+            if "writer_state_diff_preview" in self.__dict__:
+                self.writer_state_diff_preview.configure(state="normal")
+                self.writer_state_diff_preview.delete("1.0", "end")
+                self.writer_state_diff_preview.configure(state="disabled")
             self._show_copyable_error("State Update", error)
             self._update_writer_buttons()
             return
@@ -4777,6 +5050,17 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             self.package.current_state,
             self.pending_state_patch,
         )
+        state_diff = build_state_change_summary(
+            self.package.current_state,
+            reconstructed_state,
+        )
+        if "writer_state_diff_preview" in self.__dict__:
+            self.writer_state_diff_preview.configure(state="normal")
+            self.writer_state_diff_preview.delete("1.0", "end")
+            self.writer_state_diff_preview.insert("1.0", state_diff)
+            self.writer_state_diff_preview.configure(state="disabled")
+        if "writer_state_review_notebook" in self.__dict__ and "writer_state_diff_tab" in self.__dict__:
+            self.writer_state_review_notebook.select(self.writer_state_diff_tab)
         self.writer_state_preview.delete("1.0", "end")
         self.writer_state_preview.insert(
             "1.0",
