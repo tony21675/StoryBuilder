@@ -3253,8 +3253,8 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                         archive_character_names.append(name)
                 historical_archive = ManuscriptManager(Path(self.package.path)).search_historical_context(
                     "\n".join([
-                        writer_context,
-                        author_guidance,
+                        direction,
+                        json.dumps(contract, ensure_ascii=False),
                         str(current_state.get("current_situation", "") or ""),
                     ]),
                     before_chapter=chapter,
