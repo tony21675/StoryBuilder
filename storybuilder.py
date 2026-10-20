@@ -1325,6 +1325,12 @@ class StoryBuilderApp(tk.Tk):
             command=self._write_next_scene,
         )
         self.writer_write_button.pack(side="left")
+        self.writer_preview_context_button = ttk.Button(
+            button_row,
+            text="Preview Context",
+            command=self._preview_writer_context,
+        )
+        self.writer_preview_context_button.pack(side="left", padx=(8, 0))
         self.writer_save_draft_button = ttk.Button(
             button_row,
             text="Save Draft",
@@ -3259,6 +3265,155 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         )
         self._update_writer_buttons()
 
+    def _writer_scene_boundary_prompt(self):
+        """Return the exact scene-boundary instruction shared by writing and preview."""
+        return "".join([
+            "SCENE BOUNDARY:\n",
+            "The original plain-English Scene Idea defines intended actions, important moments, and endpoint. It is not a line-by-line wording checklist, but concrete actions and objects specified as intended choices must keep their identity; do not replace one with a materially different alternative (a bubble bath is not a shower). Preserve distinctive details that define an intended action and the stated history or relationships that give an object meaning; do not treat them as disposable decoration. If the idea phrases an action as optional, preserve that choice instead of making it a new requirement. Current story state controls what has already happened, physical continuity, and character knowledge; generated direction and contract are secondary hints. Do not replay completed events. Preserve established opening position/contact unless this scene changes them. Use creative freedom for how actions unfold, dialogue, gestures, pacing, transitions, and connective actions.\n\n",
+            "Write the scene now. Output only the prose."
+        ])
+
+    def _preview_writer_context(self):
+        """Show the assembled prompt context without generating or changing story state."""
+        if self.package is None:
+            messagebox.showinfo("Writer Context Preview", "Load a novel before previewing Writer context.")
+            return
+        if getattr(self, "writer_generation_in_progress", False):
+            messagebox.showinfo("Writer Context Preview", "Wait for the current Writer task to finish.")
+            return
+
+        chapter = int(self.package.current_state.get("chapter", 1) or 1)
+        scene = int(self.package.current_state.get("scene", 1) or 1)
+        direction = self.writer_direction_text.get("1.0", "end-1c").strip()
+        if not direction:
+            direction = "Write the next scene naturally from the current story state."
+        contract = self._scene_contract(chapter, scene)
+        current_state = json.loads(json.dumps(self.package.current_state, ensure_ascii=False))
+        guidance_plan = self.package.extra_json.get("writing_guidance.json", {})
+        guidance_entry = (
+            self._chapter_scene_guidance(guidance_plan, chapter, scene)
+            if isinstance(guidance_plan, dict) else None
+        )
+        continuity_focus = (
+            str(guidance_entry.get("continuity_focus", "") or "").strip()
+            if isinstance(guidance_entry, dict) else ""
+        )
+
+        files = self._writer_package_files()
+        historical_archive = {"snippets": [], "text": "", "characters": 0, "estimated_tokens": 0}
+        archive_search_error = ""
+        try:
+            if self.package.path is not None:
+                archive_character_names = [
+                    str(name).strip()
+                    for name in current_state.get("scene_cast", [])
+                    if str(name).strip()
+                ]
+                character_cards = getattr(self.package, "characters", {})
+                if isinstance(character_cards, dict):
+                    for filename, data in character_cards.items():
+                        name = str(data.get("name", "") or "").strip() if isinstance(data, dict) else ""
+                        if not name:
+                            name = Path(str(filename)).stem
+                        archive_character_names.append(name)
+                historical_archive = ManuscriptManager(Path(self.package.path)).search_historical_context(
+                    "\\n".join([
+                        direction,
+                        json.dumps(contract, ensure_ascii=False),
+                        str(current_state.get("current_situation", "") or ""),
+                        continuity_focus,
+                    ]),
+                    before_chapter=chapter,
+                    before_scene=scene,
+                    character_names=archive_character_names,
+                    limit=4,
+                    max_chars=2400,
+                )
+        except Exception as exc:
+            archive_search_error = str(exc)
+
+        if historical_archive.get("text"):
+            archive_prompt = (
+                "\\n\\nRETRIEVED HISTORICAL CONTINUITY ARCHIVE (READ ONLY; NOT CURRENT STATE):\\n"
+                "The following excerpts come from earlier accepted manuscript sections. "
+                "They were retrieved because their wording overlaps the current scene direction. "
+                "Use them only for supported historical details. The current saved state and scene "
+                "direction outrank any outdated physical or situational detail. Do not infer anything "
+                "that is not stated in an excerpt.\\n\\n"
+                + historical_archive["text"]
+            )
+            files.append(("historical_continuity_archive.txt", archive_prompt.strip()))
+
+        writer_context = SceneContract.writer_prompt_context(direction, contract)
+        base_prompt = writer_context + "\\n\\n" + self._writer_scene_boundary_prompt()
+        try:
+            fitted_files, budget_metrics = self._fit_writer_context(files, base_prompt=base_prompt)
+        except WriterContextBudgetError as exc:
+            self._show_copyable_error("Writer Context Budget", str(exc))
+            return
+
+        system_prompt = self._writer_system_prompt(fitted_files)
+        prompt_metrics = context_size_report(system_prompt + base_prompt)
+        included = budget_metrics["included_reference_files"]
+        archive_included = "historical_continuity_archive.txt" in included
+        lines = [
+            f"READ-ONLY WRITER CONTEXT PREVIEW: Chapter {chapter}, Scene {scene}",
+            "",
+            "No scene was generated. This preview does not save or alter the manuscript or story state.",
+            f"Continuity selection: {'author-pinned focus' if continuity_focus else 'automatic'}",
+        ]
+        if continuity_focus:
+            lines.extend(["", "AUTHOR-PINNED CONTINUITY FOCUS:", continuity_focus])
+        lines.extend([
+            "",
+            f"Estimated assembled prompt: {prompt_metrics['estimated_tokens']:,} tokens "
+            f"({prompt_metrics['characters']:,} characters).",
+            f"Safe input budget: {budget_metrics['final_conservative_tokens']:,}/"
+            f"{budget_metrics['input_token_budget']:,} conservative tokens.",
+            f"Reserved for generation: {budget_metrics['reserved_output_tokens']:,} tokens; "
+            f"safety margin: {budget_metrics['safety_margin_tokens']:,} tokens.",
+            "Token counts are conservative estimates, not tokenizer-exact measurements.",
+            "",
+            "REFERENCE FILES INCLUDED:",
+            *[f"- {name}" for name in included],
+            "",
+            "FILES PRUNED: " + (", ".join(budget_metrics["pruned_reference_files"]) or "none"),
+            "FILES COMPACTED: " + (", ".join(budget_metrics["compacted_reference_files"]) or "none"),
+            "",
+            f"Historical excerpts retrieved: {len(historical_archive.get('snippets', []))}; "
+            f"included in prompt: {'yes' if archive_included else 'no'}.",
+        ])
+        if archive_search_error:
+            lines.append(f"Historical archive search issue: {archive_search_error}")
+        knowledge_entry = next(
+            (content for name, content in fitted_files if name == "scene_character_knowledge.json"),
+            None,
+        )
+        lines.extend(["", "SELECTED CHARACTER KNOWLEDGE:"])
+        if knowledge_entry:
+            try:
+                knowledge_data = json.loads(knowledge_entry)
+                lines.append(json.dumps(knowledge_data, indent=2, ensure_ascii=False) if knowledge_data else "(none selected)")
+            except (TypeError, ValueError):
+                lines.append(knowledge_entry)
+        else:
+            lines.append("(The knowledge file was not included after budget fitting.)")
+        archive_entry = next(
+            (content for name, content in fitted_files if name == "historical_continuity_archive.txt"),
+            None,
+        )
+        lines.extend(["", "RETRIEVED HISTORICAL EXCERPTS:"])
+        lines.append(archive_entry if archive_entry else "(No historical excerpts included.)")
+        self._show_copyable_error(
+            "Writer Context Preview",
+            "\\n".join(lines),
+            summary=(
+                "Read-only diagnostic. Close this window to return to StoryBuilder. "
+                "No scene prose was generated."
+            ),
+            copy_label="Copy Full Preview",
+        )
+
     def _write_next_scene(self, replacing_draft=False):
         if getattr(self, "scene_contract_building", False):
             self.writer_status.configure(
@@ -3383,14 +3538,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         if historical_archive.get("text"):
             files.append(("historical_continuity_archive.txt", archive_prompt.strip()))
 
-        prompt_parts = [
-            writer_context,
-            "\n\n",
-            "SCENE BOUNDARY:\n",
-            "The original plain-English Scene Idea defines intended actions, important moments, and endpoint. It is not a line-by-line wording checklist, but concrete actions and objects specified as intended choices must keep their identity; do not replace one with a materially different alternative (a bubble bath is not a shower). Preserve distinctive details that define an intended action and the stated history or relationships that give an object meaning; do not treat them as disposable decoration. If the idea phrases an action as optional, preserve that choice instead of making it a new requirement. Current story state controls what has already happened, physical continuity, and character knowledge; generated direction and contract are secondary hints. Do not replay completed events. Preserve established opening position/contact unless this scene changes them. Use creative freedom for how actions unfold, dialogue, gestures, pacing, transitions, and connective actions.\n\n",
-            "Write the scene now. Output only the prose."
-        ]
-        base_prompt = "".join(prompt_parts)
+        base_prompt = writer_context + "\n\n" + self._writer_scene_boundary_prompt()
         try:
             files, budget_metrics = self._fit_writer_context(files, base_prompt=base_prompt)
         except WriterContextBudgetError as exc:
@@ -9042,6 +9190,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         title: str,
         message: str,
         summary: str = "The operation failed. No state changes were applied.",
+        copy_label: str = "Copy Full Text",
     ) -> None:
         """Show a scrollable error whose full text can be selected or copied."""
         dialog = tk.Toplevel(self)
@@ -9075,7 +9224,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                 self.clipboard_clear()
                 self.clipboard_append(value)
                 self.update_idletasks()
-                status.configure(text="Error text copied. Paste it wherever you need it.")
+                status.configure(text="Text copied. Paste it wherever you need it.")
             except tk.TclError as exc:
                 status.configure(text=f"Clipboard copy failed: {exc}")
 
@@ -9085,7 +9234,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         action_row.pack(fill="x", pady=(0, 8))
         ttk.Button(
             action_row,
-            text="Copy Full Error",
+            text=copy_label,
             command=lambda: copy_text(str(message)),
         ).pack(side="left")
         ttk.Button(
