@@ -1166,6 +1166,11 @@ Preserve all established character roles and knowledge boundaries; do not invent
         )
 
         self.assertEqual(contract["author_idea"], idea)
+        self.assertLess(
+            len(writer_context),
+            len(idea) + len("Chapter 2, Scene 4. Maya is curled against Tony on the bed.") + 3000,
+            "Scene boilerplate must stay compact instead of duplicating global Writer rules.",
+        )
         self.assertIn("AUTHOR'S ORIGINAL PLAIN-ENGLISH SCENE IDEA (PRIMARY INTENT):", writer_context)
         self.assertIn(idea, writer_context)
         self.assertIn("COMPACT SUPPORTING CONTRACT (SECONDARY):", writer_context)
