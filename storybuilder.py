@@ -2862,6 +2862,8 @@ class StoryBuilderApp(tk.Tk):
 THE ANCHORS
 The author's canon, explicit boundaries, and clearly stated requirements are the firm ground. The original plain-English Scene Idea expresses the scene's purpose and direction; a generated contract or summary supports it but does not replace or narrow it. Treat the Scene Idea as direction, not a line-by-line script.
 
+The Scene Idea also contains the author's deliberate story commitments. Put its concrete beats on the page: specifically named actions, quoted lines or nicknames, relationship milestones, reveals, choices, callbacks, and emotional turns. Do not silently omit one, replace a specific beat with a generic gesture, or assume matching the mood is enough. Let each beat arise naturally in the scene rather than presenting it as a checklist. If a generated contract or summary leaves out or weakens a beat from the original Scene Idea, follow the original idea.
+
 Begin from the saved story state: where people are, their physical circumstances, what has happened, and what each character knows. Do not replay completed events, contradict established facts, or give a character knowledge they have not earned. Knowing that an event happened is not the same as witnessing it. Earlier manuscript excerpts are historical evidence, not current state. The current saved state and explicit present-scene direction take precedence; never let a stale excerpt override what is true now. The RETRIEVED HISTORICAL CONTINUITY ARCHIVE is supporting context, not an authority over the present scene.
 
 Keep explicit author rules marked MUST, NEVER, REQUIRED, or FORBIDDEN. Stable author writing guidance carries recurring style preferences and explicit avoidances. Honor clear prohibitions when relevant. Treat general writing preferences as a tonal compass, not a checklist. Temporary writer notes are suggestions, not canon.
@@ -2869,10 +2871,10 @@ Keep explicit author rules marked MUST, NEVER, REQUIRED, or FORBIDDEN. Stable au
 THE CREATIVE JOB
 Make the story feel lived in. Invent natural dialogue, small talk, gestures, sensory texture, routines, background activity, incidental characters, plausible shared memories, transitions, and connective actions. Make ordinary creative decisions without waiting for the author to specify every step. Omitted everyday details are opportunities to write, not things forbidden by silence.
 
-Follow the scene's emotional and dramatic potential. Develop turns, discoveries, complications, and new story details when they grow naturally from the characters and what is already true. Do not contradict canon, undo settled events, reveal a mystery before the story earns it, or present an invented possibility as established history. Creative developments are welcome when they fit the story.
+Take creative initiative in present-scene action: fresh dialogue, choices, realizations, hypotheses, discoveries, leads, and complications are welcome when they grow naturally from the characters and the story. Be more careful with retroactive history. Do not invent a past suspicious action, major clue, secret meeting, promise, or relationship-defining event as established fact unless it is supported by canon, manuscript context, or the author's Scene Idea. If a possible past clue feels dramatically useful but is not established, let a character wonder about it or raise it as a hypothesis rather than having the narration certify it as true. Do not contradict canon, undo settled events, or reveal a mystery before the story earns it.
 
 SHAPE AND VOICE
-Write a complete scene with a natural flow of opening, development, and consequence. Include the important movements named in the idea without mechanically checking off incidental wording. If the scene spans several phases or time, carry it through that arc instead of stopping after the first prominent action. Honor an explicit endpoint or hard stop; do not end too early or cross the boundary into a later scene. If no endpoint is specified, choose the most satisfying natural stopping point.
+Write a complete scene with a natural flow of opening, development, and consequence. Every concrete story commitment named in the original Scene Idea must happen on-page, including specific dialogue or nicknames, relationship milestones, and planned emotional turns. Include the important movements named in the idea without mechanically checking off incidental wording. If the scene spans several phases or time, carry it through that arc instead of stopping after the first prominent action. Honor an explicit endpoint or hard stop; do not end too early or cross the boundary into a later scene. If no endpoint is specified, choose the most satisfying natural stopping point.
 
 Let character voice, mood, and author preferences shape the prose without turning them into formulas. Vary rhythm as the moment calls for it. Use dialogue, interior thought, action, direct emotion, and sensory detail in whatever combination makes the scene vivid and believable. Avoid repetition or stock phrasing through good judgment, not mechanical avoidance rules.
 
@@ -3264,8 +3266,11 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             "SCENE INTENT:\n"
             "Write one complete scene from the author's original idea and saved story state. "
             "Preserve established facts, character knowledge, any explicit boundary, and the intended ending. "
-            "The idea gives purpose and direction, not a script. Use judgment for natural dialogue, "
-            "emotional progression, atmosphere, incidental details, connective actions, and fitting story turns. "
+            "The idea gives purpose and direction, not a script, but its concrete planned beats are deliberate commitments. "
+            "Make specific actions, quoted lines or nicknames, relationship milestones, reveals, and emotional turns happen on-page; "
+            "do not replace them with a generic equivalent or let a shortened contract omit them. Weave them naturally rather than checking them off. "
+            "Use judgment for natural dialogue, emotional progression, atmosphere, incidental details, connective actions, and fitting story turns. "
+            "Be cautious about inventing past clues or relationship-defining history that is not grounded in canon or the idea. "
             "Do not stop after only the first highlighted action when the scene's movement continues; "
             "do not cross a stated hard stop.\n\n"
             "Write the scene now. Output only the prose."
