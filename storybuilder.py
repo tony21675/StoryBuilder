@@ -1912,7 +1912,7 @@ class StoryBuilderApp(tk.Tk):
                 explicitly_relevant = (
                     name_text.casefold() in scene_cast
                     or bool(re.search(
-                        r"(?<!\\w)" + re.escape(name_text) + r"(?!\\w)",
+                        r"(?<!\w)" + re.escape(name_text) + r"(?!\w)",
                         query_text,
                         flags=re.IGNORECASE,
                     ))
@@ -3212,7 +3212,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         archive_search_error = ""
         try:
             if self.package.path is not None:
-                archive_character_names = list(scene_cast_names) if "scene_cast_names" in locals() else [
+                archive_character_names = [
                     str(name).strip()
                     for name in current_state.get("scene_cast", [])
                     if str(name).strip()
@@ -3263,14 +3263,6 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         ]
         base_prompt = "".join(prompt_parts)
         context_budget = context_size_report(system_prompt + base_prompt)
-        reduction_percent = float(context_metrics.get("detail_context_reduction_percent", 0) or 0)
-        self.writer_status.configure(
-            text=(
-                f"Writing scene... approximately {context_budget['estimated_tokens']:,} prompt tokens "
-                f"(character/notes pruning: {reduction_percent:.1f}%; "
-                f"historical excerpts: {len(historical_archive.get('snippets', []))})."
-            )
-        )
         context_metrics = dict(getattr(self, "writer_last_context_metrics", {}) or {})
         context_metrics.update({
             "assembled_prompt_characters": context_budget["characters"],
@@ -3281,6 +3273,14 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             "archive_search_error": archive_search_error,
         })
         self.writer_last_context_metrics = context_metrics
+        reduction_percent = float(context_metrics.get("detail_context_reduction_percent", 0) or 0)
+        self.writer_status.configure(
+            text=(
+                f"Writing scene... approximately {context_budget['estimated_tokens']:,} prompt tokens "
+                f"(active-detail pruning: {reduction_percent:.1f}%; "
+                f"historical excerpts: {len(historical_archive.get('snippets', []))})."
+            )
+        )
 
         prompt_trace = None
         if getattr(self, "prompt_trace_armed", False):
