@@ -1072,50 +1072,31 @@ class SceneContract:
 
         if author_idea:
             parts.append(
-                "Priority: Treat the Scene Idea as the primary source for intended direction, key actions, "
-                "important moments, and endpoint. Clearly labeled Planned Beats and Required Beats are "
-                "event-level requirements; explicit Boundaries are mandatory constraints. These do not require "
-                "word-for-word prose. It is not a word-for-word prose checklist. Generated "
-                "direction and contract are supporting hints and must not overrule or contradict the author's intent. "
-                "AUTHOR ACTION FIDELITY: Concrete actions and objects the idea specifies as intended choices "
-                "must keep their identity. Do not replace one with a materially different alternative just "
-                "because it serves the same broad purpose: a bubble bath is not a shower, and an explicitly "
-                "required robe is not a towel. Natural dialogue, gestures, pacing, transitions, and connective "
-                "details remain creative choices. Treat wording such as 'can' or 'may' as permission when the "
-                "idea presents an option, not as an extra hard requirement."
+                "PRIORITY AND AUTHOR ACTION FIDELITY:\\n"
+                "The original Scene Idea defines intended direction, actions, scope, and endpoint; boundaries are mandatory. "
+                "It is not a word-for-word prose checklist. Generated direction/contract are supporting only and must not overrule or contradict the author's intent. "
+                "AUTHOR ACTION FIDELITY: Keep concrete action/object identity (a bubble bath is not a shower), preserve optionality, and treat wording such as 'can' or 'may' as permission. "
+                "Natural dialogue, gestures, pacing, transitions, and connective details remain creative choices."
             )
 
-        # Place these reminders close to the actual write request. A compact
-        # contract may focus on one notable action, but that focus must not
-        # replace the author's intended whole scene.
+        # These concise reminders overlap the stable Writer instructions by design:
+        # keep scene-specific scope close to the author idea without repeating pages
+        # of global rules on every scene.
         parts.append(
-            "SCENE PROGRESSION AND SCOPE:\n"
-            "Follow the order and dramatic progression of any phases or turning points named in the Scene Idea, "
-            "including beginning, middle, end, first response, or a hard stop. Match the intended degree of progress: "
-            "a disclosure, discovery, emotional reaction, or initial offer of help does not automatically authorize "
-            "a full investigation, detailed assignments, execution, or resolution. Do not jump ahead to later-stage "
-            "actions merely because they seem like logical next steps when the plan reserves them for later scenes. "
-            "Give questions, reactions, and character interaction room when the scene calls for them, and let relevant "
-            "characters participate naturally without forcing a checklist or equal speaking turns. Treat the explicit "
-            "endpoint as a ceiling on how far the story advances in this scene."
+            "SCENE PROGRESSION AND SCOPE:\\n"
+            "Respect named phases and degree of progress; a disclosure, discovery, emotional reaction, or initial offer of help does not automatically authorize a full investigation, detailed assignments, execution, or resolution. "
+            "Let characters participate naturally without a checklist or forced equal speaking turns. Treat the explicit endpoint as a ceiling on how far the story advances. "
+            "If an explicit endpoint is named, including a time or passage-of-time boundary, carry the scene through to it. "
+            "Use a natural stopping point only when the idea leaves the endpoint open."
         )
 
         parts.append(
-            "SCENE SCOPE AND EVENT PROVENANCE:\n"
-            "Treat the author's original Scene Idea as the scope of the whole scene. A concise generated "
-            "direction may emphasize one action, but it must not shrink a broader scene to that action. "
-            "When the idea calls for continuing thought, transition, or development beyond a highlighted "
-            "moment, do not stop at that moment. If an explicit endpoint is named, including a time or "
-            "passage-of-time boundary, carry the scene through to it. Let intervening time pass naturally "
-            "through relevant thought, small actions, or transitions; do not pad the scene, invent "
-            "consequential events, or continue past the endpoint into the next scene. Use a natural "
-            "stopping point only when the idea leaves the endpoint open.\n"
-            "Knowing that an event happened is not the same as witnessing it. Only present sights, sounds, "
-            "smells, dialogue, or actions as a character's personal memory if the story establishes that the "
-            "character was present and witnessed them. If the character learned about an event second-hand, "
-            "frame references as what they were told or can reasonably infer; never transfer another character's "
-            "eyewitness experience."
+            "SCENE SCOPE AND EVENT PROVENANCE:\\n"
+            "The Scene Idea defines the whole scene; concise generated direction must not shrink a broader scene to that action. Reach the endpoint without padding or continuing into the next scene. "
+            "Knowing an event happened is not witnessing it. Only present sights, sounds, smells, dialogue, or actions as a character's personal memory when they witnessed them. "
+            "Attribute second-hand information and never transfer another character's eyewitness experience."
         )
+
         return "\n\n".join(parts)
 
     @staticmethod
