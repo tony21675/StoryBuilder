@@ -17,7 +17,7 @@ Return ONLY valid JSON in this shape:
 This is a DELTA, not a regenerated character profile. The application retains all prior knowledge and merges your additions. For a character who learned nothing new, omit their key or return an empty array. Never copy existing knowledge into the answer.
 
 Rules:
-- Use the full completed prose to identify who is physically present, enters, hears relevant dialogue, reads information, or directly observes an event. scene_cast only records the opening cast. A person merely mentioned or elsewhere learns nothing.
+- Use the full completed prose to identify who is physically present, enters, hears relevant dialogue, reads information, or directly observes an event. scene_cast only records the opening cast. A person merely mentioned or elsewhere learns nothing; a character merely discussed does not learn from the conversation.
 - Return only facts newly learned in this section. The before-state facts are a small relevance-selected sample, not a complete list; do not infer that an omitted fact is false.
 - State each addition as a durable, specific proposition about the world, a person, or an event. Do not summarize cumulative knowledge or repeat the supplied before-state facts.
 - A character learns facts they hear in dialogue, directly observe, read, or personally experience. Do not give anyone knowledge they did not receive.
