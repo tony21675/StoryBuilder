@@ -9190,7 +9190,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         title: str,
         message: str,
         summary: str = "The operation failed. No state changes were applied.",
-        copy_label: str = "Copy Full Text",
+        copy_label: str = "Copy Full Error",
     ) -> None:
         """Show a scrollable error whose full text can be selected or copied."""
         dialog = tk.Toplevel(self)
