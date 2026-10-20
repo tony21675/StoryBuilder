@@ -50,6 +50,7 @@ from builder.prompt_trace import PromptTrace, default_prompt_trace_path
 from builder.prompt_trace_sync import upload_prompt_trace
 from builder.manuscript import ManuscriptManager
 from builder.continuity_context import (
+    build_historical_relevance_query,
     build_scene_relevance_query,
     context_size_report,
     estimate_tokens_from_chars,
@@ -1884,9 +1885,15 @@ class StoryBuilderApp(tk.Tk):
                     str(name).strip() for name in values
                     if str(name).strip() and str(name).strip().casefold() != "primary"
                 )
+        # Select knowledge against the actual scene idea, not the character list,
+        # setting, or full current-state snapshot. This prevents an old tea/bath
+        # detail from surfacing merely because a scene shares the same kitchen.
+        knowledge_query = "\n".join(
+            part for part in (scene_plan_text, continuity_focus) if part
+        )
         scene_knowledge, knowledge_metrics = select_active_character_knowledge(
             all_scene_knowledge,
-            context_query,
+            knowledge_query,
             max_items_per_character=4,
             max_total_items=24,
             character_names=sorted(active_character_names),
@@ -3321,12 +3328,13 @@ Author-defined canon rules supplied in the scene reference are hard constraints.
                             name = Path(str(filename)).stem
                         archive_character_names.append(name)
                 historical_archive = ManuscriptManager(Path(self.package.path)).search_historical_context(
-                    "\n".join([
+                    build_historical_relevance_query(
                         direction,
-                        json.dumps(contract, ensure_ascii=False),
-                        str(current_state.get("current_situation", "") or ""),
+                        str(guidance_entry.get("scene_idea", "") or "") if isinstance(guidance_entry, dict) else "",
+                        str(guidance_entry.get("direction", "") or "") if isinstance(guidance_entry, dict) else "",
+                        str(guidance_entry.get("end_condition", "") or "") if isinstance(guidance_entry, dict) else "",
                         continuity_focus,
-                    ]),
+                    ),
                     before_chapter=chapter,
                     before_scene=scene,
                     character_names=archive_character_names,
