@@ -81,6 +81,11 @@ class ContinuityContextTests(unittest.TestCase):
         )
 
         self.assertLessEqual(sum(len(values) for values in active.values()), 24)
+        self.assertEqual(metrics["before_items"], 126)
+        self.assertEqual(metrics["after_items"], 6)
+        self.assertEqual(metrics["before_chars"], 9834)
+        self.assertEqual(metrics["after_chars"], 344)
+        self.assertEqual(metrics["reduction_percent"], 96.5)
         self.assertGreaterEqual(metrics["reduction_percent"], 65.0)
         self.assertTrue(any("promised to keep" in fact for values in active.values() for fact in values))
         self.assertTrue(any("identifying scratch" in fact for values in active.values() for fact in values))
