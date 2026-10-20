@@ -264,17 +264,18 @@ class ManuscriptManager:
             )
             added_chars = len(formatted) + (2 if chosen else 0)
             if total_chars + added_chars > int(max_chars):
-                remaining = int(max_chars) - total_chars - (2 if chosen else 0)
-                if remaining < 100:
-                    continue
-                item = dict(item)
-                item["text"] = item["text"][:remaining].rstrip()
-                formatted = (
+                separator_chars = 2 if chosen else 0
+                header = (
                     f"[Historical source: {item['source']} | "
                     f"matched: {', '.join(item['matched_terms'])}]\n"
-                    f"{item['text']}"
                 )
-                added_chars = len(formatted) + (2 if chosen else 0)
+                remaining_text_chars = int(max_chars) - total_chars - separator_chars - len(header)
+                if remaining_text_chars < 80:
+                    continue
+                item = dict(item)
+                item["text"] = item["text"][:remaining_text_chars].rstrip()
+                formatted = header + item["text"]
+                added_chars = len(formatted) + separator_chars
             chosen.append(item)
             seen_sources.add(source_key)
             total_chars += added_chars
