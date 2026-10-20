@@ -3270,10 +3270,10 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
     def _writer_scene_boundary_prompt(self):
         """Return concise scene-specific instructions; global rules live in the system prompt."""
         return (
-            "SCENE BOUNDARY:\\n"
+            "SCENE BOUNDARY:\n"
             "Honor the original Scene Idea's specific actions, objects, optionality, and endpoint; do not substitute a different action for a similar purpose. "
             "Current state controls what has happened, physical continuity, and character knowledge. Do not replay completed events. "
-            "Use creative freedom for dialogue, gestures, pacing, and transitions.\\n\\n"
+            "Use creative freedom for dialogue, gestures, pacing, and transitions.\n\n"
             "Write the scene now. Output only the prose."
         )
 
