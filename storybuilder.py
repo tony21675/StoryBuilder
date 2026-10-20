@@ -1718,12 +1718,24 @@ class StoryBuilderApp(tk.Tk):
         # cards/knowledge for additional characters explicitly named in the
         # author-authored plan, but keep their facts attributed to them.
         scene_context_names = set(scene_cast_names)
+        scene_context_order = list(dict.fromkeys(scene_cast_names))
+        scene_context_name_keys = {str(name).casefold() for name in scene_context_order}
+
+        def add_scene_context_name(raw_name):
+            name = str(raw_name or "").strip()
+            key = name.casefold()
+            if name and key not in scene_context_name_keys:
+                scene_context_names.add(name)
+                scene_context_order.append(name)
+                scene_context_name_keys.add(key)
+
         planned_cast = guidance_entry.get("cast", [])
         if isinstance(planned_cast, list):
-            scene_context_names.update(str(name).strip() for name in planned_cast if str(name).strip())
+            for name in planned_cast:
+                add_scene_context_name(name)
         character_cards_for_context = getattr(self.package, "characters", {})
         if isinstance(character_cards_for_context, dict):
-            for filename, data in character_cards_for_context.items():
+            for filename, data in sorted(character_cards_for_context.items()):
                 name = str(data.get("name", "") or "").strip() if isinstance(data, dict) else ""
                 if not name:
                     name = Path(str(filename)).stem
@@ -1732,7 +1744,7 @@ class StoryBuilderApp(tk.Tk):
                     scene_plan_text,
                     flags=re.IGNORECASE,
                 ):
-                    scene_context_names.add(name)
+                    add_scene_context_name(name)
         time_data = state.get("time", state.get("time_of_day", ""))
         scene_state = {
             "chapter": int(state.get("chapter", 1) or 1),
@@ -1808,7 +1820,7 @@ class StoryBuilderApp(tk.Tk):
         character_knowledge = state.get("character_knowledge", {})
         all_scene_knowledge = {}
         if isinstance(character_knowledge, dict):
-            for name in scene_context_names:
+            for name in scene_context_order:
                 values = character_knowledge.get(name)
                 if values is None:
                     for key, candidate in character_knowledge.items():
