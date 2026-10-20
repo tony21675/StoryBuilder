@@ -1075,7 +1075,7 @@ class SceneContract:
                 "PRIORITY AND AUTHOR ACTION FIDELITY:\n"
                 "The original Scene Idea defines intended direction, actions, scope, and endpoint; boundaries are mandatory. "
                 "It is not a word-for-word prose checklist. Generated direction/contract are supporting only and must not overrule or contradict the author's intent. "
-                "AUTHOR ACTION FIDELITY: Keep concrete action/object identity (a bubble bath is not a shower), preserve optionality, and treat wording such as 'can' or 'may' as permission. "
+                "AUTHOR ACTION FIDELITY: Keep concrete action/object identity (a bubble bath is not a shower), preserve optionality. Treat wording such as 'can' or 'may' as permission. "
                 "Natural dialogue, gestures, pacing, transitions, and connective details remain creative choices."
             )
 
