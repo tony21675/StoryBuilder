@@ -17,7 +17,7 @@ Return ONLY valid JSON in this shape:
 This is a DELTA, not a regenerated character profile. The application retains all prior knowledge and merges your additions. For a character who learned nothing new, omit their key or return an empty array. Never copy existing knowledge into the answer.
 
 Rules:
-- Use the full completed prose to identify who is physically present, enters, hears relevant dialogue, reads information, or directly observes an event. scene_cast only records the opening cast. A person merely mentioned or elsewhere learns nothing; a character merely discussed does not learn from the conversation.
+- Use the full completed prose to identify who is physically present, enters, hears relevant dialogue, reads information, or directly observes an event. scene_cast records the opening cast, not every later arrival. A person merely mentioned or elsewhere learns nothing; a character merely discussed does not learn from the conversation.
 - Return only facts newly learned in this section. The before-state facts are a small relevance-selected sample, not a complete list; do not infer that an omitted fact is false.
 - State each addition as a durable, specific proposition about the world, a person, or an event. Do not summarize cumulative knowledge or repeat the supplied before-state facts.
 - A character learns facts they hear in dialogue, directly observe, read, or personally experience. Do not give anyone knowledge they did not receive.
@@ -26,7 +26,7 @@ Rules:
 - Knowledge is not an event log. Never list routine scene actions, a character's own actions, or the act of telling/asking/offering as knowledge. "Tony brewed tea" is an event, not a knowledge fact; "Tony learned from Maya that Tiffany is missing" is a fact learned by Tony.
 - Temporary physical state, location, posture, contact, movement, clothing, and immediate activity belong in physical_state, not cumulative knowledge. Do not add them as new knowledge unless they have independent lasting significance.
 - Only supersede an exact fact present in the supplied selected existing-knowledge context, and only when the prose directly contradicts or resolves it. Do not supersede facts merely because the current scene omits them.
-- Deduplicate wording variants of the same observation in your output. Keep independently consequential details separate.
+- Deduplicate paraphrases of the same observation in your output. Keep independently consequential details separate.
 - If there are no valid new facts or supersessions, return {}.
 - Output JSON only, without markdown or explanations.
 """
