@@ -3317,7 +3317,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                             name = Path(str(filename)).stem
                         archive_character_names.append(name)
                 historical_archive = ManuscriptManager(Path(self.package.path)).search_historical_context(
-                    "\\n".join([
+                    "\n".join([
                         direction,
                         json.dumps(contract, ensure_ascii=False),
                         str(current_state.get("current_situation", "") or ""),
@@ -3334,18 +3334,18 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
 
         if historical_archive.get("text"):
             archive_prompt = (
-                "\\n\\nRETRIEVED HISTORICAL CONTINUITY ARCHIVE (READ ONLY; NOT CURRENT STATE):\\n"
+                "\n\nRETRIEVED HISTORICAL CONTINUITY ARCHIVE (READ ONLY; NOT CURRENT STATE):\n"
                 "The following excerpts come from earlier accepted manuscript sections. "
                 "They were retrieved because their wording overlaps the current scene direction. "
                 "Use them only for supported historical details. The current saved state and scene "
                 "direction outrank any outdated physical or situational detail. Do not infer anything "
-                "that is not stated in an excerpt.\\n\\n"
+                "that is not stated in an excerpt.\n\n"
                 + historical_archive["text"]
             )
             files.append(("historical_continuity_archive.txt", archive_prompt.strip()))
 
         writer_context = SceneContract.writer_prompt_context(direction, contract)
-        base_prompt = writer_context + "\\n\\n" + self._writer_scene_boundary_prompt()
+        base_prompt = writer_context + "\n\n" + self._writer_scene_boundary_prompt()
         try:
             fitted_files, budget_metrics = self._fit_writer_context(files, base_prompt=base_prompt)
         except WriterContextBudgetError as exc:
@@ -3406,7 +3406,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         lines.append(archive_entry if archive_entry else "(No historical excerpts included.)")
         self._show_copyable_error(
             "Writer Context Preview",
-            "\\n".join(lines),
+            "\n".join(lines),
             summary=(
                 "Read-only diagnostic. Close this window to return to StoryBuilder. "
                 "No scene prose was generated."
