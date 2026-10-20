@@ -3268,12 +3268,14 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         self._update_writer_buttons()
 
     def _writer_scene_boundary_prompt(self):
-        """Return the exact scene-boundary instruction shared by writing and preview."""
-        return "".join([
-            "SCENE BOUNDARY:\n",
-            "The original plain-English Scene Idea defines intended actions, important moments, and endpoint. It is not a line-by-line wording checklist, but concrete actions and objects specified as intended choices must keep their identity; do not replace one with a materially different alternative (a bubble bath is not a shower). Preserve distinctive details that define an intended action and the stated history or relationships that give an object meaning; do not treat them as disposable decoration. If the idea phrases an action as optional, preserve that choice instead of making it a new requirement. Current story state controls what has already happened, physical continuity, and character knowledge; generated direction and contract are secondary hints. Do not replay completed events. Preserve established opening position/contact unless this scene changes them. Use creative freedom for how actions unfold, dialogue, gestures, pacing, transitions, and connective actions.\n\n",
+        """Return concise scene-specific instructions; global rules live in the system prompt."""
+        return (
+            "SCENE BOUNDARY:\\n"
+            "Honor the original Scene Idea's specific actions, objects, optionality, and endpoint; do not substitute a different action for a similar purpose. "
+            "Current state controls what has happened, physical continuity, and character knowledge. Do not replay completed events. "
+            "Use creative freedom for dialogue, gestures, pacing, and transitions.\\n\\n"
             "Write the scene now. Output only the prose."
-        ])
+        )
 
     def _preview_writer_context(self):
         """Show the assembled prompt context without generating or changing story state."""
