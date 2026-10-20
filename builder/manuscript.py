@@ -95,12 +95,18 @@ class ManuscriptManager:
             path.name,
             flags=re.IGNORECASE,
         )
-        if not match:
-            return None
-        scene = match.group(2) or match.group(3)
-        if scene is None:
-            return None
-        return int(match.group(1)), int(scene)
+        if match:
+            scene = match.group(2) or match.group(3)
+            if scene is not None:
+                return int(match.group(1)), int(scene)
+
+        # Older packages may retain Scene_XX.txt names within Chapter_XX
+        # folders. Their chapter is encoded by the parent directory.
+        chapter_match = re.search(r"Chapter_(\d+)", str(path.parent), flags=re.IGNORECASE)
+        scene_match = re.search(r"(?:Section|Scene)_(\d+)", path.name, flags=re.IGNORECASE)
+        if chapter_match and scene_match:
+            return int(chapter_match.group(1)), int(scene_match.group(1))
+        return None
 
     def save_draft(self, chapter: int, scene: int, text: str) -> Path:
         target = self.scene_path(chapter, scene)
