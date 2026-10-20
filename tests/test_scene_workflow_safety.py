@@ -1097,7 +1097,7 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         prompt = app._writer_system_prompt(app._writer_package_files())
         self.assertIn("Do not introduce floral scents.", prompt)
         self.assertIn("Stable author writing guidance", prompt)
-        self.assertIn("do not introduce music after agreeing to keep things quiet", prompt)
+        self.assertIn("honor clear prohibitions when relevant", prompt)
 
     def test_writer_context_includes_later_planned_character_card_and_knowledge_without_moving_physical_state(self):
         app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
