@@ -7,12 +7,15 @@ from builder.state_manager import (
     STATE_SYSTEM_PROMPT,
     StateManager,
     append_recent_events,
+    build_state_analysis_context,
+    build_state_change_summary,
     clean_knowledge_action_logs,
     filter_new_clue_items,
     normalize_location_patch,
     recover_clues_from_knowledge,
     recover_explicit_unresolved_questions,
     normalize_physical_state_patch,
+    select_relevant_knowledge_context,
     validate_state_proposal,
 )
 
@@ -141,6 +144,8 @@ class StateAnalysisTransitionTests(unittest.TestCase):
         self.assertIn("visible injury or mark", STATE_SYSTEM_PROMPT)
         self.assertIn("do not invent an additional scent", STATE_SYSTEM_PROMPT)
         self.assertIn("first-time nickname", STATE_SYSTEM_PROMPT)
+        self.assertIn("This is a DELTA", KNOWLEDGE_AUDIT_SYSTEM_PROMPT)
+        self.assertIn("never copy existing knowledge", KNOWLEDGE_AUDIT_SYSTEM_PROMPT)
 
     def test_state_analysis_candidates_include_later_named_characters(self):
         app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
@@ -358,6 +363,124 @@ class StateAnalysisTransitionTests(unittest.TestCase):
         )
         self.assertNotIn("Who abducted Tiffany?", resolved)
 
+
+
+    def test_state_analysis_context_excludes_large_unrelated_ledgers(self):
+        state = {
+            "chapter": 3,
+            "scene": 3,
+            "scene_cast": ["Tony", "Maya"],
+            "current_situation": "The group is beginning a search.",
+            "location": {
+                "primary": "Tony's home",
+                "Tony": "Kitchen",
+                "Maya": "Kitchen",
+                "Rick": "Elsewhere",
+            },
+            "physical_state": {
+                "Tony": {"location": "Kitchen"},
+                "Maya": {"location": "Kitchen"},
+                "Rick": {"location": "Garage"},
+            },
+            "active_objectives": {
+                "Tony": "Coordinate the search",
+                "Maya": "Observe the street",
+                "Rick": "An unrelated earlier objective",
+            },
+            "active_clues": ["The van accelerated quickly."],
+            "unresolved_questions": ["Who took Tiffany?"],
+            "recent_events": [{"event": f"Recent event {i}"} for i in range(15)],
+            "character_knowledge": {"Tony": [f"Fact {i}" for i in range(100)]},
+            "continuity_notes": [f"Editorial note {i}" for i in range(100)],
+            "continuity_requirements": ["Editorial reminder"],
+            "completed_events": [{"event": "Long history"}],
+        }
+
+        context = build_state_analysis_context(state, ["Tony", "Maya"])
+
+        self.assertEqual(context["location"], {"primary": "Tony's home", "Tony": "Kitchen", "Maya": "Kitchen"})
+        self.assertEqual(set(context["physical_state"]), {"Tony", "Maya"})
+        self.assertEqual(set(context["active_objectives"]), {"Tony", "Maya"})
+        self.assertEqual(len(context["recent_events"]), 8)
+        self.assertEqual(context["recent_events"][0]["event"], "Recent event 7")
+        for excluded in ("character_knowledge", "continuity_notes", "continuity_requirements", "completed_events"):
+            self.assertNotIn(excluded, context)
+        self.assertEqual(context["active_clues"], ["The van accelerated quickly."])
+        self.assertEqual(context["unresolved_questions"], ["Who took Tiffany?"])
+
+    def test_knowledge_delta_context_is_relevance_ranked_and_bounded(self):
+        knowledge = {
+            f"Character {i}": [
+                f"Older unrelated fact {j} about knitting and weather."
+                for j in range(20)
+            ] + [
+                f"Knows the kidnapper smelled of pine needles, fact {i}."
+            ]
+            for i in range(10)
+        }
+        selected = select_relevant_knowledge_context(
+            knowledge,
+            "Maya described the kidnapper's scent of pine needles.",
+            max_items_per_character=4,
+            max_total_items=18,
+        )
+        self.assertLessEqual(sum(len(v) for v in selected.values()), 18)
+        self.assertTrue(all(len(v) <= 4 for v in selected.values()))
+        self.assertTrue(any("pine needles" in fact for values in selected.values() for fact in values))
+        self.assertLess(sum(len(v) for v in selected.values()), sum(len(v) for v in knowledge.values()))
+
+    def test_change_summary_shows_only_differences_by_category(self):
+        before = {
+            "current_situation": "Tony and Maya are at the kitchen table.",
+            "location": {"primary": "Home", "Tony": "Kitchen", "Maya": "Kitchen"},
+            "physical_state": {"Tony": {"position": "sitting"}, "Maya": {"position": "sitting"}},
+            "character_knowledge": {
+                "Tony": ["Knows Tiffany is his daughter.", "Brewed chamomile tea for Maya."]
+            },
+            "active_clues": ["The van accelerated quickly."],
+            "new_clues": ["Old scene clue"],
+            "unresolved_questions": [],
+            "recent_events": [{"event": "Chloe hugged Tony."}],
+            "chapter": 3,
+            "scene": 3,
+        }
+        after = {
+            "current_situation": "The group has divided initial search efforts.",
+            "location": {"primary": "Home", "Tony": "Kitchen", "Maya": "Kitchen"},
+            "physical_state": {"Tony": {"position": "standing"}, "Maya": {"position": "sitting"}},
+            "character_knowledge": {
+                "Tony": ["Knows Tiffany is his daughter."]
+            },
+            "active_clues": ["The van accelerated quickly.", "The kidnapper scratched his left cheek and drew blood."],
+            "new_clues": [],
+            "unresolved_questions": ["Who took Tiffany?"],
+            "recent_events": [
+                {"event": "Chloe hugged Tony."},
+                {"event": "Tony called Chloe 'my little wildcat' for the first time, and Chloe accepted it."},
+            ],
+            "chapter": 3,
+            "scene": 4,
+        }
+
+        summary = build_state_change_summary(before, after)
+
+        self.assertIn("SITUATION AND TIME", summary)
+        self.assertIn("LOCATIONS AND PHYSICAL STATE", summary)
+        self.assertIn("CHARACTER KNOWLEDGE", summary)
+        self.assertIn("Brewed chamomile tea for Maya.", summary)
+        self.assertIn("The kidnapper scratched his left cheek and drew blood.", summary)
+        self.assertIn("Who took Tiffany?", summary)
+        self.assertIn("my little wildcat", summary)
+        self.assertNotIn("Knows Tiffany is his daughter.", summary)
+        self.assertNotIn("CHAPTER", summary)
+
+    def test_change_summary_handles_no_changes_and_caps_long_diffs(self):
+        unchanged = {"current_situation": "The scene ends here.", "active_clues": ["One clue"]}
+        self.assertIn("No state changes detected", build_state_change_summary(unchanged, unchanged))
+        before = {"active_clues": []}
+        after = {"active_clues": [f"Clue {i}" for i in range(20)]}
+        capped = build_state_change_summary(before, after, max_changes=5)
+        self.assertIn("Output capped at 5 changes", capped)
 
 if __name__ == "__main__":
     unittest.main()
