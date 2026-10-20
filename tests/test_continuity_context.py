@@ -32,6 +32,7 @@ class ContinuityContextTests(unittest.TestCase):
         active, metrics = select_active_character_knowledge(
             ledger,
             "Tony and Maya coordinate the search for missing Tiffany and discuss the unknown kidnapper.",
+            character_names=["Tony", "Maya", "Tiffany"],
         )
 
         all_active = [fact for facts in active.values() for fact in facts]
