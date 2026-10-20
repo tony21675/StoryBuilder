@@ -1,35 +1,42 @@
-## Latest checkpoint — October 19, 2026: ending-state redesign plus context pruning and historical retrieval (PR pending)
+## Latest checkpoint — October 20, 2026: ending-state redesign, context pruning, and historical retrieval (merged)
 
-Tony approved a broad StoryBuilder redesign because proposed ending states repeatedly required extensive manual reconstruction, then supplied a second handoff asking StoryBuilder to reduce generation-context bloat without losing durable continuity. Both requirements are now part of the same unmerged PR. **Keep PR #37 unmerged until Tony reviews it.**
+Tony approved a broad StoryBuilder redesign because proposed ending states repeatedly required extensive manual reconstruction, then supplied a second handoff requiring context reduction without sacrificing continuity. Both requirements are implemented and **merged into main**.
 
 - PR: https://github.com/tony21675/StoryBuilder/pull/37
-- Branch: `redesign/state-review-workflow`
-- Base main commit before this redesign: `87844863230fb996b2ca230fe9db4cc6bdc50e96`
-- This is reusable StoryBuilder code only. Do not edit or sync MyNovel content as part of testing.
+- Merge commit: `d5117bf950b6fb320446ff2dc2f6dd168b81ff7d`
+- `main` was verified at that merge commit before this handoff refresh.
+- This is reusable StoryBuilder code only. No MyNovel files or accepted manuscript content were modified.
 
 ### Ending-state review redesign
 - Writer → Analyze Accepted Scene opens on **Changes to Review**, grouped into situation/time, locations/physical state, objectives, character knowledge, investigative leads, recent events, and other state changes.
 - Full reconstructed JSON remains available under **Full State JSON (Advanced)** for deliberate corrections. Applying the proposal still validates and merges against saved current state; omitted fields remain unchanged.
 - Ending-state analysis receives compact physical/current context instead of the full state ledger. It no longer repeats the final 3,000 characters of the completed scene.
-- Character-knowledge auditing asks for new facts and exact explicit supersessions. The full persisted ledger remains application-owned and is merged; it is not regenerated wholesale.
+- Character-knowledge auditing asks for new facts and exact explicit supersessions. The full persisted ledger remains application-owned and is merged, not regenerated wholesale.
 
 ### Context pruning and historical continuity retrieval
-- Added `builder/continuity_context.py`. It ranks the current scene's active character knowledge, keeps consequential facts such as relationships, promises/secrets, injuries, evidence, and timeline cues prioritized, and deprioritizes incidental food/drink and routine details. Selection changes only what enters the active prompt; it does not delete or mutate the source ledger.
-- If a per-novel craft-notes notebook grows beyond 24 entries, only the scene-relevant notes enter the active prompt (falling back to the eight most recent when none overlap). Supporting people, off-scene location anchors, and relationship records are filtered to people actually named or used by the current scene.
-- Extended `builder/manuscript.py` to search the existing accepted manuscript as a read-only historical archive. The Writer can receive up to four source-labelled excerpts, capped at 2,400 combined characters, retrieved by lexical overlap with the current scene direction. Only scenes strictly earlier than the target scene are eligible, including legacy `Scene_XX.txt` files in `Chapter_XX` folders. The design deliberately reuses accepted manuscript files instead of creating a competing continuity database.
-- Added explicit prompt safety rules: archived excerpts are historical evidence, not current state; current saved state and scene direction take precedence; ambiguous or missing historical details must not be invented. The archive snippets identify the source manuscript file.
-- Writer status reports approximate prompt size before and after pruning and the number of retrieved excerpts. Optional prompt traces capture the same budget metrics. The estimate is character-count divided by four, a repeatable rough estimate rather than exact model-tokenizer output.
-- Retrieval is lexical, not embedding-based. It works best when the scene direction includes a person, object, event, or phrase associated with the older detail. Accepted prose remains available even when no excerpt is retrieved.
+- Added `builder/continuity_context.py`. It ranks active character knowledge and prioritizes consequential facts such as relationships, promises/secrets, injuries, evidence, clues, and timeline cues. Incidental food/drink and routine details are deprioritized, not deleted from their source ledger.
+- If the per-novel writing-notes notebook grows beyond 24 entries, relevant notes are selected for the prompt, falling back to the eight most recent when lexical overlap yields no matches. Supporting people, off-scene anchors, and relationship context are filtered to people referenced by the current scene.
+- Character cards and knowledge for characters explicitly named in the scene plan can be included even when those characters arrive later. Opening physical-state context remains limited to the opening cast.
+- Extended `builder/manuscript.py` to search the existing accepted manuscript read-only. Writer may receive up to four source-labelled historical excerpts capped at 2,400 combined characters. Retrieval only searches scenes strictly earlier than the target scene and supports legacy `Scene_XX.txt` files under `Chapter_XX` folders. This reuses the manuscript archive rather than creating a competing continuity database.
+- Archived excerpts are explicitly historical evidence, not current state. Current saved state and scene direction take precedence over old descriptions. If a detail cannot be found or the source is ambiguous, the Writer is instructed not to invent it or claim certainty.
+- Writer status reports approximate before/after prompt size and the number of historical excerpts. Deliberately armed prompt traces capture budget metrics. Estimates use characters divided by four, not the model's exact tokenizer.
+- Retrieval is lexical rather than embedding-based. It works best when the scene direction names the relevant person, object, event, or phrase. An implicit detail may not be retrieved unless the prompt offers useful search terms.
 
-### Files changed in this PR
-`builder/state_manager.py`, `builder/continuity_context.py`, `builder/manuscript.py`, `storybuilder.py`, `tests/test_state_analysis_transitions.py`, `tests/test_continuity_context.py`, `README.md`, and `CHAT_HANDOFF.md`.
+### Files changed
+`builder/state_manager.py`, `builder/continuity_context.py`, `builder/manuscript.py`, `storybuilder.py`, `tests/test_state_analysis_transitions.py`, `tests/test_continuity_context.py`, `tests/test_scene_workflow_safety.py`, `README.md`, and `CHAT_HANDOFF.md`.
 
-### Verification and next steps
-- Latest verified code/test commit before this handoff edit: `4ee384cdb43e1221fbd11621f5f4b6eea1750333`. Both GitHub Actions workflows passed on that exact commit: [StoryBuilder checks](https://github.com/tony21675/StoryBuilder/actions/runs/39364053179) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/39364053195). Compilation passed; all **272 unit tests** passed.
-- The continuity-context tests include a synthetic benchmark with 126 knowledge facts across three characters. Before selection the ledger contains 9,834 characters (about 2,459 estimated tokens); the active sample contains 6 protected/relevant facts and 344 characters (about 86 estimated tokens), a measured **96.5% reduction for this synthetic character-knowledge subcontext**. This is not a measured whole-scene prompt reduction. Estimates are characters divided by four, not exact tokenizer results.
-- The eight context/archive tests cover incidental-detail pruning without deleting its source ledger, making a drink detail active when explicitly requested, archive retrieval and source labels, exclusion of the current/future scene, legacy manuscript filenames, refusal to retrieve on character names alone, current-state precedence, and token estimates. A separate test protects later-arriving characters' cards/knowledge while keeping opening physical state scoped to the opening cast.
-- The real novel's actual overall prompt-size reduction and whether the right archive excerpt is retrieved in live writing remain to be verified on Tony's laptop. Retrieval is lexical, not embedding-based, so the scene direction should name the person/object/event/detail being sought. No guarantee should be made that every implicit historical detail can be retrieved.
-- After this handoff documentation is committed, verify both workflows on the resulting latest PR head as well; leave PR #37 open and unmerged. Tony will review/pull after returning. On the laptop, check `git status -sb` first and pull only if the local checkout is clean and can fast-forward safely. Confirm Writer shows the changed-only state review; then test one new scene, inspect the approximate before/after context estimate, and explicitly ask about a clearly named older detail. Do not change accepted prose/state solely for testing.
+### Verification
+- Pre-merge PR-head workflows passed: [StoryBuilder checks](https://github.com/tony21675/StoryBuilder/actions/runs/39364129910) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/39364129912).
+- Post-merge workflows on merge commit `d5117bf950b6fb320446ff2dc2f6dd168b81ff7d` passed: [StoryBuilder checks](https://github.com/tony21675/StoryBuilder/actions/runs/39364685933) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/39364685995). Compilation passed and all **272 unit tests** passed.
+- Synthetic context benchmark: 126 knowledge facts across three characters, 9,834 source characters (about 2,459 rough tokens) reduced to six selected facts, 344 characters (about 86 rough tokens): **96.5% reduction in that character-knowledge subcontext**. This is not a measured whole-generation prompt reduction.
+- The real novel's overall prompt savings and archive-retrieval quality still need a live check on Tony's laptop.
+
+### Next steps for Tony
+1. On the laptop, inspect `git status -sb` before syncing. Pull/fast-forward only if the checkout is clean and can fast-forward safely.
+2. In Writer, confirm the accepted-scene state preview begins with **Changes to Review**, with the full JSON available in the advanced tab.
+3. Generate a test scene without modifying accepted prose/state just for testing. Review the displayed approximate context budget and number of historical excerpts.
+4. Explicitly request a clearly named detail from an older accepted scene (for example, which soda was chosen at lunch) to test retrieval. If the excerpt is not found, include the relevant person/object/event in the scene direction; lexical retrieval is not a guarantee for vague references.
+5. Check continuity manually during this first live trial, especially character-specific knowledge, later-arriving cast, physical state, and whether an archive excerpt is stale. Report any regression and fix the underlying context-selection logic rather than patching one scene.
 
 ---
 
