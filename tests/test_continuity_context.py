@@ -80,6 +80,7 @@ class ContinuityContextTests(unittest.TestCase):
             "Tony and Maya discuss the kidnapper's identifying cheek scratch and search for Tiffany.",
             max_items_per_character=4,
             max_total_items=12,
+            character_names=["Tony", "Maya", "Chloe", "Tiffany"],
         )
 
         all_active = [fact for values in active.values() for fact in values]
@@ -126,7 +127,9 @@ class ContinuityContextTests(unittest.TestCase):
             "Tony and Chloe define the initial search roles.",
             continuity_focus=focus,
         )
-        active, _metrics = select_active_character_knowledge(ledger, query)
+        active, _metrics = select_active_character_knowledge(
+            ledger, query, character_names=["Tony", "Maya", "Chloe", "Tiffany"]
+        )
         facts = [fact for values in active.values() for fact in values]
         self.assertTrue(any("pine needles" in fact for fact in facts))
         self.assertFalse(any("grape soda" in fact for fact in facts))
