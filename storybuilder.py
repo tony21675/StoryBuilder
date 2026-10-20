@@ -3264,9 +3264,21 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         base_prompt = "".join(prompt_parts)
         context_budget = context_size_report(system_prompt + base_prompt)
         context_metrics = dict(getattr(self, "writer_last_context_metrics", {}) or {})
+        pruned_detail_chars = max(
+            0,
+            int(context_metrics.get("detail_context_before_chars", 0) or 0)
+            - int(context_metrics.get("detail_context_after_chars", 0) or 0),
+        )
+        estimated_before_chars = context_budget["characters"] + pruned_detail_chars
         context_metrics.update({
             "assembled_prompt_characters": context_budget["characters"],
             "assembled_prompt_estimated_tokens": context_budget["estimated_tokens"],
+            "assembled_prompt_before_pruning_characters_estimated": estimated_before_chars,
+            "assembled_prompt_before_pruning_tokens_estimated": estimate_tokens_from_chars(estimated_before_chars),
+            "assembled_prompt_tokens_reduced_estimated": max(
+                0,
+                estimate_tokens_from_chars(estimated_before_chars) - context_budget["estimated_tokens"],
+            ),
             "historical_archive_characters": int(historical_archive.get("characters", 0) or 0),
             "historical_archive_estimated_tokens": int(historical_archive.get("estimated_tokens", 0) or 0),
             "historical_archive_snippets": len(historical_archive.get("snippets", [])),
@@ -3274,10 +3286,12 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         })
         self.writer_last_context_metrics = context_metrics
         reduction_percent = float(context_metrics.get("detail_context_reduction_percent", 0) or 0)
+        before_tokens = context_metrics["assembled_prompt_before_pruning_tokens_estimated"]
+        after_tokens = context_budget["estimated_tokens"]
         self.writer_status.configure(
             text=(
-                f"Writing scene... approximately {context_budget['estimated_tokens']:,} prompt tokens "
-                f"(active-detail pruning: {reduction_percent:.1f}%; "
+                f"Writing scene... prompt approximately {before_tokens:,} → {after_tokens:,} tokens "
+                f"(rough estimate; active-detail reduction: {reduction_percent:.1f}%; "
                 f"historical excerpts: {len(historical_archive.get('snippets', []))})."
             )
         )
@@ -3329,6 +3343,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                         max_attempts=1,
                         is_focused_revision=False,
                         prompt_characters=len(base_prompt),
+                        context_budget=context_metrics,
                     )
                 answer, completion_notice = generate_scene_with_completion_check(
                     engine=self.writer_engine,
