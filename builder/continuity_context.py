@@ -78,6 +78,10 @@ def select_active_character_knowledge(
     deprioritized unless the current scene explicitly makes them relevant.
     """
     query_terms = relevance_tokens(query)
+    character_terms = set()
+    for character in knowledge_by_character:
+        character_terms.update(relevance_tokens(str(character)))
+    detail_query_terms = query_terms - character_terms
     ranked_by_character: dict[str, list[tuple[float, int, str]]] = {}
     before_items = 0
     before_chars = 0
@@ -93,11 +97,12 @@ def select_active_character_knowledge(
             before_chars += len(value)
             terms = relevance_tokens(value)
             overlap = len(terms & query_terms)
+            detail_overlap = len(terms & detail_query_terms)
             protected = is_protected_continuity_fact(value)
             low_value = is_low_value_detail(value)
             recent_bonus = 1.5 if index >= max(0, len(raw_values) - 4) else 0
             score = overlap * 3.0 + recent_bonus + (12.0 if protected else 0.0)
-            if low_value and overlap < 2:
+            if low_value and detail_overlap == 0:
                 score -= 7.0
             if score <= 0:
                 continue
