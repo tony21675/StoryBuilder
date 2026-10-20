@@ -3537,12 +3537,13 @@ Author-defined canon rules supplied in the scene reference are hard constraints.
                             name = Path(str(filename)).stem
                         archive_character_names.append(name)
                 historical_archive = ManuscriptManager(Path(self.package.path)).search_historical_context(
-                    "\n".join([
+                    build_historical_relevance_query(
                         direction,
-                        json.dumps(contract, ensure_ascii=False),
-                        str(current_state.get("current_situation", "") or ""),
+                        str(guidance_entry.get("scene_idea", "") or "") if isinstance(guidance_entry, dict) else "",
+                        str(guidance_entry.get("direction", "") or "") if isinstance(guidance_entry, dict) else "",
+                        str(guidance_entry.get("end_condition", "") or "") if isinstance(guidance_entry, dict) else "",
                         continuity_focus,
-                    ]),
+                    ),
                     before_chapter=chapter,
                     before_scene=scene,
                     character_names=archive_character_names,
