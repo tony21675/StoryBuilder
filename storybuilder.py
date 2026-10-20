@@ -52,6 +52,7 @@ from builder.scene_flow import review_chapter_flow
 from builder.novel_sync import NovelSyncError, sync_novel_repository
 from builder.state_manager import (
     StateManager,
+    build_state_change_summary,
     combine_state_patches,
     remove_prior_chapter_opening_markers,
     reviewed_state_preview_to_patch,
@@ -1418,13 +1419,13 @@ class StoryBuilderApp(tk.Tk):
         proposed_state_header.pack(fill="x", pady=(10, 0))
         ttk.Label(
             proposed_state_header,
-            text="Reconstructed Ending State (Editable Before Apply)",
+            text="Proposed Changes (Review Before Apply)",
             font=("", 11, "bold"),
         ).pack(side="left")
 
         self.writer_copy_state_button = ttk.Button(
             proposed_state_header,
-            text="Copy JSON",
+            text="Copy Full JSON",
             command=self._copy_proposed_state,
         )
         self.writer_copy_state_button.pack(side="right")
@@ -1432,18 +1433,53 @@ class StoryBuilderApp(tk.Tk):
         ttk.Label(
             content_frame,
             text=(
-                "Shows the full merged ending state. You may correct values here before applying; "
-                "those edits are included. Keep existing fields in place. Chapter and scene navigation "
-                "remain controlled by StoryBuilder."
+                "The first tab shows only what this scene changes. Fields not listed are preserved. "
+                "Use Full State JSON (Advanced) only when a manual correction is needed. Applying the "
+                "proposal merges those edits into the saved state; scene navigation remains app-controlled."
             ),
             wraplength=900,
             justify="left",
         ).pack(anchor="w", pady=(4, 0))
 
-        self.writer_state_preview = tk.Text(
-            content_frame, height=12, wrap="none", undo=True
+        self.writer_state_review_notebook = ttk.Notebook(content_frame)
+        self.writer_state_review_notebook.pack(fill="both", expand=True, pady=(4, 0))
+
+        self.writer_state_diff_tab = ttk.Frame(self.writer_state_review_notebook)
+        self.writer_state_json_tab = ttk.Frame(self.writer_state_review_notebook)
+        self.writer_state_review_notebook.add(
+            self.writer_state_diff_tab, text="Changes to Review"
         )
-        self.writer_state_preview.pack(fill="x", pady=(4, 0))
+        self.writer_state_review_notebook.add(
+            self.writer_state_json_tab, text="Full State JSON (Advanced)"
+        )
+
+        diff_frame = ttk.Frame(self.writer_state_diff_tab)
+        diff_frame.pack(fill="both", expand=True)
+        diff_scrollbar = ttk.Scrollbar(diff_frame, orient="vertical")
+        self.writer_state_diff_preview = tk.Text(
+            diff_frame,
+            height=16,
+            wrap="word",
+            yscrollcommand=diff_scrollbar.set,
+            state="disabled",
+        )
+        diff_scrollbar.configure(command=self.writer_state_diff_preview.yview)
+        self.writer_state_diff_preview.pack(side="left", fill="both", expand=True)
+        diff_scrollbar.pack(side="right", fill="y")
+
+        json_frame = ttk.Frame(self.writer_state_json_tab)
+        json_frame.pack(fill="both", expand=True)
+        json_scrollbar = ttk.Scrollbar(json_frame, orient="vertical")
+        self.writer_state_preview = tk.Text(
+            json_frame,
+            height=18,
+            wrap="none",
+            undo=True,
+            yscrollcommand=json_scrollbar.set,
+        )
+        json_scrollbar.configure(command=self.writer_state_preview.yview)
+        self.writer_state_preview.pack(side="left", fill="both", expand=True)
+        json_scrollbar.pack(side="right", fill="y")
 
         self._refresh_writer_models()
         self._update_writer_buttons()
@@ -3586,6 +3622,10 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             self.generated_scene_context = (chapter, scene)
             self.pending_state_patch = None
             self.writer_state_preview.delete("1.0", "end")
+            if hasattr(self, "writer_state_diff_preview"):
+                self.writer_state_diff_preview.configure(state="normal")
+                self.writer_state_diff_preview.delete("1.0", "end")
+                self.writer_state_diff_preview.configure(state="disabled")
             self._refresh_manuscript()
             self._chat("Builder", f"Accepted Chapter {chapter}, Scene {scene} and saved it to {path}.")
             self._update_writer_buttons()
@@ -4609,6 +4649,10 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         self.writer_output_text.delete("1.0", "end")
         self.writer_output_text.insert("1.0", prose)
         self.writer_state_preview.delete("1.0", "end")
+        if hasattr(self, "writer_state_diff_preview"):
+            self.writer_state_diff_preview.configure(state="normal")
+            self.writer_state_diff_preview.delete("1.0", "end")
+            self.writer_state_diff_preview.configure(state="disabled")
         self._update_writer_buttons()
         self.writer_status.configure(
             text=(
@@ -4748,6 +4792,10 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             self.pending_state_patch = None
             if hasattr(self, "writer_state_preview"):
                 self.writer_state_preview.delete("1.0", "end")
+            if hasattr(self, "writer_state_diff_preview"):
+                self.writer_state_diff_preview.configure(state="normal")
+                self.writer_state_diff_preview.delete("1.0", "end")
+                self.writer_state_diff_preview.configure(state="disabled")
             self._show_copyable_error("State Update", error)
             self._update_writer_buttons()
             return
@@ -4777,6 +4825,17 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             self.package.current_state,
             self.pending_state_patch,
         )
+        state_diff = build_state_change_summary(
+            self.package.current_state,
+            reconstructed_state,
+        )
+        if hasattr(self, "writer_state_diff_preview"):
+            self.writer_state_diff_preview.configure(state="normal")
+            self.writer_state_diff_preview.delete("1.0", "end")
+            self.writer_state_diff_preview.insert("1.0", state_diff)
+            self.writer_state_diff_preview.configure(state="disabled")
+        if hasattr(self, "writer_state_review_notebook") and hasattr(self, "writer_state_diff_tab"):
+            self.writer_state_review_notebook.select(self.writer_state_diff_tab)
         self.writer_state_preview.delete("1.0", "end")
         self.writer_state_preview.insert(
             "1.0",
