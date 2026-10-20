@@ -71,6 +71,47 @@ class WriterContextBudgetTests(unittest.TestCase):
         self.assertNotIn("unrelated_long_biography", dict(fitted)["scene_characters.json"])
         self.assertIn("scene_characters.json", metrics["compacted_reference_files"])
 
+    def test_keeps_compacted_character_cards_and_knowledge_before_dropping_history(self):
+        card = {
+            "Tony": {
+                "name": "Tony",
+                "appearance": "Broad shoulders and tired eyes.",
+                "personality": "Protective and controlled.",
+                "unrelated_long_biography": "x" * 3600,
+            }
+        }
+        knowledge = {
+            "Tony": [
+                "Tony knows Tiffany is his daughter.",
+                "Tony knows the kidnapper's identity is unknown.",
+            ]
+        }
+        files = [
+            ("scene_state.json", '{"current_situation":"The group begins a search for Tiffany."}'),
+            ("scene_physical_state.json", '{"Tony":{"position":"standing"}}'),
+            ("scene_characters.json", json.dumps(card)),
+            ("scene_character_knowledge.json", json.dumps(knowledge)),
+            ("author_writing_guidance.txt", "Preserve the author's stable style guidance. " * 10),
+            ("historical_continuity_archive.txt", "Old historical passage text. " * 120),
+        ]
+        fitted, metrics = fit_writer_context_files(
+            files,
+            prompt_builder=self._render,
+            base_prompt="CURRENT SCENE CONTRACT " + ("Specific scene direction. " * 45),
+            context_window_tokens=2000,
+            reserved_output_tokens=400,
+            safety_margin_tokens=300,
+        )
+        fitted_map = dict(fitted)
+        self.assertIn("scene_characters.json", fitted_map)
+        self.assertIn("scene_character_knowledge.json", fitted_map)
+        self.assertIn("appearance", fitted_map["scene_characters.json"])
+        self.assertNotIn("unrelated_long_biography", fitted_map["scene_characters.json"])
+        self.assertIn("Tony knows Tiffany is his daughter.", fitted_map["scene_character_knowledge.json"])
+        self.assertNotIn("historical_continuity_archive.txt", fitted_map)
+        self.assertIn("historical_continuity_archive.txt", metrics["pruned_reference_files"])
+        self.assertLessEqual(metrics["final_conservative_tokens"], metrics["input_token_budget"])
+
     def test_fails_clearly_if_mandatory_context_cannot_fit(self):
         files = [("scene_state.json", "x" * 4000)]
         with self.assertRaisesRegex(WriterContextBudgetError, "Required Writer context still exceeds"):
