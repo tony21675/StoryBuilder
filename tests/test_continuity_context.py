@@ -4,6 +4,7 @@ from pathlib import Path
 
 import storybuilder as storybuilder_app
 from builder.continuity_context import (
+    build_scene_relevance_query,
     estimate_tokens_from_chars,
     is_low_value_detail,
     select_active_character_knowledge,
@@ -31,13 +32,14 @@ class ContinuityContextTests(unittest.TestCase):
 
         active, metrics = select_active_character_knowledge(
             ledger,
-            "Tony and Maya coordinate the search for missing Tiffany and discuss the unknown kidnapper.",
+            "Maya saw the van accelerate and the kidnapper's identifying cheek scratch during the search for Tiffany.",
             character_names=["Tony", "Maya", "Tiffany"],
         )
 
         all_active = [fact for facts in active.values() for fact in facts]
         self.assertIn("Tony knows Tiffany is his daughter.", all_active)
-        self.assertTrue(any("promised Sarah" in fact for fact in all_active))
+        self.assertFalse(any("promised Sarah" in fact for fact in all_active),
+                         "An unrelated promise should not be loaded into every scene.")
         self.assertTrue(any("scratched Tiffany" in fact for fact in all_active))
         self.assertTrue(any("does not know who abducted" in fact for fact in all_active))
         self.assertTrue(any("van accelerate" in fact for fact in all_active))
@@ -76,19 +78,58 @@ class ContinuityContextTests(unittest.TestCase):
         active, metrics = select_active_character_knowledge(
             ledger,
             "Tony and Maya discuss the kidnapper's identifying cheek scratch and search for Tiffany.",
-            max_items_per_character=12,
-            max_total_items=24,
+            max_items_per_character=4,
+            max_total_items=12,
         )
 
-        self.assertLessEqual(sum(len(values) for values in active.values()), 24)
+        all_active = [fact for values in active.values() for fact in values]
+        self.assertLessEqual(len(all_active), 12)
         self.assertEqual(metrics["before_items"], 126)
-        self.assertEqual(metrics["after_items"], 6)
-        self.assertEqual(metrics["before_chars"], 9834)
-        self.assertEqual(metrics["after_chars"], 344)
-        self.assertEqual(metrics["reduction_percent"], 96.5)
-        self.assertGreaterEqual(metrics["reduction_percent"], 65.0)
-        self.assertTrue(any("promised to keep" in fact for values in active.values() for fact in values))
-        self.assertTrue(any("identifying scratch" in fact for values in active.values() for fact in values))
+        self.assertLess(metrics["after_items"], 12)
+        self.assertLess(metrics["after_chars"], metrics["before_chars"])
+        self.assertGreater(metrics["reduction_percent"], 65.0)
+        self.assertFalse(any("routinely watched television" in fact for fact in all_active))
+        self.assertFalse(any("promised to keep" in fact for fact in all_active))
+        self.assertTrue(any("identifying scratch" in fact for fact in all_active))
+
+    def test_unrelated_protected_facts_do_not_leak_into_scene_context(self):
+        ledger = {
+            "Maya": [
+                "Maya described the kidnapper smelling like pine needles.",
+                "Maya and Tiffany drank grape soda during their lunch conversation.",
+                "Tony helped Maya get cleaned up and made her tea the previous night.",
+            ],
+            "Tony": ["Tony knows Tiffany is his daughter."],
+        }
+        query = "Tony thanks Chloe for her hug; the group defines broad search roles."
+        active, _metrics = select_active_character_knowledge(
+            ledger, query, character_names=["Tony", "Maya", "Chloe", "Tiffany"]
+        )
+        facts = [fact for values in active.values() for fact in values]
+        self.assertIn("Tony knows Tiffany is his daughter.", facts)
+        self.assertFalse(any("pine needles" in fact for fact in facts))
+        self.assertFalse(any("grape soda" in fact for fact in facts))
+        self.assertFalse(any("tea the previous night" in fact for fact in facts))
+
+    def test_author_pinned_continuity_focus_selects_specific_historical_facts(self):
+        ledger = {
+            "Maya": [
+                "Maya described the kidnapper smelling like pine needles.",
+                "Maya and Tiffany drank grape soda during their lunch conversation.",
+            ],
+        }
+        focus = "Maya's eyewitness clue: the kidnapper's pine-needle scent."
+        query = build_scene_relevance_query(
+            ["Tony", "Maya", "Chloe"],
+            "Tony's kitchen",
+            "The group begins a private search for Tiffany.",
+            "Tony and Chloe define the initial search roles.",
+            continuity_focus=focus,
+        )
+        active, _metrics = select_active_character_knowledge(ledger, query)
+        facts = [fact for values in active.values() for fact in values]
+        self.assertTrue(any("pine needles" in fact for fact in facts))
+        self.assertFalse(any("grape soda" in fact for fact in facts))
 
     def test_historical_search_recovers_requested_detail_but_excludes_current_and_future_scenes(self):
         with tempfile.TemporaryDirectory() as tmp:

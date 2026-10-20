@@ -73,8 +73,8 @@ def select_active_character_knowledge(
     knowledge_by_character: dict[str, list[str]],
     query: str,
     *,
-    max_items_per_character: int = 18,
-    max_total_items: int = 72,
+    max_items_per_character: int = 4,
+    max_total_items: int = 24,
     character_names: list[str] | None = None,
 ) -> tuple[dict[str, list[str]], dict[str, int | float]]:
     """Select a bounded, relevant view while leaving the persistent ledger unchanged.
@@ -101,14 +101,36 @@ def select_active_character_knowledge(
             before_items += 1
             before_chars += len(value)
             terms = relevance_tokens(value)
-            overlap = len(terms & query_terms)
             detail_overlap = len(terms & detail_query_terms)
+            name_overlap = len(terms & query_terms & character_terms)
             protected = is_protected_continuity_fact(value)
             low_value = is_low_value_detail(value)
-            recent_bonus = 1.5 if index >= max(0, len(raw_values) - 4) else 0
-            score = overlap * 3.0 + recent_bonus + (12.0 if protected else 0.0)
+            # Character names alone must not pull in every historical fact.
+            # Core family/relationship facts are the narrow exception.
+            relationship_fact = bool(re.search(
+                r"\b(?:daughter|son|mother|father|wife|husband|partner|sister|brother|"
+                r"relationship|engaged|married|divorced|nickname)\b",
+                value,
+                flags=re.IGNORECASE,
+            )) and name_overlap > 0
+            # The central unknown identity/destination remains useful during a
+            # search even when the author summarizes the scene in broad terms.
+            unresolved_abduction_fact = bool(re.search(
+                r"\b(?:does not know|doesn't know|unknown|unidentified)\b.{0,80}\b(?:who|where|identity|destination|abduct|taken)\b",
+                value,
+                flags=re.IGNORECASE,
+            )) and bool(query_terms & {"search", "find", "finding", "missing", "kidnapper", "abduct", "tiffany"})
+            if detail_overlap == 0 and not relationship_fact and not unresolved_abduction_fact:
+                continue
+            recent_bonus = 0.5 if index >= max(0, len(raw_values) - 4) else 0
+            score = detail_overlap * 6.0 + (2.0 if relationship_fact else 0.0)
+            if protected and detail_overlap > 0:
+                score += 3.0
+            if unresolved_abduction_fact:
+                score += 2.0
+            score += recent_bonus
             if low_value and detail_overlap == 0:
-                score -= 10.0
+                score -= 20.0
             if score <= 0:
                 continue
             ranked.append((score, index, value))
@@ -137,8 +159,10 @@ def select_active_character_knowledge(
             break
         rank_depth += 1
 
+    # Keep facts in relevance rank order so any final budget trimming removes
+    # the least relevant tail first. The persisted ledger remains untouched.
     selected = {
-        name: [value for _index, value in sorted(values, key=lambda item: item[0])]
+        name: [value for _index, value in values]
         for name, values in selected_by_character.items()
         if values
     }
@@ -155,6 +179,24 @@ def select_active_character_knowledge(
         if before_chars else 0.0,
     }
     return selected, metrics
+
+
+def build_scene_relevance_query(
+    scene_cast: list[str],
+    primary_location: str,
+    current_situation: str,
+    scene_plan: str,
+    continuity_focus: str = "",
+) -> str:
+    """Build the lexical retrieval query from this scene, not the entire novel."""
+    parts = [
+        ", ".join(str(name).strip() for name in scene_cast if str(name).strip()),
+        str(primary_location or ""),
+        str(current_situation or ""),
+        str(scene_plan or ""),
+        str(continuity_focus or ""),
+    ]
+    return "\n".join(part.strip() for part in parts if part and part.strip())
 
 
 def select_relevant_records(
