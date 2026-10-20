@@ -3432,6 +3432,32 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             copy_label="Copy Full Preview",
         )
 
+    def _clear_previous_generated_scene_display(self):
+        """Clear the prior scene from the Writer workspace before a fresh generation.
+
+        Accepted manuscript files and the accepted-scene cache are intentionally
+        left untouched. Regeneration skips this helper so a failed retry can keep
+        showing the draft it was trying to replace.
+        """
+        self.generated_scene = ""
+        self.generated_scene_context = None
+        self.generated_scene_start_state = None
+        self.focused_revision_history = []
+
+        output = self.__dict__.get("writer_output_text")
+        if output is not None:
+            output.delete("1.0", "end")
+
+        state_preview = self.__dict__.get("writer_state_preview")
+        if state_preview is not None:
+            state_preview.delete("1.0", "end")
+
+        diff_preview = self.__dict__.get("writer_state_diff_preview")
+        if diff_preview is not None:
+            diff_preview.configure(state="normal")
+            diff_preview.delete("1.0", "end")
+            diff_preview.configure(state="disabled")
+
     def _write_next_scene(self, replacing_draft=False):
         if getattr(self, "scene_contract_building", False):
             self.writer_status.configure(
@@ -3470,6 +3496,12 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         self._save()
         if self.dirty:
             return
+
+        if not replacing_draft:
+            # The previous scene remains safely in the accepted manuscript.
+            # Remove it from the Writer workspace so the new draft has a clean
+            # display while preserving the Regenerate Scene failure-recovery path.
+            self._clear_previous_generated_scene_display()
 
         self.writer_write_button.configure(state="disabled")
         self.writer_status.configure(text="Preparing scene context...")
