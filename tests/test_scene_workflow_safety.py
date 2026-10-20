@@ -1215,6 +1215,12 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             prompt,
         )
         self.assertIn("Creative developments are welcome when they fit the story.", prompt)
+        self.assertIn("The Scene Idea also contains the author's deliberate story commitments.", prompt)
+        self.assertIn("quoted lines or nicknames, relationship milestones", prompt)
+        self.assertIn("Every concrete story commitment named in the original Scene Idea must happen on-page", prompt)
+        self.assertIn("Take creative initiative in present-scene action", prompt)
+        self.assertIn("Do not invent a past suspicious action, major clue, secret meeting", prompt)
+        self.assertIn("as a hypothesis rather than having the narration certify it as true", prompt)
         self.assertIn("Let character voice, mood, and author preferences shape the prose without turning them into formulas.", prompt)
         self.assertNotIn("Respect privacy, dignity, established boundaries, and relationship-specific behavior", prompt)
         self.assertNotIn("Do not add unprompted ominous narration", prompt)
@@ -1230,7 +1236,10 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         prompt = app._writer_scene_boundary_prompt()
 
         self.assertIn("The idea gives purpose and direction, not a script.", prompt)
+        self.assertIn("Its concrete planned beats are deliberate commitments.", prompt)
+        self.assertIn("specific actions, quoted lines or nicknames, relationship milestones, reveals, and emotional turns happen on-page", prompt)
         self.assertIn("incidental details, connective actions, and fitting story turns", prompt)
+        self.assertIn("inventing past clues or relationship-defining history", prompt)
         self.assertIn("do not cross a stated hard stop", prompt)
         self.assertIn("Output only the prose.", prompt)
 
