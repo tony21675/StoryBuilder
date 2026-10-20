@@ -112,6 +112,32 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         app._chat = lambda *_args, **_kwargs: None
         return app
 
+    def test_clear_previous_generated_scene_display_preserves_accepted_scene(self):
+        prose = "The accepted scene remains part of the manuscript."
+        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+        app.generated_scene = prose
+        app.generated_scene_context = (3, 3)
+        app.generated_scene_start_state = {"chapter": 3, "scene": 3}
+        app.accepted_scene = prose
+        app.accepted_scene_context = (3, 3)
+        app.focused_revision_history = ["old revision"]
+        app.writer_output_text = FakeText(prose)
+        app.writer_state_preview = FakeText("old state preview")
+        app.writer_state_diff_preview = FakeText("old state diff")
+
+        storybuilder_app.StoryBuilderApp._clear_previous_generated_scene_display(app)
+
+        self.assertEqual(app.generated_scene, "")
+        self.assertIsNone(app.generated_scene_context)
+        self.assertIsNone(app.generated_scene_start_state)
+        self.assertEqual(app.accepted_scene, prose)
+        self.assertEqual(app.accepted_scene_context, (3, 3))
+        self.assertEqual(app.focused_revision_history, [])
+        self.assertEqual(app.writer_output_text.value, "")
+        self.assertEqual(app.writer_state_preview.value, "")
+        self.assertEqual(app.writer_state_diff_preview.value, "")
+        self.assertEqual(app.writer_state_diff_preview.state, "disabled")
+
     def make_scene_idea_reload_app(self, saved_idea, current_idea, confirm=True):
         app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
         app.package = SimpleNamespace(
