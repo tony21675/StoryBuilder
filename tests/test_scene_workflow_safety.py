@@ -1162,33 +1162,33 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         prompt = app._writer_system_prompt([])
 
         self.assertIn(
-            "The original plain-English Scene Idea gives the intended direction, key intentions, and endpoint",
+            "The original plain-English Scene Idea controls intended actions, order, scope, and endpoint",
             prompt,
         )
         self.assertIn(
-            "Generated scene direction and compact contract are supporting context only",
+            "Generated direction/contract are secondary",
             prompt,
         )
         self.assertIn(
-            "do not treat every sentence of the idea as a checklist",
+            "without treating every sentence as a checklist",
             prompt,
         )
         self.assertIn(
-            "Use the Scene Idea to understand the intended movement of the whole scene",
+            "Follow the Scene Idea's meaningful order, phases, major moments, and endpoint",
             prompt,
         )
         self.assertIn("Knowing that an event happened is not the same as witnessing it", prompt)
-        self.assertIn("do not shrink the whole scene to the single action emphasized", prompt)
+        self.assertIn("Do not shrink a multi-phase or time-spanning scene to one highlighted moment", prompt)
         self.assertIn(
-            "Respect an explicit endpoint in the original Scene Idea, including a temporal boundary",
+            "If an explicit endpoint is named, including a time or passage-of-time boundary",
             prompt,
         )
         self.assertIn(
-            "continue through the intended development until that endpoint",
+            "carry the scene through to it",
             prompt,
         )
         self.assertIn(
-            "Only when no clear endpoint is stated may you choose a natural stopping point",
+            "If no endpoint is specified, choose a natural stopping point",
             prompt,
         )
         self.assertNotIn(
