@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import queue
 import re
 import shutil
@@ -49,10 +50,15 @@ from builder.prompt_trace import PromptTrace, default_prompt_trace_path
 from builder.prompt_trace_sync import upload_prompt_trace
 from builder.manuscript import ManuscriptManager
 from builder.continuity_context import (
+    build_scene_relevance_query,
     context_size_report,
     estimate_tokens_from_chars,
     select_active_character_knowledge,
     select_relevant_records,
+)
+from builder.writer_context_budget import (
+    WriterContextBudgetError,
+    fit_writer_context_files,
 )
 from builder.scene_flow import review_chapter_flow
 from builder.novel_sync import NovelSyncError, sync_novel_repository
@@ -917,6 +923,23 @@ class StoryBuilderApp(tk.Tk):
         self.scene_idea_text.pack(fill="x", pady=(4, 6))
         idea_button_row = ttk.Frame(idea_frame)
         idea_button_row.pack(anchor="w")
+
+        continuity_frame = ttk.LabelFrame(content, text="Relevant Continuity (optional)")
+        continuity_frame.pack(fill="x", pady=(0, 10))
+        ttk.Label(
+            continuity_frame,
+            text=(
+                "List earlier facts, clues, promises, injuries, or conversations this scene specifically needs. "
+                "Leave blank for automatic selection. This is a retrieval hint, not a new story beat."
+            ),
+            wraplength=900,
+            justify="left",
+        ).pack(anchor="w", padx=8, pady=(6, 3))
+        self.scene_continuity_focus_text = tk.Text(
+            continuity_frame, height=3, wrap="word", undo=True
+        )
+        self.scene_continuity_focus_text.pack(fill="x", padx=8, pady=(0, 8))
+
         self.scene_contract_build_button = ttk.Button(
             idea_button_row,
             text="Generate / Replace Contract...",
@@ -1708,12 +1731,14 @@ class StoryBuilderApp(tk.Tk):
             str(guidance_entry.get("direction", "") or ""),
             str(guidance_entry.get("end_condition", "") or ""),
         ]).strip()
-        context_query = "\n".join([
-            *scene_cast_names,
+        continuity_focus = str(guidance_entry.get("continuity_focus", "") or "").strip()
+        context_query = build_scene_relevance_query(
+            scene_cast_names,
             primary_location,
             str(state.get("current_situation", "") or ""),
             scene_plan_text,
-        ]).strip()
+            continuity_focus=continuity_focus,
+        )
         # State cast and physical continuity refer to the opening only. Include
         # cards/knowledge for additional characters explicitly named in the
         # author-authored plan, but keep their facts attributed to them.
@@ -1754,6 +1779,8 @@ class StoryBuilderApp(tk.Tk):
             "cast": scene_cast_names,
             "current_situation": str(state.get("current_situation", "") or "").strip(),
         }
+        if continuity_focus:
+            scene_state["continuity_focus"] = continuity_focus
         files.append((
             "scene_state.json",
             json.dumps(scene_state, indent=2, ensure_ascii=False),
@@ -1853,8 +1880,8 @@ class StoryBuilderApp(tk.Tk):
         scene_knowledge, knowledge_metrics = select_active_character_knowledge(
             all_scene_knowledge,
             context_query,
-            max_items_per_character=18,
-            max_total_items=72,
+            max_items_per_character=4,
+            max_total_items=24,
             character_names=sorted(active_character_names),
         )
         files.append((
@@ -2850,6 +2877,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
 27. When a character states a direct request, preference, boundary, or need and another character acknowledges or agrees to it, keep subsequent actions consistent with it unless a clear in-story reason supports a different choice. Do not add an unmotivated contradiction as decorative atmosphere; for example, do not introduce music after agreeing to keep things quiet.
 28. Output only natural story prose.
 29. Any section labelled RETRIEVED HISTORICAL CONTINUITY ARCHIVE is a searchable excerpt from an earlier accepted scene, included because the current scene may need that detail. It is historical evidence, not the current state. The current saved state and explicit present-scene direction take precedence over stale archived descriptions. Use an archived detail only for the fact it supports; do not infer additional facts from it. If the needed historical detail cannot be found or the source is ambiguous, do not invent a memory or claim certainty. Characters may acknowledge that they do not remember or do not know.
+30. If scene_state.json contains author-authored continuity_focus, use it to retrieve and preserve those specifically requested historical facts. It is a relevance hint, not a new plot beat, and does not justify loading unrelated old events.
 
 """
         parts = [base, "\nSCENE REFERENCE\n"]
@@ -2857,6 +2885,17 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             parts.append(f"\n[{name}]\n{content}\n")
         parts.append("\nEND SCENE REFERENCE")
         return "\n".join(parts)
+
+    def _fit_writer_context(self, files, base_prompt=""):
+        """Bound the complete Writer input while reserving generation and follow-up room."""
+        return fit_writer_context_files(
+            files,
+            prompt_builder=self._writer_system_prompt,
+            base_prompt=base_prompt,
+            context_window_tokens=int(os.environ.get("STORY_WRITER_CONTEXT", "16384")),
+            reserved_output_tokens=int(os.environ.get("STORY_WRITER_MAX_TOKENS", "4000")),
+            safety_margin_tokens=int(os.environ.get("STORY_WRITER_CONTEXT_MARGIN", "2400")),
+        )
 
     def _toggle_prompt_trace(self):
         """Arm or cancel a one-scene prompt trace; tracing is otherwise off."""
@@ -3012,7 +3051,16 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             return
 
         files = self._writer_package_files()
+        try:
+            files, budget_metrics = self._fit_writer_context(files)
+        except WriterContextBudgetError as exc:
+            self._show_copyable_error("Writer Context Budget", str(exc))
+            return
         system_prompt = self._writer_system_prompt(files)
+        self.writer_last_context_metrics = {
+            **dict(getattr(self, "writer_last_context_metrics", {}) or {}),
+            **budget_metrics,
+        }
         self.writer_status.configure(text="Starting writer...")
         self.writer_start_button.configure(state="disabled")
 
@@ -3175,7 +3223,16 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             return
 
         files = self._writer_package_files()
+        try:
+            files, budget_metrics = self._fit_writer_context(files)
+        except WriterContextBudgetError as exc:
+            self._show_copyable_error("Writer Context Budget", str(exc))
+            return
         system_prompt = self._writer_system_prompt(files)
+        self.writer_last_context_metrics = {
+            **dict(getattr(self, "writer_last_context_metrics", {}) or {}),
+            **budget_metrics,
+        }
 
         self.writer_clear_context_button.configure(state="disabled")
         self.writer_status.configure(text="Clearing writer context...")
@@ -3260,10 +3317,18 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         self._update_writer_buttons()
 
         files = self._writer_package_files()
-        system_prompt = self._writer_system_prompt(files)
         model = self.writer_engine.model_path
         author_guidance = self._author_writing_guidance()
         writer_context = SceneContract.writer_prompt_context(direction, contract)
+        guidance_plan = self.package.extra_json.get("writing_guidance.json", {})
+        guidance_entry = (
+            self._chapter_scene_guidance(guidance_plan, chapter, scene)
+            if isinstance(guidance_plan, dict) else None
+        )
+        continuity_focus = (
+            str(guidance_entry.get("continuity_focus", "") or "").strip()
+            if isinstance(guidance_entry, dict) else ""
+        )
         historical_archive = {
             "snippets": [],
             "text": "",
@@ -3290,6 +3355,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                         direction,
                         json.dumps(contract, ensure_ascii=False),
                         str(current_state.get("current_situation", "") or ""),
+                        continuity_focus,
                     ]),
                     before_chapter=chapter,
                     before_scene=scene,
@@ -3314,46 +3380,51 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
                 + historical_archive["text"]
             )
 
+        if historical_archive.get("text"):
+            files.append(("historical_continuity_archive.txt", archive_prompt.strip()))
+
         prompt_parts = [
             writer_context,
-            archive_prompt,
             "\n\n",
             "SCENE BOUNDARY:\n",
             "The original plain-English Scene Idea defines intended actions, important moments, and endpoint. It is not a line-by-line wording checklist, but concrete actions and objects specified as intended choices must keep their identity; do not replace one with a materially different alternative (a bubble bath is not a shower). Preserve distinctive details that define an intended action and the stated history or relationships that give an object meaning; do not treat them as disposable decoration. If the idea phrases an action as optional, preserve that choice instead of making it a new requirement. Current story state controls what has already happened, physical continuity, and character knowledge; generated direction and contract are secondary hints. Do not replay completed events. Preserve established opening position/contact unless this scene changes them. Use creative freedom for how actions unfold, dialogue, gestures, pacing, transitions, and connective actions.\n\n",
             "Write the scene now. Output only the prose."
         ]
         base_prompt = "".join(prompt_parts)
+        try:
+            files, budget_metrics = self._fit_writer_context(files, base_prompt=base_prompt)
+        except WriterContextBudgetError as exc:
+            self.writer_generation_in_progress = False
+            self._update_writer_buttons()
+            self._show_copyable_error("Writer Context Budget", str(exc))
+            return
+
+        system_prompt = self._writer_system_prompt(files)
         context_budget = context_size_report(system_prompt + base_prompt)
         context_metrics = dict(getattr(self, "writer_last_context_metrics", {}) or {})
-        pruned_detail_chars = max(
-            0,
-            int(context_metrics.get("detail_context_before_chars", 0) or 0)
-            - int(context_metrics.get("detail_context_after_chars", 0) or 0),
-        )
-        estimated_before_chars = context_budget["characters"] + pruned_detail_chars
+        context_metrics.update(budget_metrics)
+        archive_kept = "historical_continuity_archive.txt" in budget_metrics["included_reference_files"]
         context_metrics.update({
             "assembled_prompt_characters": context_budget["characters"],
             "assembled_prompt_estimated_tokens": context_budget["estimated_tokens"],
-            "assembled_prompt_before_pruning_characters_estimated": estimated_before_chars,
-            "assembled_prompt_before_pruning_tokens_estimated": estimate_tokens_from_chars(estimated_before_chars),
-            "assembled_prompt_tokens_reduced_estimated": max(
-                0,
-                estimate_tokens_from_chars(estimated_before_chars) - context_budget["estimated_tokens"],
-            ),
-            "historical_archive_characters": int(historical_archive.get("characters", 0) or 0),
-            "historical_archive_estimated_tokens": int(historical_archive.get("estimated_tokens", 0) or 0),
-            "historical_archive_snippets": len(historical_archive.get("snippets", [])),
+            "historical_archive_characters": int(historical_archive.get("characters", 0) or 0) if archive_kept else 0,
+            "historical_archive_estimated_tokens": int(historical_archive.get("estimated_tokens", 0) or 0) if archive_kept else 0,
+            "historical_archive_snippets": len(historical_archive.get("snippets", [])) if archive_kept else 0,
             "archive_search_error": archive_search_error,
         })
         self.writer_last_context_metrics = context_metrics
-        reduction_percent = float(context_metrics.get("detail_context_reduction_percent", 0) or 0)
-        before_tokens = context_metrics["assembled_prompt_before_pruning_tokens_estimated"]
-        after_tokens = context_budget["estimated_tokens"]
+        pruned_sources = ", ".join(budget_metrics["pruned_reference_files"]) or "none"
+        compacted_sources = ", ".join(budget_metrics["compacted_reference_files"]) or "none"
+        focus_status = "author-pinned continuity used" if continuity_focus else "automatic continuity selection"
+        archive_count = context_metrics["historical_archive_snippets"]
         self.writer_status.configure(
             text=(
-                f"Writing scene... prompt approximately {before_tokens:,} → {after_tokens:,} tokens "
-                f"(rough estimate; active-detail reduction: {reduction_percent:.1f}%; "
-                f"historical excerpts: {len(historical_archive.get('snippets', []))})."
+                f"Writing scene... context {budget_metrics['final_conservative_tokens']:,}/"
+                f"{budget_metrics['input_token_budget']:,} safe input tokens; "
+                f"{budget_metrics['reserved_output_tokens']:,} output tokens reserved plus "
+                f"{budget_metrics['safety_margin_tokens']:,} safety margin. "
+                f"Pruned: {pruned_sources}. Compacted: {compacted_sources}. "
+                f"{focus_status}; historical excerpts included: {archive_count}."
             )
         )
 
@@ -3998,6 +4069,8 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         """Clear the idea and generated fields while keeping generated fields read-only."""
         if hasattr(self, "scene_idea_text"):
             self.scene_idea_text.delete("1.0", "end")
+        if hasattr(self, "scene_continuity_focus_text"):
+            self.scene_continuity_focus_text.delete("1.0", "end")
         if hasattr(self, "scene_contract_direction_text"):
             self._set_generated_contract_text(self.scene_contract_direction_text, "")
         if hasattr(self, "scene_contract_end_text"):
@@ -4009,6 +4082,8 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
 
     def _scene_contract_editor_has_content(self) -> bool:
         if hasattr(self, "scene_idea_text") and self.scene_idea_text.get("1.0", "end-1c").strip():
+            return True
+        if hasattr(self, "scene_continuity_focus_text") and self.scene_continuity_focus_text.get("1.0", "end-1c").strip():
             return True
         if hasattr(self, "scene_contract_direction_text") and self.scene_contract_direction_text.get("1.0", "end-1c").strip():
             return True
@@ -4285,6 +4360,11 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         self.scene_idea_text.delete("1.0", "end")
         if scene_idea:
             self.scene_idea_text.insert("1.0", scene_idea)
+        if hasattr(self, "scene_continuity_focus_text"):
+            self.scene_continuity_focus_text.delete("1.0", "end")
+            continuity_focus = str(entry.get("continuity_focus", "") or "").strip()
+            if continuity_focus:
+                self.scene_continuity_focus_text.insert("1.0", continuity_focus)
         contract_error = None
         try:
             contract = SceneContract.from_guidance(entry, [])
@@ -4457,6 +4537,15 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             entry["scene_idea"] = idea
         else:
             entry.pop("scene_idea", None)
+
+        editor_key = getattr(self, "scene_contract_editor_key", None)
+        focus_widget = getattr(self, "scene_continuity_focus_text", None)
+        if editor_key == (chapter, scene) and focus_widget is not None:
+            continuity_focus = focus_widget.get("1.0", "end-1c").strip()
+            if continuity_focus:
+                entry["continuity_focus"] = continuity_focus
+            else:
+                entry.pop("continuity_focus", None)
 
         self.dirty = True
         if self.package.path is not None:
