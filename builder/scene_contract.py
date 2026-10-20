@@ -1072,7 +1072,7 @@ class SceneContract:
 
         if author_idea:
             parts.append(
-                "PRIORITY AND AUTHOR ACTION FIDELITY:\\n"
+                "PRIORITY AND AUTHOR ACTION FIDELITY:\n"
                 "The original Scene Idea defines intended direction, actions, scope, and endpoint; boundaries are mandatory. "
                 "It is not a word-for-word prose checklist. Generated direction/contract are supporting only and must not overrule or contradict the author's intent. "
                 "AUTHOR ACTION FIDELITY: Keep concrete action/object identity (a bubble bath is not a shower), preserve optionality, and treat wording such as 'can' or 'may' as permission. "
@@ -1083,7 +1083,7 @@ class SceneContract:
         # keep scene-specific scope close to the author idea without repeating pages
         # of global rules on every scene.
         parts.append(
-            "SCENE PROGRESSION AND SCOPE:\\n"
+            "SCENE PROGRESSION AND SCOPE:\n"
             "Respect named phases and degree of progress; a disclosure, discovery, emotional reaction, or initial offer of help does not automatically authorize a full investigation, detailed assignments, execution, or resolution. "
             "Let characters participate naturally without a checklist or forced equal speaking turns. Treat the explicit endpoint as a ceiling on how far the story advances. "
             "If an explicit endpoint is named, including a time or passage-of-time boundary, carry the scene through to it. "
@@ -1091,7 +1091,7 @@ class SceneContract:
         )
 
         parts.append(
-            "SCENE SCOPE AND EVENT PROVENANCE:\\n"
+            "SCENE SCOPE AND EVENT PROVENANCE:\n"
             "The Scene Idea defines the whole scene; concise generated direction must not shrink a broader scene to that action. Reach the endpoint without padding or continuing into the next scene. "
             "Knowing an event happened is not witnessing it. Only present sights, sounds, smells, dialogue, or actions as a character's personal memory when they witnessed them. "
             "Attribute second-hand information and never transfer another character's eyewitness experience."
