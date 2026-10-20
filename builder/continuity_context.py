@@ -115,12 +115,22 @@ def select_active_character_knowledge(
             )) and name_overlap > 0
             # The central unknown identity/destination remains useful during a
             # search even when the author summarizes the scene in broad terms.
+            search_intent = bool(query_terms & {"search", "find", "finding", "missing", "kidnapper", "abduct", "tiffany"})
             unresolved_abduction_fact = bool(re.search(
                 r"\b(?:does not know|doesn't know|unknown|unidentified)\b.{0,80}\b(?:who|where|identity|destination|abduct|taken)\b",
                 value,
                 flags=re.IGNORECASE,
-            )) and bool(query_terms & {"search", "find", "finding", "missing", "kidnapper", "abduct", "tiffany"})
-            if detail_overlap == 0 and not relationship_fact and not unresolved_abduction_fact:
+            )) and search_intent
+            # A promise or secret tied to the missing person can govern how a
+            # character may participate in a search even when the short idea
+            # doesn't repeat the secret explicitly.
+            search_relevant_promise = bool(re.search(
+                r"\b(?:promis\w*|secret\w*)\b.{0,100}\b(?:tiffany|missing|identity|location|whereabouts)\b|"
+                r"\b(?:tiffany|missing|identity|location|whereabouts)\b.{0,100}\b(?:promis\w*|secret\w*)\b",
+                value,
+                flags=re.IGNORECASE,
+            )) and search_intent
+            if detail_overlap == 0 and not relationship_fact and not unresolved_abduction_fact and not search_relevant_promise:
                 continue
             recent_bonus = 0.5 if index >= max(0, len(raw_values) - 4) else 0
             score = detail_overlap * 6.0 + (2.0 if relationship_fact else 0.0)
@@ -128,6 +138,8 @@ def select_active_character_knowledge(
                 score += 3.0
             if unresolved_abduction_fact:
                 score += 2.0
+            if search_relevant_promise:
+                score += 2.5
             score += recent_bonus
             if low_value and detail_overlap == 0:
                 score -= 20.0

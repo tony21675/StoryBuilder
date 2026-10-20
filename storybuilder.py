@@ -4069,8 +4069,9 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         """Clear the idea and generated fields while keeping generated fields read-only."""
         if hasattr(self, "scene_idea_text"):
             self.scene_idea_text.delete("1.0", "end")
-        if hasattr(self, "scene_continuity_focus_text"):
-            self.scene_continuity_focus_text.delete("1.0", "end")
+        focus_widget = self.__dict__.get("scene_continuity_focus_text")
+        if focus_widget is not None:
+            focus_widget.delete("1.0", "end")
         if hasattr(self, "scene_contract_direction_text"):
             self._set_generated_contract_text(self.scene_contract_direction_text, "")
         if hasattr(self, "scene_contract_end_text"):
@@ -4081,9 +4082,11 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             self.scene_contract_attempts_var.set("3")
 
     def _scene_contract_editor_has_content(self) -> bool:
-        if hasattr(self, "scene_idea_text") and self.scene_idea_text.get("1.0", "end-1c").strip():
+        idea_widget = self.__dict__.get("scene_idea_text")
+        if idea_widget is not None and idea_widget.get("1.0", "end-1c").strip():
             return True
-        if hasattr(self, "scene_continuity_focus_text") and self.scene_continuity_focus_text.get("1.0", "end-1c").strip():
+        focus_widget = self.__dict__.get("scene_continuity_focus_text")
+        if focus_widget is not None and focus_widget.get("1.0", "end-1c").strip():
             return True
         if hasattr(self, "scene_contract_direction_text") and self.scene_contract_direction_text.get("1.0", "end-1c").strip():
             return True
@@ -4360,11 +4363,12 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         self.scene_idea_text.delete("1.0", "end")
         if scene_idea:
             self.scene_idea_text.insert("1.0", scene_idea)
-        if hasattr(self, "scene_continuity_focus_text"):
-            self.scene_continuity_focus_text.delete("1.0", "end")
+        focus_widget = self.__dict__.get("scene_continuity_focus_text")
+        if focus_widget is not None:
+            focus_widget.delete("1.0", "end")
             continuity_focus = str(entry.get("continuity_focus", "") or "").strip()
             if continuity_focus:
-                self.scene_continuity_focus_text.insert("1.0", continuity_focus)
+                focus_widget.insert("1.0", continuity_focus)
         contract_error = None
         try:
             contract = SceneContract.from_guidance(entry, [])
@@ -4539,7 +4543,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             entry.pop("scene_idea", None)
 
         editor_key = getattr(self, "scene_contract_editor_key", None)
-        focus_widget = getattr(self, "scene_continuity_focus_text", None)
+        focus_widget = self.__dict__.get("scene_continuity_focus_text")
         if editor_key == (chapter, scene) and focus_widget is not None:
             continuity_focus = focus_widget.get("1.0", "end-1c").strip()
             if continuity_focus:
