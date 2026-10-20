@@ -1157,100 +1157,56 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         self.assertEqual(set(physical), {"Tony", "Maya"})
         self.assertNotIn("Chloe", physical)
 
-    def test_writer_system_prompt_prioritizes_scene_idea_over_generated_summaries(self):
+    def test_writer_system_prompt_prioritizes_scene_idea_without_turning_it_into_a_checklist(self):
         app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
         prompt = app._writer_system_prompt([])
 
         self.assertIn(
-            "Follow the original plain-English Scene Idea's concrete actions, important objects, meaningful order, phases, and endpoint",
+            "The original plain-English Scene Idea expresses the scene's purpose and direction",
             prompt,
         )
+        self.assertIn("Treat the Scene Idea as direction, not a line-by-line script.", prompt)
+        self.assertIn("Honor an explicit endpoint or hard stop", prompt)
         self.assertIn(
-            "Generated direction and contract support the idea; they cannot overrule or narrow it",
+            "carry it through that arc instead of stopping after the first prominent action",
             prompt,
         )
-        self.assertIn(
-            "descriptive wording is not a word-for-word checklist",
-            prompt,
-        )
-        self.assertIn(
+        self.assertIn("Do not replay completed events", prompt)
+        self.assertIn("Knowing that an event happened is not the same as witnessing it.", prompt)
+        self.assertNotIn(
             "Do not reduce a multi-phase or time-spanning scene to one emphasized action",
             prompt,
         )
-        self.assertIn("Knowing an event occurred is not witnessing it", prompt)
-        self.assertIn("Do not reduce a multi-phase or time-spanning scene to one emphasized action", prompt)
-        self.assertIn(
-            "If the idea names an endpoint, including a time boundary",
-            prompt,
-        )
-        self.assertIn(
-            "carry the scene through to it",
-            prompt,
-        )
-        self.assertIn(
-            "If no endpoint is stated, choose a natural stopping point",
-            prompt,
-        )
-        self.assertNotIn(
-            "Current scene state and scene direction are authoritative",
-            prompt,
-        )
 
-    def test_writer_prompt_preserves_uncontradicted_physical_continuity(self):
+    def test_writer_prompt_preserves_anchors_and_encourages_creative_execution(self):
         app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
         prompt = app._writer_system_prompt([])
 
+        self.assertIn("The author's canon, explicit boundaries, and clearly stated requirements are the firm ground.", prompt)
+        self.assertIn("Treat general writing preferences as a tonal compass, not a checklist.", prompt)
         self.assertIn(
-            "Silence in current_situation does not cancel physical continuity",
+            "Invent natural dialogue, small talk, gestures, sensory texture, routines, background activity, incidental characters, plausible shared memories, transitions, and connective actions.",
             prompt,
         )
-        self.assertIn(
-            "Respect privacy, dignity, established boundaries, and relationship-specific behavior",
-            prompt,
-        )
-        self.assertIn(
-            "Prefer what characters say and do over narration",
-            prompt,
-        )
-        self.assertIn(
-            "Let dialogue and interaction carry scenes where appropriate",
-            prompt,
-        )
-        self.assertIn(
-            "If a gesture could be misread, use one brief, natural cue",
-            prompt,
-        )
-        self.assertIn(
-            "rather than explaining its meaning repeatedly",
-            prompt,
-        )
-        self.assertIn(
-            "do not turn gentle concern into insistence or pressure unless the scene calls for it",
-            prompt,
-        )
-        self.assertNotIn("plainly affectionate, non-sensual language", prompt)
-        self.assertIn(
-            "Orient the reader naturally",
-            prompt,
-        )
-        self.assertIn(
-            "repeated descriptions of the same feeling/action",
-            prompt,
-        )
-        self.assertIn(
-            "offer patient, brief support",
-            prompt,
-        )
-        self.assertIn(
-            "without forcing reassurance into every pause",
-            prompt,
-        )
+        self.assertIn("Creative developments are welcome when they fit the story.", prompt)
+        self.assertIn("Let character voice, mood, and author preferences shape the prose without turning them into formulas.", prompt)
+        self.assertNotIn("Respect privacy, dignity, established boundaries, and relationship-specific behavior", prompt)
+        self.assertNotIn("Do not add unprompted ominous narration", prompt)
 
         notes_prompt = app._writer_system_prompt([
             ("working_writer_notes.json", '{"learned_notes":[{"note":"Use selective description and avoid repeating an emotion."}]}')
         ])
-        self.assertIn("Treat working notes as tentative craft observations", notes_prompt)
+        self.assertIn("Temporary writer notes are suggestions, not canon.", notes_prompt)
         self.assertIn("Use selective description and avoid repeating an emotion.", notes_prompt)
+
+    def test_scene_boundary_prompt_encourages_creativity_while_preserving_endpoints(self):
+        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+        prompt = app._writer_scene_boundary_prompt()
+
+        self.assertIn("The idea gives purpose and direction, not a script.", prompt)
+        self.assertIn("incidental details, connective actions, and fitting story turns", prompt)
+        self.assertIn("do not cross a stated hard stop", prompt)
+        self.assertIn("Output only the prose.", prompt)
 
     def test_semantic_validator_checks_opening_physical_continuity(self):
         current_state = {
