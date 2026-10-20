@@ -4,6 +4,8 @@ import json
 import re
 from pathlib import Path
 
+from builder.continuity_context import estimate_tokens_from_chars, relevance_tokens
+
 
 class ManuscriptManager:
     """Read and write scene/section text inside a novel package."""
@@ -148,6 +150,141 @@ class ManuscriptManager:
             "path": target,
             "text": prose,
             "start_state": baseline,
+        }
+
+
+    def search_historical_context(
+        self,
+        query: str,
+        *,
+        before_chapter: int,
+        before_scene: int,
+        character_names: list[str] | None = None,
+        limit: int = 4,
+        max_chars: int = 2400,
+        max_snippet_chars: int = 650,
+    ) -> dict:
+        """Retrieve small, source-labelled excerpts from accepted earlier scenes.
+
+        This is a read-only search over the existing manuscript archive, not a
+        second continuity database. Only scenes strictly before the target scene
+        are eligible, preventing future/current manuscript text from leaking into
+        generation. Excerpts are historical evidence and never override current
+        state.
+        """
+        query_terms = relevance_tokens(query)
+        character_terms = set()
+        for name in character_names or []:
+            character_terms.update(relevance_tokens(str(name)))
+        query_terms.difference_update(character_terms)
+        if not query_terms or int(limit) <= 0 or int(max_chars) <= 0:
+            return {
+                "snippets": [],
+                "text": "",
+                "characters": 0,
+                "estimated_tokens": 0,
+            }
+
+        target = (int(before_chapter), int(before_scene))
+        candidates = []
+        scene_recency = 0
+        for path in self.list_scenes():
+            scene_numbers = self.scene_numbers(path)
+            if scene_numbers is None or scene_numbers >= target:
+                continue
+            try:
+                source_text = path.read_text(encoding="utf-8").strip()
+            except OSError:
+                continue
+            if not source_text:
+                continue
+
+            # Paragraph chunks retain surrounding local context better than
+            # isolated keyword fragments. Very long paragraphs are split into
+            # sentences so one old scene cannot consume the retrieval budget.
+            chunks = []
+            for paragraph in re.split(r"\n\s*\n", source_text):
+                paragraph = re.sub(r"\s+", " ", paragraph).strip()
+                if not paragraph:
+                    continue
+                if len(paragraph) <= max_snippet_chars:
+                    chunks.append(paragraph)
+                else:
+                    sentences = re.split(r"(?<=[.!?])\s+", paragraph)
+                    for sentence in sentences:
+                        sentence = sentence.strip()
+                        if not sentence:
+                            continue
+                        if len(sentence) > max_snippet_chars:
+                            sentence = sentence[:max_snippet_chars - 1].rstrip() + "…"
+                        chunks.append(sentence)
+
+            # Prefer higher lexical relevance. Recency breaks ties only; it does
+            # not outrank a genuinely stronger match in an older scene.
+            for chunk_index, chunk in enumerate(chunks):
+                matched = sorted(relevance_tokens(chunk) & query_terms)
+                if not matched:
+                    continue
+                score = len(matched) * 10 + min(5, len(matched) // 2)
+                candidates.append({
+                    "source": str(path.relative_to(self.novel_path)),
+                    "chapter": scene_numbers[0],
+                    "scene": scene_numbers[1],
+                    "text": chunk,
+                    "matched_terms": matched,
+                    "score": score,
+                    "recency": scene_recency,
+                    "chunk_index": chunk_index,
+                })
+            scene_recency += 1
+
+        # Limit to one excerpt per source scene. The archive remains available on
+        # disk even when a detail is not included in this active prompt.
+        candidates.sort(
+            key=lambda item: (item["score"], item["chapter"], item["scene"], -item["chunk_index"]),
+            reverse=True,
+        )
+        chosen = []
+        seen_sources = set()
+        total_chars = 0
+        for item in candidates:
+            source_key = (item["chapter"], item["scene"])
+            if source_key in seen_sources:
+                continue
+            formatted = (
+                f"[Historical source: {item['source']} | "
+                f"matched: {', '.join(item['matched_terms'])}]\n"
+                f"{item['text']}"
+            )
+            added_chars = len(formatted) + (2 if chosen else 0)
+            if total_chars + added_chars > int(max_chars):
+                remaining = int(max_chars) - total_chars - (2 if chosen else 0)
+                if remaining < 100:
+                    continue
+                item = dict(item)
+                item["text"] = item["text"][:remaining].rstrip()
+                formatted = (
+                    f"[Historical source: {item['source']} | "
+                    f"matched: {', '.join(item['matched_terms'])}]\n"
+                    f"{item['text']}"
+                )
+                added_chars = len(formatted) + (2 if chosen else 0)
+            chosen.append(item)
+            seen_sources.add(source_key)
+            total_chars += added_chars
+            if len(chosen) >= int(limit) or total_chars >= int(max_chars):
+                break
+
+        rendered = "\n\n".join(
+            f"[Historical source: {item['source']} | matched: {', '.join(item['matched_terms'])}]\n"
+            f"{item['text']}"
+            for item in chosen
+        )
+        return {
+            "snippets": chosen,
+            "text": rendered,
+            "characters": len(rendered),
+            "estimated_tokens": estimate_tokens_from_chars(len(rendered)),
         }
 
     @property
