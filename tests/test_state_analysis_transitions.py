@@ -145,7 +145,7 @@ class StateAnalysisTransitionTests(unittest.TestCase):
         self.assertIn("do not invent an additional scent", STATE_SYSTEM_PROMPT)
         self.assertIn("first-time nickname", STATE_SYSTEM_PROMPT)
         self.assertIn("This is a DELTA", KNOWLEDGE_AUDIT_SYSTEM_PROMPT)
-        self.assertIn("never copy existing knowledge", KNOWLEDGE_AUDIT_SYSTEM_PROMPT)
+        self.assertIn("Never copy existing knowledge", KNOWLEDGE_AUDIT_SYSTEM_PROMPT)
 
     def test_state_analysis_candidates_include_later_named_characters(self):
         app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
