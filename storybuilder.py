@@ -1703,14 +1703,36 @@ class StoryBuilderApp(tk.Tk):
         )
         if not isinstance(guidance_entry, dict):
             guidance_entry = {}
-        context_query = "\n".join([
-            *scene_cast_names,
-            primary_location,
-            str(state.get("current_situation", "") or ""),
+        scene_plan_text = "\n".join([
             str(guidance_entry.get("scene_idea", "") or ""),
             str(guidance_entry.get("direction", "") or ""),
             str(guidance_entry.get("end_condition", "") or ""),
         ]).strip()
+        context_query = "\n".join([
+            *scene_cast_names,
+            primary_location,
+            str(state.get("current_situation", "") or ""),
+            scene_plan_text,
+        ]).strip()
+        # State cast and physical continuity refer to the opening only. Include
+        # cards/knowledge for additional characters explicitly named in the
+        # author-authored plan, but keep their facts attributed to them.
+        scene_context_names = set(scene_cast_names)
+        planned_cast = guidance_entry.get("cast", [])
+        if isinstance(planned_cast, list):
+            scene_context_names.update(str(name).strip() for name in planned_cast if str(name).strip())
+        character_cards_for_context = getattr(self.package, "characters", {})
+        if isinstance(character_cards_for_context, dict):
+            for filename, data in character_cards_for_context.items():
+                name = str(data.get("name", "") or "").strip() if isinstance(data, dict) else ""
+                if not name:
+                    name = Path(str(filename)).stem
+                if name and re.search(
+                    r"(?<!\\w)" + re.escape(name) + r"(?!\\w)",
+                    scene_plan_text,
+                    flags=re.IGNORECASE,
+                ):
+                    scene_context_names.add(name)
         time_data = state.get("time", state.get("time_of_day", ""))
         scene_state = {
             "chapter": int(state.get("chapter", 1) or 1),
@@ -1786,7 +1808,7 @@ class StoryBuilderApp(tk.Tk):
         character_knowledge = state.get("character_knowledge", {})
         all_scene_knowledge = {}
         if isinstance(character_knowledge, dict):
-            for name in scene_cast_names:
+            for name in scene_context_names:
                 values = character_knowledge.get(name)
                 if values is None:
                     for key, candidate in character_knowledge.items():
@@ -1833,7 +1855,7 @@ class StoryBuilderApp(tk.Tk):
             data = self.package.characters[filename]
             name = str(data.get("name", "") or "").strip()
             filename_stem = Path(filename).stem.strip()
-            if name.casefold() not in scene_cast and filename_stem.casefold() not in scene_cast:
+            if name.casefold() not in {value.casefold() for value in scene_context_names} and filename_stem.casefold() not in {value.casefold() for value in scene_context_names}:
                 continue
             scene_characters[name or filename_stem] = data
 
@@ -1856,7 +1878,7 @@ class StoryBuilderApp(tk.Tk):
                     continue
 
                 name_text = str(name).strip()
-                if not name_text or name_text.casefold() in scene_cast:
+                if not name_text or name_text.casefold() in {value.casefold() for value in scene_context_names}:
                     continue
                 if not re.search(
                     r"(?<!\w)" + re.escape(name_text) + r"(?!\w)",
@@ -1882,11 +1904,11 @@ class StoryBuilderApp(tk.Tk):
         # exactly what the writer needs when an off-scene person is mentioned,
         # such as knowing who a sick friend's mother is.
         relationships = self.package.story_bible.get("relationships", {})
-        context_names = set(scene_cast_names)
+        context_names = set(scene_context_names)
         if isinstance(location_data, dict):
             for name in location_data:
                 name_text = str(name).strip()
-                if not name_text or name_text.casefold() == "primary" or name_text.casefold() in scene_cast:
+                if not name_text or name_text.casefold() == "primary" or name_text.casefold() in {value.casefold() for value in scene_context_names}:
                     continue
                 if re.search(
                     r"(?<!\w)" + re.escape(name_text) + r"(?!\w)",
