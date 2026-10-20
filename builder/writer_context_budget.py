@@ -122,6 +122,7 @@ def fit_writer_context_files(
     reserved_output_tokens: int | None = None,
     safety_margin_tokens: int | None = None,
     chars_per_token: int = CONSERVATIVE_CHARS_PER_TOKEN,
+    raise_on_overflow: bool = True,
 ) -> tuple[list[tuple[str, str]], dict[str, Any]]:
     """Bound the entire Writer input while reserving room for prose and follow-up checks.
 
@@ -220,18 +221,22 @@ def fit_writer_context_files(
             remove_reference(optional)
             continue
 
-        final_prompt = render()
-        final_estimate = conservative_token_estimate(final_prompt, chars_per_token)
-        raise WriterContextBudgetError(
-            "Required Writer context still exceeds the safe input budget after pruning optional references. "
-            f"Estimated input: {final_estimate:,} tokens; budget: {input_token_budget:,}. "
-            "The current Scene Idea/contract or required author guidance is too large. "
-            "Shorten that material; StoryBuilder did not start scene generation."
-        )
+        if raise_on_overflow:
+            final_prompt = render()
+            final_estimate = conservative_token_estimate(final_prompt, chars_per_token)
+            raise WriterContextBudgetError(
+                "Required Writer context still exceeds the safe input budget after pruning optional references. "
+                f"Estimated input: {final_estimate:,} tokens; budget: {input_token_budget:,}. "
+                "The current Scene Idea/contract or required author guidance is too large. "
+                "Shorten that material; StoryBuilder did not start scene generation."
+            )
+        # Diagnostic preview callers may inspect the required context even if
+        # it does not fit. Actual generation keeps the strict default guard.
+        break
 
     final_prompt = render()
     final_estimate = conservative_token_estimate(final_prompt, chars_per_token)
-    if final_estimate > input_token_budget:
+    if final_estimate > input_token_budget and raise_on_overflow:
         raise WriterContextBudgetError(
             f"Writer prompt exceeds the safe input budget ({final_estimate:,} > {input_token_budget:,} estimated tokens)."
         )
@@ -246,6 +251,8 @@ def fit_writer_context_files(
         "final_prompt_characters": len(final_prompt),
         "original_conservative_tokens": original_estimate,
         "final_conservative_tokens": final_estimate,
+        "required_context_over_budget": final_estimate > input_token_budget,
+        "estimated_overage_tokens": max(0, final_estimate - input_token_budget),
         "pruned_reference_files": removed,
         "compacted_reference_files": list(dict.fromkeys(compacted)),
         "reduced_knowledge_facts": reduced_knowledge_facts,
