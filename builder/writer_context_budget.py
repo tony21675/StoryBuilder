@@ -155,6 +155,7 @@ def fit_writer_context_files(
     removed: list[str] = []
     compacted: list[str] = []
     reduced_knowledge_facts = 0
+    processed_card_compaction: set[str] = set()
 
     def render() -> str:
         return prompt_builder(working) + (base_prompt or "")
@@ -183,17 +184,23 @@ def fit_writer_context_files(
         if dropped:
             continue
 
-        # Compact character cards before excluding them. Keep names, appearance,
-        # personality, voice, relationships, and other scene-writing attributes.
+        # Compact character cards once, but do not drop them before trying the
+        # optional historical archive. Character voice, appearance, relationships,
+        # and nicknames are useful scene-writing context.
         index = find_index("scene_characters.json")
         if index is not None:
             name, content = working[index]
-            compacted_content = compact_character_cards(content)
-            if compacted_content and compacted_content != content:
-                working[index] = (name, compacted_content)
-                compacted.append(name)
-                continue
-            remove_reference(name)
+            if name not in processed_card_compaction:
+                processed_card_compaction.add(name)
+                compacted_content = compact_character_cards(content)
+                if compacted_content and compacted_content != content:
+                    working[index] = (name, compacted_content)
+                    compacted.append(name)
+                    continue
+
+        # Historical excerpts are advisory and should be removed before reducing
+        # the active character knowledge or excluding character cards.
+        if remove_reference("historical_continuity_archive.txt"):
             continue
 
         # Selected character knowledge is already relevance-ranked. Drop its
@@ -207,10 +214,6 @@ def fit_writer_context_files(
                 working[index] = (name, reduced)
                 continue
             remove_reference(name)
-            continue
-
-        # Historical excerpts are useful but optional; keep them only when they fit.
-        if remove_reference("historical_continuity_archive.txt"):
             continue
 
         optional = next(

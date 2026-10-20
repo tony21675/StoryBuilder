@@ -113,6 +113,23 @@ class ContinuityContextTests(unittest.TestCase):
         self.assertFalse(any("grape soda" in fact for fact in facts))
         self.assertFalse(any("tea the previous night" in fact for fact in facts))
 
+    def test_location_overlap_does_not_keep_incidental_tea_or_bathing_details(self):
+        ledger = {
+            "Tony": [
+                "Tony sat with Maya at the kitchen table drinking tea.",
+                "Tony helped Maya get cleaned up in the bathroom and tub.",
+            ],
+            "Maya": [],
+        }
+        active, _metrics = select_active_character_knowledge(
+            ledger,
+            "Tony thanks Chloe for the hug as the group plans search roles from Tony's kitchen.",
+            character_names=["Tony", "Maya", "Chloe", "Tiffany"],
+        )
+        facts = [fact for values in active.values() for fact in values]
+        self.assertFalse(any("drinking tea" in fact for fact in facts))
+        self.assertFalse(any("bathroom and tub" in fact for fact in facts))
+
     def test_author_pinned_continuity_focus_selects_specific_historical_facts(self):
         ledger = {
             "Maya": [
@@ -216,6 +233,37 @@ class ContinuityContextTests(unittest.TestCase):
         self.assertIn("RETRIEVED HISTORICAL CONTINUITY ARCHIVE", prompt)
         self.assertIn("current saved state and explicit present-scene direction take precedence", prompt)
         self.assertIn("do not invent a memory or claim certainty", prompt)
+
+    def test_historical_search_rejects_generic_narrative_word_matches(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            chapter_dir = root / "Manuscript" / "Chapters" / "Chapter_01"
+            chapter_dir.mkdir(parents=True)
+            (chapter_dir / "Chapter_01_Section_01.txt").write_text(
+                "Even though no one called the police, the group's focus immediately shifted.\n",
+                encoding="utf-8",
+            )
+            (chapter_dir / "Chapter_01_Section_02.txt").write_text(
+                "Maya remained standing on the rough concrete after the shock of the abduction.\n",
+                encoding="utf-8",
+            )
+            (chapter_dir / "Chapter_01_Section_03.txt").write_text(
+                "Maya and Tiffany shared grape soda at lunch and chatted casually.\n",
+                encoding="utf-8",
+            )
+
+            result = ManuscriptManager(root).search_historical_context(
+                "The group transitions from initial shock to a private search; no police call has been made.",
+                before_chapter=2,
+                before_scene=1,
+                character_names=["Tiffany", "Maya"],
+            )
+
+        self.assertEqual(
+            result["snippets"],
+            [],
+            "One generic or incidental lexical overlap must not inject an unrelated historical passage.",
+        )
 
     def test_routine_detail_classifier_only_guides_active_context(self):
         self.assertTrue(is_low_value_detail("They shared soda after lunch."))

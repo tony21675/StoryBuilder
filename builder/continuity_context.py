@@ -18,6 +18,22 @@ _STOP_WORDS = {
     "will", "with", "would", "you", "your", "scene", "story", "current", "state",
     "character", "chapter", "writer", "direction", "beginning", "ending", "continue",
 }
+
+# Historical retrieval needs more discriminating terms than general context selection.
+# These common scene/narrative words often create accidental overlaps across unrelated prose.
+_HISTORICAL_GENERIC_TERMS = {
+    "already", "arrival", "call", "casual", "concrete", "contact", "edge", "even",
+    "final", "first", "focus", "group", "immediately", "long", "morning", "natural",
+    "new", "one", "only", "point", "remain", "rough", "shifting", "silence", "slow",
+    "standing", "sudden", "time", "transition", "weight", "world",
+}
+
+
+def historical_relevance_tokens(value: str) -> set[str]:
+    """Return specific lexical anchors for archive retrieval, excluding narrative filler."""
+    return relevance_tokens(value) - _HISTORICAL_GENERIC_TERMS
+
+
 # These are cues for preserving facts in the active prompt, not rules for deleting
 # the persistent ledger. They intentionally favor false positives over losing canon.
 _PROTECTED_FACT = re.compile(
@@ -37,10 +53,16 @@ _PROTECTED_FACT = re.compile(
 _DISPOSABLE_DETAIL = re.compile(
     r"\b(?:soda|pop|cola|soft drink|coffee|tea|juice|water|lemonade|"
     r"breakfast|lunch|dinner|snack|sandwich|pizza|burger|fries|chips|cookie|"
+    r"bath|bathroom|bathtub|tub|shower|washed|cleaned up|"
     r"routin\w*|walked to|sat down|stood up|opened the door|closed the door|"
     r"picked up the mug|poured a drink|weather was|sunlight fell|wind moved)\b",
     re.IGNORECASE,
 )
+_LOW_VALUE_DIRECT_TERMS = {
+    "soda", "pop", "cola", "drink", "coffee", "tea", "juice", "water", "lemonade",
+    "breakfast", "lunch", "dinner", "snack", "sandwich", "pizza", "burger", "fries",
+    "chips", "cookie", "bath", "bathroom", "bathtub", "tub", "shower", "wash", "clean",
+}
 
 
 def relevance_tokens(value: str) -> set[str]:
@@ -141,8 +163,12 @@ def select_active_character_knowledge(
             if search_relevant_promise:
                 score += 2.5
             score += recent_bonus
-            if low_value and detail_overlap == 0:
-                score -= 20.0
+            if low_value:
+                # Incidental routine facts need a direct match to the routine
+                # itself (e.g. tea, not merely the kitchen where it was served).
+                direct_detail_match = bool(terms & detail_query_terms & _LOW_VALUE_DIRECT_TERMS)
+                if not direct_detail_match:
+                    score -= 20.0
             if score <= 0:
                 continue
             ranked.append((score, index, value))
@@ -207,6 +233,29 @@ def build_scene_relevance_query(
         str(current_situation or ""),
         str(scene_plan or ""),
         str(continuity_focus or ""),
+    ]
+    return "\n".join(part.strip() for part in parts if part and part.strip())
+
+
+def build_historical_relevance_query(
+    direction: str,
+    scene_idea: str = "",
+    planned_direction: str = "",
+    end_condition: str = "",
+    continuity_focus: str = "",
+) -> str:
+    """Build a narrow archive query from author-authored scene intent only.
+
+    Deliberately exclude serialized contracts and current-state snapshots: their
+    boilerplate and incidental setting details create false lexical matches.
+    Current state remains available to the Writer separately.
+    """
+    parts = [
+        str(continuity_focus or ""),
+        str(scene_idea or ""),
+        str(planned_direction or ""),
+        str(end_condition or ""),
+        str(direction or ""),
     ]
     return "\n".join(part.strip() for part in parts if part and part.strip())
 
