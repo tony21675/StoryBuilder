@@ -3266,7 +3266,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             "SCENE INTENT:\n"
             "Write one complete scene from the author's original idea and saved story state. "
             "Preserve established facts, character knowledge, any explicit boundary, and the intended ending. "
-            "The idea gives purpose and direction, not a script, but its concrete planned beats are deliberate commitments. "
+            "The idea gives purpose and direction, not a script. Its concrete planned beats are deliberate commitments. "
             "Make specific actions, quoted lines or nicknames, relationship milestones, reveals, and emotional turns happen on-page; "
             "do not replace them with a generic equivalent or let a shortened contract omit them. Weave them naturally rather than checking them off. "
             "Use judgment for natural dialogue, emotional progression, atmosphere, incidental details, connective actions, and fitting story turns. "
