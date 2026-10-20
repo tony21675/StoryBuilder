@@ -1801,11 +1801,27 @@ class StoryBuilderApp(tk.Tk):
                     ]
                 elif isinstance(values, str) and values.strip():
                     all_scene_knowledge[name] = [values.strip()]
+        active_character_names = set(scene_cast_names)
+        if isinstance(getattr(self.package, "characters", {}), dict):
+            for filename, data in self.package.characters.items():
+                name = str(data.get("name", "") or "").strip() if isinstance(data, dict) else ""
+                active_character_names.add(name or Path(str(filename)).stem)
+        supporting_name_data = self.package.story_bible.get("supporting_people", {})
+        if isinstance(supporting_name_data, dict):
+            active_character_names.update(str(name).strip() for name in supporting_name_data if str(name).strip())
+        for field in ("location", "physical_state", "character_knowledge", "active_objectives"):
+            values = state.get(field, {})
+            if isinstance(values, dict):
+                active_character_names.update(
+                    str(name).strip() for name in values
+                    if str(name).strip() and str(name).strip().casefold() != "primary"
+                )
         scene_knowledge, knowledge_metrics = select_active_character_knowledge(
             all_scene_knowledge,
             context_query,
             max_items_per_character=18,
             max_total_items=72,
+            character_names=sorted(active_character_names),
         )
         files.append((
             "scene_character_knowledge.json",
