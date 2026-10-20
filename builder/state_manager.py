@@ -1712,8 +1712,6 @@ class StateManager:
 
         completed_text = story_text.strip()
         end_guidance = (scene_end_guidance or "").strip()
-        final_excerpt = completed_text[-3000:]
-
         state_context = build_state_analysis_context(current_state, scene_characters)
         prompt_parts = [
             "COMPACT CURRENT-STATE CONTEXT BEFORE THIS SECTION (THE APPLICATION RETAINS THE FULL STATE):\n",
@@ -1737,9 +1735,9 @@ class StateManager:
             ])
 
         prompt_parts.extend([
-            "\n\nFINAL PART OF COMPLETED STORY SECTION:\n",
-            final_excerpt,
-            "\n\nDetermine the smallest state update needed AFTER this completed section. "
+            "\n\nENDING-STATE EMPHASIS:\n",
+            "The full accepted scene text appears above exactly once. Do not rely on a repeated excerpt; inspect the final actions and paragraph in the original scene. ",
+            "Determine the smallest state update needed AFTER this completed section. "
             "Read the entire section, but give special weight to the final actions and final paragraph. "
             "If the expected ending-state hint agrees with the completed prose, the returned patch should "
             "reflect that ending rather than the initial state. "
