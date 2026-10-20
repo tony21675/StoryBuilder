@@ -1099,6 +1099,64 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         self.assertIn("Stable author writing guidance", prompt)
         self.assertIn("do not introduce music after agreeing to keep things quiet", prompt)
 
+    def test_writer_context_includes_later_planned_character_card_and_knowledge_without_moving_physical_state(self):
+        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+        app.package = SimpleNamespace(
+            path=None,
+            current_state={
+                "chapter": 1,
+                "scene": 1,
+                "location": {"primary": "Tony's kitchen", "Tony": "Kitchen", "Maya": "Kitchen", "Chloe": "Approaching the house"},
+                "time": "morning",
+                "scene_cast": ["Tony", "Maya"],
+                "current_situation": "Tony and Maya are in the kitchen.",
+                "physical_state": {
+                    "Tony": {"location": "Kitchen", "position": "standing"},
+                    "Maya": {"location": "Kitchen", "position": "sitting"},
+                    "Chloe": {"location": "Approaching the house", "position": "outside"},
+                },
+                "character_knowledge": {
+                    "Tony": ["Tony knows Tiffany is his daughter."],
+                    "Maya": ["Maya knows Tiffany is missing."],
+                    "Chloe": ["Chloe promised to keep Tiffany's identity secret."],
+                },
+            },
+            writer_notes={},
+            characters={
+                "Tony.json": {"name": "Tony", "personality": "Protective father."},
+                "Maya.json": {"name": "Maya", "personality": "Practical friend."},
+                "Chloe.json": {"name": "Chloe", "personality": "Community organizer who values loyalty."},
+            },
+            story_bible={
+                "relationships": {"Tony-Maya": "close family-like friendship"},
+                "supporting_people": {},
+                "canon_rules": [],
+            },
+            extra_json={
+                "writing_guidance.json": {
+                    "scene_plan": {
+                        "1": {
+                            "cast": ["Tony", "Maya"],
+                            "scene_idea": "Tony and Maya discuss the search. Chloe arrives and offers help.",
+                            "direction": "Let Chloe arrive later in the scene and hear the agreed plan.",
+                            "end_condition": "The three begin coordinating.",
+                        }
+                    }
+                }
+            },
+        )
+
+        files = dict(app._writer_package_files())
+        knowledge = json.loads(files["scene_character_knowledge.json"])
+        character_cards = json.loads(files["scene_characters.json"])
+        physical = json.loads(files["scene_physical_state.json"])
+
+        self.assertIn("Chloe", knowledge)
+        self.assertIn("promised to keep", knowledge["Chloe"][0])
+        self.assertIn("Chloe", character_cards)
+        self.assertEqual(set(physical), {"Tony", "Maya"})
+        self.assertNotIn("Chloe", physical)
+
     def test_writer_system_prompt_prioritizes_scene_idea_over_generated_summaries(self):
         app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
         prompt = app._writer_system_prompt([])
