@@ -4,7 +4,10 @@ import json
 import re
 from pathlib import Path
 
-from builder.continuity_context import estimate_tokens_from_chars, relevance_tokens
+from builder.continuity_context import (
+    estimate_tokens_from_chars,
+    historical_relevance_tokens,
+)
 
 
 class ManuscriptManager:
@@ -178,10 +181,10 @@ class ManuscriptManager:
         generation. Excerpts are historical evidence and never override current
         state.
         """
-        query_terms = relevance_tokens(query)
+        query_terms = historical_relevance_tokens(query)
         character_terms = set()
         for name in character_names or []:
-            character_terms.update(relevance_tokens(str(name)))
+            character_terms.update(historical_relevance_tokens(str(name)))
         query_terms.difference_update(character_terms)
         if not query_terms or int(limit) <= 0 or int(max_chars) <= 0:
             return {
@@ -228,8 +231,10 @@ class ManuscriptManager:
             # Prefer higher lexical relevance. Recency breaks ties only; it does
             # not outrank a genuinely stronger match in an older scene.
             for chunk_index, chunk in enumerate(chunks):
-                matched = sorted(relevance_tokens(chunk) & query_terms)
-                if not matched:
+                matched = sorted(historical_relevance_tokens(chunk) & query_terms)
+                # One generic overlap is not enough to justify injecting a
+                # historical passage into the active scene prompt.
+                if len(matched) < 2:
                     continue
                 score = len(matched) * 10 + min(5, len(matched) // 2)
                 candidates.append({
