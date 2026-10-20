@@ -152,3 +152,11 @@ The desktop interface uses Python's standard library and Tkinter. The integrated
 ## Roadmap
 
 The guided setup flow now asks about the novel, characters, relationships, locations, and starting state, then writes the answers directly into the package. A small optional local LLM can later help interpret richer natural-language answers without becoming the source of truth for the package.
+
+### Scene-specific Writer context and budget
+
+The Writer builds its context from the current Scene Idea, current state, opening physical continuity, and scene-relevant knowledge instead of treating every consequential historical fact as relevant to every scene. In Scene Contract, the **Relevant Continuity (optional)** field lets the author pin earlier clues, promises, injuries, or conversations a scene must draw on. Leave it blank for automatic selection.
+
+Before starting or writing a scene, StoryBuilder applies a conservative total-input budget to the complete system/reference prompt plus scene direction. It reserves the configured output budget and a safety margin, then removes low-priority notes/supporting references, compacts oversized character cards, and trims the lowest-ranked active knowledge facts as needed. Current scene state, opening physical continuity, author canon, and stable author guidance are protected. If those required materials still cannot fit, generation stops with a clear error rather than silently discarding them. Pruning affects only the transient prompt and never deletes source records or accepted prose.
+
+Defaults: STORY_WRITER_CONTEXT=16384, STORY_WRITER_MAX_TOKENS=4000, and STORY_WRITER_CONTEXT_MARGIN=2400. The budget uses a conservative character-based estimate (three characters per estimated token), not the model's exact tokenizer. Writer status reports the input estimate, output reserve, margin, and pruned/compacted references.
