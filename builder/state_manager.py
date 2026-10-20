@@ -801,6 +801,226 @@ def clean_knowledge_action_logs(
     return changed
 
 
+def build_state_analysis_context(
+    current_state: dict[str, Any],
+    scene_characters: list[str] | None = None,
+) -> dict[str, Any]:
+    """Build a compact baseline for state transitions; the full state remains app-owned."""
+    fields = (
+        "chapter", "scene", "scene_cast", "current_situation", "time", "time_of_day",
+        "location", "physical_state", "active_objectives", "active_clues",
+        "unresolved_questions", "recent_events",
+    )
+    context: dict[str, Any] = {}
+    supplied = scene_characters or current_state.get("scene_cast", [])
+    names = {str(name).casefold() for name in supplied if str(name).strip()}
+    names.update(str(name).casefold() for name in current_state.get("scene_cast", []) if str(name).strip())
+    for field in fields:
+        if field not in current_state:
+            continue
+        value = current_state[field]
+        if field in {"location", "physical_state", "active_objectives"} and isinstance(value, dict):
+            filtered = {}
+            for name, item in value.items():
+                if field == "location" and str(name).casefold() == "primary":
+                    filtered[name] = item
+                elif str(name).casefold() in names:
+                    filtered[name] = item
+            context[field] = filtered
+        elif field == "recent_events" and isinstance(value, list):
+            context[field] = value[-8:]
+        else:
+            context[field] = value
+    return context
+
+
+def _knowledge_relevance_tokens(text: str) -> set[str]:
+    stop_words = {
+        "about", "after", "again", "against", "also", "and", "are", "around", "because",
+        "been", "before", "being", "between", "but", "came", "could", "did", "does",
+        "during", "each", "from", "get", "got", "had", "has", "have", "her", "hers",
+        "him", "his", "into", "its", "just", "know", "knows", "learned", "like", "made",
+        "make", "more", "most", "near", "not", "now", "onto", "our", "out", "over",
+        "said", "same", "she", "should", "some", "such", "than", "that", "the", "their",
+        "them", "then", "there", "these", "they", "this", "those", "through", "told",
+        "under", "very", "was", "were", "what", "when", "where", "which", "while", "who",
+        "will", "with", "would", "you", "your",
+    }
+    return {
+        token for token in re.findall(r"[a-z0-9]+", str(text).casefold())
+        if len(token) >= 3 and token not in stop_words
+    }
+
+
+def select_relevant_knowledge_context(
+    knowledge_by_character: dict[str, list[str]],
+    story_text: str,
+    *,
+    max_items_per_character: int = 8,
+    max_total_items: int = 36,
+) -> dict[str, list[str]]:
+    """Select bounded prior context while retaining the complete knowledge ledger in app state."""
+    story_tokens = _knowledge_relevance_tokens(story_text)
+    ranked: list[tuple[int, int, str, str]] = []
+    for character, values in knowledge_by_character.items():
+        if not isinstance(values, list):
+            continue
+        for index, raw in enumerate(values):
+            value = str(raw).strip()
+            if not value:
+                continue
+            tokens = _knowledge_relevance_tokens(value)
+            overlap = len(tokens.intersection(story_tokens))
+            recency_bonus = 2 if index >= max(0, len(values) - 3) else 0
+            temporary_bonus = 3 if re.search(
+                r"\b(?:asleep|sleeping|wearing|holding|carrying|sitting|standing|lying|inside the van|in the bathroom|in the bedroom|at the kitchen table)\b",
+                value,
+                re.IGNORECASE,
+            ) else 0
+            ranked.append((overlap + recency_bonus + temporary_bonus, index, str(character), value))
+
+    ranked.sort(key=lambda item: (item[0], item[1]), reverse=True)
+    selected: dict[str, list[tuple[int, str]]] = {}
+    for _score, index, character, value in ranked:
+        if len(selected.get(character, [])) >= max_items_per_character:
+            continue
+        if sum(len(items) for items in selected.values()) >= max_total_items:
+            break
+        selected.setdefault(character, []).append((index, value))
+    return {
+        character: [value for _index, value in sorted(values, key=lambda item: item[0])]
+        for character, values in selected.items()
+    }
+
+
+def _display_diff_value(value: Any, max_chars: int = 360) -> str:
+    """Format one state value compactly for human change review."""
+    text_value = value.strip() if isinstance(value, str) else json.dumps(
+        value, ensure_ascii=False, sort_keys=True
+    )
+    text_value = re.sub(r"\s+", " ", text_value).strip()
+    if len(text_value) > max_chars:
+        text_value = text_value[:max_chars - 1].rstrip() + "…"
+    return text_value
+
+
+def build_state_change_summary(
+    before: dict[str, Any],
+    after: dict[str, Any],
+    *,
+    max_changes: int = 80,
+) -> str:
+    """Report only changed state paths; unchanged canon is deliberately hidden."""
+    categories = {
+        "Situation and time": {"current_situation", "time", "time_of_day"},
+        "Locations and physical state": {"location", "physical_state"},
+        "Objectives": {"active_objectives"},
+        "Character knowledge": {"character_knowledge"},
+        "Investigative leads": {"active_clues", "new_clues", "unresolved_questions"},
+        "Recent events": {"recent_events"},
+    }
+    order = list(categories) + ["Other state changes"]
+    changes: dict[str, list[str]] = {name: [] for name in order}
+    ignored_managed = {"chapter", "scene", "status", "scene_completed", "chapter_completed"}
+    found = 0
+
+    def category(path: str) -> str:
+        root = path.split(".", 1)[0].split("[", 1)[0]
+        return next((key for key, fields in categories.items() if root in fields), "Other state changes")
+
+    def identity(value: Any) -> str:
+        if isinstance(value, dict) and "event" in value:
+            value = value.get("event", "")
+        if isinstance(value, str):
+            return re.sub(r"\s+", " ", value).strip().rstrip(".!?").casefold()
+        return json.dumps(value, ensure_ascii=False, sort_keys=True)
+
+    def add(path: str, kind: str, value: Any = None, old: Any = None) -> None:
+        nonlocal found
+        if found >= max_changes:
+            return
+        line = f"{kind} {path}"
+        if kind == "Changed":
+            line += f"\n    Before: {_display_diff_value(old)}\n    After:  {_display_diff_value(value)}"
+        elif kind in {"Added", "Removed"}:
+            line += f": {_display_diff_value(value)}"
+        changes[category(path)].append(line)
+        found += 1
+
+    def compare(path: str, old: Any, new: Any, old_exists: bool = True, new_exists: bool = True) -> None:
+        if found >= max_changes or (old_exists and new_exists and old == new):
+            return
+        if not old_exists:
+            if isinstance(new, dict) and new:
+                for key, value in new.items():
+                    compare(f"{path}.{key}" if path else str(key), None, value, False, True)
+            elif isinstance(new, list):
+                for value in new:
+                    add(path, "Added", value)
+            else:
+                add(path, "Added", new)
+            return
+        if not new_exists:
+            if isinstance(old, dict) and old:
+                for key, value in old.items():
+                    compare(f"{path}.{key}" if path else str(key), value, None, True, False)
+            elif isinstance(old, list):
+                for value in old:
+                    add(path, "Removed", value)
+            else:
+                add(path, "Removed", old)
+            return
+        if isinstance(old, dict) and isinstance(new, dict):
+            for key in dict.fromkeys([*old.keys(), *new.keys()]):
+                compare(
+                    f"{path}.{key}" if path else str(key),
+                    old.get(key), new.get(key), key in old, key in new,
+                )
+            return
+        if isinstance(old, list) and isinstance(new, list):
+            old_map: dict[str, Any] = {}
+            new_map: dict[str, Any] = {}
+            for value in old:
+                old_map.setdefault(identity(value), value)
+            for value in new:
+                new_map.setdefault(identity(value), value)
+            removed = [value for key, value in old_map.items() if key not in new_map]
+            added = [value for key, value in new_map.items() if key not in old_map]
+            if not removed and not added and old != new:
+                add(path, "Changed", new, old)
+            else:
+                for value in removed:
+                    add(path, "Removed", value)
+                for value in added:
+                    add(path, "Added", value)
+            return
+        add(path, "Changed", new, old)
+
+    all_keys = [key for key in dict.fromkeys([*before.keys(), *after.keys()]) if key not in ignored_managed]
+    for key in all_keys:
+        compare(str(key), before.get(key), after.get(key), key in before, key in after)
+        if found >= max_changes:
+            break
+    lines = [
+        "PROPOSED ENDING-STATE CHANGES",
+        "Only differences are shown. Fields not listed remain unchanged.",
+        "",
+    ]
+    wrote = False
+    for group in order:
+        if changes[group]:
+            wrote = True
+            lines.append(group.upper())
+            lines.extend(f"  {item}" for item in changes[group])
+            lines.append("")
+    if not wrote:
+        lines.append("No state changes detected. Check whether that is expected before applying.")
+    if found >= max_changes:
+        lines.append(f"Output capped at {max_changes} changes. Inspect Full State JSON for more.")
+    lines.append("Full State JSON is available in the advanced tab if a correction is needed.")
+    return "\n".join(lines).strip()
+
+
 OPTIONAL_STATE_PATCH_FIELDS = {
     # These fields are valid even in older packages that predate their storage.
     "current_situation",
