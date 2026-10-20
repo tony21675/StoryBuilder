@@ -1162,25 +1162,25 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         prompt = app._writer_system_prompt([])
 
         self.assertIn(
-            "The original plain-English Scene Idea controls intended actions, order, scope, and endpoint",
+            "Follow the original plain-English Scene Idea's concrete actions, important objects, meaningful order, phases, and endpoint",
             prompt,
         )
         self.assertIn(
-            "Generated direction/contract are secondary",
+            "Generated direction and contract support the idea; they cannot overrule or narrow it",
             prompt,
         )
         self.assertIn(
-            "without treating every sentence as a checklist",
+            "descriptive wording is not a word-for-word checklist",
             prompt,
         )
         self.assertIn(
-            "Follow the Scene Idea's meaningful order, phases, major moments, and endpoint",
+            "Do not reduce a multi-phase or time-spanning scene to one emphasized action",
             prompt,
         )
-        self.assertIn("Knowing that an event happened is not the same as witnessing it", prompt)
-        self.assertIn("Do not shrink a multi-phase or time-spanning scene to one highlighted moment", prompt)
+        self.assertIn("Knowing an event occurred is not witnessing it", prompt)
+        self.assertIn("Do not reduce a multi-phase or time-spanning scene to one emphasized action", prompt)
         self.assertIn(
-            "If an explicit endpoint is named, including a time or passage-of-time boundary",
+            "If the idea names an endpoint, including a time boundary",
             prompt,
         )
         self.assertIn(
@@ -1188,7 +1188,7 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             prompt,
         )
         self.assertIn(
-            "If no endpoint is specified, choose a natural stopping point",
+            "If no endpoint is stated, choose a natural stopping point",
             prompt,
         )
         self.assertNotIn(
@@ -1205,7 +1205,7 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             prompt,
         )
         self.assertIn(
-            "Avoid an incongruous relationship metaphor",
+            "Respect privacy, dignity, established boundaries, and relationship-specific behavior",
             prompt,
         )
         self.assertIn(
@@ -1213,43 +1213,43 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             prompt,
         )
         self.assertIn(
-            "Let dialogue and interaction carry scenes whenever the situation allows",
+            "Let dialogue and interaction carry scenes where appropriate",
             prompt,
         )
         self.assertIn(
-            "give one brief, natural cue that makes the relationship or gesture understandable",
+            "If a gesture could be misread, use one brief, natural cue",
             prompt,
         )
         self.assertIn(
-            "rather than explaining the same meaning or emotion again",
+            "rather than explaining its meaning repeatedly",
             prompt,
         )
         self.assertIn(
-            "don't turn gentle concern into insistence or pressure unless the scene calls for it",
+            "do not turn gentle concern into insistence or pressure unless the scene calls for it",
             prompt,
         )
         self.assertNotIn("plainly affectionate, non-sensual language", prompt)
         self.assertIn(
-            "Let the opening naturally orient the reader to important positions, posture, and contact",
+            "Orient the reader naturally",
             prompt,
         )
         self.assertIn(
-            "Avoid restating one feeling through several descriptions, metaphors, or interpretations",
+            "Avoid repeated descriptions of the same feeling/action",
             prompt,
         )
         self.assertIn(
-            "allow the other character to offer brief, natural reassurance",
+            "offer patient, brief support",
             prompt,
         )
         self.assertIn(
-            "without forcing it into every pause",
+            "without forcing reassurance into every pause",
             prompt,
         )
 
         notes_prompt = app._writer_system_prompt([
             ("working_writer_notes.json", '{"learned_notes":[{"note":"Use selective description and avoid repeating an emotion."}]}')
         ])
-        self.assertIn("temporary per-novel working writer notes are supplied", notes_prompt)
+        self.assertIn("Treat working notes as tentative craft observations", notes_prompt)
         self.assertIn("Use selective description and avoid repeating an emotion.", notes_prompt)
 
     def test_semantic_validator_checks_opening_physical_continuity(self):
