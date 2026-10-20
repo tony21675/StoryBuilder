@@ -3622,7 +3622,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             self.generated_scene_context = (chapter, scene)
             self.pending_state_patch = None
             self.writer_state_preview.delete("1.0", "end")
-            if hasattr(self, "writer_state_diff_preview"):
+            if "writer_state_diff_preview" in self.__dict__:
                 self.writer_state_diff_preview.configure(state="normal")
                 self.writer_state_diff_preview.delete("1.0", "end")
                 self.writer_state_diff_preview.configure(state="disabled")
@@ -4649,7 +4649,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         self.writer_output_text.delete("1.0", "end")
         self.writer_output_text.insert("1.0", prose)
         self.writer_state_preview.delete("1.0", "end")
-        if hasattr(self, "writer_state_diff_preview"):
+        if "writer_state_diff_preview" in self.__dict__:
             self.writer_state_diff_preview.configure(state="normal")
             self.writer_state_diff_preview.delete("1.0", "end")
             self.writer_state_diff_preview.configure(state="disabled")
@@ -4792,7 +4792,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             self.pending_state_patch = None
             if hasattr(self, "writer_state_preview"):
                 self.writer_state_preview.delete("1.0", "end")
-            if hasattr(self, "writer_state_diff_preview"):
+            if "writer_state_diff_preview" in self.__dict__:
                 self.writer_state_diff_preview.configure(state="normal")
                 self.writer_state_diff_preview.delete("1.0", "end")
                 self.writer_state_diff_preview.configure(state="disabled")
@@ -4829,12 +4829,12 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             self.package.current_state,
             reconstructed_state,
         )
-        if hasattr(self, "writer_state_diff_preview"):
+        if "writer_state_diff_preview" in self.__dict__:
             self.writer_state_diff_preview.configure(state="normal")
             self.writer_state_diff_preview.delete("1.0", "end")
             self.writer_state_diff_preview.insert("1.0", state_diff)
             self.writer_state_diff_preview.configure(state="disabled")
-        if hasattr(self, "writer_state_review_notebook") and hasattr(self, "writer_state_diff_tab"):
+        if "writer_state_review_notebook" in self.__dict__ and "writer_state_diff_tab" in self.__dict__:
             self.writer_state_review_notebook.select(self.writer_state_diff_tab)
         self.writer_state_preview.delete("1.0", "end")
         self.writer_state_preview.insert(
