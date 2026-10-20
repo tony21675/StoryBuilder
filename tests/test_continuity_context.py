@@ -118,6 +118,28 @@ class ContinuityContextTests(unittest.TestCase):
         self.assertNotIn("Chapter_01_Section_02.txt", result["text"])
         self.assertNotIn("Chapter_01_Section_03.txt", result["text"])
         self.assertGreater(result["estimated_tokens"], 0)
+        self.assertLessEqual(result["characters"], 1200)
+
+    def test_historical_search_supports_legacy_scene_filenames(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            chapter_dir = root / "Manuscript" / "Chapters" / "Chapter_02"
+            chapter_dir.mkdir(parents=True)
+            (chapter_dir / "Scene_01.txt").write_text(
+                "At lunch, Tiffany chose orange soda while Maya picked grape soda.\n",
+                encoding="utf-8",
+            )
+
+            result = ManuscriptManager(root).search_historical_context(
+                "What soda did Maya choose at lunch?",
+                before_chapter=3,
+                before_scene=1,
+                character_names=["Tiffany", "Maya"],
+            )
+
+        self.assertEqual(len(result["snippets"]), 1)
+        self.assertIn("Scene_01.txt", result["text"])
+        self.assertIn("grape soda", result["text"])
 
     def test_historical_search_does_not_return_unrelated_detail_by_character_name_alone(self):
         with tempfile.TemporaryDirectory() as tmp:
