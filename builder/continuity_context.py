@@ -75,6 +75,7 @@ def select_active_character_knowledge(
     *,
     max_items_per_character: int = 18,
     max_total_items: int = 72,
+    character_names: list[str] | None = None,
 ) -> tuple[dict[str, list[str]], dict[str, int]]:
     """Select a bounded, relevant view while leaving the persistent ledger unchanged.
 
@@ -83,7 +84,7 @@ def select_active_character_knowledge(
     """
     query_terms = relevance_tokens(query)
     character_terms = set()
-    for character in knowledge_by_character:
+    for character in [*knowledge_by_character.keys(), *(character_names or [])]:
         character_terms.update(relevance_tokens(str(character)))
     detail_query_terms = query_terms - character_terms
     ranked_by_character: dict[str, list[tuple[float, int, str]]] = {}
