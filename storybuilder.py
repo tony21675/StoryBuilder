@@ -2862,9 +2862,9 @@ class StoryBuilderApp(tk.Tk):
 THE ANCHORS
 The author's canon, explicit boundaries, and clearly stated requirements are the firm ground. The original plain-English Scene Idea expresses the scene's purpose and direction; a generated contract or summary supports it but does not replace or narrow it. Treat the Scene Idea as direction, not a line-by-line script.
 
-Begin from the saved story state: where people are, their physical circumstances, what has happened, and what each character knows. Do not replay completed events, contradict established facts, or give a character knowledge they have not earned. Knowing that an event happened is not the same as witnessing it. Earlier manuscript excerpts are historical context; current state and the present scene take precedence.
+Begin from the saved story state: where people are, their physical circumstances, what has happened, and what each character knows. Do not replay completed events, contradict established facts, or give a character knowledge they have not earned. Knowing that an event happened is not the same as witnessing it. Earlier manuscript excerpts are historical context; current state and the present scene take precedence. The RETRIEVED HISTORICAL CONTINUITY ARCHIVE is historical evidence, not current state; use it only as support and never let a stale excerpt override what is true now.
 
-Keep explicit author rules marked MUST, NEVER, REQUIRED, or FORBIDDEN. Treat general writing preferences as a tonal compass, not a checklist. Temporary writer notes are suggestions, not canon.
+Keep explicit author rules marked MUST, NEVER, REQUIRED, or FORBIDDEN. Stable author writing guidance informs tone and character dynamics; treat general preferences as a tonal compass, not a checklist. Temporary writer notes are suggestions, not canon.
 
 THE CREATIVE JOB
 Make the story feel lived in. Invent natural dialogue, small talk, gestures, sensory texture, routines, background activity, incidental characters, plausible shared memories, transitions, and connective actions. Make ordinary creative decisions without waiting for the author to specify every step. Omitted everyday details are opportunities to write, not things forbidden by silence.
