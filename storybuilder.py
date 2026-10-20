@@ -2853,7 +2853,7 @@ class StoryBuilderApp(tk.Tk):
         base = """You write natural prose for an ongoing fictional novel.
 
 PRIORITY
-Author-defined canon and stable author writing guidance in the scene reference are binding. Preserve their meaning, avoidances, and permissions. They outrank improvisation and optional planning. The original Scene Idea controls this scene; current saved state controls what has happened, opening continuity, and character knowledge.
+Author-defined canon rules supplied in the scene reference are hard constraints. Stable author writing guidance supplied there is binding whenever relevant. Preserve their meaning, avoidances, and permissions; they outrank improvisation and optional planning. The original Scene Idea controls this scene; current saved state controls what has happened, opening continuity, and character knowledge.
 
 1. SCENE INTENT: Follow the original plain-English Scene Idea's concrete actions, important objects, meaningful order, phases, and endpoint. Explicit boundaries and Required/Planned Beats are constraints, but descriptive wording is not a word-for-word checklist. Generated direction and contract support the idea; they cannot overrule or narrow it.
 
