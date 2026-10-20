@@ -1,3 +1,22 @@
+## Latest checkpoint — October 19, 2026: ending-state analysis redesign (PR pending)
+
+Tony approved a broad redesign because nearly every accepted scene produced an ending-state proposal that needed extensive manual reconstruction. Work is on branch `redesign/state-review-workflow` and is not merged yet. Current base is main commit `87844863230fb996b2ca230fe9db4cc6bdc50e96` (PR #34 and PR #36 are already merged).
+
+**Implemented in this branch:**
+- The Writer state review now defaults to a **Changes to Review** tab containing categorized additions/removals/changes. Full reconstructed JSON is retained in **Full State JSON (Advanced)** for deliberate manual edits. The app continues to validate and merge reviewed JSON against the current saved state; fields the proposal did not touch are preserved.
+- The ending-state LLM gets a compact scene-specific slice of the starting state: current situation/time, locations and physical state for the scene participants, their objectives, active clues, open questions, and the latest eight recent events. Long cumulative character knowledge, editorial continuity notes, and completed event history are not sent to that prompt. The application still retains those fields and runs separate reconciliation helpers.
+- The accepted scene text is supplied once rather than repeating its final 3,000 characters. The prompt tells the model to inspect the full text and focus on the actual ending.
+- Character-knowledge analysis is now framed as a **delta**: report new facts and exact explicit supersessions only. Existing knowledge stays application-owned and is merged, not regenerated. The before-state knowledge sample is relevance-ranked and capped at 8 facts per character / 36 facts total.
+- Added regression tests for compact state context, bounded knowledge context, categorized change summaries, no-change results, and output caps.
+
+**Files touched:** `builder/state_manager.py`, `storybuilder.py`, `tests/test_state_analysis_transitions.py`, `README.md`, and this handoff. This is a reusable application change only. Do not edit or sync the MyNovel package or manuscript as part of testing it.
+
+**Verification status:** Regression tests have been added, but GitHub Actions has not yet been fully checked for this branch. The next step is to open the PR, watch both CI workflows, fix any newly introduced failures, then update this note with actual results. Do not claim success from the patch itself. If the PR is ready and all checks pass, leave it unmerged until Tony returns and explicitly approves merging. Tony plans to pull the new files after returning; have him inspect/pull the PR only after it is in a passing state.
+
+**Testing after pull:** On the laptop, check git status before syncing, pull/fast-forward only if the checkout is clean, then run the focused state-transition tests before opening StoryBuilder. In Writer → Analyze Accepted Scene, the default tab should list only proposed changes; Full State JSON (Advanced) is for manual corrections. Validate a single new scene proposal before assuming the design has fixed all state issues. Never accept or overwrite accepted prose/state solely to test the new UI.
+
+---
+
 ## Latest checkpoint — October 19, 2026: preserve Planned Beats and Boundaries through Scene Contract
 
 Tony approved repairing the reusable Scene Planner → Scene Contract → Writer handoff after Chapter 3, Scene 3's plan contained all agreed details but the generated read-only contract compressed them into a generic direction and endpoint.
