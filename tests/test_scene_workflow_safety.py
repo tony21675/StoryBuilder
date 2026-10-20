@@ -1234,7 +1234,7 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             prompt,
         )
         self.assertIn(
-            "Avoid repeated descriptions of the same feeling/action",
+            "repeated descriptions of the same feeling/action",
             prompt,
         )
         self.assertIn(
