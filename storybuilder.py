@@ -58,6 +58,7 @@ from builder.continuity_context import (
 )
 from builder.writer_context_budget import (
     WriterContextBudgetError,
+    conservative_token_estimate,
     fit_writer_context_files,
 )
 from builder.scene_flow import review_chapter_flow
@@ -2892,8 +2893,8 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         parts.append("\nEND SCENE REFERENCE")
         return "\n".join(parts)
 
-    def _fit_writer_context(self, files, base_prompt=""):
-        """Bound the complete Writer input while reserving generation and follow-up room."""
+    def _fit_writer_context(self, files, base_prompt="", raise_on_overflow=True):
+        """Bound Writer input; preview callers may inspect required context that will not fit."""
         return fit_writer_context_files(
             files,
             prompt_builder=self._writer_system_prompt,
@@ -2901,6 +2902,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             context_window_tokens=int(os.environ.get("STORY_WRITER_CONTEXT", "16384")),
             reserved_output_tokens=int(os.environ.get("STORY_WRITER_MAX_TOKENS", "4000")),
             safety_margin_tokens=int(os.environ.get("STORY_WRITER_CONTEXT_MARGIN", "2400")),
+            raise_on_overflow=raise_on_overflow,
         )
 
     def _toggle_prompt_trace(self):
@@ -3347,7 +3349,9 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         writer_context = SceneContract.writer_prompt_context(direction, contract)
         base_prompt = writer_context + "\n\n" + self._writer_scene_boundary_prompt()
         try:
-            fitted_files, budget_metrics = self._fit_writer_context(files, base_prompt=base_prompt)
+            fitted_files, budget_metrics = self._fit_writer_context(
+                files, base_prompt=base_prompt, raise_on_overflow=False
+            )
         except WriterContextBudgetError as exc:
             self._show_copyable_error("Writer Context Budget", str(exc))
             return
@@ -3364,6 +3368,13 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         ]
         if continuity_focus:
             lines.extend(["", "AUTHOR-PINNED CONTINUITY FOCUS:", continuity_focus])
+        if budget_metrics["required_context_over_budget"]:
+            lines.extend([
+                "",
+                "WARNING: Required context exceeds the safe input budget. This is a diagnostic-only preview. "
+                "Scene generation remains blocked until the context fits.",
+                f"Estimated overage: {budget_metrics['estimated_overage_tokens']:,} conservative tokens.",
+            ])
         lines.extend([
             "",
             f"Estimated assembled prompt: {prompt_metrics['estimated_tokens']:,} tokens "
@@ -3376,6 +3387,17 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             "",
             "REFERENCE FILES INCLUDED:",
             *[f"- {name}" for name in included],
+            "",
+            "PROMPT SIZE BREAKDOWN:",
+            f"- Static Writer instructions: {len(self._writer_system_prompt([])):,} characters "
+            f"(about {conservative_token_estimate(self._writer_system_prompt([])):,} estimated tokens).",
+            f"- Current Scene Direction/contract: {len(writer_context):,} characters "
+            f"(about {conservative_token_estimate(writer_context):,} estimated tokens).",
+            *[
+                f"- {name}: {len(content):,} characters "
+                f"(about {conservative_token_estimate(content):,} estimated tokens)"
+                for name, content in sorted(fitted_files, key=lambda item: len(item[1]), reverse=True)[:10]
+            ],
             "",
             "FILES PRUNED: " + (", ".join(budget_metrics["pruned_reference_files"]) or "none"),
             "FILES COMPACTED: " + (", ".join(budget_metrics["compacted_reference_files"]) or "none"),
