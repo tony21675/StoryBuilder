@@ -1842,6 +1842,12 @@ class StoryBuilderApp(tk.Tk):
                 name_text = str(name).strip()
                 if not name_text or name_text.casefold() in scene_cast:
                     continue
+                if not re.search(
+                    r"(?<!\w)" + re.escape(name_text) + r"(?!\w)",
+                    context_query,
+                    flags=re.IGNORECASE,
+                ):
+                    continue
 
                 offscene_anchors[name_text] = {
                     "name": name_text,
@@ -1862,11 +1868,16 @@ class StoryBuilderApp(tk.Tk):
         relationships = self.package.story_bible.get("relationships", {})
         context_names = set(scene_cast_names)
         if isinstance(location_data, dict):
-            context_names.update(
-                str(name).strip()
-                for name in location_data
-                if str(name).strip() and str(name) != "primary"
-            )
+            for name in location_data:
+                name_text = str(name).strip()
+                if not name_text or name_text.casefold() == "primary" or name_text.casefold() in scene_cast:
+                    continue
+                if re.search(
+                    r"(?<!\w)" + re.escape(name_text) + r"(?!\w)",
+                    context_query,
+                    flags=re.IGNORECASE,
+                ):
+                    context_names.add(name_text)
 
         if isinstance(relationships, dict):
             relevant_facts = {}
