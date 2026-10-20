@@ -37,7 +37,7 @@ _PROTECTED_FACT = re.compile(
 _DISPOSABLE_DETAIL = re.compile(
     r"\b(?:soda|pop|cola|soft drink|coffee|tea|juice|water|lemonade|"
     r"breakfast|lunch|dinner|snack|sandwich|pizza|burger|fries|chips|cookie|"
-    r"routine|walked to|sat down|stood up|opened the door|closed the door|"
+    r"routin\w*|walked to|sat down|stood up|opened the door|closed the door|"
     r"picked up the mug|poured a drink|weather was|sunlight fell|wind moved)\b",
     re.IGNORECASE,
 )
