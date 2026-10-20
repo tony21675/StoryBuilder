@@ -53,10 +53,16 @@ _PROTECTED_FACT = re.compile(
 _DISPOSABLE_DETAIL = re.compile(
     r"\b(?:soda|pop|cola|soft drink|coffee|tea|juice|water|lemonade|"
     r"breakfast|lunch|dinner|snack|sandwich|pizza|burger|fries|chips|cookie|"
+    r"bath|bathroom|bathtub|tub|shower|washed|cleaned up|"
     r"routin\w*|walked to|sat down|stood up|opened the door|closed the door|"
     r"picked up the mug|poured a drink|weather was|sunlight fell|wind moved)\b",
     re.IGNORECASE,
 )
+_LOW_VALUE_DIRECT_TERMS = {
+    "soda", "pop", "cola", "drink", "coffee", "tea", "juice", "water", "lemonade",
+    "breakfast", "lunch", "dinner", "snack", "sandwich", "pizza", "burger", "fries",
+    "chips", "cookie", "bath", "bathroom", "bathtub", "tub", "shower", "wash", "clean",
+}
 
 
 def relevance_tokens(value: str) -> set[str]:
@@ -157,8 +163,12 @@ def select_active_character_knowledge(
             if search_relevant_promise:
                 score += 2.5
             score += recent_bonus
-            if low_value and detail_overlap == 0:
-                score -= 20.0
+            if low_value:
+                # Incidental routine facts need a direct match to the routine
+                # itself (e.g. tea, not merely the kitchen where it was served).
+                direct_detail_match = bool(terms & detail_query_terms & _LOW_VALUE_DIRECT_TERMS)
+                if not direct_detail_match:
+                    score -= 20.0
             if score <= 0:
                 continue
             ranked.append((score, index, value))
