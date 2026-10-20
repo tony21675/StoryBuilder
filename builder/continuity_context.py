@@ -76,7 +76,7 @@ def select_active_character_knowledge(
     max_items_per_character: int = 18,
     max_total_items: int = 72,
     character_names: list[str] | None = None,
-) -> tuple[dict[str, list[str]], dict[str, int]]:
+) -> tuple[dict[str, list[str]], dict[str, int | float]]:
     """Select a bounded, relevant view while leaving the persistent ledger unchanged.
 
     Protected facts receive a strong priority boost. Routine details are merely
