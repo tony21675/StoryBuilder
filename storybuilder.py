@@ -3379,10 +3379,9 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             ])
         lines.extend([
             "",
-            f"Estimated assembled prompt: {prompt_metrics['estimated_tokens']:,} tokens "
-            f"({prompt_metrics['characters']:,} characters).",
-            f"Safe input budget: {budget_metrics['final_conservative_tokens']:,}/"
-            f"{budget_metrics['input_token_budget']:,} conservative tokens.",
+            f"Assembled prompt size: {prompt_metrics['characters']:,} characters.",
+            f"Conservative input estimate: {budget_metrics['final_conservative_tokens']:,}/"
+            f"{budget_metrics['input_token_budget']:,} tokens of safe input budget.",
             f"Reserved for generation: {budget_metrics['reserved_output_tokens']:,} tokens; "
             f"safety margin: {budget_metrics['safety_margin_tokens']:,} tokens.",
             "Token counts are conservative estimates, not tokenizer-exact measurements.",
