@@ -2788,6 +2788,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
 26. Preserve the emotional cause-and-effect established by author direction and character continuity. When a familiar, trusted care gesture is established as reassuring, let it reassure the character unless the current scene explicitly establishes a different response. Do not invent distress caused by the gesture; connect renewed distress to the authored trigger or remembered event. Do not reverse an established emotional response just to add drama. When a character pauses to regain composure or becomes overwhelmed while trying to speak, and the scene and relationship support comfort, allow the other character to offer brief, natural reassurance, patient words, or a familiar calming gesture. Let the support respond to the person's actual distress without forcing it into every pause, repeating the same reassurance, or rushing the person past the difficult moment. Comfort may help the character continue without instantly removing their fear, grief, or struggle. Follow the scene-specific author direction and hard stop.
 27. When a character states a direct request, preference, boundary, or need and another character acknowledges or agrees to it, keep subsequent actions consistent with it unless a clear in-story reason supports a different choice. Do not add an unmotivated contradiction as decorative atmosphere; for example, do not introduce music after agreeing to keep things quiet.
 28. Output only natural story prose.
+29. Any section labelled RETRIEVED HISTORICAL CONTINUITY ARCHIVE is a searchable excerpt from an earlier accepted scene, included because the current scene may need that detail. It is historical evidence, not the current state. The current saved state and explicit present-scene direction take precedence over stale archived descriptions. Use an archived detail only for the fact it supports; do not infer additional facts from it. If the needed historical detail cannot be found or the source is ambiguous, do not invent a memory or claim certainty. Characters may acknowledge that they do not remember or do not know.
 
 """
         parts = [base, "\nSCENE REFERENCE\n"]
@@ -3180,7 +3181,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
             return
 
         self.writer_write_button.configure(state="disabled")
-        self.writer_status.configure(text="Writing scene...")
+        self.writer_status.configure(text="Preparing scene context...")
 
         chapter = int(self.package.current_state.get("chapter", 1) or 1)
         scene = int(self.package.current_state.get("scene", 1) or 1)
@@ -3202,14 +3203,84 @@ Author-defined canon rules supplied in the scene reference are hard constraints 
         model = self.writer_engine.model_path
         author_guidance = self._author_writing_guidance()
         writer_context = SceneContract.writer_prompt_context(direction, contract)
+        historical_archive = {
+            "snippets": [],
+            "text": "",
+            "characters": 0,
+            "estimated_tokens": 0,
+        }
+        archive_search_error = ""
+        try:
+            if self.package.path is not None:
+                archive_character_names = list(scene_cast_names) if "scene_cast_names" in locals() else [
+                    str(name).strip()
+                    for name in current_state.get("scene_cast", [])
+                    if str(name).strip()
+                ]
+                character_cards = getattr(self.package, "characters", {})
+                if isinstance(character_cards, dict):
+                    for filename, data in character_cards.items():
+                        name = str(data.get("name", "") or "").strip() if isinstance(data, dict) else ""
+                        if not name:
+                            name = Path(str(filename)).stem
+                        archive_character_names.append(name)
+                historical_archive = ManuscriptManager(Path(self.package.path)).search_historical_context(
+                    "\n".join([
+                        writer_context,
+                        author_guidance,
+                        str(current_state.get("current_situation", "") or ""),
+                    ]),
+                    before_chapter=chapter,
+                    before_scene=scene,
+                    character_names=archive_character_names,
+                    limit=4,
+                    max_chars=2400,
+                )
+        except Exception as exc:
+            # Archive retrieval is advisory; an archive read failure must not
+            # block writing or change the canon/state ledger.
+            archive_search_error = str(exc)
+
+        archive_prompt = ""
+        if historical_archive.get("text"):
+            archive_prompt = (
+                "\n\nRETRIEVED HISTORICAL CONTINUITY ARCHIVE (READ ONLY; NOT CURRENT STATE):\n"
+                "The following excerpts come from earlier accepted manuscript sections. "
+                "They were retrieved because their wording overlaps the current scene direction. "
+                "Use them only for supported historical details. The current saved state and scene "
+                "direction outrank any outdated physical or situational detail. Do not infer anything "
+                "that is not stated in an excerpt.\n\n"
+                + historical_archive["text"]
+            )
+
         prompt_parts = [
             writer_context,
+            archive_prompt,
             "\n\n",
             "SCENE BOUNDARY:\n",
             "The original plain-English Scene Idea defines intended actions, important moments, and endpoint. It is not a line-by-line wording checklist, but concrete actions and objects specified as intended choices must keep their identity; do not replace one with a materially different alternative (a bubble bath is not a shower). Preserve distinctive details that define an intended action and the stated history or relationships that give an object meaning; do not treat them as disposable decoration. If the idea phrases an action as optional, preserve that choice instead of making it a new requirement. Current story state controls what has already happened, physical continuity, and character knowledge; generated direction and contract are secondary hints. Do not replay completed events. Preserve established opening position/contact unless this scene changes them. Use creative freedom for how actions unfold, dialogue, gestures, pacing, transitions, and connective actions.\n\n",
             "Write the scene now. Output only the prose."
         ]
         base_prompt = "".join(prompt_parts)
+        context_budget = context_size_report(system_prompt + base_prompt)
+        reduction_percent = float(context_metrics.get("detail_context_reduction_percent", 0) or 0)
+        self.writer_status.configure(
+            text=(
+                f"Writing scene... approximately {context_budget['estimated_tokens']:,} prompt tokens "
+                f"(character/notes pruning: {reduction_percent:.1f}%; "
+                f"historical excerpts: {len(historical_archive.get('snippets', []))})."
+            )
+        )
+        context_metrics = dict(getattr(self, "writer_last_context_metrics", {}) or {})
+        context_metrics.update({
+            "assembled_prompt_characters": context_budget["characters"],
+            "assembled_prompt_estimated_tokens": context_budget["estimated_tokens"],
+            "historical_archive_characters": int(historical_archive.get("characters", 0) or 0),
+            "historical_archive_estimated_tokens": int(historical_archive.get("estimated_tokens", 0) or 0),
+            "historical_archive_snippets": len(historical_archive.get("snippets", [])),
+            "archive_search_error": archive_search_error,
+        })
+        self.writer_last_context_metrics = context_metrics
 
         prompt_trace = None
         if getattr(self, "prompt_trace_armed", False):
