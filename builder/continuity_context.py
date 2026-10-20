@@ -108,7 +108,7 @@ def select_active_character_knowledge(
             recent_bonus = 1.5 if index >= max(0, len(raw_values) - 4) else 0
             score = overlap * 3.0 + recent_bonus + (12.0 if protected else 0.0)
             if low_value and detail_overlap == 0:
-                score -= 7.0
+                score -= 10.0
             if score <= 0:
                 continue
             ranked.append((score, index, value))
