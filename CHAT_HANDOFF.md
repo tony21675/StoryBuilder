@@ -1,19 +1,34 @@
-## Latest checkpoint — October 19, 2026: ending-state analysis redesign (PR pending)
+## Latest checkpoint — October 19, 2026: ending-state redesign plus context pruning and historical retrieval (PR pending)
 
-Tony approved a broad redesign because nearly every accepted scene produced an ending-state proposal that needed extensive manual reconstruction. Work is on branch `redesign/state-review-workflow` and is not merged yet. Current base is main commit `87844863230fb996b2ca230fe9db4cc6bdc50e96` (PR #34 and PR #36 are already merged).
+Tony approved a broad StoryBuilder redesign because proposed ending states repeatedly required extensive manual reconstruction, then supplied a second handoff asking StoryBuilder to reduce generation-context bloat without losing durable continuity. Both requirements are now part of the same unmerged PR. **Keep PR #37 unmerged until Tony reviews it.**
 
-**Implemented in this branch:**
-- The Writer state review now defaults to a **Changes to Review** tab containing categorized additions/removals/changes. Full reconstructed JSON is retained in **Full State JSON (Advanced)** for deliberate manual edits. The app continues to validate and merge reviewed JSON against the current saved state; fields the proposal did not touch are preserved.
-- The ending-state LLM gets a compact scene-specific slice of the starting state: current situation/time, locations and physical state for the scene participants, their objectives, active clues, open questions, and the latest eight recent events. Long cumulative character knowledge, editorial continuity notes, and completed event history are not sent to that prompt. The application still retains those fields and runs separate reconciliation helpers.
-- The accepted scene text is supplied once rather than repeating its final 3,000 characters. The prompt tells the model to inspect the full text and focus on the actual ending.
-- Character-knowledge analysis is now framed as a **delta**: report new facts and exact explicit supersessions only. Existing knowledge stays application-owned and is merged, not regenerated. The before-state knowledge sample is relevance-ranked and capped at 8 facts per character / 36 facts total.
-- Added regression tests for compact state context, bounded knowledge context, categorized change summaries, no-change results, and output caps.
+- PR: https://github.com/tony21675/StoryBuilder/pull/37
+- Branch: `redesign/state-review-workflow`
+- Base main commit before this redesign: `87844863230fb996b2ca230fe9db4cc6bdc50e96`
+- This is reusable StoryBuilder code only. Do not edit or sync MyNovel content as part of testing.
 
-**Files touched:** `builder/state_manager.py`, `storybuilder.py`, `tests/test_state_analysis_transitions.py`, `README.md`, and this handoff. This is a reusable application change only. Do not edit or sync the MyNovel package or manuscript as part of testing it.
+### Ending-state review redesign
+- Writer → Analyze Accepted Scene opens on **Changes to Review**, grouped into situation/time, locations/physical state, objectives, character knowledge, investigative leads, recent events, and other state changes.
+- Full reconstructed JSON remains available under **Full State JSON (Advanced)** for deliberate corrections. Applying the proposal still validates and merges against saved current state; omitted fields remain unchanged.
+- Ending-state analysis receives compact physical/current context instead of the full state ledger. It no longer repeats the final 3,000 characters of the completed scene.
+- Character-knowledge auditing asks for new facts and exact explicit supersessions. The full persisted ledger remains application-owned and is merged; it is not regenerated wholesale.
 
-**Verification:** GitHub Actions passed on head commit `d3bb23888e480291d27d9b37c29315fb3fb8ee62`. [StoryBuilder checks](https://github.com/tony21675/StoryBuilder/actions/runs/39360732712) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/39360732727) both succeeded. Compilation passed and the complete unit-test suite passed all 263 tests. The first iterations exposed test compatibility issues in new widget-presence checks and prompt wording; those were corrected before the passing run.
+### Context pruning and historical continuity retrieval
+- Added `builder/continuity_context.py`. It ranks the current scene's active character knowledge, keeps consequential facts such as relationships, promises/secrets, injuries, evidence, and timeline cues prioritized, and deprioritizes incidental food/drink and routine details. Selection changes only what enters the active prompt; it does not delete or mutate the source ledger.
+- If a per-novel craft-notes notebook grows beyond 24 entries, only the scene-relevant notes enter the active prompt (falling back to the eight most recent when none overlap). Supporting people, off-scene location anchors, and relationship records are filtered to people actually named or used by the current scene.
+- Extended `builder/manuscript.py` to search the existing accepted manuscript as a read-only historical archive. The Writer can receive up to four source-labelled excerpts, capped at 2,400 combined characters, retrieved by lexical overlap with the current scene direction. Only scenes strictly earlier than the target scene are eligible, including legacy `Scene_XX.txt` files in `Chapter_XX` folders. The design deliberately reuses accepted manuscript files instead of creating a competing continuity database.
+- Added explicit prompt safety rules: archived excerpts are historical evidence, not current state; current saved state and scene direction take precedence; ambiguous or missing historical details must not be invented. The archive snippets identify the source manuscript file.
+- Writer status reports approximate prompt size before and after pruning and the number of retrieved excerpts. Optional prompt traces capture the same budget metrics. The estimate is character-count divided by four, a repeatable rough estimate rather than exact model-tokenizer output.
+- Retrieval is lexical, not embedding-based. It works best when the scene direction includes a person, object, event, or phrase associated with the older detail. Accepted prose remains available even when no excerpt is retrieved.
 
-**Testing after pull:** On the laptop, check git status before syncing, pull/fast-forward only if the checkout is clean, then run the focused state-transition tests before opening StoryBuilder. In Writer → Analyze Accepted Scene, the default tab should list only proposed changes; Full State JSON (Advanced) is for manual corrections. Validate a single new scene proposal before assuming the design has fixed all state issues. Never accept or overwrite accepted prose/state solely to test the new UI.
+### Files changed in this PR
+`builder/state_manager.py`, `builder/continuity_context.py`, `builder/manuscript.py`, `storybuilder.py`, `tests/test_state_analysis_transitions.py`, `tests/test_continuity_context.py`, `README.md`, and `CHAT_HANDOFF.md`.
+
+### Verification and next steps
+- The existing state-analysis redesign passed both workflows on head `d3bb23888e480291d27d9b37c29315fb3fb8ee62` (263 tests), before the context-pruning work was added. These results do not validate the latest additions.
+- Seven new context/archive regression tests now cover incidental-detail pruning without deleting the ledger, retrieval when a later scene explicitly requests an older soda detail, refusal to retrieve solely from character names, excluding current/future scene text, source precedence, and rough context reduction. Existing state tests cover the categorized diff. The complete suite should now run 270 tests.
+- Check GitHub Actions for the **latest PR head commit**, not the earlier passing commit, before treating this branch as pull-ready. Fix any regressions and update this checkpoint with the final results.
+- After final checks pass, leave PR #37 open and unmerged. Tony will review/pull after returning. On the laptop, check `git status -sb` first and pull only if the local checkout is clean and can fast-forward safely. Confirm Writer shows the changed-only state review; then test one new scene, verify the displayed before/after context estimate, and test historical retrieval using a clearly requested older detail. Do not change accepted prose/state solely for testing.
 
 ---
 
