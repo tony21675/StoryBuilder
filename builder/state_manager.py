@@ -9,42 +9,26 @@ from typing import Any
 
 from builder.workspace import LLAMA as DEFAULT_LLAMA
 
-KNOWLEDGE_AUDIT_SYSTEM_PROMPT = """You are a character-knowledge auditor for an ongoing fictional novel.
+KNOWLEDGE_AUDIT_SYSTEM_PROMPT = """You are a delta auditor for character knowledge in an ongoing fictional novel.
 
-Return ONLY valid JSON. The normal shape is:
-{"CharacterName": ["complete fact known after the section", "another complete fact known after the section"]}
-When a prior fact is explicitly superseded by the completed prose, you may additionally include:
-"_superseded_facts": {"CharacterName": ["exact prior fact that is now false or obsolete"]}
-Older callers may only consume the character-name arrays, so keep those arrays complete and valid.
+Return ONLY valid JSON in this shape:
+{"CharacterName": ["one specific NEW fact learned in this section"], "_superseded_facts": {"CharacterName": ["exact supplied prior fact made obsolete by this section"]}}
+
+This is a DELTA, not a regenerated character profile. The application retains all prior knowledge and merges your additions. For a character who learned nothing new, omit their key or return an empty array. Never copy existing knowledge into the answer.
 
 Rules:
-- The supplied character roster can include names mentioned in the prose because scene_cast records the opening cast, not every later arrival. Use the complete prose and starting locations to identify who actually participates.
-- Return cumulative knowledge for characters who are physically present, enter the scene, hear relevant dialogue, or directly observe an event. A named character who is elsewhere or merely discussed does not learn from the conversation; preserve their prior knowledge unchanged and never add new knowledge to them.
-- Return each current-scene character's COMPLETE cumulative knowledge after the completed section.
-- Preserve every valid fact already known before the section, then add every fact newly learned during the completed prose.
-- A character learns information they hear from another character's dialogue, directly observe, read, or personally experience.
-- When one character tells another a consequential fact, the listener knows that fact after the conversation.
-- Do not give information to characters who did not hear, observe, read, or experience it.
-- Preserve specific consequential facts. Do not replace several distinct facts with a vague summary.
-- If a before-state item says a character does not know a fact, and the completed prose shows that character now learns it, remove the obsolete negative statement and record the actual knowledge instead.
-- Never omit a valid prior fact merely because the completed section does not repeat it. The application also preserves prior facts as a safeguard against incomplete model output.
-- Temporary physical state is not cumulative character knowledge. Current location, posture, contact, movement, clothing, and immediate activity belong in physical_state, not character_knowledge. If the completed prose shows that a prior knowledge item describing temporary status is no longer current (for example, someone is no longer asleep, being carried, holding an object, or wearing a temporary outfit), list that exact prior item under _superseded_facts.
-- Remove only temporary or explicitly contradicted facts whose current-state meaning is stale. Preserve durable identifying details and consequential history, including the abduction, violence, injuries, observed behavior, and clues, even after those events have passed. Do not erase a fact merely because the current scene does not repeat it.
-- Only when the completed prose directly corrects, contradicts, or resolves a prior fact, list that exact prior fact under the optional "_superseded_facts" object for its character. Do not list a fact as superseded merely because it was omitted from your knowledge summary.
-- If you do not find any prior fact that is explicitly superseded, omit the "_superseded_facts" object and use the normal character-name arrays.
-- Deduplicate paraphrases of the same observation within a character's knowledge list. For example, two descriptions of Tiffany smiling/laughing before the same man moved are one observation, not two independent facts. Keep distinct physical actions and identifying details separate.
-- Do not keep contradictory positive and negative knowledge statements when the completed prose resolves the contradiction.
-- Read the entire completed section, not only its ending.
-- Never infer future events, motives, hidden information, or unstated conclusions.
-- Return knowledge facts and beliefs only, not a log of actions performed in the scene.
-- Do not record routine scene actions such as calling or inviting friends, suggesting a bath, helping someone sit up, guiding someone to a bathroom, closing a door, brewing tea, offering a mug, or lowering someone into a bath. These are scene events, not cumulative knowledge.
-- Do not record a character's act of telling, asking, offering, or suggesting something as that character's knowledge. Record the consequential fact learned by the listener instead. For example, write "Tony knows from Maya that Tiffany is missing", not "Maya told Tony that Tiffany is missing".
-- Never list a character's own actions as things that character knows. For example, "Tony helped Maya into the bath" is an event, not a knowledge fact.
-- Preserve consequential facts from important events, including the abduction, violence, injuries, identifying details, and clues. Do not delete those facts just because they describe actions.
-- A valid entry states what the character knows about the world, another person, or an event, such as "Tony knows from Maya that Tiffany is missing."
-- Preserve character knowledge separately from location, physical_state, current_situation, and event history.
-- If a character learned nothing, return that character's before-state knowledge unchanged.
-- Output JSON only. No markdown, commentary, or explanations.
+- Use the full completed prose to identify who is physically present, enters, hears relevant dialogue, reads information, or directly observes an event. scene_cast only records the opening cast. A person merely mentioned or elsewhere learns nothing.
+- Return only facts newly learned in this section. The before-state facts are a small relevance-selected sample, not a complete list; do not infer that an omitted fact is false.
+- State each addition as a durable, specific proposition about the world, a person, or an event. Do not summarize cumulative knowledge or repeat the supplied before-state facts.
+- A character learns facts they hear in dialogue, directly observe, read, or personally experience. Do not give anyone knowledge they did not receive.
+- Preserve distinct consequential details, including abduction, actions used to resist it, injuries, witness descriptions, sensory evidence, and other identifying clues. Do not compress several facts into a vague summary.
+- Do not invent motives, identities, locations, evidence, history, or unstated conclusions.
+- Knowledge is not an event log. Never list routine scene actions, a character's own actions, or the act of telling/asking/offering as knowledge. "Tony brewed tea" is an event, not a knowledge fact; "Tony learned from Maya that Tiffany is missing" is a fact learned by Tony.
+- Temporary physical state, location, posture, contact, movement, clothing, and immediate activity belong in physical_state, not cumulative knowledge. Do not add them as new knowledge unless they have independent lasting significance.
+- Only supersede an exact fact present in the supplied selected existing-knowledge context, and only when the prose directly contradicts or resolves it. Do not supersede facts merely because the current scene omits them.
+- Deduplicate wording variants of the same observation in your output. Keep independently consequential details separate.
+- If there are no valid new facts or supersessions, return {}.
+- Output JSON only, without markdown or explanations.
 """
 
 
