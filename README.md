@@ -33,6 +33,18 @@ Ending-state analysis is designed to be reviewed as a **change proposal**, not a
 
 This reduces prompt bloat and review noise; it does not make LLM proposals infallible. Read the change list before applying, and use the advanced JSON only when an actual correction is required.
 
+## Active generation context and continuity archive
+
+StoryBuilder separates what is needed in this scene from what must remain saved for later.
+
+- **Active generation context:** Current state, opening physical continuity, relevant character cards and knowledge, author rules, relevant writer notes, and only supporting people referenced by the current scene. Incidental food/drink choices and routine details are deprioritized unless the scene explicitly asks about them.
+- **Persistent continuity record:** The full saved state, character-knowledge ledger, character cards, relationship facts, writing guidance, clues, and unresolved story threads remain in the novel package. Context pruning changes the prompt view only; it does not delete or rewrite those records.
+- **Searchable historical archive:** Existing accepted manuscript sections are searched on demand. A scene receives at most four short excerpts (up to 2,400 characters combined) that match words in its direction. Each excerpt identifies its manuscript source. Only sections earlier than the target are eligible; drafts and future/current scenes are not pulled in.
+- **Authority and uncertainty:** Current saved state and current scene direction outrank old descriptions. Historical excerpts are evidence about the past, not instructions to reinstate stale physical state. When a detail cannot be found or the source is ambiguous, the Writer is told not to invent it or claim certainty.
+- **Context accounting:** Writer status reports a before/after prompt-size estimate and number of historical excerpts. The estimate uses characters divided by four, so it is a repeatable rough estimate rather than exact tokenizer output. Prompt tracing, when deliberately armed, also records these measurements.
+
+Retrieval is currently lexical rather than embedding-based: it works best when a scene idea names a person, object, event, or phrase associated with the historical detail. Full accepted prose remains the archive of record even when a detail is not retrieved. Tests cover pruning without persistent deletion, recovering a requested incidental drink, source labeling, excluding current/future scenes, current-state precedence, and estimated context reduction.
+
 ## Shared package format
 
 A novel package is a folder containing:
