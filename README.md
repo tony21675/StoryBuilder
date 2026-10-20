@@ -21,6 +21,18 @@ StoryBuilder is a small standalone desktop utility for creating and maintaining 
 - Save directly in the shared novel-package format
 - Preserve optional root-level JSON modules already present in a package
 
+## Ending-state review redesign
+
+Ending-state analysis is designed to be reviewed as a **change proposal**, not a full rewrite of the novel's state ledger.
+
+- The default review tab groups only detected additions, removals, and changes by situation/time, physical continuity, character knowledge, investigative leads, recent events, and other state.
+- The full reconstructed JSON remains available in **Full State JSON (Advanced)** for deliberate corrections. Applying still validates and merges against the saved current state; omitted fields are preserved.
+- The ending-state LLM receives a compact context focused on the scene cast, immediate physical continuity, active objectives, clues, unresolved questions, and a short recent-event window. The accepted scene is supplied once instead of repeating its final excerpt.
+- Character-knowledge auditing now asks for a bounded set of new facts and explicit supersessions. Existing knowledge remains in the application-owned ledger and is merged rather than regenerated from scratch.
+- Regression tests cover compact context filtering, bounded/relevance-ranked knowledge context, grouped change summaries, empty diffs, and output caps.
+
+This reduces prompt bloat and review noise; it does not make LLM proposals infallible. Read the change list before applying, and use the advanced JSON only when an actual correction is required.
+
 ## Shared package format
 
 A novel package is a folder containing:
