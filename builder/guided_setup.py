@@ -109,7 +109,7 @@ class GuidedSetupSession:
                 self.step = "relationships"
                 return GuidedResult(
                     "Characters are set. Enter established relationships one per line, like "
-                    "Tony-Tiffany: father and daughter. You can skip this."
+                    "Character A-Character B: siblings. You can skip this."
                 )
             try:
                 filename = package.add_character(text)
@@ -176,7 +176,7 @@ class GuidedSetupSession:
             self.step = "relationships"
             return GuidedResult(
                 "Characters are set. Enter established relationships one per line, like "
-                "Tony-Tiffany: father and daughter. You can skip this."
+                "Character A-Character B: siblings. You can skip this."
             )
 
         if self.step == "relationships":
@@ -187,7 +187,7 @@ class GuidedSetupSession:
                 package.story_bible["relationships"] = {}
             self.step = "locations"
             return GuidedResult(
-                "Now enter established locations one per line, like home: Tony's house near the edge of town. You can skip this."
+                "Now enter established locations one per line, like home: the main house. You can skip this."
             )
 
         if self.step == "locations":
