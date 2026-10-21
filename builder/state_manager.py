@@ -21,9 +21,9 @@ Rules:
 - Return only facts newly learned in this section. The before-state facts are a small relevance-selected sample, not a complete list; do not infer that an omitted fact is false.
 - State each addition as a durable, specific proposition about the world, a person, or an event. Do not summarize cumulative knowledge or repeat the supplied before-state facts.
 - A character learns facts they hear in dialogue, directly observe, read, or personally experience. Do not give anyone knowledge they did not receive. When a character directly identifies or explains a discovery in the prose, record that specific discovery in that character's knowledge; if the explanation is heard by other characters, record it for those listeners too. Do not leave a meaningful technical discovery present only in the clue ledger while omitting it from the discoverer's knowledge.
-- Preserve distinct consequential details, including abduction, actions used to resist it, injuries, witness descriptions, sensory evidence, and other identifying clues. Do not compress several facts into a vague summary.
+- Preserve distinct consequential details appropriate to the story, including important actions, injuries, observations, technical findings, and other evidence. Do not compress several facts into a vague summary.
 - Do not invent motives, identities, locations, evidence, history, or unstated conclusions.
-- Knowledge is not an event log. Never list routine scene actions, a character's own actions, or the act of telling/asking/offering as knowledge. "Tony brewed tea" is an event, not a knowledge fact; "Tony learned from Maya that Tiffany is missing" is a fact learned by Tony.
+- Knowledge is not an event log. Never list routine scene actions, a character's own actions, or the act of telling/asking/offering as knowledge. A character making tea is an event, not a knowledge fact; a character learning a specific fact from another character is a fact in the learner's knowledge.
 - Temporary physical state, location, posture, contact, movement, clothing, and immediate activity belong in physical_state, not cumulative knowledge. Do not add them as new knowledge unless they have independent lasting significance.
 - Only supersede an exact fact present in the supplied selected existing-knowledge context, and only when the prose directly contradicts or resolves it. Do not supersede facts merely because the current scene omits them.
 - Deduplicate paraphrases of the same observation in your output. Keep independently consequential details separate.
@@ -61,15 +61,16 @@ def is_routine_action_log_knowledge(
     """Identify routine actions mistakenly stored as cumulative knowledge.
 
     This deliberately targets routine scene logistics, not consequential
-    events such as the kidnapping, strikes, injuries, clues, or other material
+    events, conflicts, injuries, discoveries, clues, or other material
     facts that characters need to remember for continuity.
     """
     text_value = re.sub(r"^[-*•\s]+", "", str(value or "").strip()).casefold()
     if not text_value:
         return False
 
-    # "Has told Tony that Tiffany is gone" records the act of telling; the
-    # consequential fact belongs in Tony's knowledge, not as Maya's action log.
+    # "Has told another character that a person is missing" records the act of
+    # telling; the consequential fact belongs in the listener's knowledge, not
+    # as the speaker's action log.
     if re.match(
         r"^(?:(?:has|have|had)\s+)?(?:told|asked|called|offered|suggested|invited)\b",
         text_value,
@@ -771,7 +772,16 @@ def recover_explicit_unresolved_questions(
     known_names = list(dict.fromkeys(known_names))
 
     victim = ""
-    action_pattern = re.compile(r"\b(?:abducted|kidnapped|taken|captured|missing|gone)\b", re.IGNORECASE)
+    # A disappearance or unknown identity alone is not proof of abduction.
+    # Infer kidnapping-specific questions only when the provided facts establish
+    # that type of event.
+    abduction_established = bool(
+        re.search(r"\b(?:abduct\w*|kidnap\w*|captiv\w*)\b", lowered)
+    )
+    action_pattern = re.compile(
+        r"\b(?:abducted|kidnapped|captured|missing|gone)\b",
+        re.IGNORECASE,
+    )
     for fact in facts:
         for action in action_pattern.finditer(fact):
             prefix = fact[:action.start()]
@@ -827,22 +837,41 @@ def recover_explicit_unresolved_questions(
         r"\b(?:does not know|doesn't know|do not know|don't know)\b.{0,90}\b(?:who|identity|name)\b",
         lowered,
     ))
-    if unknown_identity and not removal_covers("who") and not identity_answered():
-        questions.append(f"Who abducted {victim}?" if victim else "Who is the kidnapper?")
+    if (
+        abduction_established
+        and unknown_identity
+        and not removal_covers("who")
+        and not identity_answered()
+    ):
+        questions.append(
+            f"Who abducted {victim}?" if victim else "Who was responsible for the abduction?"
+        )
 
     unknown_destination = bool(re.search(
         r"\b(?:does not know|doesn't know|do not know|don't know)\b.{0,100}\b(?:where|destination|location)\b",
         lowered,
     ))
-    if unknown_destination and not removal_covers("where") and not destination_answered():
-        questions.append(f"Where was {victim} taken?" if victim else "Where was the abducted person taken?")
+    if (
+        abduction_established
+        and unknown_destination
+        and not removal_covers("where")
+        and not destination_answered()
+    ):
+        questions.append(
+            f"Where was {victim} taken?"
+            if victim
+            else "Where was the abducted person taken?"
+        )
 
     no_plate = bool(re.search(
         r"\b(?:no|without|lacks?|lack of)\b.{0,50}\b(?:concrete\s+)?(?:license|number) plate\b",
         lowered,
     ))
-    if no_plate and not removal_covers("plate") and not plate_answered():
-        questions.append("What was the van's license plate?")
+    vehicle_present = bool(
+        re.search(r"\b(?:vehicle|car|van|truck|bus|motorcycle|suv|sedan)\b", lowered)
+    )
+    if vehicle_present and no_plate and not removal_covers("plate") and not plate_answered():
+        questions.append("What was the vehicle's license plate?")
 
     return filter_new_string_items(current_state.get("unresolved_questions", []), questions)
 
