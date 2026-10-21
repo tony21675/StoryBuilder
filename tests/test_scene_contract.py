@@ -400,12 +400,29 @@ Preserve all established character roles and knowledge boundaries; do not invent
         self.assertIn("defining details and meaningful", prompt)
         self.assertNotIn("Rewrite the scene from the beginning", prompt)
 
+    def test_shared_contract_prompts_are_genre_neutral(self):
+        prompts = (
+            scene_contract.CONTRACT_BUILDER_SYSTEM_PROMPT,
+            scene_contract.VALIDATOR_SYSTEM_PROMPT,
+            SceneContract.writer_prompt_context(
+                "Saved starting-state summary (verify historical claims).",
+                {"author_idea": "A crew gathers to decide its next safe step."},
+            ),
+        )
+        for prompt in prompts:
+            lowered = prompt.casefold()
+            for story_specific_term in ("bubble bath", "abduction", "tiffany", "barnaby"):
+                self.assertNotIn(story_specific_term, lowered)
+        context = prompts[2].casefold()
+        self.assertIn("distinguish established facts from speculation", context)
+        self.assertIn("must not overrule or contradict the author's intent", context)
+
     def test_validator_treats_required_beats_as_narrative_goals(self):
         prompt = scene_contract.VALIDATOR_SYSTEM_PROMPT
         self.assertIn("Judge meaning, not keywords", prompt)
         self.assertIn("A check is met only when its main action and defining details are present", prompt)
-        self.assertIn("A specified bubble bath is not a shower", prompt)
-        self.assertIn("still needs its bubbles", prompt)
+        self.assertIn("Do not accept a superficially similar substitute for a specifically requested action or object", prompt)
+        self.assertIn("preserve the author's defining details", prompt)
         self.assertIn('"checks": [{"requirement": "", "status": "met", "evidence": ""}]', prompt)
         self.assertIn("verbatim quote from COMPLETED SCENE only", prompt)
         self.assertIn("COMPLETED SCENE only", prompt)
@@ -458,7 +475,7 @@ Preserve all established character roles and knowledge boundaries; do not invent
             captured["prompt"],
         )
         self.assertIn(
-            "A specified bubble bath replaced with a shower is a material substitution",
+            "Replacing a specifically requested action or object with a superficially similar substitute is a material change",
             captured["prompt"],
         )
         self.assertIn(
@@ -1096,7 +1113,7 @@ Preserve all established character roles and knowledge boundaries; do not invent
         self.assertIn("could be a little more explicit", result["notes"])
         self.assertIn("purely incidental detail is missing", captured["prompt"])
         self.assertIn(
-            "A specified bubble bath replaced with a shower is a material substitution",
+            "Replacing a specifically requested action or object with a superficially similar substitute is a material change",
             captured["prompt"],
         )
         self.assertIn(prose, captured["prompt"])
@@ -1175,7 +1192,7 @@ Preserve all established character roles and knowledge boundaries; do not invent
         self.assertIn(idea, writer_context)
         self.assertIn("COMPACT SUPPORTING CONTRACT (SECONDARY):", writer_context)
         self.assertIn("AUTHOR ACTION FIDELITY", writer_context)
-        self.assertIn("a bubble bath is not a shower", writer_context)
+        self.assertIn("do not substitute a merely similar action or object", writer_context)
         self.assertIn("Treat wording such as 'can' or 'may' as permission", writer_context)
         self.assertIn("Natural dialogue, gestures, pacing, transitions, and connective", writer_context)
         self.assertLess(
