@@ -501,18 +501,30 @@ def reconcile_string_items(
 
 def _knowledge_fact_identity(value: str) -> str:
     """Canonicalize low-risk wording variants so the same observation is not stored twice."""
-    lowered = re.sub(r"\s+", " ", value).strip().rstrip(".!?").casefold()
+    raw_text = re.sub(r"\s+", " ", value).strip().rstrip(".!?")
+    lowered = raw_text.casefold()
     lowered = re.sub(r"\b(?:saw|observed|noticed|witnessed)\b", "observed", lowered)
     lowered = re.sub(r"\b(?:smiled|smiling|laughed|laughing)\b", "appeared-happy", lowered)
     lowered = re.sub(r"\b(?:there|while)\b", "", lowered)
     lowered = re.sub(r"\s+", " ", lowered).strip()
-    # These two forms describe the same pre-abduction observation despite the
-    # model switching between "smiling" and "laughing" and moving "standing".
-    if re.search(r"\btiffany\b", lowered) and re.search(
-        r"\bappeared-happy\b.*\bbefore\b.*\bman\b.*\bmov\w*\b",
+    # Merge wording variants of the same person's demeanor before another
+    # person moves, without depending on any character's name or story genre.
+    if re.search(
+        r"\bappeared-happy\b.*\bbefore\b.*\b\w+\b.*\bmov\w*\b",
         lowered,
     ):
-        return "tiffany-pre-movement-demeanor"
+        prefix = re.split(r"\bbefore\b", raw_text, maxsplit=1, flags=re.IGNORECASE)[0]
+        named_words = re.findall(r"\b[A-Z][A-Za-z'-]+\b", prefix)
+        excluded = {
+            "saw", "observed", "noticed", "witnessed", "heard", "learned",
+            "reported", "while", "before", "after", "then",
+        }
+        candidates = [
+            word for word in named_words
+            if word.casefold() not in excluded
+        ]
+        if candidates:
+            return f"{candidates[-1].casefold()}-pre-movement-demeanor"
     lowered = re.sub(r"^(?:know|knows)\s+(?:that\s+)?", "knows ", lowered)
     return lowered
 
