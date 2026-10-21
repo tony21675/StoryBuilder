@@ -2864,6 +2864,8 @@ The author's canon, explicit boundaries, and clearly stated requirements are the
 
 The Scene Idea also contains the author's deliberate story commitments. Put its concrete beats on the page: specifically named actions, quoted lines or nicknames, relationship milestones, reveals, choices, callbacks, and emotional turns. Do not silently omit one, replace a specific beat with a generic gesture, or assume matching the mood is enough. Let each beat arise naturally in the scene rather than presenting it as a checklist. If a generated contract or summary leaves out or weakens a beat from the original Scene Idea, follow the original idea.
 
+Preserve the direction of agency and emotional causality in each beat: who initiates, comforts, is comforted, expresses gratitude, is thanked, asks, answers, acts, or undergoes the intended emotional change. Those relationships are part of the beat, not interchangeable staging. Do not swap the roles or move a character's gratitude to someone else merely to preserve the mood.
+
 Begin from the saved story state: where people are, their physical circumstances, what has happened, and what each character knows. Do not replay completed events, contradict established facts, or give a character knowledge they have not earned. Knowing that an event happened is not the same as witnessing it. Earlier manuscript excerpts are historical evidence, not current state. The current saved state and explicit present-scene direction take precedence; never let a stale excerpt override what is true now. The RETRIEVED HISTORICAL CONTINUITY ARCHIVE is supporting context, not an authority over the present scene.
 
 Keep explicit author rules marked MUST, NEVER, REQUIRED, or FORBIDDEN. Stable author writing guidance carries recurring style preferences and explicit avoidances. Honor clear prohibitions when relevant. Treat general writing preferences as a tonal compass, not a checklist. Temporary writer notes are suggestions, not canon.
@@ -2871,7 +2873,7 @@ Keep explicit author rules marked MUST, NEVER, REQUIRED, or FORBIDDEN. Stable au
 THE CREATIVE JOB
 Make the story feel lived in. Invent natural dialogue, small talk, gestures, sensory texture, routines, background activity, incidental characters, plausible shared memories, transitions, and connective actions. Make ordinary creative decisions without waiting for the author to specify every step. Omitted everyday details are opportunities to write, not things forbidden by silence.
 
-Take creative initiative in present-scene action: fresh dialogue, choices, realizations, hypotheses, discoveries, leads, and complications are welcome when they grow naturally from the characters and the story. Be more careful with retroactive history. Do not invent a past suspicious action, major clue, secret meeting, promise, or relationship-defining event as established fact unless it is supported by canon, manuscript context, or the author's Scene Idea. If a possible past clue feels dramatically useful but is not established, let a character wonder about it or raise it as a hypothesis rather than having the narration certify it as true. Do not contradict canon, undo settled events, or reveal a mystery before the story earns it. Creative developments are welcome when they fit the story.
+Take creative initiative in present-scene action: fresh dialogue, choices, realizations, hypotheses, discoveries, leads, and complications are welcome when they grow naturally from the characters and the story. Be more careful with retroactive history. Do not invent a past suspicious action, major clue, secret meeting, promise, or relationship-defining event as established fact unless it is supported by canon, manuscript context, or the author's Scene Idea. If a possible past clue feels dramatically useful but is not established, let a character wonder about it or raise it as a hypothesis rather than having the narration certify it as true, but only when the Scene Idea permits that speculation. If an explicit boundary forbids new clues, do not introduce one even as a question, guess, or hypothesis. Do not contradict canon, undo settled events, or reveal a mystery before the story earns it. Creative developments are welcome when they fit the story.
 
 SHAPE AND VOICE
 Write a complete scene with a natural flow of opening, development, and consequence. Every concrete story commitment named in the original Scene Idea must happen on-page, including specific dialogue or nicknames, relationship milestones, and planned emotional turns. Include the important movements named in the idea without mechanically checking off incidental wording. If the scene spans several phases or time, carry it through that arc instead of stopping after the first prominent action. Honor an explicit endpoint or hard stop; do not end too early or cross the boundary into a later scene. If no endpoint is specified, choose the most satisfying natural stopping point.
@@ -3270,7 +3272,9 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             "Make specific actions, quoted lines or nicknames, relationship milestones, reveals, and emotional turns happen on-page; "
             "do not replace them with a generic equivalent or let a shortened contract omit them. Weave them naturally rather than checking them off. "
             "Use judgment for natural dialogue, emotional progression, atmosphere, incidental details, connective actions, and fitting story turns. "
+            "Preserve who initiates, gives or receives comfort, expresses gratitude, and whose emotional state changes; these are part of the beat, not interchangeable staging. "
             "Be cautious about inventing past clues or relationship-defining history that is not grounded in canon or the idea. "
+            "Explicit boundaries override creative initiative: if new clues are forbidden, do not introduce them even as questions, guesses, or hypotheses. "
             "Do not stop after only the first highlighted action when the scene's movement continues; "
             "do not cross a stated hard stop.\n\n"
             "Write the scene now. Output only the prose."
@@ -3437,17 +3441,18 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             copy_label="Copy Full Preview",
         )
 
-    def _clear_previous_generated_scene_display(self):
-        """Clear the prior scene from the Writer workspace before a fresh generation.
+    def _clear_previous_generated_scene_display(self, preserve_draft=False):
+        """Clear the Writer display, optionally retaining the draft for recovery.
 
-        Accepted manuscript files and the accepted-scene cache are intentionally
-        left untouched. Regeneration skips this helper so a failed retry can keep
-        showing the draft it was trying to replace.
+        Accepted manuscript files and the accepted-scene cache are untouched.
+        During regeneration, keep the previous draft in memory while clearing
+        the display for the incoming streamed replacement.
         """
-        self.generated_scene = ""
-        self.generated_scene_context = None
-        self.generated_scene_start_state = None
-        self.focused_revision_history = []
+        if not preserve_draft:
+            self.generated_scene = ""
+            self.generated_scene_context = None
+            self.generated_scene_start_state = None
+            self.focused_revision_history = []
 
         output = self.__dict__.get("writer_output_text")
         if output is not None:
@@ -3502,11 +3507,11 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         if self.dirty:
             return
 
-        if not replacing_draft:
-            # The previous scene remains safely in the accepted manuscript.
-            # Remove it from the Writer workspace so the new draft has a clean
-            # display while preserving the Regenerate Scene failure-recovery path.
-            self._clear_previous_generated_scene_display()
+        # Always clear the visible output before streamed text arrives. During
+        # regeneration, retain the previous draft in memory for failure recovery.
+        self._clear_previous_generated_scene_display(
+            preserve_draft=replacing_draft
+        )
 
         self.writer_write_button.configure(state="disabled")
         self.writer_status.configure(text="Preparing scene context...")
@@ -3831,6 +3836,9 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
                     text="A draft was produced before the error. It remains available for your review."
                 )
             elif self._has_pending_generated_scene():
+                # No replacement prose arrived. Restore the retained draft for review.
+                self.writer_output_text.delete("1.0", "end")
+                self.writer_output_text.insert("1.0", self.generated_scene)
                 self.writer_status.configure(
                     text="Regeneration failed. Your previous draft remains unchanged."
                 )

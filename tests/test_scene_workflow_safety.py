@@ -144,6 +144,30 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         self.assertEqual(app.writer_state_diff_preview.value, "")
         self.assertEqual(app.writer_state_diff_preview.state, "disabled")
 
+    def test_clear_previous_generated_scene_display_can_preserve_draft(self):
+        prose = "The existing draft must remain available during regeneration."
+        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+        app.generated_scene = prose
+        app.generated_scene_context = (3, 3)
+        app.generated_scene_start_state = {"chapter": 3, "scene": 3}
+        app.focused_revision_history = ["existing revision"]
+        app.writer_output_text = FakeText(prose)
+        app.writer_state_preview = FakeText("old state preview")
+        app.writer_state_diff_preview = FakeText("old state diff")
+
+        storybuilder_app.StoryBuilderApp._clear_previous_generated_scene_display(
+            app, preserve_draft=True
+        )
+
+        self.assertEqual(app.generated_scene, prose)
+        self.assertEqual(app.generated_scene_context, (3, 3))
+        self.assertEqual(app.generated_scene_start_state, {"chapter": 3, "scene": 3})
+        self.assertEqual(app.focused_revision_history, ["existing revision"])
+        self.assertEqual(app.writer_output_text.value, "")
+        self.assertEqual(app.writer_state_preview.value, "")
+        self.assertEqual(app.writer_state_diff_preview.value, "")
+        self.assertEqual(app.writer_state_diff_preview.state, "disabled")
+
     def test_streamed_writer_text_appends_only_for_active_scene_generation(self):
         app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
         app.writer_generation_in_progress = True
@@ -384,6 +408,34 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         self.assertEqual(app.generated_scene, partial)
         self.assertEqual(app.writer_output_text.value, partial)
         self.assertIn("remains available for your review", app.writer_status.options["text"])
+        app._update_writer_buttons.assert_called_once_with()
+
+    def test_failed_regeneration_restores_previous_draft_when_no_new_text_arrives(self):
+        previous = "The previous draft must survive a failed regeneration."
+        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+        app.package = SimpleNamespace(current_state={"chapter": 2, "scene": 4})
+        app.generated_scene = previous
+        app.generated_scene_context = (2, 4)
+        app.generated_scene_start_state = {"chapter": 2, "scene": 4}
+        app.writer_stream_buffer = ""
+        app.writer_generation_context = (2, 4)
+        app.writer_generation_start_state = {"chapter": 2, "scene": 4}
+        app.writer_generation_in_progress = True
+        app.writer_output_text = FakeText("")
+        app.writer_status = FakeButton()
+        app._show_copyable_error = Mock()
+        app._update_writer_buttons = Mock()
+        app._has_pending_generated_scene = lambda: bool(app.generated_scene)
+
+        app._finish_generated_scene("", "Model generation timed out.")
+
+        self.assertFalse(app.writer_generation_in_progress)
+        self.assertEqual(app.generated_scene, previous)
+        self.assertEqual(app.writer_output_text.value, previous)
+        self.assertIn(
+            "previous draft remains unchanged",
+            app.writer_status.options["text"],
+        )
         app._update_writer_buttons.assert_called_once_with()
 
     def test_sync_failure_uses_copyable_error_dialog(self):
@@ -1267,6 +1319,8 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             prompt,
         )
         self.assertIn("Creative developments are welcome when they fit the story.", prompt)
+        self.assertIn("Preserve the direction of agency and emotional causality in each beat", prompt)
+        self.assertIn("If an explicit boundary forbids new clues, do not introduce one", prompt)
         self.assertIn("The Scene Idea also contains the author's deliberate story commitments.", prompt)
         self.assertIn("quoted lines or nicknames, relationship milestones", prompt)
         self.assertIn("Every concrete story commitment named in the original Scene Idea must happen on-page", prompt)
@@ -1291,6 +1345,8 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         self.assertIn("Its concrete planned beats are deliberate commitments.", prompt)
         self.assertIn("specific actions, quoted lines or nicknames, relationship milestones, reveals, and emotional turns happen on-page", prompt)
         self.assertIn("incidental details, connective actions, and fitting story turns", prompt)
+        self.assertIn("Preserve who initiates, gives or receives comfort", prompt)
+        self.assertIn("if new clues are forbidden, do not introduce them even as questions", prompt)
         self.assertIn("inventing past clues or relationship-defining history", prompt)
         self.assertIn("do not cross a stated hard stop", prompt)
         self.assertIn("Output only the prose.", prompt)
