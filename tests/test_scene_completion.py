@@ -357,7 +357,10 @@ class SceneCompletionTests(unittest.TestCase):
         self.assertIn("unsupported consequential fact", prompt)
         self.assertIn("Do not treat ordinary brainstorming as a continuity conflict unless the draft presents or relies on it as fact", prompt)
         self.assertIn("Check for unsupported consequential facts", prompt)
+        self.assertIn("Distinguish reasonable character-based speculation from established fact", prompt)
         self.assertIn("Boundaries: Do not introduce new clues.", prompt)
+        self.assertNotIn("abduction", prompt.casefold())
+        self.assertNotIn("tiffany", prompt.casefold())
         self.assertEqual(result["status"], "clear")
 
 
