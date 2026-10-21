@@ -1,3 +1,6 @@
+## Writer prompt assembly map, October 21, 2026
+
+The current Writer input is assembled from the static system prompt, generated Scene Direction/contract context, a separate scene-boundary brief, selected novel reference files, and optional historical manuscript excerpts. The static prompt and scene brief repeat some protections for required beats, emotional agency, clue boundaries, and hard stops. This may be purposeful reinforcement; do not remove rules without classifying them and testing. The read-only Writer Context Preview assembles the layers and reports estimated size plus included/pruned/compacted files. See [STORY_FLOW_REPAIR_PLAN.md](STORY_FLOW_REPAIR_PLAN.md). Next: inspect `SceneContract.writer_prompt_context`, then review the preview in the disposable package. No code or novel change.
 ## Natural-flow investigation checkpoint, October 21, 2026
 
 Current plan: [STORY_FLOW_REPAIR_PLAN.md](STORY_FLOW_REPAIR_PLAN.md). Chapter 1 flows from character interaction into plot more naturally than Chapter 2, which sometimes repeats distress/reassurance and overexplains already-clear emotions. This is a hypothesis about craft, not proof that prompt length alone caused the difference.
