@@ -47,7 +47,7 @@ _PROTECTED_FACT = re.compile(
     r"before sunrise|before dawn|after midnight|sunrise|hours later|tomorrow|yesterday|"
     r"attack|assault|violence|shot|stab\w*|strangl\w*|drug\w*|poison\w*|chok\w*|"
     r"blood|bleed\w*|punch\w*|hit by|grabbed|forced|rescued|escaped|police|fingerprint|"
-    r"scent|smell\w*|cigarette|cologne|pine needle)\b",
+    r"scent|smell\w*|odor\w*|odour\w*|fragrance|aroma)\b",
     re.IGNORECASE,
 )
 _DISPOSABLE_DETAIL = re.compile(
