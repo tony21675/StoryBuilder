@@ -66,7 +66,7 @@ def _audit_prompt(scene_context, current_state, author_guidance, prose):
         + str(author_guidance or "").strip()
         + "\n\nCOMPLETED SCENE TO AUDIT:\n"
         + str(prose or "").strip()
-        + "\n\nRequired category keys: timeline_and_event_order, presence_and_character_knowledge, physical_and_location_continuity, unsupported_consequential_details, scene_scope_and_hard_stop.\nAudit all five required categories. For any conflict, draft_evidence must be an exact quote "
+        + "\n\nRequired category keys: timeline_and_event_order, presence_and_character_knowledge, physical_and_location_continuity, unsupported_consequential_details, scene_scope_and_hard_stop.\nAudit all five required categories. Explicit author boundaries override creative freedom: if source block A or C forbids new clues, a specific clue-like claim is still a boundary violation even when phrased as a question, guess, possibility, hypothesis, or imagined habit/destination. Do not treat hedging as permission. Distinguish neutral brainstorming about general search methods from wording that introduces a specific clue-like claim. If a boundary forbids finalized assignments or later-scene work, check that against the actual degree of task detail and scene progress. For any conflict, draft_evidence must be an exact quote "
         "from the completed scene and source_evidence an exact quote from source block A, B, or C. "
         "If even one category cannot be verified, mark it uncertain. JSON only; no prose outside the object."
     )
