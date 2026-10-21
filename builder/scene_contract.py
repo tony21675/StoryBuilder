@@ -1096,7 +1096,8 @@ class SceneContract:
             "The Scene Idea defines the whole scene; concise generated direction must not shrink a broader scene to that action. Reach the endpoint without padding or continuing into the next scene. "
             "Knowing an event happened is not witnessing it. Only present sights, sounds, smells, dialogue, or actions as a character's personal memory when they witnessed them. "
             "Attribute second-hand information and never transfer another character's eyewitness experience. "
-            "Explicit author-defined boundaries override creative initiative; if new clues are forbidden, do not introduce one even as a question, guess, or hypothesis."
+            "Explicit author-defined boundaries override creative initiative: when new clues are forbidden, do not invent a specific witness, suspicious contact, object, encounter, named destination, motive, identity, or event. "
+            "A character may suggest a familiar habit, coping pattern, or type of place based on a close relationship; keep this as tentative brainstorming rather than a verified lead."
         )
 
         return "\n\n".join(parts)
