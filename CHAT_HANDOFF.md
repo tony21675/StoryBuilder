@@ -1,4 +1,4 @@
-## Active handoff — October 21, 2026: main-only workflow and creative-first live test
+## Active handoff — October 21, 2026: current audit checkpoint in [CHAT_HANDOFF_LATEST.md](CHAT_HANDOFF_LATEST.md) and [APP_AUDIT_2026-10-21.md](APP_AUDIT_2026-10-21.md)
 
 **Current state:** PR #44, [Experiment: creative-first Writer prompt](https://github.com/tony21675/StoryBuilder/pull/44), is merged into `main` at `e43314e17173d178588fea31c5969769007a7a1e`. The merge includes the creative-first Writer prompt, streamed initial-draft output, and Scene Contract/continuity-audit refinements. This changed StoryBuilder application code only. MyNovel and accepted manuscript prose were not changed by the merge.
 
