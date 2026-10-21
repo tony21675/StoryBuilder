@@ -301,7 +301,7 @@ class SceneCompletionTests(unittest.TestCase):
         self.assertEqual(result["status"], "clear")
         self.assertEqual(result["issues"], [])
         prompt = self.engine.prompts[0]
-        self.assertIn("general suggestion about familiar coping habits, routine, or type of place as a clue", prompt)
+        self.assertIn("Distinguish reasonable character-based speculation from established fact", prompt)
         self.assertIn("Maya and Chloe are lifelong friends of Tiffany.", prompt)
 
     def test_audit_marks_conflict_uncertain_when_quotes_are_not_verifiable(self):
@@ -354,8 +354,8 @@ class SceneCompletionTests(unittest.TestCase):
         for category in AUDIT_CATEGORIES:
             self.assertIn(category, prompt)
         self.assertIn("exact quote", prompt)
-        self.assertIn("do not allow an invented concrete witness, suspicious contact, object, encounter, named destination, or event", prompt)
-        self.assertIn("do not misclassify a close friend's general suggestion about familiar coping habits, routine, or type of place as a clue", prompt)
+        self.assertIn("unsupported consequential fact", prompt)
+        self.assertIn("Do not flag general speculation merely because the Scene Idea does not spell it out", prompt)
         self.assertIn("Judge whether the draft supplies or relies on a concrete actionable fact", prompt)
         self.assertIn("Boundaries: Do not introduce new clues.", prompt)
         self.assertEqual(result["status"], "clear")
