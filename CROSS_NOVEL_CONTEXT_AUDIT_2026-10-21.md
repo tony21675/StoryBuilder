@@ -1,5 +1,13 @@
 
 
+## Final source grep follow-up — October 21, 2026
+
+Tony's runtime grep after the 334-test clean run found one remaining source match: `storybuilder.py` hard-coded `relationship_with_tony` in the Story Interview's Relationships section. It was a legacy character-card field accessor rather than an instruction prompt, but it was not genre-neutral. The code now preserves generic `relationships` and `friendship_dynamics` fields and includes any character-specific relationship field whose key begins `relationship_with_`. A regression test uses `relationship_with_zoe` and the generic-source isolation test now includes this method.
+
+Changes are on the redesign branch in commits `8f99587a21868576c740813f1819a19eafdbb3fc` and `c6162d400dd978b35b027158adcb2b43b6d537a4`. The laptop must pull and rerun the complete suite before this final cleanup is considered verified. Then repeat the runtime source grep for old character/story terms. No novel files have been edited; the unaccepted Mars draft remains preserved.
+
+
+
 ## Follow-up to local test results — October 21, 2026
 
 Tony pulled the prior audit batch and ran the full suite: **330 passed, 4 failed**. Three failures were stale prompt-text assertions resulting from the deliberate shortening/generalization of shared guidance. The fourth highlighted a real omission: the system prompt for the integrity auditor had been generalized, but the dynamically assembled user prompt in `_audit_prompt` still carried the old mystery-specific instruction paragraph.
