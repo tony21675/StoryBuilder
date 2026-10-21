@@ -98,5 +98,5 @@ def apply_command(package, command: str) -> ChangeResult:
 
     return ChangeResult(
         False,
-        'I did not recognize that change yet. Try "Change Maya\'s age to 22" or use the editor tabs.',
+        'I did not recognize that change yet. Try "Change a character\'s age to 22" or use the editor tabs.',
     )
