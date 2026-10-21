@@ -326,7 +326,7 @@ class StoryBuilderApp(tk.Tk):
         ttk.Label(tab, text="Tell the builder what to change", font=("", 14, "bold")).pack(anchor="w")
         ttk.Label(
             tab,
-            text='Examples:  Change Maya\'s age to 22   •   Set the current chapter to 2   •   Change the story title to The Long Road',
+            text='Examples:  Change a character\'s age to 22   •   Set the current chapter to 2   •   Change the story title to My New Story',
         ).pack(anchor="w", pady=(4, 12))
 
         chat_frame = ttk.Frame(tab)
