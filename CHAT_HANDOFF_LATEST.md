@@ -1,3 +1,15 @@
+## Final runtime-source grep follow-up — October 21, 2026
+
+After the latest local `334 passed` run, Tony searched runtime source/templates for the old novel's character names and terms. One match remained at `storybuilder.py`: the Story Interview's Relationships section explicitly read `relationship_with_tony`. It was not a Writer prompt or cross-package loader, but it was still an unnecessary prior-novel field assumption.
+
+The field lookup is now generic: always include `relationships` and `friendship_dynamics`, then include any character-card key beginning `relationship_with_`. Added a regression test that verifies the interview displays a generic `relationship_with_zoe` field, and expanded source isolation checking to cover this method. Remote commits: `8f99587a21868576c740813f1819a19eafdbb3fc` and `c6162d400dd978b35b027158adcb2b43b6d537a4`. Not yet pulled or locally tested.
+
+Next on laptop: `cd ~/Documents/StoryBuilder && git pull --ff-only`, then `cd ~/Documents/StoryBuilder && python3 -m pytest -q`. If green, repeat the runtime grep:
+```bash
+cd ~/Documents/StoryBuilder && git grep -n -i -E 'Tony|Tiffany|Maya|Barnaby|Chloe|Taken at Dusk|bubble bath|cologne|pine needle' -- storybuilder.py builder templates || echo "No matches found in runtime source or templates."
+```
+Expected result is no matches. Keep both novels and the existing Mars draft untouched while verifying.
+
 # IMMEDIATE NEXT STEP: Latest prompt fixes — October 21, 2026
 
 The laptop was pulled through `f8756db`, then reported **330 passed, 4 failed**. The remaining issues have now been fixed on the remote redesign branch:
