@@ -304,6 +304,33 @@ class SceneCompletionTests(unittest.TestCase):
         self.assertIn("Distinguish reasonable character-based speculation from established fact", prompt)
         self.assertIn("Maya and Chloe are lifelong friends of Tiffany.", prompt)
 
+    def test_integrity_audit_can_quote_accepted_historical_corrections(self):
+        prose = "The pressure leak was feeding the scrubber."
+        accepted_history = "It's not a pressure bleed causing the spike."
+        checks = self._audit_checks()
+        checks["unsupported_consequential_details"] = {
+            "status": "conflict",
+            "reason": "The draft revives an explanation explicitly rejected in accepted prose.",
+            "draft_evidence": prose,
+            "source_evidence": accepted_history,
+        }
+        self.engine.responses = [json.dumps({"checks": checks})]
+
+        result = _run_scene_integrity_audit(
+            engine=self.engine,
+            model_path=self.model,
+            writer_system_prompt=self.system_prompt,
+            scene_context="The crew identifies the contamination path.",
+            current_state={"current_situation": "The cause remains unresolved."},
+            author_guidance="The failure is accidental, not sabotage.",
+            historical_context=accepted_history,
+            prose=prose,
+        )
+
+        self.assertEqual(result["status"], "conflict")
+        self.assertIn(accepted_history, self.engine.prompts[0])
+        self.assertIn(accepted_history, result["issues"][0])
+
     def test_audit_marks_conflict_uncertain_when_quotes_are_not_verifiable(self):
         prose = "Chloe saw Tiffany taken."
         context = "The abduction happened Friday afternoon."
@@ -357,6 +384,8 @@ class SceneCompletionTests(unittest.TestCase):
         self.assertIn("unsupported consequential fact", prompt)
         self.assertIn("Do not treat ordinary brainstorming as a continuity conflict unless the draft presents or relies on it as fact", prompt)
         self.assertIn("Check for unsupported consequential facts", prompt)
+        self.assertIn("direct correction or rejection in accepted manuscript evidence", prompt)
+        self.assertIn("indirect framing as well as explicit claims", prompt)
         self.assertIn("Distinguish reasonable character-based speculation from established fact", prompt)
         self.assertIn("Boundaries: Do not introduce new clues.", prompt)
         self.assertNotIn("abduction", prompt.casefold())
