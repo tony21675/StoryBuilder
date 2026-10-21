@@ -660,6 +660,17 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
                 self.assertTrue(app._save_unsaved_writer_draft())
             ask.assert_not_called()
 
+    def test_window_close_defaults_to_local_close_without_sync(self):
+        source = Path(storybuilder_app.__file__).read_text(encoding="utf-8")
+        self.assertIn(
+            'self.protocol("WM_DELETE_WINDOW", self._close_without_sync)',
+            source,
+        )
+        self.assertNotIn(
+            'self.protocol("WM_DELETE_WINDOW", self._close_and_sync)',
+            source,
+        )
+
     def test_close_cancel_keeps_storybuilder_open_and_does_not_save_package(self):
         app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
         app._closing = False
