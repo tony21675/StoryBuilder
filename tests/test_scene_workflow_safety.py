@@ -1343,15 +1343,18 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         prompt = app._writer_scene_boundary_prompt()
 
         self.assertIn("The idea gives purpose and direction, not a script.", prompt)
-        self.assertIn("Its concrete planned beats are deliberate commitments.", prompt)
-        self.assertIn("specific actions, quoted lines or nicknames, relationship milestones, reveals, and emotional turns happen on-page", prompt)
-        self.assertIn("incidental details, connective actions, and fitting story turns", prompt)
-        self.assertIn("Preserve who initiates, gives or receives comfort", prompt)
-        self.assertIn("A friend may suggest a general habit, coping pattern, or familiar type of place", prompt)
-        self.assertIn("do not invent a specific witness", prompt)
-        self.assertIn("inventing past clues or relationship-defining history", prompt)
-        self.assertIn("do not cross a stated hard stop", prompt)
+        self.assertIn("original idea and saved story state", prompt)
+        self.assertIn("canon, character knowledge", prompt)
+        self.assertIn("concrete planned beats and their agency", prompt)
+        self.assertIn("explicit boundaries", prompt)
+        self.assertIn("intended endpoint", prompt)
+        self.assertIn("Use creative judgment for dialogue, emotional progression, pacing, atmosphere, and connective action.", prompt)
+        self.assertIn("Do not invent unsupported past facts or concrete clues forbidden by the author.", prompt)
+        self.assertIn("Do not stop early or cross a stated hard stop.", prompt)
         self.assertIn("Output only the prose.", prompt)
+        self.assertNotIn("A friend may suggest", prompt)
+        self.assertNotIn("Preserve who initiates, gives or receives comfort", prompt)
+        self.assertLess(len(prompt), 1100)
 
     def test_semantic_validator_checks_opening_physical_continuity(self):
         current_state = {
