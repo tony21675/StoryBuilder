@@ -1,3 +1,15 @@
+# LATEST FOLLOW-UP: Contract endpoint generation clarified — October 21, 2026
+
+Tony checked the saved local package after Writer's End line remained empty. The read-only inspection confirms this is a missing stored endpoint, not just a display problem. The active package is Chapter 1, Scene 3. Its writing_guidance.json entry has a saved Scene Idea and a short direction, but top-level end_condition, top-level hard_stop, and nested scene_contract.hard_stop are all missing. The nested contract contains only boundaries, max_attempts, and required_beats.
+
+The earlier endpoint-display fallback remains valid, but cannot produce an endpoint from no saved value. Updated the generic contract-builder prompt so stated scene outcomes, such as a meeting intended to let someone issue next steps, are translated into a concise stopping point even when not explicitly labeled End. It tells the model to stop at the author's stated outcome, avoid adding later actions, and leave the endpoint blank only when no defensible outcome or temporal boundary exists. Added a regression test. This is generic behavior, not a Mars-specific rule.
+
+Current commits on redesign branch: 979d625 (contract prompt), 22c5fd7 (regression test), 1a9516b (plan documentation), plus prior endpoint fallback and button consolidation commits.
+
+Local verification pending: Tony's laptop has the prior milestone pulled and tested at 317 passed, but has not pulled these newest prompt/test/docs updates. After a clean-status check in ~/Documents/StoryBuilder on redesign/simplified-writing-workflow, use git pull --ff-only, then python3 -m pytest -q. After tests pass, restart directly with python3 storybuilder.py. The saved Scene 3 contract still has no endpoint until a new contract is deliberately generated. When ready, Tony must click the single Prepare Scene... action and confirm replacement of the saved generated contract; this preserves the Scene Idea and does not alter accepted prose or state. Review the resulting End / Hard Stop before proceeding. Do not generate or accept prose during this contract check. Do not edit the Mars novel files from the coding tools and do not touch Taken_at_Dusk. main remains untouched.
+
+---
+
 # LATEST MILESTONE — Single scene-preparation action and saved endpoint fix — October 21, 2026
 
 Tony confirmed the full-width Write layout is easier to use and that the Scene Details panel expands/collapses correctly. The latest StoryBuilder changes on `redesign/simplified-writing-workflow` are:
