@@ -64,3 +64,10 @@ After reviewing the evidence together, make one scoped change and add tests for 
 ## Current status and next action
 
 The source-history review confirmed that the creative-first prompt is already merged. The remaining investigation is to map the current assembled Writer prompt and look for saved traces that could establish what was actually sent to the model. No code or manuscript change is authorized or made by this plan.
+
+
+## Source inspection finding, October 21, 2026
+
+The current prompt assembly has at least four layers: (1) the static Writer system prompt in `storybuilder.py::_writer_system_prompt`, (2) the generated Scene Direction/contract from `SceneContract.writer_prompt_context`, (3) the extra `_writer_scene_boundary_prompt`, and (4) the selected novel reference files plus optional retrieved historical manuscript excerpts. The read-only **Writer Context Preview** assembles these layers, estimates size, and lists included/pruned/compacted files without generating a scene or changing story state.
+
+The static prompt and scene boundary both restate some of the same points: deliberate beats must happen on-page, emotional agency must be preserved, clues must remain bounded, and hard stops must be honored. Some duplication may be purposeful reinforcement, so do not delete it blindly. The next concrete step is to inspect the live preview and the implementation of `SceneContract.writer_prompt_context`, then classify each repeated instruction as essential anchor, unique context, or redundant emphasis. This is more targeted than assuming the static prompt alone is the problem.
