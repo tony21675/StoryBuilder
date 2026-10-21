@@ -2333,7 +2333,13 @@ class StoryBuilderApp(tk.Tk):
 
         if title == "Relationships":
             parts = []
-            for key in ("relationships", "friendship_dynamics", "relationship_with_tony"):
+            relationship_keys = ["relationships", "friendship_dynamics"]
+            relationship_keys.extend(
+                key for key in character
+                if str(key).startswith("relationship_with_")
+                and key not in relationship_keys
+            )
+            for key in relationship_keys:
                 item = block(key.replace("_", " ").title(), character.get(key))
                 if item:
                     parts.append(item)
