@@ -660,6 +660,58 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
                 self.assertTrue(app._save_unsaved_writer_draft())
             ask.assert_not_called()
 
+    def test_write_workspace_embeds_contract_and_writer_into_one_primary_area(self):
+        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+        app.notebook = Mock()
+        app.notebook.pages = object()
+        app._build_scene_contract_tab = Mock()
+        app._build_writer_tab = Mock()
+
+        class FakeLayoutContainer:
+            instances = []
+
+            def __init__(self, master=None, **kwargs):
+                self.master = master
+                self.options = kwargs
+                self.children = []
+                self.pack_options = None
+                type(self).instances.append(self)
+
+            def pack(self, *args, **kwargs):
+                self.pack_options = (args, kwargs)
+
+            def add(self, child, **kwargs):
+                self.children.append((child, kwargs))
+
+        FakeLayoutContainer.instances.clear()
+        with (
+            patch.object(storybuilder_app.ttk, "Frame", FakeLayoutContainer),
+            patch.object(storybuilder_app.ttk, "Panedwindow", FakeLayoutContainer),
+        ):
+            storybuilder_app.StoryBuilderApp._build_write_workspace(app)
+
+        page = app.notebook.add.call_args.args[0]
+        self.assertEqual(app.notebook.add.call_args.kwargs, {"text": "Write"})
+        self.assertIs(page.master, app.notebook.pages)
+
+        panes = next(
+            widget for widget in FakeLayoutContainer.instances
+            if "orient" in widget.options
+        )
+        self.assertEqual(len(panes.children), 2)
+        contract_host, contract_options = panes.children[0]
+        writer_host, writer_options = panes.children[1]
+        self.assertEqual(contract_options["weight"], 2)
+        self.assertEqual(writer_options["weight"], 3)
+        app._build_scene_contract_tab.assert_called_once_with(
+            parent=contract_host,
+            register=False,
+        )
+        app._build_writer_tab.assert_called_once_with(
+            parent=writer_host,
+            register=False,
+        )
+
     def test_window_close_defaults_to_local_close_without_sync(self):
         source = Path(storybuilder_app.__file__).read_text(encoding="utf-8")
         self.assertIn(
