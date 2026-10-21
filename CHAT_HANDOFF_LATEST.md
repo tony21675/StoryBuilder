@@ -1,3 +1,7 @@
+## Final race-safety regression added — October 21, 2026
+
+Added one more focused test in [commit 252ab9a](https://github.com/tony21675/StoryBuilder/commit/252ab9a2c7c84d330e7a5d7f6a635a4cc3d3e3f9): if the Writer editor changes during model generation, Focused Change must refuse to apply the returned revision and preserve the user's newer text. This test is now part of the suite. CI for this latest test addition must finish before the test milestone is considered green; the previous 301-test baseline passed both workflows.
+
 ## Verification complete — October 21, 2026
 
 Verified code baseline: `cb73a10bae2b1e845419d67f79eeb8a98e1abee4`; commits after this baseline have changed handoff documentation only. Both CI workflows passed on this commit: [checks](https://github.com/tony21675/StoryBuilder/actions/runs/39559964629) and [tests](https://github.com/tony21675/StoryBuilder/actions/runs/39559964594). The unit-test job reports **301 tests passed** and compilation succeeded. Code repair commit: [d382e471](https://github.com/tony21675/StoryBuilder/commit/d382e471b3c9046b9c6a77e0049aa2b7caa1221e); the subsequent test-fixture correction is [7ac07a9](https://github.com/tony21675/StoryBuilder/commit/7ac07a9b37df5a16ff9523b2185753bd96a43bcd). Changes after that were handoff documentation only. No local model/UI run has been performed yet.
