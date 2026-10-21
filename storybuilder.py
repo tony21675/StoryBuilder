@@ -947,6 +947,13 @@ class StoryBuilderApp(tk.Tk):
         )
         self.scene_contract_suggest_button.pack(side="left", padx=(0, 8))
 
+        self.scene_contract_save_idea_button = ttk.Button(
+            idea_button_row,
+            text="Save Scene Idea",
+            command=self._apply_scene_contract_edits,
+        )
+        self.scene_contract_save_idea_button.pack(side="left", padx=(0, 8))
+
         self.scene_contract_build_button = ttk.Button(
             idea_button_row,
             text="Generate / Replace Contract...",
@@ -5155,7 +5162,8 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
 
     def _apply_scene_contract_edits(self):
         """Save only the editable Scene Idea; all other contract fields are generated."""
-        if self.package is None or not hasattr(self, "scene_idea_text"):
+        idea_widget = self.__dict__.get("scene_idea_text")
+        if self.package is None or idea_widget is None:
             return
 
         scene_key = getattr(self, "scene_contract_editor_key", None)
@@ -5165,8 +5173,10 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             chapter = int(self.package.current_state.get("chapter", 1) or 1)
             scene = int(self.package.current_state.get("scene", 1) or 1)
 
-        idea = self.scene_idea_text.get("1.0", "end-1c").strip()
+        idea = idea_widget.get("1.0", "end-1c").strip()
         self._save_scene_idea(chapter, scene, idea)
+        self._refresh_writer_scene_guidance()
+        self._build_scene_direction()
         self.scene_contract_status.configure(
             text=f"Saved Scene Idea for Chapter {chapter}, Scene {scene}.",
         )
