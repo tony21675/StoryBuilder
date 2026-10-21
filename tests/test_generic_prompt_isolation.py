@@ -75,6 +75,7 @@ class GenericStoryPromptTests(unittest.TestCase):
             "character_knowledge": {
                 "Zoe Bennett": [
                     "Zoe does not know who disabled the oxygen scrubber.",
+                    "Zoe has not identified the kidnapper.",
                     "The communications officer is missing.",
                 ],
             },
