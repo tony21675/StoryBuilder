@@ -147,9 +147,9 @@ Rules:
 - For changed nested objects, include only changed nested keys.
 - For arrays, replace the array only when that array truly changed.
 - JSON null in a partial update is an explicit deletion marker for an existing object key; StoryBuilder removes that key instead of storing null. Use it only when the prose establishes that a prior field/item is no longer applicable or an active objective has ended. For example, set a stale physical_state subfield such as position, posture, contact, movement, condition, activity, interaction, a temporarily held object, or temporary clothing to null when it no longer applies and is not replaced by a new value. Set active_objectives.Character to null when that objective is complete, abandoned, or superseded. Do not use null for facts that are merely absent from this scene, and never delete a character's location just because the character is off-screen. Do not put null inside arrays.
-- Examine the full completed prose for newly introduced, concrete clues. Include concrete identifying evidence such as a visible injury or mark inflicted during the event, a specific scent, a vehicle detail or movement, a plate detail, a distinctive sound, or a directly observed route. Do not leave an investigative detail only in character_knowledge when it is relevant to finding a person or vehicle. Return new_clues as concise observable facts (use [] when there are none), not interpretations or guessed explanations. Keep one observation's details together: do not invent an additional scent, split one smell into multiple scents, or strengthen a witness's uncertain comparison into certainty. Return resolved_clues only for exact existing active_clues entries that the prose explicitly resolves or disproves. Do not remove an existing clue merely because it is not repeated. Do not report a clue as new when the same clue is already in active_clues; the application also filters duplicates.
+- Examine the full completed prose for newly introduced, concrete clues. Include concrete identifying evidence such as a visible injury or mark inflicted during the event, a specific scent, a vehicle detail or movement, a plate detail, a distinctive sound, or a directly observed route. Do not leave an investigative detail only in character_knowledge when it is relevant to finding a person or vehicle. Return new_clues as concise observable facts (use [] when there are none), not interpretations or guessed explanations. Keep one observation's details together: do not invent an additional scent, split one smell into multiple scents, or strengthen a witness's uncertain comparison into certainty. Return resolved_clues only for exact existing active_clues entries that the prose explicitly resolves or disproves. Do not remove an existing clue merely because it is not repeated. The application also requires direct textual evidence of resolution before removing a clue; if no clear resolution occurs in the completed prose, omit it. Do not report a clue as new when the same clue is already in active_clues; the application also filters duplicates.
 - Return new_unresolved_questions only for concrete factual unknowns made salient by this scene that remain unanswered. Return resolved_questions only for exact existing unresolved_questions entries answered by the completed prose. Preserve all other existing clues and questions; StoryBuilder will apply additions and explicit removals without asking the model to regenerate the whole historical list.
-- Treat current_situation as a live scene-state field, not as a scene-plan instruction. When the completed section ends in a materially different immediate situation, update current_situation to a concise description of that ending state so it can serve as the starting state for the next scene.
+- Treat current_situation as a live scene-state field, not as a scene-plan instruction. When the completed section ends in a materially different immediate situation, update current_situation to a concise description of that ending state so it can serve as the starting state for the next scene. Never invent a prior diagnosis or hypothesis just to describe a shift in understanding; only say the crew was investigating a pressure leak, blockage, breach, or other specific failure mode if the before-state or completed prose actually establishes it.
 - Do not copy scene-plan wording, future-scene instructions, hard stops, or author directions into current_situation.
 - When the section crosses a scene boundary, describe what is true at the end of the completed section, not what should happen afterward.
 - Never invent future events.
@@ -590,6 +590,95 @@ def filter_new_clue_items(existing_clues: Any, candidates: list[str]) -> list[st
             result.append(value)
             known.add(key)
     return result
+
+
+
+_CLUE_RESOLUTION_STOPWORDS = {
+    "a", "an", "and", "are", "as", "at", "be", "been", "by", "for",
+    "from", "had", "has", "have", "in", "into", "is", "it", "its",
+    "of", "on", "or", "that", "the", "their", "there", "this", "to",
+    "was", "were", "with", "during", "after", "before", "small", "main",
+    "primary", "known", "sharp", "sharply", "sudden", "suddenly",
+}
+
+_CLUE_RESOLUTION_PATTERNS = tuple(
+    re.compile(pattern, re.IGNORECASE)
+    for pattern in (
+        r"\b(?:ruled out|disproved|resolved|eliminated|debunked)\b",
+        r"\bfalse alarm\b",
+        r"\b(?:not|never) (?:the|a|an) (?:actual )?(?:cause|source|fault|failure|leak)\b",
+        r"\b(?:was|were|is|are) not (?:the|a|an) (?:actual )?(?:cause|source|fault|failure|leak)\b",
+        r"\b(?:wasn't|weren't|isn't|aren't) (?:the|a|an) (?:actual )?(?:cause|source|fault|failure|leak)\b",
+        r"\bnot caused by\b",
+        r"\bno evidence of\b",
+        r"\bno signs? of\b",
+        r"\bno longer (?:present|active|visible|detected|operational)\b",
+        r"\b(?:returned|restored|switched|turned|went) (?:back )?(?:to )?(?:normal|baseline|steady green|green|off|silent|clear)\b",
+    )
+)
+
+
+def filter_supported_clue_resolutions(
+    existing_clues: Any,
+    proposed_resolutions: Any,
+    completed_text: str,
+) -> list[str]:
+    """Accept model-proposed clue removals only when the prose supports resolution.
+
+    Clue resolution is deliberately conservative: the proposal must name an
+    existing clue exactly, and a sentence in the completed prose must both
+    refer to at least two meaningful words from that clue and contain explicit
+    resolution language. A clue that simply disappears from a scene, or is
+    mentioned while the story moves on, remains active for continuity.
+    """
+    existing = [
+        item.strip()
+        for item in (existing_clues if isinstance(existing_clues, list) else [])
+        if isinstance(item, str) and item.strip()
+    ]
+    by_identity = {
+        re.sub(r"\s+", " ", item).rstrip(".!?").casefold(): item
+        for item in existing
+    }
+    if not by_identity or not str(completed_text or "").strip():
+        return []
+
+    sentences = [
+        sentence.strip()
+        for sentence in re.split(r"(?<=[.!?])\s+|[\n;]+", str(completed_text or ""))
+        if sentence.strip()
+    ]
+    proposed = proposed_resolutions if isinstance(proposed_resolutions, list) else []
+    supported: list[str] = []
+    seen: set[str] = set()
+
+    for raw in proposed:
+        if not isinstance(raw, str) or not raw.strip():
+            continue
+        key = re.sub(r"\s+", " ", raw.strip()).rstrip(".!?").casefold()
+        stored_clue = by_identity.get(key)
+        if not stored_clue or key in seen:
+            continue
+
+        clue_words = {
+            word for word in re.findall(r"[a-z0-9]+", stored_clue.casefold())
+            if len(word) > 2 and word not in _CLUE_RESOLUTION_STOPWORDS
+        }
+        required_overlap = 1 if len(clue_words) == 1 else 2
+        resolved_in_prose = False
+        for sentence in sentences:
+            if not any(pattern.search(sentence) for pattern in _CLUE_RESOLUTION_PATTERNS):
+                continue
+            sentence_words = set(re.findall(r"[a-z0-9]+", sentence.casefold()))
+            if len(clue_words.intersection(sentence_words)) >= required_overlap:
+                resolved_in_prose = True
+                break
+
+        if resolved_in_prose:
+            supported.append(stored_clue)
+            seen.add(key)
+
+    return supported
 
 
 def recover_clues_from_knowledge(character_knowledge: Any) -> list[str]:
@@ -1946,6 +2035,9 @@ class StateManager:
         # by an earlier state pass. Such backfilled evidence is active, but is not
         # incorrectly labeled as newly introduced in this scene.
         previous_clues = current_state.get("active_clues", [])
+        resolved_clues = filter_supported_clue_resolutions(
+            previous_clues, resolved_clues, completed_text
+        )
         recovered_clues = recover_clues_from_knowledge(
             current_state.get("character_knowledge", {})
         )
