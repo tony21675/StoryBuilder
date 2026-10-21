@@ -37,7 +37,13 @@ class FakeText:
         self.value = ""
 
     def insert(self, _index, value):
-        self.value = value
+        if _index == "end":
+            self.value += value
+        else:
+            self.value = value
+
+    def see(self, _index):
+        pass
 
 
 class FakePopupWidget:
@@ -137,6 +143,28 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         self.assertEqual(app.writer_state_preview.value, "")
         self.assertEqual(app.writer_state_diff_preview.value, "")
         self.assertEqual(app.writer_state_diff_preview.state, "disabled")
+
+    def test_streamed_writer_text_appends_only_for_active_scene_generation(self):
+        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+        app.writer_generation_in_progress = True
+        app.writer_generation_context = (3, 4)
+        app.writer_output_text = FakeText("Opening sentence. ")
+        
+        storybuilder_app.StoryBuilderApp._append_streamed_scene_chunk(
+            app, (3, 4), "Next sentence."
+        )
+        self.assertEqual(app.writer_output_text.value, "Opening sentence. Next sentence.")
+
+        storybuilder_app.StoryBuilderApp._append_streamed_scene_chunk(
+            app, (3, 3), "Stale text."
+        )
+        self.assertEqual(app.writer_output_text.value, "Opening sentence. Next sentence.")
+
+        app.writer_generation_in_progress = False
+        storybuilder_app.StoryBuilderApp._append_streamed_scene_chunk(
+            app, (3, 4), "Late text."
+        )
+        self.assertEqual(app.writer_output_text.value, "Opening sentence. Next sentence.")
 
     def make_scene_idea_reload_app(self, saved_idea, current_idea, confirm=True):
         app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
@@ -334,6 +362,30 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         self.assertEqual(app.writer_output_text.value, draft)
         self.assertIn("remains available for your review", app.writer_status.options["text"])
         app._update_writer_buttons.assert_called_once_with()
+
+    def test_partial_stream_is_preserved_if_generation_errors(self):
+        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+        partial = "A partial scene that streamed into the Writer box."
+        app.package = SimpleNamespace(current_state={"chapter": 2, "scene": 4})
+        app.generated_scene = ""
+        app.accepted_scene = ""
+        app.writer_stream_buffer = partial
+        app.writer_generation_context = (2, 4)
+        app.writer_generation_start_state = {"chapter": 2, "scene": 4}
+        app.writer_generation_in_progress = True
+        app.writer_output_text = FakeText(partial)
+        app.writer_status = FakeButton()
+        app._show_copyable_error = Mock()
+        app._update_writer_buttons = Mock()
+
+        app._finish_generated_scene("", "Model generation timed out.")
+
+        self.assertFalse(app.writer_generation_in_progress)
+        self.assertEqual(app.generated_scene, partial)
+        self.assertEqual(app.writer_output_text.value, partial)
+        self.assertIn("remains available for your review", app.writer_status.options["text"])
+        app._update_writer_buttons.assert_called_once_with()
+
     def test_sync_failure_uses_copyable_error_dialog(self):
         with tempfile.TemporaryDirectory() as tmp:
             app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
