@@ -785,16 +785,23 @@ def recover_explicit_unresolved_questions(
 
     victim = ""
     # A disappearance or unknown identity alone is not proof of abduction.
-    # Infer kidnapping-specific questions only when the provided facts establish
-    # that type of event.
-    abduction_established = bool(
-        re.search(r"\b(?:abduct\w*|kidnap\w*|captiv\w*)\b", lowered)
+    # Scope the event signal to a fact that actually describes taking/capturing
+    # someone, so an unrelated missing person is not mistaken for the target.
+    abduction_evidence_pattern = re.compile(
+        r"\b(?:abduct\w*|kidnap\w*|captiv\w*)\b"
+        r"|\b(?:taken|captured|carried off)\b.{0,80}\b(?:by|from)\b",
+        re.IGNORECASE,
+    )
+    abduction_established = any(
+        abduction_evidence_pattern.search(fact) for fact in facts
     )
     action_pattern = re.compile(
-        r"\b(?:abducted|kidnapped|captured|missing|gone)\b",
+        r"\b(?:abducted|kidnapped|captured|taken|missing|gone)\b",
         re.IGNORECASE,
     )
     for fact in facts:
+        if not abduction_evidence_pattern.search(fact):
+            continue
         for action in action_pattern.finditer(fact):
             prefix = fact[:action.start()]
             closest = None
