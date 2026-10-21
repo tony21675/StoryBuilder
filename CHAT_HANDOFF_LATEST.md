@@ -1,3 +1,9 @@
+## Final verification — October 21, 2026
+
+Selection-aware Focused Change plus the concurrent-editor safety regression are verified by CI on code/test commit [252ab9a](https://github.com/tony21675/StoryBuilder/commit/252ab9a2c7c84d330e7a5d7f6a635a4cc3d3e3f9): **302 unit tests passed**, compile passed. Both workflows also passed on the subsequent latest handoff-only main commit: [checks](https://github.com/tony21675/StoryBuilder/actions/runs/39560296419), [tests](https://github.com/tony21675/StoryBuilder/actions/runs/39560296424). The latest repair code remains on `main`. No live desktop/local-GGUF test has been done.
+
+**Next action:** On the laptop, first ensure no Writer generation/revision is running. Decide how to preserve or discard the unaccepted test draft; never use Close & Sync Novel for the disposable package. Then update/launch StoryBuilder from `main` with the disposable package selected and test a short selected passage, verifying that all surrounding prose stays unchanged. After the live test, update both handoffs again. Do not accept the current draft or apply its state update.
+
 ## Final race-safety regression added — October 21, 2026
 
 Added one more focused test in [commit 252ab9a](https://github.com/tony21675/StoryBuilder/commit/252ab9a2c7c84d330e7a5d7f6a635a4cc3d3e3f9): if the Writer editor changes during model generation, Focused Change must refuse to apply the returned revision and preserve the user's newer text. This test is now part of the suite. CI for this latest test addition must finish before the test milestone is considered green; the previous 301-test baseline passed both workflows.
