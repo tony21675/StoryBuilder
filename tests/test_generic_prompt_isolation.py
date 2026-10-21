@@ -45,11 +45,29 @@ class GenericStoryPromptTests(unittest.TestCase):
             inspect.getsource(conversation),
             inspect.getsource(select_active_character_knowledge),
             inspect.getsource(recover_clues_from_knowledge),
+            inspect.getsource(storybuilder_app.StoryBuilderApp._interview_character_current_answer),
         )
         for source in sources:
             lowered = source.casefold()
             for old_novel_name in ("tony", "tiffany", "maya", "barnaby"):
                 self.assertNotIn(old_novel_name, lowered)
+
+    def test_relationship_interview_reads_generic_character_specific_fields(self):
+        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+        app.package = SimpleNamespace(characters={
+            "Ari.json": {
+                "name": "Ari",
+                "relationship_with_zoe": "Ari trusts Zoe with technical decisions.",
+            }
+        })
+        app.interview_target_var = SimpleNamespace(get=lambda: "Ari.json")
+
+        answer = storybuilder_app.StoryBuilderApp._interview_character_current_answer(
+            app, "Relationships"
+        )
+
+        self.assertIn("Relationship With Zoe", answer)
+        self.assertIn("Ari trusts Zoe with technical decisions.", answer)
 
     def test_writer_scene_direction_is_read_only_and_has_copy_action(self):
         source = inspect.getsource(storybuilder_app.StoryBuilderApp._build_writer_tab)
