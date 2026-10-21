@@ -1762,8 +1762,8 @@ The story's location is Tony's home."""
         self.assertIn("Do not identify the kidnapper.", writer_context)
         self.assertIn("Do not call the police.", writer_context)
         self.assertIn("Preserve beat direction and agency", writer_context)
-        self.assertIn("A character may suggest a familiar habit, coping pattern, or type of place based on a close relationship", writer_context)
-        self.assertIn("do not invent a specific witness", writer_context)
+        self.assertIn("Distinguish established facts from speculation", writer_context)
+        self.assertIn("Do not add forbidden facts or unsupported consequential events", writer_context)
 
         validator_result = {
             "pass": True,
