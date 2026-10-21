@@ -698,6 +698,7 @@ class StateUpdateValidationTests(unittest.TestCase):
             result["active_clues"],
             [
                 "Van color is unknown",
+                "An old clue now resolved",
                 "The van accelerated unusually fast.",
                 "The reported scent combined pine needles, cheap cologne, and old cigarettes.",
             ],
