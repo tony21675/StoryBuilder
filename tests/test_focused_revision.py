@@ -145,7 +145,7 @@ class SelectedPassageRevisionTests(unittest.TestCase):
         original = "Before. selected phrase. After."
         response = json.dumps({"replacement_text": "revised phrase"})
         with self.assertRaisesRegex(ValueError, "no longer matches"):
-            apply_selected_replacement(original, 8, 23, "selected phrase", response)
+            apply_selected_replacement(original, 8, 23, "selected phrase.", response)
 
     def test_rejects_whole_scene_selection(self):
         original = "Whole scene text."
