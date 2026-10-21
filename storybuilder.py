@@ -4899,14 +4899,17 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         """Auto-suggest only when the next scene has no saved or planned idea."""
         if self.package is None:
             return
+        # Tkinter's __getattr__ may recurse when unit tests use a lightweight
+        # app stub without a Tk interpreter. The real editable widget lives in
+        # __dict__; if it is absent, there is no UI into which we can suggest.
+        scene_idea_widget = self.__dict__.get("scene_idea_text")
+        if scene_idea_widget is None:
+            return
         chapter = int(self.package.current_state.get("chapter", 1) or 1)
         scene = int(self.package.current_state.get("scene", 1) or 1)
         entry = self._editable_scene_guidance_entry(chapter, scene, create=False) or {}
         resolved_idea, _source, _error = self._resolve_scene_idea(chapter, scene, entry)
-        editor_text = (
-            self.scene_idea_text.get("1.0", "end-1c").strip()
-            if hasattr(self, "scene_idea_text") else ""
-        )
+        editor_text = scene_idea_widget.get("1.0", "end-1c").strip()
         if resolved_idea or editor_text:
             return
         self._suggest_scene_idea(
