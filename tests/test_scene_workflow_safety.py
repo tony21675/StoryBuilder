@@ -698,11 +698,12 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             widget for widget in FakeLayoutContainer.instances
             if "orient" in widget.options
         )
+        self.assertEqual(panes.options["orient"], storybuilder_app.tk.VERTICAL)
         self.assertEqual(len(panes.children), 2)
         contract_host, contract_options = panes.children[0]
         writer_host, writer_options = panes.children[1]
         self.assertEqual(contract_options["weight"], 2)
-        self.assertEqual(writer_options["weight"], 3)
+        self.assertEqual(writer_options["weight"], 4)
         app._build_scene_contract_tab.assert_called_once_with(
             parent=contract_host,
             register=False,
@@ -711,6 +712,43 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             parent=writer_host,
             register=False,
         )
+
+    def test_scene_details_toggle_shows_and_hides_optional_contract_fields(self):
+        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+
+        class FakeDetailsFrame:
+            def __init__(self):
+                self.manager = ""
+                self.pack_options = None
+                self.pack_forget_calls = 0
+
+            def winfo_manager(self):
+                return self.manager
+
+            def pack(self, **kwargs):
+                self.manager = "pack"
+                self.pack_options = kwargs
+
+            def pack_forget(self):
+                self.manager = ""
+                self.pack_forget_calls += 1
+
+        frame = FakeDetailsFrame()
+        action_row = object()
+        toggle = FakeButton()
+        app.scene_contract_details_frame = frame
+        app.scene_contract_action_row = action_row
+        app.scene_contract_details_toggle_button = toggle
+
+        storybuilder_app.StoryBuilderApp._toggle_scene_details(app)
+        self.assertEqual(frame.manager, "pack")
+        self.assertIs(frame.pack_options["before"], action_row)
+        self.assertEqual(toggle.options["text"], "Scene Details ▾")
+
+        storybuilder_app.StoryBuilderApp._toggle_scene_details(app)
+        self.assertEqual(frame.manager, "")
+        self.assertEqual(frame.pack_forget_calls, 1)
+        self.assertEqual(toggle.options["text"], "Scene Details ▸")
 
     def test_window_close_defaults_to_local_close_without_sync(self):
         source = Path(storybuilder_app.__file__).read_text(encoding="utf-8")
