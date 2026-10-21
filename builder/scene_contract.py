@@ -24,7 +24,7 @@ VALIDATOR_SYSTEM_PROMPT = """Review the author's original idea and starting stat
 
 Judge meaning, not keywords. Synonyms and paraphrases count. Evidence must be a verbatim quote from COMPLETED SCENE only; never quote the idea, instructions, contract, or state.
 Create a SHORT EVENT-LEVEL checklist, usually 4–8 checks total. Each check is one meaningful event or outcome. Group related details from the same event; do not create separate checks for clauses, adjectives, people, objects, or small actions. Keep events separate only when each could be missing independently. Ignore incidental details unless the idea makes them defining, continuity-critical, or a boundary/preference.
-Review the whole scene. A check is met only when its main action and defining details are present. Different wording is fine; a different action, object, person, order, or outcome is not. A specified bubble bath is not a shower and still needs its bubbles. Use an exact quote that supports the event. Minor descriptive omissions alone do not fail unless material. Flag unexplained opening continuity mismatches, character-knowledge conflicts, and ignored acknowledged requests. Check acknowledged requests/preferences against later actions. Preserve stated backstory and accept neutral familial comfort. List each missing event once; if any check is missing, pass must be false.
+Review the whole scene. A check is met only when its main action and defining details are present. Different wording is fine; a different action, object, person, order, or outcome is not. Do not accept a superficially similar substitute for a specifically requested action or object; preserve the author's defining details. Use an exact quote that supports the event. Minor descriptive omissions alone do not fail unless material. Flag unexplained opening continuity mismatches, character-knowledge conflicts, and ignored acknowledged requests. Check acknowledged requests/preferences against later actions. Preserve stated backstory and accept neutral familial comfort. List each missing event once; if any check is missing, pass must be false.
 """
 
 SEMANTIC_RECHECK_SYSTEM_PROMPT = """Independently reassess only the supplied checklist items against the completed scene. Return JSON only:
@@ -1075,7 +1075,7 @@ class SceneContract:
                 "PRIORITY AND AUTHOR ACTION FIDELITY:\n"
                 "The original Scene Idea defines intended direction, actions, scope, and endpoint; boundaries are mandatory. "
                 "It is not a word-for-word prose checklist. Generated direction/contract are supporting only and must not overrule or contradict the author's intent. "
-                "AUTHOR ACTION FIDELITY: Keep concrete action/object identity (a bubble bath is not a shower), preserve optionality. Treat wording such as 'can' or 'may' as permission. "
+                "AUTHOR ACTION FIDELITY: Preserve the specific action, object identity, defining details, and optionality stated by the author; do not substitute a merely similar action or object. Treat wording such as 'can' or 'may' as permission. "
                 "Natural dialogue, gestures, pacing, transitions, and connective details remain creative choices. "
                 "Preserve beat direction and agency: who initiates, gives or receives comfort, expresses gratitude, asks or answers, and whose emotional state changes are part of the beat, not interchangeable staging."
             )
@@ -1096,8 +1096,8 @@ class SceneContract:
             "The Scene Idea defines the whole scene; concise generated direction must not shrink a broader scene to that action. Reach the endpoint without padding or continuing into the next scene. "
             "Knowing an event happened is not witnessing it. Only present sights, sounds, smells, dialogue, or actions as a character's personal memory when they witnessed them. "
             "Attribute second-hand information and never transfer another character's eyewitness experience. "
-            "Explicit author-defined boundaries override creative initiative: when new clues are forbidden, do not invent a specific witness, suspicious contact, object, encounter, named destination, motive, identity, or event. "
-            "A character may suggest a familiar habit, coping pattern, or type of place based on a close relationship; keep this as tentative brainstorming rather than a verified lead."
+            "Explicit author-defined boundaries override creative initiative. Do not add any forbidden fact, event, clue, object, encounter, person, motive, identity, or resolution. "
+            "Distinguish established facts from speculation, inference, and unverified proposals; do not turn a character's guess into canon without support."
         )
 
         return "\n\n".join(parts)
@@ -1321,7 +1321,7 @@ class SceneContract:
             + "Validate against the author's original idea, relevant author guidance, and starting state. "
             + "The idea is primary; generated hints are secondary. "
             + "Treat Planned Beats and Required Beats as narrative-level goals, not a word-for-word checklist. "
-            + "A specified bubble bath replaced with a shower is a material substitution; preserve defining objects, source locations, order, and history. "
+            + "Replacing a specifically requested action or object with a superficially similar substitute is a material change; preserve defining details, source locations, order, and established history. "
             + "Check explicit requests, preferences, boundaries, or needs against later actions; flag ignored acknowledgments. "
             + "Report material omissions, substitutions, sequence/location errors, or ignored requests. "
             + "If the main action occurs but only a purely incidental detail is missing, do not fail for that alone; optional details may go in notes. "
