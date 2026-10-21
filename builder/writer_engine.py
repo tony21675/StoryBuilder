@@ -15,6 +15,111 @@ from builder.workspace import LLAMA as DEFAULT_LLAMA, MODELS_DIR
 WRITER_TIMEOUT = int(os.environ.get("STORY_WRITER_TIMEOUT", "3600"))
 
 
+class _PromptEchoStreamFilter:
+    """Stream model output while removing an echoed interactive prompt."""
+
+    def __init__(self, prompt: str, callback):
+        self.prompt = str(prompt or "")
+        self.callback = callback
+        self.buffer = ""
+        self.finished = False
+        self.skip_initial_linebreaks = False
+        self.candidates = tuple(
+            candidate for candidate in (self.prompt, "> " + self.prompt)
+            if candidate
+        )
+
+    @staticmethod
+    def _consume_visible_chars(raw: str, count: int) -> str:
+        """Consume count characters while ignoring terminal line-wrap newlines."""
+        index = 0
+        consumed = 0
+        while index < len(raw) and consumed < count:
+            if raw[index] not in "\r\n":
+                consumed += 1
+            index += 1
+        return raw[index:]
+
+    def _emit(self, value: str) -> None:
+        if not value:
+            return
+        try:
+            self.callback(value)
+        except Exception:
+            # UI streaming is best-effort and must never break model generation.
+            pass
+
+    def _emit_after_echo(self, value: str) -> None:
+        if self.skip_initial_linebreaks:
+            value = value.lstrip("\r\n")
+            if not value:
+                return
+            self.skip_initial_linebreaks = False
+        self._emit(value)
+
+    def write(self, value) -> int:
+        value = str(value or "")
+        if not value:
+            return 0
+        if self.finished:
+            self._emit_after_echo(value)
+            return len(value)
+
+        self.buffer += value
+        raw = self.buffer
+        trimmed = raw.lstrip("\r\n")
+        normalized = trimmed.replace("\r", "").replace("\n", "")
+
+        # The terminal may wrap a long echoed prompt. Ignore those wrap newlines
+        # while matching, then remove the same prefix from the original text.
+        for candidate in self.candidates:
+            if normalized.startswith(candidate):
+                remainder = self._consume_visible_chars(trimmed, len(candidate))
+                self.buffer = ""
+                self.finished = True
+                self.skip_initial_linebreaks = True
+                self._emit_after_echo(remainder)
+                return len(value)
+
+        # Wait while the data could still be the beginning of an echoed prompt.
+        if any(candidate.startswith(normalized) for candidate in self.candidates):
+            return len(value)
+
+        # This was generated prose, not the submitted prompt. Match the old
+        # response cleanup's optional "> " prefix without delaying the stream.
+        self.finished = True
+        self.buffer = ""
+        generated = trimmed
+        if generated.startswith("> "):
+            generated = generated[2:]
+        self.skip_initial_linebreaks = False
+        self._emit(generated)
+        return len(value)
+
+    def flush(self) -> None:
+        # pexpect may call flush after each read. Do not prematurely flush the
+        # ambiguous prompt prefix; write() keeps accumulating it until resolved.
+        return None
+
+    def finish(self) -> None:
+        """Release any remaining non-prompt text when generation exits."""
+        if self.finished or not self.buffer:
+            return
+        raw = self.buffer
+        trimmed = raw.lstrip("\r\n")
+        normalized = trimmed.replace("\r", "").replace("\n", "")
+        # If the remainder is only a prefix of the echoed input, don't display it
+        # as though it were story prose after a failed/partial model turn.
+        if any(candidate.startswith(normalized) for candidate in self.candidates):
+            self.buffer = ""
+            return
+        if trimmed.startswith("> "):
+            trimmed = trimmed[2:]
+        self.buffer = ""
+        self.finished = True
+        self._emit(trimmed)
+
+
 class WriterEngine:
     """Persistent local llama-cli session used by StoryBuilder."""
 
@@ -192,8 +297,13 @@ class WriterEngine:
         """Restart llama-cli with a fresh conversation context."""
         self.start(model_path, system_prompt)
 
-    def generate(self, prompt: str, timeout: int | None = None) -> str:
-        """Generate one turn, optionally using a task-specific timeout."""
+    def generate(
+        self,
+        prompt: str,
+        timeout: int | None = None,
+        on_delta=None,
+    ) -> str:
+        """Generate one turn; optionally stream story-text deltas as they arrive."""
         with self.lock:
             if self.child is None or not self.child.isalive():
                 raise RuntimeError(
@@ -212,11 +322,18 @@ class WriterEngine:
                 sent_prompt=single_line_prompt,
             )
             generation_started = time.monotonic()
-            self.child.sendline(single_line_prompt)
-
+            child = self.child
+            stream_filter = (
+                _PromptEchoStreamFilter(single_line_prompt, on_delta)
+                if callable(on_delta) else None
+            )
+            previous_logfile_read = getattr(child, "logfile_read", None)
             turn_timeout = WRITER_TIMEOUT if timeout is None else max(1, int(timeout))
             try:
-                self.child.expect(r"(?m)^> ", timeout=turn_timeout)
+                if stream_filter is not None:
+                    child.logfile_read = stream_filter
+                child.sendline(single_line_prompt)
+                child.expect(r"(?m)^> ", timeout=turn_timeout)
             except pexpect.TIMEOUT as exc:
                 child = self.child
                 output = child.before or "" if child is not None else ""
@@ -265,6 +382,13 @@ class WriterEngine:
                     "The writer failed while generating the scene.\n"
                     + str(output)[-3000:]
                 ) from exc
+            finally:
+                if stream_filter is not None:
+                    try:
+                        child.logfile_read = previous_logfile_read
+                    except Exception:
+                        pass
+                    stream_filter.finish()
 
             raw_output = str(self.child.before or "")
             diagnostics_match = re.search(
