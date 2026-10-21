@@ -1,3 +1,9 @@
+## Prompt assembly map added — October 21, 2026
+
+Source inspection found that the actual Writer context is layered: static Writer system prompt, generated Scene Direction/contract context, a separate scene-boundary brief, selected novel reference files, and optional retrieved historical excerpts. The static prompt and scene brief repeat several protections around required beats, emotional agency, clue boundaries, and hard stops. This may be deliberate reinforcement, so no removal is assumed. The read-only Writer Context Preview assembles the layers, estimates context size, and lists included/pruned/compacted files without generating prose or changing story state.
+
+The plan now records this finding in [STORY_FLOW_REPAIR_PLAN.md](STORY_FLOW_REPAIR_PLAN.md). Next: inspect `SceneContract.writer_prompt_context` and, in the disposable package, use Writer Context Preview to classify duplicated instructions before designing the one-variable prose comparison. No code or novel changes.
+
 ## New writing-flow investigation — October 21, 2026
 
 The Chapter 1 vs Chapter 2 comparison suggests Chapter 1 has more natural scene movement, while Chapter 2 sometimes repeats distress/reassurance and explains emotional conflict after the reader already understands it. This is a style hypothesis, not proof that prompt complexity alone caused the difference.
