@@ -232,7 +232,7 @@ class ContinuityContextTests(unittest.TestCase):
         prompt = app._writer_system_prompt([])
         self.assertIn("RETRIEVED HISTORICAL CONTINUITY ARCHIVE", prompt)
         self.assertIn("current saved state and explicit present-scene direction take precedence", prompt)
-        self.assertIn("do not invent a memory or claim certainty", prompt)
+        self.assertIn("never let a stale excerpt override what is true now", prompt)
 
     def test_historical_search_rejects_generic_narrative_word_matches(self):
         with tempfile.TemporaryDirectory() as tmp:

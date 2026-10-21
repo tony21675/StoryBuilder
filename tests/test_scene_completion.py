@@ -21,13 +21,17 @@ class FakeEngine:
         self.prompts = []
         self.reset_calls = []
 
-    def generate(self, prompt):
+    def generate(self, prompt, on_delta=None):
         self.prompts.append(prompt)
         if not self.responses:
             raise RuntimeError("no fake response remains")
         response = self.responses.pop(0)
         if isinstance(response, Exception):
             raise response
+        if callable(on_delta):
+            midpoint = max(1, len(response) // 2)
+            on_delta(response[:midpoint])
+            on_delta(response[midpoint:])
         return response
 
     def reset_context(self, model_path, system_prompt):
@@ -69,6 +73,19 @@ class SceneCompletionTests(unittest.TestCase):
             author_guidance=guidance,
             prose=prose,
         )
+
+    def test_initial_scene_generation_forwards_streamed_text_callback(self):
+        self.engine.responses = ["A scene arriving in pieces."]
+        pieces = []
+        draft, notice = generate_scene_with_completion_check(
+            engine=self.engine, model_path=self.model,
+            writer_system_prompt=self.system_prompt, initial_prompt="write",
+            scene_context=self.scene_context, contract={},
+            current_state=self.state, on_draft_delta=pieces.append,
+        )
+        self.assertEqual(draft, "A scene arriving in pieces.")
+        self.assertEqual("".join(pieces), draft)
+        self.assertEqual(notice, "")
 
     @patch("builder.scene_completion._run_scene_integrity_audit", return_value=PASS_AUDIT)
     @patch("builder.scene_completion.SceneContract.validate_with_engine")
@@ -216,10 +233,12 @@ class SceneCompletionTests(unittest.TestCase):
     def test_audit_requires_verbatim_evidence_for_viewpoint_timeline_privacy_and_scope(self):
         prose = (
             "Last night, Chloe saw Tiffany taken. Maya changed in the kitchen. "
+            "Maya said Tiffany had told her about an abandoned warehouse on Route 9. "
             "Jessica began reviewing traffic cameras."
         )
         context = (
             "The abduction happened Friday afternoon. "
+            "Boundaries: Do not introduce new clues. "
             "The hard stop is before search tasks."
         )
         state = {"location": {"Chloe": "At home sick."}}
@@ -236,6 +255,11 @@ class SceneCompletionTests(unittest.TestCase):
                 "Maya changed in the kitchen", "Maya must change clothes privately.",
                 "The draft contradicts the explicit privacy instruction."
             ),
+            "unsupported_consequential_details": (
+                "Tiffany had told her about an abandoned warehouse on Route 9",
+                "Boundaries: Do not introduce new clues.",
+                "The draft invents a specific actionable destination despite the explicit boundary."
+            ),
             "scene_scope_and_hard_stop": (
                 "Jessica began reviewing traffic cameras", "The hard stop is before search tasks.",
                 "The draft begins a later investigative step."
@@ -250,11 +274,35 @@ class SceneCompletionTests(unittest.TestCase):
             }
         result = self._run_audit(prose, context, state, guidance, checks)
         self.assertEqual(result["status"], "conflict")
-        self.assertEqual(len(result["issues"]), 4)
+        self.assertEqual(len(result["issues"]), 5)
         joined = "\n".join(result["issues"])
         for source_quote, *_ in examples.values():
             self.assertIn(source_quote, joined)
         self.assertIn("unsupported_consequential_details", result["details"][3])
+
+    def test_general_friend_based_habit_suggestion_is_not_itself_a_new_clue(self):
+        prose = "Maya suggested Tiffany might have a familiar place she liked to go when overwhelmed."
+        scene_context = (
+            "Scene Idea: Form the beginning of a private effort. "
+            "Boundaries: Do not introduce new clues. "
+            "Maya and Chloe are lifelong friends of Tiffany."
+        )
+        checks = self._audit_checks()
+        self.engine.responses = [json.dumps({"checks": checks})]
+        result = _run_scene_integrity_audit(
+            engine=self.engine,
+            model_path=self.model,
+            writer_system_prompt=self.system_prompt,
+            scene_context=scene_context,
+            current_state={"scene_cast": ["Tony", "Maya"]},
+            author_guidance="Maya and Chloe have known Tiffany for years.",
+            prose=prose,
+        )
+        self.assertEqual(result["status"], "clear")
+        self.assertEqual(result["issues"], [])
+        prompt = self.engine.prompts[0]
+        self.assertIn("general suggestion about familiar coping habits, routine, or type of place as a clue", prompt)
+        self.assertIn("Maya and Chloe are lifelong friends of Tiffany.", prompt)
 
     def test_audit_marks_conflict_uncertain_when_quotes_are_not_verifiable(self):
         prose = "Chloe saw Tiffany taken."
@@ -297,7 +345,7 @@ class SceneCompletionTests(unittest.TestCase):
             engine=self.engine,
             model_path=self.model,
             writer_system_prompt=self.system_prompt,
-            scene_context="Scene Idea: end before investigation.",
+            scene_context="Scene Idea: end before investigation. Boundaries: Do not introduce new clues.",
             current_state={"scene_cast": ["Tony"]},
             author_guidance="No investigation in this scene.",
             prose="Tony listened.",
@@ -306,6 +354,10 @@ class SceneCompletionTests(unittest.TestCase):
         for category in AUDIT_CATEGORIES:
             self.assertIn(category, prompt)
         self.assertIn("exact quote", prompt)
+        self.assertIn("do not allow an invented concrete witness, suspicious contact, object, encounter, named destination, or event", prompt)
+        self.assertIn("do not misclassify a close friend's general suggestion about familiar coping habits, routine, or type of place as a clue", prompt)
+        self.assertIn("Judge whether the draft supplies or relies on a concrete actionable fact", prompt)
+        self.assertIn("Boundaries: Do not introduce new clues.", prompt)
         self.assertEqual(result["status"], "clear")
 
 

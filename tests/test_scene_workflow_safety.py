@@ -37,7 +37,13 @@ class FakeText:
         self.value = ""
 
     def insert(self, _index, value):
-        self.value = value
+        if _index == "end":
+            self.value += value
+        else:
+            self.value = value
+
+    def see(self, _index):
+        pass
 
 
 class FakePopupWidget:
@@ -111,6 +117,78 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         app._refresh_manuscript = lambda: None
         app._chat = lambda *_args, **_kwargs: None
         return app
+
+    def test_clear_previous_generated_scene_display_preserves_accepted_scene(self):
+        prose = "The accepted scene remains part of the manuscript."
+        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+        app.generated_scene = prose
+        app.generated_scene_context = (3, 3)
+        app.generated_scene_start_state = {"chapter": 3, "scene": 3}
+        app.accepted_scene = prose
+        app.accepted_scene_context = (3, 3)
+        app.focused_revision_history = ["old revision"]
+        app.writer_output_text = FakeText(prose)
+        app.writer_state_preview = FakeText("old state preview")
+        app.writer_state_diff_preview = FakeText("old state diff")
+
+        storybuilder_app.StoryBuilderApp._clear_previous_generated_scene_display(app)
+
+        self.assertEqual(app.generated_scene, "")
+        self.assertIsNone(app.generated_scene_context)
+        self.assertIsNone(app.generated_scene_start_state)
+        self.assertEqual(app.accepted_scene, prose)
+        self.assertEqual(app.accepted_scene_context, (3, 3))
+        self.assertEqual(app.focused_revision_history, [])
+        self.assertEqual(app.writer_output_text.value, "")
+        self.assertEqual(app.writer_state_preview.value, "")
+        self.assertEqual(app.writer_state_diff_preview.value, "")
+        self.assertEqual(app.writer_state_diff_preview.state, "disabled")
+
+    def test_clear_previous_generated_scene_display_can_preserve_draft(self):
+        prose = "The existing draft must remain available during regeneration."
+        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+        app.generated_scene = prose
+        app.generated_scene_context = (3, 3)
+        app.generated_scene_start_state = {"chapter": 3, "scene": 3}
+        app.focused_revision_history = ["existing revision"]
+        app.writer_output_text = FakeText(prose)
+        app.writer_state_preview = FakeText("old state preview")
+        app.writer_state_diff_preview = FakeText("old state diff")
+
+        storybuilder_app.StoryBuilderApp._clear_previous_generated_scene_display(
+            app, preserve_draft=True
+        )
+
+        self.assertEqual(app.generated_scene, prose)
+        self.assertEqual(app.generated_scene_context, (3, 3))
+        self.assertEqual(app.generated_scene_start_state, {"chapter": 3, "scene": 3})
+        self.assertEqual(app.focused_revision_history, ["existing revision"])
+        self.assertEqual(app.writer_output_text.value, "")
+        self.assertEqual(app.writer_state_preview.value, "")
+        self.assertEqual(app.writer_state_diff_preview.value, "")
+        self.assertEqual(app.writer_state_diff_preview.state, "disabled")
+
+    def test_streamed_writer_text_appends_only_for_active_scene_generation(self):
+        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+        app.writer_generation_in_progress = True
+        app.writer_generation_context = (3, 4)
+        app.writer_output_text = FakeText("Opening sentence. ")
+        
+        storybuilder_app.StoryBuilderApp._append_streamed_scene_chunk(
+            app, (3, 4), "Next sentence."
+        )
+        self.assertEqual(app.writer_output_text.value, "Opening sentence. Next sentence.")
+
+        storybuilder_app.StoryBuilderApp._append_streamed_scene_chunk(
+            app, (3, 3), "Stale text."
+        )
+        self.assertEqual(app.writer_output_text.value, "Opening sentence. Next sentence.")
+
+        app.writer_generation_in_progress = False
+        storybuilder_app.StoryBuilderApp._append_streamed_scene_chunk(
+            app, (3, 4), "Late text."
+        )
+        self.assertEqual(app.writer_output_text.value, "Opening sentence. Next sentence.")
 
     def make_scene_idea_reload_app(self, saved_idea, current_idea, confirm=True):
         app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
@@ -308,6 +386,58 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         self.assertEqual(app.writer_output_text.value, draft)
         self.assertIn("remains available for your review", app.writer_status.options["text"])
         app._update_writer_buttons.assert_called_once_with()
+
+    def test_partial_stream_is_preserved_if_generation_errors(self):
+        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+        partial = "A partial scene that streamed into the Writer box."
+        app.package = SimpleNamespace(current_state={"chapter": 2, "scene": 4})
+        app.generated_scene = ""
+        app.accepted_scene = ""
+        app.writer_stream_buffer = partial
+        app.writer_generation_context = (2, 4)
+        app.writer_generation_start_state = {"chapter": 2, "scene": 4}
+        app.writer_generation_in_progress = True
+        app.writer_output_text = FakeText(partial)
+        app.writer_status = FakeButton()
+        app._show_copyable_error = Mock()
+        app._update_writer_buttons = Mock()
+
+        app._finish_generated_scene("", "Model generation timed out.")
+
+        self.assertFalse(app.writer_generation_in_progress)
+        self.assertEqual(app.generated_scene, partial)
+        self.assertEqual(app.writer_output_text.value, partial)
+        self.assertIn("remains available for your review", app.writer_status.options["text"])
+        app._update_writer_buttons.assert_called_once_with()
+
+    def test_failed_regeneration_restores_previous_draft_when_no_new_text_arrives(self):
+        previous = "The previous draft must survive a failed regeneration."
+        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+        app.package = SimpleNamespace(current_state={"chapter": 2, "scene": 4})
+        app.generated_scene = previous
+        app.generated_scene_context = (2, 4)
+        app.generated_scene_start_state = {"chapter": 2, "scene": 4}
+        app.writer_stream_buffer = ""
+        app.writer_generation_context = (2, 4)
+        app.writer_generation_start_state = {"chapter": 2, "scene": 4}
+        app.writer_generation_in_progress = True
+        app.writer_output_text = FakeText("")
+        app.writer_status = FakeButton()
+        app._show_copyable_error = Mock()
+        app._update_writer_buttons = Mock()
+        app._has_pending_generated_scene = lambda: bool(app.generated_scene)
+
+        app._finish_generated_scene("", "Model generation timed out.")
+
+        self.assertFalse(app.writer_generation_in_progress)
+        self.assertEqual(app.generated_scene, previous)
+        self.assertEqual(app.writer_output_text.value, previous)
+        self.assertIn(
+            "previous draft remains unchanged",
+            app.writer_status.options["text"],
+        )
+        app._update_writer_buttons.assert_called_once_with()
+
     def test_sync_failure_uses_copyable_error_dialog(self):
         with tempfile.TemporaryDirectory() as tmp:
             app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
@@ -1097,7 +1227,7 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         prompt = app._writer_system_prompt(app._writer_package_files())
         self.assertIn("Do not introduce floral scents.", prompt)
         self.assertIn("Stable author writing guidance", prompt)
-        self.assertIn("do not introduce music after agreeing to keep things quiet", prompt)
+        self.assertIn("Honor clear prohibitions when relevant.", prompt)
 
     def test_writer_context_includes_later_planned_character_card_and_knowledge_without_moving_physical_state(self):
         app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
@@ -1157,100 +1287,71 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         self.assertEqual(set(physical), {"Tony", "Maya"})
         self.assertNotIn("Chloe", physical)
 
-    def test_writer_system_prompt_prioritizes_scene_idea_over_generated_summaries(self):
+    def test_writer_system_prompt_prioritizes_scene_idea_without_turning_it_into_a_checklist(self):
         app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
         prompt = app._writer_system_prompt([])
 
         self.assertIn(
-            "Follow the original plain-English Scene Idea's concrete actions, important objects, meaningful order, phases, and endpoint",
+            "The original plain-English Scene Idea expresses the scene's purpose and direction",
             prompt,
         )
+        self.assertIn("Treat the Scene Idea as direction, not a line-by-line script.", prompt)
+        self.assertIn("Honor an explicit endpoint or hard stop", prompt)
         self.assertIn(
-            "Generated direction and contract support the idea; they cannot overrule or narrow it",
+            "carry it through that arc instead of stopping after the first prominent action",
             prompt,
         )
-        self.assertIn(
-            "descriptive wording is not a word-for-word checklist",
-            prompt,
-        )
-        self.assertIn(
+        self.assertIn("Do not replay completed events", prompt)
+        self.assertIn("Knowing that an event happened is not the same as witnessing it.", prompt)
+        self.assertNotIn(
             "Do not reduce a multi-phase or time-spanning scene to one emphasized action",
             prompt,
         )
-        self.assertIn("Knowing an event occurred is not witnessing it", prompt)
-        self.assertIn("Do not reduce a multi-phase or time-spanning scene to one emphasized action", prompt)
-        self.assertIn(
-            "If the idea names an endpoint, including a time boundary",
-            prompt,
-        )
-        self.assertIn(
-            "carry the scene through to it",
-            prompt,
-        )
-        self.assertIn(
-            "If no endpoint is stated, choose a natural stopping point",
-            prompt,
-        )
-        self.assertNotIn(
-            "Current scene state and scene direction are authoritative",
-            prompt,
-        )
 
-    def test_writer_prompt_preserves_uncontradicted_physical_continuity(self):
+    def test_writer_prompt_preserves_anchors_and_encourages_creative_execution(self):
         app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
         prompt = app._writer_system_prompt([])
 
+        self.assertIn("The author's canon, explicit boundaries, and clearly stated requirements are the firm ground.", prompt)
+        self.assertIn("Treat general writing preferences as a tonal compass, not a checklist.", prompt)
         self.assertIn(
-            "Silence in current_situation does not cancel physical continuity",
+            "Invent natural dialogue, small talk, gestures, sensory texture, routines, background activity, incidental characters, plausible shared memories, transitions, and connective actions.",
             prompt,
         )
-        self.assertIn(
-            "Respect privacy, dignity, established boundaries, and relationship-specific behavior",
-            prompt,
-        )
-        self.assertIn(
-            "Prefer what characters say and do over narration",
-            prompt,
-        )
-        self.assertIn(
-            "Let dialogue and interaction carry scenes where appropriate",
-            prompt,
-        )
-        self.assertIn(
-            "If a gesture could be misread, use one brief, natural cue",
-            prompt,
-        )
-        self.assertIn(
-            "rather than explaining its meaning repeatedly",
-            prompt,
-        )
-        self.assertIn(
-            "do not turn gentle concern into insistence or pressure unless the scene calls for it",
-            prompt,
-        )
-        self.assertNotIn("plainly affectionate, non-sensual language", prompt)
-        self.assertIn(
-            "Orient the reader naturally",
-            prompt,
-        )
-        self.assertIn(
-            "repeated descriptions of the same feeling/action",
-            prompt,
-        )
-        self.assertIn(
-            "offer patient, brief support",
-            prompt,
-        )
-        self.assertIn(
-            "without forcing reassurance into every pause",
-            prompt,
-        )
+        self.assertIn("Creative developments are welcome when they fit the story.", prompt)
+        self.assertIn("Preserve the direction of agency and emotional causality in each beat", prompt)
+        self.assertIn("Do not mistake relationship-based insight for a new clue", prompt)
+        self.assertIn("a new witness, suspicious contact, object, encounter, named destination", prompt)
+        self.assertIn("The Scene Idea also contains the author's deliberate story commitments.", prompt)
+        self.assertIn("quoted lines or nicknames, relationship milestones", prompt)
+        self.assertIn("Every concrete story commitment named in the original Scene Idea must happen on-page", prompt)
+        self.assertIn("Take creative initiative in present-scene action", prompt)
+        self.assertIn("Do not invent a past suspicious action, major clue, secret meeting", prompt)
+        self.assertIn("When a past clue is not established, do not certify it as true.", prompt)
+        self.assertIn("Let character voice, mood, and author preferences shape the prose without turning them into formulas.", prompt)
+        self.assertNotIn("Respect privacy, dignity, established boundaries, and relationship-specific behavior", prompt)
+        self.assertNotIn("Do not add unprompted ominous narration", prompt)
 
         notes_prompt = app._writer_system_prompt([
             ("working_writer_notes.json", '{"learned_notes":[{"note":"Use selective description and avoid repeating an emotion."}]}')
         ])
-        self.assertIn("Treat working notes as tentative craft observations", notes_prompt)
+        self.assertIn("Temporary writer notes are suggestions, not canon.", notes_prompt)
         self.assertIn("Use selective description and avoid repeating an emotion.", notes_prompt)
+
+    def test_scene_boundary_prompt_encourages_creativity_while_preserving_endpoints(self):
+        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+        prompt = app._writer_scene_boundary_prompt()
+
+        self.assertIn("The idea gives purpose and direction, not a script.", prompt)
+        self.assertIn("Its concrete planned beats are deliberate commitments.", prompt)
+        self.assertIn("specific actions, quoted lines or nicknames, relationship milestones, reveals, and emotional turns happen on-page", prompt)
+        self.assertIn("incidental details, connective actions, and fitting story turns", prompt)
+        self.assertIn("Preserve who initiates, gives or receives comfort", prompt)
+        self.assertIn("A friend may suggest a general habit, coping pattern, or familiar type of place", prompt)
+        self.assertIn("do not invent a specific witness", prompt)
+        self.assertIn("inventing past clues or relationship-defining history", prompt)
+        self.assertIn("do not cross a stated hard stop", prompt)
+        self.assertIn("Output only the prose.", prompt)
 
     def test_semantic_validator_checks_opening_physical_continuity(self):
         current_state = {

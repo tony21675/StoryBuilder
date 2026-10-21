@@ -39,8 +39,8 @@ Check specifically:
 1. Timeline and event order: explicit day, time-of-day, before/after relationships, and whether the draft changes an established time or repeats an event already completed.
 2. Presence and character knowledge: who is present or absent, who witnessed an event firsthand, who learned it secondhand, and what the character could know at this point.
 3. Physical and location continuity: where people are, movement between locations, established clothing/sleepwear, and explicit privacy requirements such as changing clothes privately.
-4. Unsupported consequential details: whether the draft presents a material new clue, injury, action, motive, identity, destination, or event as fact contrary to the context. An ordinary plausible detail is not automatically a problem merely because it is not listed.
-5. Scene scope and hard stop: whether the draft goes beyond the specified endpoint, such as beginning a later investigation, assigning detailed tasks, adding training, or resolving something reserved for later.
+4. Unsupported consequential details and explicit clue boundaries: check whether the draft invents concrete case-specific evidence such as a witness, suspicious contact, object, encounter, named destination, motive, identity, or event that is unsupported by the context. An ordinary plausible detail is not automatically a problem merely because it is not listed. If an explicit author boundary forbids new clues, that prohibition applies to invented concrete leads even when phrased as a question, possibility, or hypothesis. Do not confuse general brainstorming with a concrete lead: a close friend may suggest a familiar coping pattern, general type of place, or possible routine based on the relationship, and that is not itself proof of a destination or evidence about the abduction. Do not flag such character-based suggestions merely because the Scene Idea does not spell them out. Assess whether the scene invents or relies on an unsupported, actionable fact, not merely whether a character offers a reasonable general possibility.
+5. Scene scope and hard stop: whether the draft goes beyond the specified endpoint, such as beginning a later investigation, assigning detailed tasks, adding training, or resolving something reserved for later. Read explicit boundaries as binding constraints, not suggestions; a tentative label does not excuse a prohibited advance.
 
 Authority order: explicit author canon and instructions plus the original Scene Idea; the actual starting-state/current_situation and relevant character/location/knowledge data; then supporting generated directions. Read the relevant entries, not just the first lines. Absence from a short plan alone is not evidence that a detail is false. Preserve creative freedom for ordinary dialogue, plausible gestures, atmosphere, routine cooking details, and familiar household smells in someone's own home. Do not flag style preferences, length, or missing planned beats in this audit; a separate semantic check handles coverage. When source materials genuinely conflict or don't settle a material question, mark uncertain. A missing category, invalid schema, or unverifiable quote must never count as clear.
 """
@@ -66,7 +66,7 @@ def _audit_prompt(scene_context, current_state, author_guidance, prose):
         + str(author_guidance or "").strip()
         + "\n\nCOMPLETED SCENE TO AUDIT:\n"
         + str(prose or "").strip()
-        + "\n\nRequired category keys: timeline_and_event_order, presence_and_character_knowledge, physical_and_location_continuity, unsupported_consequential_details, scene_scope_and_hard_stop.\nAudit all five required categories. For any conflict, draft_evidence must be an exact quote "
+        + "\n\nRequired category keys: timeline_and_event_order, presence_and_character_knowledge, physical_and_location_continuity, unsupported_consequential_details, scene_scope_and_hard_stop.\nAudit all five required categories. If source block A or C forbids new clues, do not allow an invented concrete witness, suspicious contact, object, encounter, named destination, or event, even when hedged as a possibility. However, do not misclassify a close friend's general suggestion about familiar coping habits, routine, or type of place as a clue merely because the Scene Idea does not spell it out; that is character-based brainstorming, not proof the person went somewhere. Judge whether the draft supplies or relies on a concrete actionable fact, not whether a character simply considers a plausible general possibility. If a boundary forbids finalized assignments or later-scene work, check that against the actual degree of task detail and scene progress. For any conflict, draft_evidence must be an exact quote "
         "from the completed scene and source_evidence an exact quote from source block A, B, or C. "
         "If even one category cannot be verified, mark it uncertain. JSON only; no prose outside the object."
     )
@@ -229,9 +229,17 @@ def generate_scene_with_completion_check(
     *, engine: Any, model_path: str | Path, writer_system_prompt: str,
     initial_prompt: str, scene_context: str, contract: dict[str, Any],
     current_state: dict[str, Any], author_guidance: str = "",
+    on_draft_delta=None,
 ) -> tuple[str, str]:
-    """Check coverage plus evidence-backed continuity; perform at most one safe recovery."""
-    draft = str(engine.generate(initial_prompt) or "").strip()
+    """Check coverage plus evidence-backed continuity; perform at most one safe recovery.
+
+    Optional on_draft_delta receives the initial prose as it streams from the model.
+    Review/recovery calls remain non-streaming because they can replace or extend it.
+    """
+    if callable(on_draft_delta):
+        draft = str(engine.generate(initial_prompt, on_delta=on_draft_delta) or "").strip()
+    else:
+        draft = str(engine.generate(initial_prompt) or "").strip()
     if not draft or not str((contract or {}).get("author_idea", "") or "").strip():
         return draft, ""
 

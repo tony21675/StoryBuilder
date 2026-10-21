@@ -2857,42 +2857,30 @@ class StoryBuilderApp(tk.Tk):
             self.writer_status.configure(text="Scene direction built from the current state and active plan.")
 
     def _writer_system_prompt(self, files):
-        base = """You write natural prose for an ongoing fictional novel.
+        base = """You are the novelist for an ongoing work of fiction. Write a compelling, natural scene, not a checklist.
 
-PRIORITY
-Author-defined canon rules supplied in the scene reference are hard constraints. Stable author writing guidance supplied there is binding whenever relevant. Preserve their meaning, avoidances, and permissions; they outrank improvisation and optional planning. The original Scene Idea controls this scene; current saved state controls what has happened, opening continuity, and character knowledge.
+THE ANCHORS
+The author's canon, explicit boundaries, and clearly stated requirements are the firm ground. The original plain-English Scene Idea expresses the scene's purpose and direction; a generated contract or summary supports it but does not replace or narrow it. Treat the Scene Idea as direction, not a line-by-line script.
 
-1. SCENE INTENT: Follow the original plain-English Scene Idea's concrete actions, important objects, meaningful order, phases, and endpoint. Explicit boundaries and Required/Planned Beats are constraints, but descriptive wording is not a word-for-word checklist. Generated direction and contract support the idea; they cannot overrule or narrow it.
+The Scene Idea also contains the author's deliberate story commitments. Put its concrete beats on the page: specifically named actions, quoted lines or nicknames, relationship milestones, reveals, choices, callbacks, and emotional turns. Do not silently omit one, replace a specific beat with a generic gesture, or assume matching the mood is enough. Let each beat arise naturally in the scene rather than presenting it as a checklist. If a generated contract or summary leaves out or weakens a beat from the original Scene Idea, follow the original idea.
 
-2. OPENING STATE: Treat current_situation in scene_state.json as the exact narrative starting point. Completed events and conversations are already true; do not replay them. Keep facts explicitly established there current even if older knowledge records differ.
+Preserve the direction of agency and emotional causality in each beat: who initiates, comforts, is comforted, expresses gratitude, is thanked, asks, answers, acts, or undergoes the intended emotional change. Those relationships are part of the beat, not interchangeable staging. Do not swap the roles or move a character's gratitude to someone else merely to preserve the mood.
 
-3. CHARACTER KNOWLEDGE: A character knows facts they established or naturally learned, not everything another person knows. If someone has already been told, shown, warned, or informed of something, do not make them discover it again. Knowing an event occurred is not witnessing it. Do not write sights, sounds, smells, dialogue, or actions as personal memory unless that character witnessed them; describe second-hand information as what they were told or can reasonably infer.
+Begin from the saved story state: where people are, their physical circumstances, what has happened, and what each character knows. Do not replay completed events, contradict established facts, or give a character knowledge they have not earned. Knowing that an event happened is not the same as witnessing it. Earlier manuscript excerpts are historical evidence, not current state. The current saved state and explicit present-scene direction take precedence; never let a stale excerpt override what is true now. The RETRIEVED HISTORICAL CONTINUITY ARCHIVE is supporting context, not an authority over the present scene.
 
-4. PHYSICAL CONTINUITY: Begin from the stored opening location, position, posture, contact, and movement. Silence in current_situation does not cancel physical continuity. Preserve stored details unless a real contradiction or a scene-directed change requires otherwise. Orient the reader naturally, then move forward without repeatedly restating the setup. Prefer what characters say and do over narration when interaction can carry the moment.
+Keep explicit author rules marked MUST, NEVER, REQUIRED, or FORBIDDEN. Stable author writing guidance carries recurring style preferences and explicit avoidances. Honor clear prohibitions when relevant. Treat general writing preferences as a tonal compass, not a checklist. Temporary writer notes are suggestions, not canon.
 
-5. SCOPE AND ENDPOINT: Do not reduce a multi-phase or time-spanning scene to one emphasized action. Complete clearly specified actions; leave ordinary dialogue, gestures, pacing, and transitions to the writer. A disclosure, reaction, or initial offer does not automatically authorize a full investigation, assignments, execution, or resolution. If the idea names an endpoint, including a time boundary, carry the scene through to it without rushing or going into the next scene. If no endpoint is stated, choose a natural stopping point. Do not pad the scene or invent consequential events.
+THE CREATIVE JOB
+Make the story feel lived in. Invent natural dialogue, small talk, gestures, sensory texture, routines, background activity, incidental characters, plausible shared memories, transitions, and connective actions. Make ordinary creative decisions without waiting for the author to specify every step. Omitted everyday details are opportunities to write, not things forbidden by silence.
 
-6. ACTION FIDELITY: Keep concrete actions and objects the author specified; do not substitute a different action for a similar purpose. A bubble bath is not a shower. Preserve optionality: wording such as "can" or "may" is permission when presented as an option, not an extra requirement. Use creative judgment for natural execution rather than mechanically checking off every sentence.
+Take creative initiative in present-scene action: fresh dialogue, choices, realizations, hypotheses, discoveries, leads, and complications are welcome when they grow naturally from the characters and the story. Be more careful with retroactive history. Do not invent a past suspicious action, major clue, secret meeting, promise, or relationship-defining event as established fact unless it is supported by canon, manuscript context, or the author's Scene Idea. When a past clue is not established, do not certify it as true. Honor explicit boundaries against new clues by avoiding invented, concrete case-specific evidence such as a new witness, suspicious contact, object, encounter, named destination, or event. Do not mistake relationship-based insight for a new clue: a close or lifelong friend may suggest a general coping pattern, familiar type of place, or possible routine that fits what they know of the person; such brainstorming is not proof that the person went somewhere or evidence about the abduction. Keep an unconfirmed suggestion tentative, and do not turn it into a specific actionable lead without support. Do not contradict canon, undo settled events, or reveal a mystery before the story earns it. Creative developments are welcome when they fit the story.
 
-7. PROSE AND PACING: Write clear, natural prose with concrete details. Avoid elaborate metaphor stacks, repeated descriptions of the same feeling/action, and overexplaining emotion. Let dialogue and interaction carry scenes where appropriate, using natural exchanges, interruptions, reactions, and small talk. Quiet observation, internal thought, action, or silence are equally valid when the moment calls for them; do not force dialogue or a quota.
+SHAPE AND VOICE
+Write a complete scene with a natural flow of opening, development, and consequence. Every concrete story commitment named in the original Scene Idea must happen on-page, including specific dialogue or nicknames, relationship milestones, and planned emotional turns. Include the important movements named in the idea without mechanically checking off incidental wording. If the scene spans several phases or time, carry it through that arc instead of stopping after the first prominent action. Honor an explicit endpoint or hard stop; do not end too early or cross the boundary into a later scene. If no endpoint is specified, choose the most satisfying natural stopping point.
 
-8. SHARED HISTORY: Established friends may naturally recall plausible shared jokes, routines, childhood incidents, family stories, mistakes, traditions, or old arguments even when those harmless details were never documented. When useful, make a memory specific and let it spark a natural exchange rather than a lore dump. Do not invent a memory that contradicts canon, timeline, knowledge, relationships, or explicit scene constraints; do not summarize a longstanding relationship when a concrete interaction would work better.
+Let character voice, mood, and author preferences shape the prose without turning them into formulas. Vary rhythm as the moment calls for it. Use dialogue, interior thought, action, direct emotion, and sensory detail in whatever combination makes the scene vivid and believable. Avoid repetition or stock phrasing through good judgment, not mechanical avoidance rules.
 
-9. OFF-SCENE PEOPLE: Use supplied relationship facts and off-scene anchors to preserve identities, roles, and established current circumstances. Mentioning an off-scene person does not make them present. Do not invent a different routine or location for them, or bring them into the scene unless the current state or Scene Idea supports it.
-
-10. CONSEQUENCE AND TONE: Do not invent consequential facts, motives, hidden knowledge, or future events. Do not add unprompted ominous narration, hindsight, thematic warnings, or hints of future trouble when the current scene gives no reason. Let ordinary moments remain ordinary.
-
-11. CHARACTER DYNAMICS: Respect privacy, dignity, established boundaries, and relationship-specific behavior. Ordinary affectionate nicknames are allowed when appropriate and established; do not use diminishing or childizing labels for adult characters unless explicitly established. Keep familiar comforting gestures consistent with the character's established response. Do not create distress caused by a reassuring gesture without an authored reason, and do not turn gentle concern into insistence or pressure unless the scene calls for it. If a gesture could be misread, use one brief, natural cue rather than explaining its meaning repeatedly. When a character struggles to speak or regain composure, offer patient, brief support when the situation and relationship support it, without forcing reassurance into every pause or repeating it.
-
-12. REQUESTS AND PREFERENCES: When a character states a direct request, preference, boundary, or need and another character acknowledges it, keep later actions consistent unless a clear in-story reason supports a change. Do not add contradictions merely as atmosphere; do not introduce music after agreeing to keep things quiet.
-
-13. TEMPORARY WRITER NOTES: Treat working notes as tentative craft observations, not canon, plot instructions, or facts. Apply only when useful and subordinate to author direction, current state, scene contract, character knowledge, and continuity.
-
-14. HISTORICAL ARCHIVE: RETRIEVED HISTORICAL CONTINUITY ARCHIVE passages are historical evidence, not current state. The current saved state and explicit present-scene direction take precedence over stale archived descriptions. Use only facts an excerpt supports; if the needed detail is missing or the source is ambiguous, do not invent a memory or claim certainty.
-
-15. AUTHOR-PINNED CONTINUITY: If scene_state.json includes author-authored continuity_focus, preserve those requested historical facts. It is a retrieval hint, not a new plot beat or permission to load unrelated history.
-
-16. OUTPUT: Return only natural story prose. Do not include analysis, a summary, headings, or commentary.
+Return only natural story prose. Do not include analysis, summary, headings, or commentary.
 """
         parts = [base, "\nSCENE REFERENCE\n"]
         for name, content in files:
@@ -3275,12 +3263,21 @@ Author-defined canon rules supplied in the scene reference are hard constraints.
         self._update_writer_buttons()
 
     def _writer_scene_boundary_prompt(self):
-        """Return concise scene-specific instructions; global rules live in the system prompt."""
+        """Give the current scene a short creative brief without duplicating a long rule list."""
         return (
-            "SCENE BOUNDARY:\n"
-            "Honor the original Scene Idea's specific actions, objects, optionality, and endpoint; do not substitute a different action for a similar purpose. "
-            "Current state controls what has happened, physical continuity, and character knowledge. Do not replay completed events. "
-            "Use creative freedom for dialogue, gestures, pacing, and transitions.\n\n"
+            "SCENE INTENT:\n"
+            "Write one complete scene from the author's original idea and saved story state. "
+            "Preserve established facts, character knowledge, any explicit boundary, and the intended ending. "
+            "The idea gives purpose and direction, not a script. Its concrete planned beats are deliberate commitments. "
+            "Make specific actions, quoted lines or nicknames, relationship milestones, reveals, and emotional turns happen on-page; "
+            "do not replace them with a generic equivalent or let a shortened contract omit them. Weave them naturally rather than checking them off. "
+            "Use judgment for natural dialogue, emotional progression, atmosphere, incidental details, connective actions, and fitting story turns. "
+            "Preserve who initiates, gives or receives comfort, expresses gratitude, and whose emotional state changes; these are part of the beat, not interchangeable staging. "
+            "Be cautious about inventing past clues or relationship-defining history that is not grounded in canon or the idea. "
+            "Explicit boundaries override creative initiative, but distinguish concrete new evidence from character insight: if new clues are forbidden, do not invent a specific witness, suspicious contact, object, encounter, named destination, or event. "
+            "A friend may suggest a general habit, coping pattern, or familiar type of place based on their relationship; keep it a tentative idea rather than a confirmed lead. "
+            "Do not stop after only the first highlighted action when the scene's movement continues; "
+            "do not cross a stated hard stop.\n\n"
             "Write the scene now. Output only the prose."
         )
 
@@ -3445,6 +3442,33 @@ Author-defined canon rules supplied in the scene reference are hard constraints.
             copy_label="Copy Full Preview",
         )
 
+    def _clear_previous_generated_scene_display(self, preserve_draft=False):
+        """Clear the Writer display, optionally retaining the draft for recovery.
+
+        Accepted manuscript files and the accepted-scene cache are untouched.
+        During regeneration, keep the previous draft in memory while clearing
+        the display for the incoming streamed replacement.
+        """
+        if not preserve_draft:
+            self.generated_scene = ""
+            self.generated_scene_context = None
+            self.generated_scene_start_state = None
+            self.focused_revision_history = []
+
+        output = self.__dict__.get("writer_output_text")
+        if output is not None:
+            output.delete("1.0", "end")
+
+        state_preview = self.__dict__.get("writer_state_preview")
+        if state_preview is not None:
+            state_preview.delete("1.0", "end")
+
+        diff_preview = self.__dict__.get("writer_state_diff_preview")
+        if diff_preview is not None:
+            diff_preview.configure(state="normal")
+            diff_preview.delete("1.0", "end")
+            diff_preview.configure(state="disabled")
+
     def _write_next_scene(self, replacing_draft=False):
         if getattr(self, "scene_contract_building", False):
             self.writer_status.configure(
@@ -3484,6 +3508,12 @@ Author-defined canon rules supplied in the scene reference are hard constraints.
         if self.dirty:
             return
 
+        # Always clear the visible output before streamed text arrives. During
+        # regeneration, retain the previous draft in memory for failure recovery.
+        self._clear_previous_generated_scene_display(
+            preserve_draft=replacing_draft
+        )
+
         self.writer_write_button.configure(state="disabled")
         self.writer_status.configure(text="Preparing scene context...")
 
@@ -3499,6 +3529,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints.
         self.writer_generation_start_state = json.loads(
             json.dumps(current_state, ensure_ascii=False)
         )
+        self.writer_stream_buffer = ""
         self.writer_generation_in_progress = True
         self._update_writer_buttons()
 
@@ -3638,6 +3669,22 @@ Author-defined canon rules supplied in the scene reference are hard constraints.
                 )
             )
 
+        def on_scene_delta(fragment):
+            if not fragment:
+                return
+            # Keep a recoverable copy in case the model stops after partial output.
+            self.writer_stream_buffer = str(
+                getattr(self, "writer_stream_buffer", "")
+            ) + str(fragment)
+            try:
+                self.after(
+                    0,
+                    lambda fragment=str(fragment), target=(chapter, scene):
+                        self._append_streamed_scene_chunk(target, fragment),
+                )
+            except tk.TclError:
+                pass
+
         def work():
             answer = ""
             trace_result = None
@@ -3666,6 +3713,7 @@ Author-defined canon rules supplied in the scene reference are hard constraints.
                     contract=contract,
                     current_state=current_state,
                     author_guidance=author_guidance,
+                    on_draft_delta=on_scene_delta,
                 )
                 if prompt_trace is not None:
                     prompt_trace.record_event(
@@ -3710,6 +3758,18 @@ Author-defined canon rules supplied in the scene reference are hard constraints.
 
         self.writer_thread = threading.Thread(target=work, daemon=True)
         self.writer_thread.start()
+    def _append_streamed_scene_chunk(self, target, fragment):
+        """Append model output to the Writer box on the Tk main thread."""
+        if not getattr(self, "writer_generation_in_progress", False):
+            return
+        if getattr(self, "writer_generation_context", None) != target:
+            return
+        output = self.__dict__.get("writer_output_text")
+        if output is None or not fragment:
+            return
+        output.insert("end", fragment)
+        output.see("end")
+
     def _finish_generated_scene(
         self, answer, error, trace_result=None, completion_notice=""
     ):
@@ -3750,9 +3810,14 @@ Author-defined canon rules supplied in the scene reference are hard constraints.
         self.writer_generation_start_state = None
 
         if error:
-            preserved_draft = bool(str(answer or "").strip())
+            error_draft = str(answer or "").strip()
+            if not error_draft:
+                error_draft = str(
+                    self.__dict__.get("writer_stream_buffer", "") or ""
+                ).strip()
+            preserved_draft = bool(error_draft)
             if preserved_draft:
-                self.generated_scene = str(answer).strip()
+                self.generated_scene = error_draft
                 self.generated_scene_context = target or (
                     int(self.package.current_state.get("chapter", 1) or 1),
                     int(self.package.current_state.get("scene", 1) or 1),
@@ -3772,6 +3837,9 @@ Author-defined canon rules supplied in the scene reference are hard constraints.
                     text="A draft was produced before the error. It remains available for your review."
                 )
             elif self._has_pending_generated_scene():
+                # No replacement prose arrived. Restore the retained draft for review.
+                self.writer_output_text.delete("1.0", "end")
+                self.writer_output_text.insert("1.0", self.generated_scene)
                 self.writer_status.configure(
                     text="Regeneration failed. Your previous draft remains unchanged."
                 )

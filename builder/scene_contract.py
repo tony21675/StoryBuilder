@@ -1076,7 +1076,8 @@ class SceneContract:
                 "The original Scene Idea defines intended direction, actions, scope, and endpoint; boundaries are mandatory. "
                 "It is not a word-for-word prose checklist. Generated direction/contract are supporting only and must not overrule or contradict the author's intent. "
                 "AUTHOR ACTION FIDELITY: Keep concrete action/object identity (a bubble bath is not a shower), preserve optionality. Treat wording such as 'can' or 'may' as permission. "
-                "Natural dialogue, gestures, pacing, transitions, and connective details remain creative choices."
+                "Natural dialogue, gestures, pacing, transitions, and connective details remain creative choices. "
+                "Preserve beat direction and agency: who initiates, gives or receives comfort, expresses gratitude, asks or answers, and whose emotional state changes are part of the beat, not interchangeable staging."
             )
 
         # These concise reminders overlap the stable Writer instructions by design:
@@ -1094,7 +1095,9 @@ class SceneContract:
             "SCENE SCOPE AND EVENT PROVENANCE:\n"
             "The Scene Idea defines the whole scene; concise generated direction must not shrink a broader scene to that action. Reach the endpoint without padding or continuing into the next scene. "
             "Knowing an event happened is not witnessing it. Only present sights, sounds, smells, dialogue, or actions as a character's personal memory when they witnessed them. "
-            "Attribute second-hand information and never transfer another character's eyewitness experience."
+            "Attribute second-hand information and never transfer another character's eyewitness experience. "
+            "Explicit author-defined boundaries override creative initiative: when new clues are forbidden, do not invent a specific witness, suspicious contact, object, encounter, named destination, motive, identity, or event. "
+            "A character may suggest a familiar habit, coping pattern, or type of place based on a close relationship; keep this as tentative brainstorming rather than a verified lead."
         )
 
         return "\n\n".join(parts)
