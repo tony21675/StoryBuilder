@@ -2035,6 +2035,16 @@ class NovelSyncSafetyTests(unittest.TestCase):
             app.writer_direction_text.value,
         )
 
+    def test_contract_prompt_treats_stated_scene_outcome_as_endpoint(self):
+        self.assertIn(
+            "make that stated outcome the stopping point",
+            CONTRACT_BUILDER_SYSTEM_PROMPT,
+        )
+        self.assertIn(
+            "Leave hard_stop empty only when the idea gives no defensible outcome",
+            CONTRACT_BUILDER_SYSTEM_PROMPT,
+        )
+
     def test_write_workspace_has_one_primary_scene_preparation_button(self):
         contract_source = inspect.getsource(
             storybuilder_app.StoryBuilderApp._build_scene_contract_tab
