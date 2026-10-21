@@ -1,4 +1,7 @@
+import inspect
 import unittest
+from unittest.mock import Mock
+from types import SimpleNamespace
 
 import storybuilder as storybuilder_app
 from builder.scene_contract import (
@@ -30,6 +33,34 @@ class GenericStoryPromptTests(unittest.TestCase):
             lowered = prompt.casefold()
             for novel_specific_term in ("bubble bath", "abduction", "tiffany", "barnaby", "tony", "maya"):
                 self.assertNotIn(novel_specific_term, lowered)
+
+    def test_writer_scene_direction_is_read_only_and_has_copy_action(self):
+        source = inspect.getsource(storybuilder_app.StoryBuilderApp._build_writer_tab)
+        self.assertIn('text="Scene Direction (read-only guidance)"', source)
+        self.assertIn('state="disabled"', source)
+        self.assertIn('text="Copy Scene Direction"', source)
+        self.assertIn('command=self._copy_writer_direction', source)
+
+    def test_copy_writer_direction_copies_complete_text_to_clipboard(self):
+        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+        app.writer_direction_text = SimpleNamespace(
+            get=Mock(return_value="  CHAPTER 1, SCENE 3\nEnd: The crew agrees on next steps.  ")
+        )
+        app.writer_status = SimpleNamespace(configure=Mock())
+        app.clipboard_clear = Mock()
+        app.clipboard_append = Mock()
+        app.update_idletasks = Mock()
+
+        storybuilder_app.StoryBuilderApp._copy_writer_direction(app)
+
+        app.clipboard_clear.assert_called_once_with()
+        app.clipboard_append.assert_called_once_with(
+            "CHAPTER 1, SCENE 3\nEnd: The crew agrees on next steps."
+        )
+        app.update_idletasks.assert_called_once_with()
+        app.writer_status.configure.assert_called_once_with(
+            text="Scene Direction copied. Paste it into chat with Ctrl+V."
+        )
 
     def test_state_knowledge_audit_prompt_is_genre_neutral(self):
         prompt = KNOWLEDGE_AUDIT_SYSTEM_PROMPT.casefold()
