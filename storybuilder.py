@@ -72,6 +72,7 @@ from builder.state_manager import (
     reviewed_state_preview_to_patch,
 )
 from builder.scene_contract import SceneContract, extract_scene_header_metadata
+from builder.scene_idea_suggestion import generate_scene_idea_suggestion
 from builder.focused_revision import revise_selected_passage
 from builder.scene_completion import generate_scene_with_completion_check
 from builder.story_interview import (
@@ -184,6 +185,7 @@ class StoryBuilderApp(tk.Tk):
         self.writer_generation_in_progress = False
         self.scene_contract_editor_key: tuple[int, int] | None = None
         self.scene_contract_building = False
+        self.scene_idea_suggestion_in_progress = False
         self.pending_state_patch = None
         self.selected_manuscript_path = None
         self.saved_state_candidate = None
@@ -937,6 +939,20 @@ class StoryBuilderApp(tk.Tk):
             continuity_frame, height=3, wrap="word", undo=True
         )
         self.scene_continuity_focus_text.pack(fill="x", padx=8, pady=(0, 8))
+
+        self.scene_contract_suggest_button = ttk.Button(
+            idea_button_row,
+            text="Suggest Next Scene Idea",
+            command=self._suggest_scene_idea,
+        )
+        self.scene_contract_suggest_button.pack(side="left", padx=(0, 8))
+
+        self.scene_contract_save_idea_button = ttk.Button(
+            idea_button_row,
+            text="Save Scene Idea",
+            command=self._apply_scene_contract_edits,
+        )
+        self.scene_contract_save_idea_button.pack(side="left", padx=(0, 8))
 
         self.scene_contract_build_button = ttk.Button(
             idea_button_row,
@@ -2964,7 +2980,8 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         contract_building = bool(getattr(self, "scene_contract_building", False))
         generating = bool(getattr(self, "writer_generation_in_progress", False))
         focused_revision = bool(self.__dict__.get("focused_revision_in_progress", False))
-        busy = notes_updating or contract_building or generating or focused_revision
+        suggesting_idea = bool(self.__dict__.get("scene_idea_suggestion_in_progress", False))
+        busy = notes_updating or contract_building or generating or focused_revision or suggesting_idea
 
         self.writer_start_button.configure(
             state="disabled" if running or busy else "normal"
@@ -3007,7 +3024,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             )
         if self.__dict__.get("writer_trace_button") is not None:
             self.writer_trace_button.configure(
-                state="disabled" if generating or focused_revision or contract_building or notes_updating else "normal",
+                state="disabled" if generating or focused_revision or contract_building or notes_updating or suggesting_idea else "normal",
                 text="Trace Next Scene (Armed)" if getattr(self, "prompt_trace_armed", False) else "Trace Next Scene (Off)",
             )
         analysis_in_progress = bool(self.__dict__.get("state_analysis_in_progress", False))
@@ -3028,6 +3045,8 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             status_text = "Writing a new scene draft..."
         elif contract_building:
             status_text = "Using the local model to build Scene Direction..."
+        elif suggesting_idea:
+            status_text = "Generating an editable next-scene suggestion..."
         elif notes_updating:
             status_text = "Updating this novel's temporary writing notes from accepted scenes..."
         elif running and self.writer_engine.model_path:
@@ -4587,6 +4606,320 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
                 f"Could not save the reset contract.\n\n{exc}",
             )
 
+    def _scene_idea_suggestion_context(
+        self,
+        chapter: int,
+        scene: int,
+        previous_scene_prose: str = "",
+        previous_chapter: int | None = None,
+        previous_scene: int | None = None,
+    ) -> dict:
+        """Build a compact, read-only context for one editable scene suggestion."""
+        if self.package is None:
+            raise ValueError("Open a novel before requesting a scene suggestion.")
+
+        state = self.package.current_state
+        state_fields = (
+            "chapter", "scene", "time_of_day", "time", "location", "scene_cast",
+            "current_situation", "physical_state", "active_objectives",
+            "active_clues", "new_clues", "unresolved_questions",
+        )
+        current_state = {
+            key: state[key]
+            for key in state_fields
+            if key in state
+        }
+        recent_events = state.get("recent_events", [])
+        if isinstance(recent_events, list):
+            current_state["recent_events"] = recent_events[-8:]
+
+        knowledge = state.get("character_knowledge", {})
+        if isinstance(knowledge, dict):
+            compact_knowledge = {}
+            for name, facts in knowledge.items():
+                if isinstance(facts, list):
+                    items = facts[-6:]
+                elif isinstance(facts, str) and facts.strip():
+                    items = [facts]
+                else:
+                    items = []
+                compact_knowledge[str(name)] = [
+                    str(item).strip()[:320]
+                    for item in items
+                    if str(item).strip()
+                ]
+            if compact_knowledge:
+                current_state["character_knowledge"] = compact_knowledge
+
+        story_bible = self.package.story_bible if isinstance(self.package.story_bible, dict) else {}
+        overview_keys = {
+            "title", "novel_title", "premise", "genre", "setting", "tone",
+            "story_arc", "central_conflict", "themes", "planned_ending",
+            "ending", "synopsis",
+        }
+        overview = {}
+        for key, value in story_bible.items():
+            if str(key).casefold() in overview_keys and value not in (None, "", [], {}):
+                if isinstance(value, str):
+                    overview[key] = value.strip()[:1800]
+                elif isinstance(value, (list, dict, int, float, bool)):
+                    overview[key] = value
+
+        character_cards = getattr(self.package, "characters", {})
+        character_context = []
+        if isinstance(character_cards, dict):
+            for filename, card in sorted(character_cards.items()):
+                if not isinstance(card, dict):
+                    continue
+                name = str(card.get("name", "") or Path(str(filename)).stem).strip()
+                if not name:
+                    continue
+                item = {"name": name}
+                for field in (
+                    "age", "role", "occupation", "specialty", "expertise",
+                    "personality", "description", "background",
+                ):
+                    value = card.get(field)
+                    if isinstance(value, (str, int, float)) and str(value).strip():
+                        item[field] = str(value).strip()[:320]
+                character_context.append(item)
+
+        plan = self.package.extra_json.get("writing_guidance.json", {})
+        current_entry = (
+            self._chapter_scene_guidance(plan, chapter, scene)
+            if isinstance(plan, dict) else None
+        )
+        if not isinstance(current_entry, dict):
+            current_entry = {}
+        scene_guidance = {
+            key: current_entry[key]
+            for key in ("direction", "end_condition", "pacing", "cast", "continuity_focus")
+            if current_entry.get(key) not in (None, "", [], {})
+        }
+
+        if previous_chapter is None:
+            previous_chapter = chapter
+        if previous_scene is None:
+            previous_scene = max(1, scene - 1)
+        previous_entry = (
+            self._chapter_scene_guidance(plan, previous_chapter, previous_scene)
+            if isinstance(plan, dict) else None
+        )
+        if not isinstance(previous_entry, dict):
+            previous_entry = {}
+        previous_guidance = {
+            key: previous_entry[key]
+            for key in ("scene_idea", "direction", "end_condition")
+            if str(previous_entry.get(key, "") or "").strip()
+        }
+
+        plan_excerpt = ""
+        if self.package.path is not None:
+            plan_path = Path(self.package.path) / "STORY_PLAN.md"
+            try:
+                if plan_path.is_file():
+                    plan_excerpt = plan_path.read_text(encoding="utf-8")[:6000]
+            except OSError:
+                plan_excerpt = ""
+
+        editor_idea = ""
+        if hasattr(self, "scene_idea_text"):
+            editor_idea = self.scene_idea_text.get("1.0", "end-1c").strip()[:1800]
+
+        return {
+            "story_overview": overview,
+            "current_state": current_state,
+            "character_cards": character_context,
+            "story_plan_excerpt": plan_excerpt,
+            "current_scene_guidance_without_idea": scene_guidance,
+            "previous_scene_guidance": previous_guidance,
+            "previous_scene_ending_excerpt": str(previous_scene_prose or "").strip()[-3500:],
+            "existing_scene_idea_for_alternative_only": editor_idea,
+            "requested_next_scene": {"chapter": chapter, "scene": scene},
+        }
+
+    def _suggest_scene_idea(self, automatic: bool = False, previous_scene_prose: str = "",
+                            previous_chapter: int | None = None, previous_scene: int | None = None):
+        """Generate one suggestion into the editable field without saving it."""
+        if self.package is None or not hasattr(self, "scene_idea_text"):
+            if not automatic:
+                messagebox.showinfo("Suggest Scene Idea", "Open a novel before requesting a suggestion.")
+            return
+        if self.__dict__.get("scene_idea_suggestion_in_progress", False):
+            return
+        if (
+            self.__dict__.get("scene_planner_request_in_progress", False)
+            or getattr(self, "writer_generation_in_progress", False)
+            or getattr(self, "scene_contract_building", False)
+            or getattr(self, "state_analysis_in_progress", False)
+            or self.__dict__.get("change_request_in_progress", False)
+        ):
+            if not automatic:
+                messagebox.showinfo(
+                    "Suggest Scene Idea",
+                    "Wait for the current StoryBuilder task to finish before requesting a suggestion.",
+                )
+            return
+
+        state = self.package.current_state
+        chapter = int(state.get("chapter", 1) or 1)
+        scene = int(state.get("scene", 1) or 1)
+        editor_key = getattr(self, "scene_contract_editor_key", None)
+        if editor_key != (chapter, scene):
+            self._refresh_scene_contract_editor()
+            if not automatic:
+                messagebox.showwarning(
+                    "Suggest Scene Idea",
+                    "I reloaded the current scene. Check its Scene Idea, then request the suggestion again.",
+                )
+            return
+
+        existing_text = self.scene_idea_text.get("1.0", "end-1c").strip()
+        saved_entry = self._editable_scene_guidance_entry(chapter, scene, create=False) or {}
+        resolved_idea, source, _error = self._resolve_scene_idea(chapter, scene, saved_entry)
+        if automatic and (existing_text or resolved_idea):
+            return
+        if not automatic and existing_text and not self._ask_yes_no(
+            "Replace Scene Idea with a Suggestion?",
+            "StoryBuilder will generate one alternative and place it in the editable Scene Idea box. "
+            "Your current text will not be saved or replaced unless the suggestion finishes successfully.\n\n"
+            "Continue?",
+        ):
+            return
+
+        model = getattr(self.writer_engine, "model_path", None)
+        if model is None:
+            try:
+                model = self._selected_writer_model_for_analysis()
+            except Exception:
+                model = None
+        if not model:
+            if not automatic:
+                messagebox.showwarning(
+                    "Suggest Scene Idea",
+                    "Select a local writing model before requesting a scene suggestion.",
+                )
+            else:
+                self.scene_contract_status.configure(
+                    text="No local writing model is selected, so no automatic scene suggestion was generated."
+                )
+            return
+
+        try:
+            context = self._scene_idea_suggestion_context(
+                chapter, scene, previous_scene_prose, previous_chapter, previous_scene
+            )
+        except Exception as exc:
+            if not automatic:
+                self._show_copyable_error("Suggest Scene Idea", str(exc))
+            else:
+                self.scene_contract_status.configure(text=f"Could not prepare a scene suggestion: {exc}")
+            return
+
+        self.scene_idea_suggestion_in_progress = True
+        if hasattr(self, "scene_contract_suggest_button"):
+            self.scene_contract_suggest_button.configure(state="disabled")
+        self.scene_contract_status.configure(
+            text=f"Generating one editable suggestion for Chapter {chapter}, Scene {scene}..."
+        )
+        self._update_writer_buttons()
+        engine = self.writer_engine
+
+        def work():
+            idea = None
+            error = None
+            was_running = False
+            old_system_prompt = ""
+            try:
+                with engine.lock:
+                    child = getattr(engine, "child", None)
+                    try:
+                        was_running = child is not None and child.isalive()
+                    except Exception:
+                        was_running = False
+                    old_system_prompt = str(getattr(engine, "system_prompt", "") or "")
+                    try:
+                        idea = generate_scene_idea_suggestion(model, context, engine)
+                    finally:
+                        if was_running and old_system_prompt:
+                            engine.reset_context(model, old_system_prompt)
+                        else:
+                            engine.stop()
+            except Exception as exc:
+                error = str(exc)
+            try:
+                self.after(
+                    0,
+                    lambda: self._finish_scene_idea_suggestion(
+                        chapter, scene, editor_key, idea, error, automatic
+                    ),
+                )
+            except tk.TclError:
+                pass
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _finish_scene_idea_suggestion(self, chapter, scene, editor_key, idea, error, automatic):
+        self.scene_idea_suggestion_in_progress = False
+        if hasattr(self, "scene_contract_suggest_button"):
+            self.scene_contract_suggest_button.configure(state="normal")
+        self._update_writer_buttons()
+        if error:
+            self.scene_contract_status.configure(
+                text="Scene suggestion failed. Your existing Scene Idea was left unchanged."
+            )
+            if not automatic:
+                self._show_copyable_error("Suggest Scene Idea", error)
+            return
+        if self.package is None:
+            return
+        state = self.package.current_state
+        current_key = (
+            int(state.get("chapter", 1) or 1),
+            int(state.get("scene", 1) or 1),
+        )
+        if current_key != (chapter, scene) or getattr(self, "scene_contract_editor_key", None) != editor_key:
+            self.scene_contract_status.configure(
+                text="A suggestion finished for an earlier scene and was not inserted. Your current scene is unchanged."
+            )
+            return
+        self.scene_idea_text.delete("1.0", "end")
+        self.scene_idea_text.insert("1.0", idea)
+        self.scene_idea_text.edit_modified(True)
+        self._refresh_writer_scene_guidance()
+        self.scene_contract_status.configure(
+            text=(
+                f"Suggested Scene Idea for Chapter {chapter}, Scene {scene}. "
+                "It is editable and has not been saved. Edit it, then generate the contract or save the idea."
+            )
+        )
+
+    def _maybe_suggest_next_scene_idea(self, previous_scene_prose: str = "",
+                                      previous_chapter: int | None = None,
+                                      previous_scene: int | None = None):
+        """Auto-suggest only when the next scene has no saved or planned idea."""
+        if self.package is None:
+            return
+        # Tkinter's __getattr__ may recurse when unit tests use a lightweight
+        # app stub without a Tk interpreter. The real editable widget lives in
+        # __dict__; if it is absent, there is no UI into which we can suggest.
+        scene_idea_widget = self.__dict__.get("scene_idea_text")
+        if scene_idea_widget is None:
+            return
+        chapter = int(self.package.current_state.get("chapter", 1) or 1)
+        scene = int(self.package.current_state.get("scene", 1) or 1)
+        entry = self._editable_scene_guidance_entry(chapter, scene, create=False) or {}
+        resolved_idea, _source, _error = self._resolve_scene_idea(chapter, scene, entry)
+        editor_text = scene_idea_widget.get("1.0", "end-1c").strip()
+        if resolved_idea or editor_text:
+            return
+        self._suggest_scene_idea(
+            automatic=True,
+            previous_scene_prose=previous_scene_prose,
+            previous_chapter=previous_chapter,
+            previous_scene=previous_scene,
+        )
+
     def _resolve_scene_idea(self, chapter: int, scene: int, entry: dict) -> tuple[str, str, str | None]:
         """Prefer a saved author idea, falling back to the matching novel plan section."""
         saved_idea = str(entry.get("scene_idea", "") or "").strip()
@@ -4823,7 +5156,8 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
 
     def _apply_scene_contract_edits(self):
         """Save only the editable Scene Idea; all other contract fields are generated."""
-        if self.package is None or not hasattr(self, "scene_idea_text"):
+        idea_widget = self.__dict__.get("scene_idea_text")
+        if self.package is None or idea_widget is None:
             return
 
         scene_key = getattr(self, "scene_contract_editor_key", None)
@@ -4833,12 +5167,22 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             chapter = int(self.package.current_state.get("chapter", 1) or 1)
             scene = int(self.package.current_state.get("scene", 1) or 1)
 
-        idea = self.scene_idea_text.get("1.0", "end-1c").strip()
+        idea = idea_widget.get("1.0", "end-1c").strip()
         self._save_scene_idea(chapter, scene, idea)
+        # Lightweight test stubs may not have the full Writer UI attached.
+        # Refresh the real UI when available without making the saved edit
+        # depend on display widgets or a Tk interpreter being present.
+        if self.__dict__.get("writer_scene_idea_text") is not None:
+            self._refresh_writer_scene_guidance()
+        if self.__dict__.get("writer_direction_text") is not None:
+            self._build_scene_direction()
         self.scene_contract_status.configure(
             text=f"Saved Scene Idea for Chapter {chapter}, Scene {scene}.",
         )
     def _build_contract_from_scene_idea(self):
+        if self.__dict__.get("scene_idea_suggestion_in_progress", False):
+            messagebox.showwarning("Scene Contract", "Let the scene suggestion finish before generating a scene contract.")
+            return
         if self.__dict__.get("scene_planner_request_in_progress", False):
             messagebox.showwarning("Scene Planner", "Let the current planning request finish before starting generating a scene contract.")
             return
@@ -5583,6 +5927,12 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
                         f"Scene {self.package.current_state.get('scene')} is ready. "
                         "Writer direction has been refreshed."
                     )
+                )
+            if not self.package.current_state.get("chapter_completed"):
+                self._maybe_suggest_next_scene_idea(
+                    previous_scene_prose=completed_prose,
+                    previous_chapter=completed_chapter,
+                    previous_scene=completed_scene,
                 )
             if completed_prose:
                 self._start_writer_notes_learning(
