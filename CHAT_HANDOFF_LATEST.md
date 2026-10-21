@@ -1,3 +1,22 @@
+# IMMEDIATE NEXT STEP: Latest prompt fixes — October 21, 2026
+
+The laptop was pulled through `f8756db`, then reported **330 passed, 4 failed**. The remaining issues have now been fixed on the remote redesign branch:
+- The dynamically assembled prompt in `builder/scene_completion.py::_audit_prompt` retained an older mystery-specific paragraph even though its system prompt had been generalized. It now uses genre-neutral language about unsupported consequential facts, boundaries, speculation, and established evidence.
+- `tests/test_scene_completion.py` now checks for that generic wording and explicitly guards the dynamically assembled prompt against the words `abduction` and `Tiffany` in the generic test scenario.
+- `builder/scene_contract.py` retains the important “acknowledged requests/preferences” instruction while staying at 1,464 characters, under the 1,500-character guard.
+- `tests/test_scene_contract.py` assertions were aligned to the intentionally shortened generic scope/provenance wording.
+
+Latest code/test commit at checkpoint: `14cb7ba4586d94ee9c52c894a8069a7b7f40e49d`. These newest changes have **not** yet been pulled or run on Tony's laptop. Do not claim tests are green until his full `python3 -m pytest -q` result confirms it.
+
+The local Mars package audit completed read-only: 45 regular files, 0 symlinks, 0 unreadable files. All six declared character cards match the Mars crew; current pointer is Chapter 1, Scene 3. The only keyword hits outside docs are in `Manuscript/Chapters/Chapter_01/Chapter_01_Section_01_draft.txt` (Maya x2, Chloe x2; file size 4,309 bytes; modified October 21, 2026 at 07:16). StoryBuilder's normal historical retrieval explicitly excludes `*_draft.txt`, and startup restores the accepted section, not that draft. Do not delete it during code verification. README.md and TEST_PROTOCOL.md each have one title mention and are not included in the Writer JSON reference-file assembly.
+
+Next terminal actions, one at a time:
+1. `cd ~/Documents/StoryBuilder && git pull --ff-only`
+2. Then `cd ~/Documents/StoryBuilder && python3 -m pytest -q`
+3. Share the full result. If green, do one final read-only verification of the actual prompt assembly before launching the app. Never edit/sync either novel as part of this audit; keep `Taken_at_Dusk` untouched.
+
+---
+
 # LATEST CHECKPOINT: Cross-novel code audit and package scan pending — October 21, 2026
 
 Read `CROSS_NOVEL_CONTEXT_AUDIT_2026-10-21.md` first. The audit found and removed multiple previous-novel assumptions from shared runtime prompts/helpers: named characters and an old title in UI examples; a specific character name in continuity retrieval ranking; a mystery-specific integrity-audit instruction; prior-novel scent descriptors; and a fixed list of old character names used during cast inference. Shared Writer/contract/idea/validation prompts now use genre-neutral rules that make the original Scene Idea and established evidence authoritative. New tests cover prompt isolation, state-summary evidence precedence, read-only/copyable Scene Direction, and isolation between sibling novel packages/manuscripts.
