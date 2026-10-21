@@ -1,3 +1,15 @@
+# LATEST MILESTONE — Window-close sync safety — October 21, 2026
+
+First code change in the redesign branch:
+- `storybuilder.py`: the OS window-close event (`WM_DELETE_WINDOW`, X button / window close) now calls `_close_without_sync`, not `_close_and_sync`. Explicit **Close & Sync Novel** and **Sync Novel** controls remain available for deliberate sync.
+- `tests/test_scene_workflow_safety.py`: added a regression test to ensure default window close remains local-only.
+- Commits: `685491c` (code) and `4d4be07` (test). These changes are on `redesign/simplified-writing-workflow`; `main` is unchanged.
+- The change was made on GitHub through the connected repository editor. Tony's laptop has not pulled these new code/test commits yet, so no local run has verified them.
+
+**Next action:** Have Tony run `git pull --ff-only` from `~/Documents/StoryBuilder`, then `python3 -m pytest -q`. Keep the one-step-at-a-time workflow. After the tests pass, proceed with the first Write-workspace slice. Do not touch or sync any novel repository.
+
+---
+
 # LATEST UPDATE — October 21, 2026
 
 The design inventory is now recorded in `REDESIGN_PLAN.md`, including a mapping of all 16 existing UI sections into the proposed Home, Write, Story Bible, Plan, Manuscript, and Advanced areas, plus the first implementation slice. Latest redesign-branch planning commit: `141fa50bf55bd781555c69793d86777cde9b270d`.
