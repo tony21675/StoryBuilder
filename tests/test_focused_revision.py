@@ -239,5 +239,43 @@ class SelectedPassageRevisionTests(unittest.TestCase):
         self.assertIsNone(restore_error)
         self.assertEqual(original, "Before. Selected passage. After.")
 
+class SelectedPassageUiSafetyTests(unittest.TestCase):
+    def test_editor_changes_during_generation_are_not_overwritten(self):
+        from storybuilder import StoryBuilderApp
+
+        class FakeText:
+            def __init__(self, value=""):
+                self.value = value
+                self.options = {}
+
+            def get(self, *_args):
+                return self.value
+
+            def configure(self, **kwargs):
+                self.options.update(kwargs)
+
+        app = StoryBuilderApp.__new__(StoryBuilderApp)
+        app.focused_revision_in_progress = True
+        app.writer_output_text = FakeText("User's newer editor text.")
+        app.writer_status = FakeText()
+        app.generated_scene = "The captured original draft."
+        app._update_writer_buttons = lambda: None
+        errors = []
+        app._show_copyable_error = lambda title, message: errors.append((title, message))
+
+        StoryBuilderApp._finish_focused_scene_change(
+            app,
+            "The captured original draft.",
+            "A proposed replacement draft.",
+            None,
+        )
+
+        self.assertEqual(app.writer_output_text.value, "User's newer editor text.")
+        self.assertEqual(app.generated_scene, "The captured original draft.")
+        self.assertFalse(app.focused_revision_in_progress)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("changed while the focused edit was running", errors[0][1])
+
+
 if __name__ == "__main__":
     unittest.main()
