@@ -10,6 +10,13 @@ from builder.continuity_context import (
 )
 
 
+_HISTORICAL_CORRECTION_CUE = re.compile(
+    r"\b(?:isn't|aren't|wasn't|weren't|doesn't|don't|didn't|hasn't|haven't|hadn't|"
+    r"can't|cannot|ruled out|rather than|instead of|not\s+(?:caused by|due to|a|an|the|from|in|at|part of|because of|proof of))\b",
+    re.IGNORECASE,
+)
+
+
 class ManuscriptManager:
     """Read and write scene/section text inside a novel package."""
 
@@ -232,35 +239,42 @@ class ManuscriptManager:
             # not outrank a genuinely stronger match in an older scene.
             for chunk_index, chunk in enumerate(chunks):
                 matched = sorted(historical_relevance_tokens(chunk) & query_terms)
-                # One generic overlap is not enough to justify injecting a
-                # historical passage into the active scene prompt.
-                if len(matched) < 2:
+                correction_cue = bool(_HISTORICAL_CORRECTION_CUE.search(chunk))
+                # A single generic overlap is still insufficient. However, an
+                # explicit correction/rejection relevant to the query may be
+                # crucial continuity evidence even when it shares only one noun.
+                if len(matched) < 2 and not (matched and correction_cue):
                     continue
                 score = len(matched) * 10 + min(5, len(matched) // 2)
+                if correction_cue:
+                    score += 15
                 candidates.append({
                     "source": str(path.relative_to(self.novel_path)),
                     "chapter": scene_numbers[0],
                     "scene": scene_numbers[1],
                     "text": chunk,
                     "matched_terms": matched,
+                    "is_correction": correction_cue,
                     "score": score,
                     "recency": scene_recency,
                     "chunk_index": chunk_index,
                 })
             scene_recency += 1
 
-        # Limit to one excerpt per source scene. The archive remains available on
-        # disk even when a detail is not included in this active prompt.
+        # Prefer one excerpt per source scene, but permit one additional
+        # explicitly corrective excerpt so a high-scoring passage does not hide
+        # a rejected hypothesis from the same accepted scene.
         candidates.sort(
             key=lambda item: (item["score"], item["chapter"], item["scene"], -item["chunk_index"]),
             reverse=True,
         )
         chosen = []
-        seen_sources = set()
+        source_counts = {}
         total_chars = 0
         for item in candidates:
             source_key = (item["chapter"], item["scene"])
-            if source_key in seen_sources:
+            count_for_source = source_counts.get(source_key, 0)
+            if count_for_source >= 2 or (count_for_source == 1 and not item.get("is_correction")):
                 continue
             formatted = (
                 f"[Historical source: {item['source']} | "
@@ -282,7 +296,7 @@ class ManuscriptManager:
                 formatted = header + item["text"]
                 added_chars = len(formatted) + separator_chars
             chosen.append(item)
-            seen_sources.add(source_key)
+            source_counts[source_key] = count_for_source + 1
             total_chars += added_chars
             if len(chosen) >= int(limit) or total_chars >= int(max_chars):
                 break
