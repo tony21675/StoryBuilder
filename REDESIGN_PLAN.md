@@ -155,3 +155,10 @@ The shared writing/contract/scene-idea/state-knowledge instructions have been re
 Added regression coverage in `tests/test_generic_prompt_isolation.py`, `tests/test_scene_contract.py`, `tests/test_scene_idea_suggestion.py`, and `tests/test_state_analysis_transitions.py`.
 
 This is a code-only update. The local Mars package's saved state, Scene Idea, accepted manuscript, and newly repaired Scene 3 contract were not edited. The erroneous “pressure leak” phrase remains in the saved state summary for now; Writer instructions are being corrected so that a summary alone cannot establish it as fact. Review behavior with the local tests before generating prose. Keep `Taken_at_Dusk` untouched.
+
+
+## Follow-up: make Scene Direction read-only and copyable — October 21, 2026
+
+The editable Scene Idea remains the author's one normal input for planning this scene. The Writer's generated Scene Direction is now a read-only display, so typing cannot accidentally replace or desynchronize the generated guidance. StoryBuilder temporarily enables the widget only while refreshing it internally, then disables it again. It is excluded from live spell-check editing hooks.
+
+A **Copy Scene Direction** button copies the complete displayed direction, including the saved-state summary and End line, to the clipboard in one click so Tony can paste it into chat for review. The control does not change novel data. Regression tests verify the read-only UI declaration and copy action.
