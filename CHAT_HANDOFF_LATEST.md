@@ -1,3 +1,7 @@
+## Test-fixture correction — October 21, 2026
+
+Fixed the incorrect stale-offset fixture in `tests/test_focused_revision.py` commit [7ac07a9](https://github.com/tony21675/StoryBuilder/commit/7ac07a9b37df5a16ff9523b2185753bd96a43bcd): its expected selected text now includes the period that is outside the truncated source slice. This was a test assertion problem; no production code changed in this correction. New CI runs have been triggered by this commit. Do not claim the selected revision path is verified until both workflows pass.
+
 ## CI checkpoint — October 21, 2026
 
 The first CI run for implementation commit `d382e471b3c9046b9c6a77e0049aa2b7caa1221e` failed on one newly added test fixture, not a syntax or compile error: the "stale selection offsets" fixture accidentally described a slice that did match its selected text, so the helper correctly did not raise. Compile succeeded. Correct the fixture by making its claimed selected text differ from the captured slice, then rerun CI. Links: [tests run](https://github.com/tony21675/StoryBuilder/actions/runs/39559839393), [checks run](https://github.com/tony21675/StoryBuilder/actions/runs/39559839228). The selection-aware code is not yet CI-verified and has not yet been live-tested with the local model.
