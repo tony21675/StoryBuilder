@@ -127,6 +127,8 @@ class GenericStoryPromptTests(unittest.TestCase):
         self.assertIn("check consequential claims about prior events", prompt)
         self.assertIn("do not repeat it as established history", prompt)
         self.assertIn("the original scene idea can explicitly correct a stale or mistaken summary", prompt)
+        self.assertIn("accepted manuscript evidence explicitly rejects, corrects, or replaces an earlier explanation", prompt)
+        self.assertIn("do not seed it indirectly through suggestive framing", prompt)
 
     def test_scene_idea_is_authoritative_over_a_stale_summary(self):
         context = SceneContract.writer_prompt_context(
