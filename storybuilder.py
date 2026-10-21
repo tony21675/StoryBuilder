@@ -230,13 +230,15 @@ class StoryBuilderApp(tk.Tk):
         page = ttk.Frame(self.notebook.pages)
         self.notebook.add(page, text="Write")
 
-        panes = ttk.Panedwindow(page, orient=tk.HORIZONTAL)
+        # Use a full-width vertical layout. The current desktop window is not
+        # wide enough for two scrollable panels side by side.
+        panes = ttk.Panedwindow(page, orient=tk.VERTICAL)
         panes.pack(fill="both", expand=True)
 
         contract_host = ttk.Frame(panes)
         writer_host = ttk.Frame(panes)
         panes.add(contract_host, weight=2)
-        panes.add(writer_host, weight=3)
+        panes.add(writer_host, weight=4)
 
         self._build_scene_contract_tab(parent=contract_host, register=False)
         self._build_writer_tab(parent=writer_host, register=False)
@@ -914,28 +916,27 @@ class StoryBuilderApp(tk.Tk):
 
         ttk.Label(
             content,
-            text="Scene Idea and Generated Contract",
+            text="Plan and write this scene",
             font=("", 14, "bold"),
         ).pack(anchor="w")
         ttk.Label(
             content,
-            text=(
-                "The Scene Idea is the part you edit. If this scene has no saved idea, StoryBuilder loads "
-                "the matching scene from STORY_PLAN.md when available. Saved Scene Ideas always take "
-                "priority, and a plan-loaded idea is not saved until you save it or generate the contract. "
-                "Generate / Replace Contract asks the local model for a concise direction and ending. "
-                "Items under clearly labeled Required Beats or Planned Beats sections in your Scene Idea become formal "
-                "scene-level beats; model-generated suggestions do not become mandatory. Explicit Boundaries "
-                "are carried separately as constraints. Separately enabled "
-                "modules may supply their own requirements. The original Scene Idea remains the Writer's "
-                "primary guidance. If a contract is saved, StoryBuilder asks before replacing its generated fields."
-            ),
+            text="Review or edit the idea below. StoryBuilder uses it to prepare the scene and preserve continuity.",
             wraplength=900,
             justify="left",
-        ).pack(anchor="w", pady=(4, 8))
+        ).pack(anchor="w", pady=(4, 6))
+
+        header = ttk.Frame(content)
+        header.pack(fill="x", pady=(0, 6))
+        self.scene_contract_scene_label = ttk.Label(
+            header,
+            text="Chapter 1, Scene 1",
+            font=("", 11, "bold"),
+        )
+        self.scene_contract_scene_label.pack(side="left")
 
         idea_frame = ttk.Frame(content)
-        idea_frame.pack(fill="x", pady=(0, 10))
+        idea_frame.pack(fill="x", pady=(0, 6))
         ttk.Label(
             idea_frame,
             text="Scene Idea / Author Notes",
@@ -946,7 +947,11 @@ class StoryBuilderApp(tk.Tk):
         idea_button_row = ttk.Frame(idea_frame)
         idea_button_row.pack(anchor="w")
 
-        continuity_frame = ttk.LabelFrame(content, text="Relevant Continuity (optional)")
+        details_frame = ttk.LabelFrame(content, text="Scene details (optional)")
+        details_frame.pack(fill="x", pady=(0, 10))
+        self.scene_contract_details_frame = details_frame
+
+        continuity_frame = ttk.LabelFrame(details_frame, text="Relevant Continuity (optional)")
         continuity_frame.pack(fill="x", pady=(0, 10))
         ttk.Label(
             continuity_frame,
@@ -964,56 +969,57 @@ class StoryBuilderApp(tk.Tk):
 
         self.scene_contract_suggest_button = ttk.Button(
             idea_button_row,
-            text="Suggest Next Scene Idea",
+            text="Suggest Idea",
             command=self._suggest_scene_idea,
         )
         self.scene_contract_suggest_button.pack(side="left", padx=(0, 8))
 
         self.scene_contract_save_idea_button = ttk.Button(
             idea_button_row,
-            text="Save Scene Idea",
+            text="Save Idea",
             command=self._apply_scene_contract_edits,
         )
         self.scene_contract_save_idea_button.pack(side="left", padx=(0, 8))
 
-        self.scene_contract_build_button = ttk.Button(
+        self.scene_contract_details_toggle_button = ttk.Button(
             idea_button_row,
+            text="Scene Details ▸",
+            command=self._toggle_scene_details,
+        )
+        self.scene_contract_details_toggle_button.pack(side="left")
+
+        detail_button_row = ttk.Frame(details_frame)
+        detail_button_row.pack(fill="x", padx=8, pady=(8, 4))
+        self.scene_contract_build_button = ttk.Button(
+            detail_button_row,
             text="Generate / Replace Contract...",
             command=self._build_contract_from_scene_idea,
         )
         self.scene_contract_build_button.pack(side="left")
         self.scene_contract_reload_idea_button = ttk.Button(
-            idea_button_row,
-            text="Clear & Reload Scene Idea",
+            detail_button_row,
+            text="Clear & Reload Idea",
             command=self._reload_saved_scene_idea,
         )
         self.scene_contract_reload_idea_button.pack(side="left", padx=(8, 0))
         self.scene_contract_plan_reload_button = ttk.Button(
-            idea_button_row,
+            detail_button_row,
             text="Load from STORY_PLAN.md",
             command=self._load_scene_idea_from_plan,
         )
         self.scene_contract_plan_reload_button.pack(side="left", padx=(8, 0))
         ttk.Label(
-            content,
+            details_frame,
             text=(
-                "Define the rails, not every sentence. The writer may vary the middle, "
-                "dialogue, gestures, and harmless details while the contract protects the "
-                "required story beats and ending."
+                "Use these optional details to refine continuity, direction, beats, or boundaries. "
+                "You do not need to edit them for every scene."
             ),
-        ).pack(anchor="w", pady=(4, 8))
-
-        header = ttk.Frame(content)
-        header.pack(fill="x", pady=(0, 8))
-        self.scene_contract_scene_label = ttk.Label(
-            header,
-            text="Chapter 1, Scene 1",
-            font=("", 11, "bold"),
-        )
-        self.scene_contract_scene_label.pack(side="left")
+            wraplength=900,
+            justify="left",
+        ).pack(anchor="w", padx=8, pady=(3, 8))
 
 
-        start_frame = ttk.LabelFrame(content, text="Beginning / Current State")
+        start_frame = ttk.LabelFrame(details_frame, text="Beginning / Current State")
         start_frame.pack(fill="x", pady=(0, 8))
         ttk.Label(
             start_frame,
@@ -1031,7 +1037,7 @@ class StoryBuilderApp(tk.Tk):
         )
         self.scene_contract_start_text.pack(fill="x", padx=8, pady=(0, 8))
 
-        form = ttk.Frame(content)
+        form = ttk.Frame(details_frame, padding=(8, 0, 8, 0))
         form.pack(fill="both", expand=True)
 
         self.scene_contract_direction_text = tk.Text(
@@ -1066,8 +1072,8 @@ class StoryBuilderApp(tk.Tk):
             form.rowconfigure(row, weight=1)
         form.columnconfigure(1, weight=1)
 
-        attempts_row = ttk.Frame(content)
-        attempts_row.pack(fill="x", pady=(8, 0))
+        attempts_row = ttk.Frame(details_frame)
+        attempts_row.pack(fill="x", padx=8, pady=(8, 0))
         ttk.Label(attempts_row, text="Automatic attempts").pack(side="left")
         self.scene_contract_attempts_var = tk.StringVar(value="3")
         ttk.Spinbox(
@@ -1084,13 +1090,38 @@ class StoryBuilderApp(tk.Tk):
         ).pack(side="left")
 
         action_row = ttk.Frame(content)
-        action_row.pack(fill="x", pady=(10, 0))
+        action_row.pack(fill="x", pady=(2, 0))
+        self.scene_contract_action_row = action_row
         self.scene_contract_status = ttk.Label(
             action_row,
             text="Edit the Scene Idea, then build the contract.",
             anchor="w",
         )
         self.scene_contract_status.pack(side="left", fill="x", expand=True)
+        # Detail fields are available on demand, rather than occupying the
+        # writing workspace for every scene.
+        self.scene_contract_details_frame.pack_forget()
+
+    def _toggle_scene_details(self):
+        """Show or hide the optional contract details in the Write workspace."""
+        frame = self.__dict__.get("scene_contract_details_frame")
+        if frame is None:
+            return
+        toggle = self.__dict__.get("scene_contract_details_toggle_button")
+        if frame.winfo_manager():
+            frame.pack_forget()
+            if toggle is not None:
+                toggle.configure(text="Scene Details ▸")
+            return
+
+        action_row = self.__dict__.get("scene_contract_action_row")
+        options = {"fill": "x", "pady": (0, 10)}
+        if action_row is not None:
+            frame.pack(before=action_row, **options)
+        else:
+            frame.pack(**options)
+        if toggle is not None:
+            toggle.configure(text="Scene Details ▾")
 
     def _build_scene_planner_tab(self):
         page = ttk.Frame(self.notebook.pages)
