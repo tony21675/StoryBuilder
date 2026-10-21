@@ -1327,7 +1327,7 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         self.assertIn("Every concrete story commitment named in the original Scene Idea must happen on-page", prompt)
         self.assertIn("Take creative initiative in present-scene action", prompt)
         self.assertIn("Do not invent a past suspicious action, major clue, secret meeting", prompt)
-        self.assertIn("as a hypothesis rather than having the narration certify it as true", prompt)
+        self.assertIn("When a past clue is not established, do not certify it as true.", prompt)
         self.assertIn("Let character voice, mood, and author preferences shape the prose without turning them into formulas.", prompt)
         self.assertNotIn("Respect privacy, dignity, established boundaries, and relationship-specific behavior", prompt)
         self.assertNotIn("Do not add unprompted ominous narration", prompt)
