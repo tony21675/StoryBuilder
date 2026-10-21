@@ -225,6 +225,22 @@ class StoryBuilderApp(tk.Tk):
         self.protocol("WM_DELETE_WINDOW", self._close_without_sync)
         self._load_startup_novel()
 
+    def _build_write_workspace(self):
+        """Combine the scene idea/contract and prose workflow in one main area."""
+        page = ttk.Frame(self.notebook.pages)
+        self.notebook.add(page, text="Write")
+
+        panes = ttk.Panedwindow(page, orient=tk.HORIZONTAL)
+        panes.pack(fill="both", expand=True)
+
+        contract_host = ttk.Frame(panes)
+        writer_host = ttk.Frame(panes)
+        panes.add(contract_host, weight=2)
+        panes.add(writer_host, weight=3)
+
+        self._build_scene_contract_tab(parent=contract_host, register=False)
+        self._build_writer_tab(parent=writer_host, register=False)
+
     def _build_ui(self):
         toolbar = ttk.Frame(self, padding=8)
         toolbar.pack(fill="x")
@@ -245,6 +261,9 @@ class StoryBuilderApp(tk.Tk):
         self.notebook = CompactTabContainer(self)
         self.notebook.pack(fill="both", expand=True, padx=8, pady=(0, 8))
 
+        # Make writing the first and primary workspace. Scene Contract and Writer
+        # are embedded together there; their detailed tools remain intact.
+        self._build_write_workspace()
         self._build_chat_tab()
         self._build_new_novel_assistant_tab()
         self._build_story_tab()
@@ -256,10 +275,8 @@ class StoryBuilderApp(tk.Tk):
         self._build_modules_tab()
         self._build_planning_tab()
         self._build_story_interview_tab()
-        self._build_scene_contract_tab()
         self._build_scene_planner_tab()
         self._build_state_tab()
-        self._build_writer_tab()
         self._build_manuscript_tab()
         self._install_context_menus()
         self._install_mousewheel_scrolling()
@@ -865,9 +882,13 @@ class StoryBuilderApp(tk.Tk):
         self._refresh_interview_targets(reset=True)
         self._update_story_interview_buttons()
 
-    def _build_scene_contract_tab(self):
-        tab = ttk.Frame(self.notebook.pages)
-        self.notebook.add(tab, text="Scene Contract")
+    def _build_scene_contract_tab(self, parent=None, register=True):
+        host = parent if parent is not None else self.notebook.pages
+        tab = ttk.Frame(host)
+        if register:
+            self.notebook.add(tab, text="Scene Contract")
+        else:
+            tab.pack(fill="both", expand=True)
 
         scroll_frame = ttk.Frame(tab)
         scroll_frame.pack(fill="both", expand=True)
@@ -1208,9 +1229,13 @@ class StoryBuilderApp(tk.Tk):
         tab.rowconfigure(6, weight=1)
         tab.rowconfigure(9, weight=1)
 
-    def _build_writer_tab(self):
-        tab = ttk.Frame(self.notebook.pages)
-        self.notebook.add(tab, text="Writer")
+    def _build_writer_tab(self, parent=None, register=True):
+        host = parent if parent is not None else self.notebook.pages
+        tab = ttk.Frame(host)
+        if register:
+            self.notebook.add(tab, text="Writer")
+        else:
+            tab.pack(fill="both", expand=True)
 
         # The Writer tab contains more controls than a small laptop display can
         # show at once. Keep the tab itself scrollable so the lower analysis and
