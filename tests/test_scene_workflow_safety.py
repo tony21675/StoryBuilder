@@ -1321,7 +1321,7 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         self.assertIn("Creative developments are welcome when they fit the story.", prompt)
         self.assertIn("Preserve the direction of agency and emotional causality in each beat", prompt)
         self.assertIn("Do not mistake relationship-based insight for a new clue", prompt)
-        self.assertIn("do not invent a specific witness", prompt)
+        self.assertIn("a new witness, suspicious contact, object, encounter, named destination", prompt)
         self.assertIn("The Scene Idea also contains the author's deliberate story commitments.", prompt)
         self.assertIn("quoted lines or nicknames, relationship milestones", prompt)
         self.assertIn("Every concrete story commitment named in the original Scene Idea must happen on-page", prompt)
