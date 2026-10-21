@@ -1,3 +1,11 @@
+# LATEST FOLLOW-UP — Scene Idea precedence clarified — October 21, 2026
+
+The final wording in the shared Writer and Scene Idea suggestion prompts now explicitly recognizes the existing Scene Idea and author corrections as evidence when correcting a stale generated state recap, alongside accepted prose and canon. This update follows the generic-prompt cleanup and is committed on `redesign/simplified-writing-workflow` at `d12ba39` (Scene Idea suggestion prompt) and `67cf855` (Writer prompt). The latest source/test branch also includes generic state-question safeguards, name-independent scene-cast inference, and regression tests for cross-genre prompt isolation.
+
+**Verification pending on laptop.** The last complete local test run before this batch was `318 passed`. Do not treat that as verification of the new batch. Next: Tony runs `git status -sb` in `~/Documents/StoryBuilder`; if the worktree is clean and branch remains `redesign/simplified-writing-workflow`, pull with `git pull --ff-only` and run `python3 -m pytest -q`. The current local Mars novel data has not been edited by these code changes. Leave Chapter 1 Scene 3's saved contract and Idea as they are; do not regenerate or accept prose as part of this verification.
+
+---
+
 # LATEST MILESTONE — Scene Idea authority and generic-prompt cleanup — October 21, 2026
 
 Tony reminded us that writers should not have to repair the Writer prompt or Current State form by hand; the editable Scene Idea is the normal author-facing correction point. The app was still treating its generated current_situation recap as absolute history, and shared prompts contained novel-specific examples. Code changes have now been committed to `redesign/simplified-writing-workflow`:
