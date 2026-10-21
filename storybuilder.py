@@ -981,6 +981,13 @@ class StoryBuilderApp(tk.Tk):
         )
         self.scene_contract_save_idea_button.pack(side="left", padx=(0, 8))
 
+        self.scene_contract_build_button = ttk.Button(
+            idea_button_row,
+            text="Prepare Scene...",
+            command=self._build_contract_from_scene_idea,
+        )
+        self.scene_contract_build_button.pack(side="left", padx=(0, 8))
+
         self.scene_contract_details_toggle_button = ttk.Button(
             idea_button_row,
             text="Scene Details ▸",
@@ -990,12 +997,6 @@ class StoryBuilderApp(tk.Tk):
 
         detail_button_row = ttk.Frame(details_frame)
         detail_button_row.pack(fill="x", padx=8, pady=(8, 4))
-        self.scene_contract_build_button = ttk.Button(
-            detail_button_row,
-            text="Generate / Replace Contract...",
-            command=self._build_contract_from_scene_idea,
-        )
-        self.scene_contract_build_button.pack(side="left")
         self.scene_contract_reload_idea_button = ttk.Button(
             detail_button_row,
             text="Clear & Reload Idea",
@@ -1094,7 +1095,7 @@ class StoryBuilderApp(tk.Tk):
         self.scene_contract_action_row = action_row
         self.scene_contract_status = ttk.Label(
             action_row,
-            text="Edit the Scene Idea, then build the contract.",
+            text="Edit the Scene Idea, then prepare the scene.",
             anchor="w",
         )
         self.scene_contract_status.pack(side="left", fill="x", expand=True)
@@ -1376,11 +1377,6 @@ class StoryBuilderApp(tk.Tk):
             text="Scene Direction (continuity and supporting guidance)",
             font=("", 11, "bold"),
         ).pack(side="left")
-        ttk.Button(
-            direction_header,
-            text="Build Scene Direction",
-            command=self._build_scene_direction,
-        ).pack(side="right")
         self.writer_direction_text = tk.Text(content_frame, height=7, wrap="word")
         self.writer_direction_text.pack(fill="x", pady=(4, 8))
         self.writer_direction_text.insert(
@@ -2857,8 +2853,12 @@ class StoryBuilderApp(tk.Tk):
         # action and leaves the writer with only a starting-state description.
         current_plan_end = None
         if isinstance(guidance, dict):
+            # Use the same endpoint resolution as the contract editor. The
+            # saved contract's hard_stop is authoritative when present; legacy
+            # top-level hard_stop/end_condition fields are fallback values.
+            saved_contract = SceneContract.from_guidance(guidance, [])
             current_plan_end = str(
-                guidance.get("end_condition", "") or ""
+                saved_contract.get("hard_stop", "") or ""
             ).strip()
             direction = str(guidance.get("direction", "") or "").strip()
             pacing = str(guidance.get("pacing", "") or "").strip()
@@ -9093,7 +9093,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
                 "The completed scene's ending state remains the starting continuity for the new scene.",
             )
             self.writer_status.configure(
-                text=f"Scene {next_scene} is ready. Build Scene Direction to begin.",
+                text=f"Scene {next_scene} is ready. Use Prepare Scene when its idea is ready.",
             )
             self._update_writer_buttons()
         except Exception as exc:
@@ -9163,7 +9163,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             self.writer_status.configure(
                 text=(
                     f"Chapter {next_chapter}, Scene {next_scene} is ready. "
-                    "Build Scene Direction to begin."
+                    "Use Prepare Scene when its idea is ready."
                 ),
             )
             self._update_writer_buttons()
