@@ -1,3 +1,19 @@
+# LATEST CHECKPOINT — Read-only copyable Writer direction plus generic prompt/state safeguards — October 21, 2026
+
+Current redesign branch changes include the read-only copyable Writer Scene Direction and a larger generic-prompt/state-safety cleanup. These changes are committed to `redesign/simplified-writing-workflow` but have **not** been verified by Tony's local full test suite.
+
+**Read-only / copy:** `storybuilder.py` shows Scene Direction as `state='disabled'` and `exportselection=False`. Internal refresh temporarily enables it and returns it to disabled; **Copy Scene Direction** puts the complete text on the clipboard. The widget is removed from live spell-check edit hooks. Scene Idea remains the editable source. Tests in `tests/test_generic_prompt_isolation.py` test button/state declaration and full-text copy; `tests/test_scene_workflow_safety.py` checks internal refresh ends disabled.
+
+**Generic state correctness:** Shared Writer, Scene Contract, validator, Scene Idea suggestion, and character-knowledge prompts have been generalized to avoid story-specific examples/details. Generated `current_situation` is explicitly a fallible summary; accepted prose, canon, and the Scene Idea/author corrections are evidence for established history. Unverified summary-only claims must not be repeated as fact. Scene Idea generation uses the same rule. A missing person or the word `kidnapper` alone must not cause state analysis to invent a kidnapping; question inference requires an explicit event signal. Character-name exclusion and demeanor clue deduplication no longer depend on names from one novel. Tests are updated in `tests/test_scene_contract.py`, `tests/test_scene_idea_suggestion.py`, `tests/test_state_analysis_transitions.py`, `tests/test_scene_workflow_safety.py`, and new `tests/test_generic_prompt_isolation.py`.
+
+Newest related commits include `6cf95f6` (read-only/copy button), `c79d1f4` (copy tests), `0d2972c` (read-only-after-refresh test), `0e1818b` (Scene Idea precedence wording), `2225f30` (do not infer abduction from label alone), `de57611` and `e0f3c67` (generic prompt tests/fixture), `e1f7cab` (updated Writer prompt assertions), `d12ba39`/`67cf855` (explicit Scene Idea evidence precedence), and documentation updates. Branch head may advance from these as commits are sequentially recorded.
+
+**Story data:** No novel package was edited by this work. The saved Mars Scene 3 contract with End `Elena issues clear next steps for isolating the source of the contamination.` remains as last confirmed. Do not regenerate it or generate/accept prose until tests pass and the visible direction can be reviewed. The stale saved `current_situation` phrase about a pressure leak was not manually changed; the new generic evidence hierarchy is intended to prevent a summary-only claim from being carried forward as established history. Never touch `Taken_at_Dusk` as part of these changes.
+
+**Next step on Tony's laptop:** `cd ~/Documents/StoryBuilder && git status -sb`. If clean on `redesign/simplified-writing-workflow`, use `git pull --ff-only`, then `python3 -m pytest -q`. Do not use `python`; `python3` is required. After passing tests, start directly with `python3 storybuilder.py` (avoid `./start.sh` during this inspection) and verify that Scene Direction cannot be edited and **Copy Scene Direction** copies the full text. Paste it into chat for review. Do not sync or change novel data in this verification step.
+
+---
+
 # LATEST FOLLOW-UP — Read-only, copyable Scene Direction — October 21, 2026
 
 Tony asked that the generated Writer box be read-only but easy to copy into chat. Implemented on the redesign branch:
