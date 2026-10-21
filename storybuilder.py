@@ -4766,13 +4766,22 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         scene = int(state.get("scene", 1) or 1)
         editor_key = getattr(self, "scene_contract_editor_key", None)
         if editor_key != (chapter, scene):
+            # Scene completion can advance current_state before the editor is
+            # refreshed. For automatic suggestions, reload and continue rather
+            # than returning before the suggestion is generated.
             self._refresh_scene_contract_editor()
+            editor_key = getattr(self, "scene_contract_editor_key", None)
             if not automatic:
                 messagebox.showwarning(
                     "Suggest Scene Idea",
                     "I reloaded the current scene. Check its Scene Idea, then request the suggestion again.",
                 )
-            return
+                return
+            if editor_key != (chapter, scene):
+                self.scene_contract_status.configure(
+                    text="The current scene editor could not be refreshed, so no automatic suggestion was generated."
+                )
+                return
 
         existing_text = self.scene_idea_text.get("1.0", "end-1c").strip()
         saved_entry = self._editable_scene_guidance_entry(chapter, scene, create=False) or {}
