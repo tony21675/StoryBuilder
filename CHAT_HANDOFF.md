@@ -1,3 +1,21 @@
+## Active handoff — October 21, 2026: creative-first Writer experiment and collaboration rules
+
+**Current focus:** [PR #44 — Experiment: creative-first Writer prompt](https://github.com/tony21675/StoryBuilder/pull/44), branch `experiment/creative-first-writer`, remains open and draft. The recorded GitHub Actions checks passed for its current head, but no live paired writing test has been completed. Do not merge yet.
+
+**Next step:** Discuss and run a small, controlled live comparison of the same scene and model on `main` versus PR #44. Review creative freedom, fidelity to planned beats, continuity, author boundaries, and the scene endpoint. Do not change code or the prompt as part of testing unless Tony and ChatGPT first discuss the finding and agree on a specific change. Preserve accepted prose and all MyNovel content.
+
+### Active collaboration rules
+
+- **Discuss first, agree, then change.** No surprise edits. Tony's explicit request authorizes only the specific change requested, not adjacent cleanup or a bundle of fixes.
+- **Let the story breathe.** Protect canon, continuity, character knowledge, author boundaries, and meaningful commitments. Do not micromanage every sentence or turn ordinary prose into a checklist. Give the Writer room for natural dialogue, atmosphere, gestures, small moments, connective action, and fitting developments.
+- **Keep safeguards purposeful.** Catch real continuity, boundary, and workflow failures without flattening harmless creative variation.
+- **Test and review together.** Prefer a small, controlled test and the smallest agreed change. Report what was actually tested; never imply that a live writing test happened when it did not.
+- **Keep communication and terminal work concise.** No long copy-and-paste walls of commands, code, or logs in the terminal or chat. Use short commands, targeted excerpts, and concise result summaries.
+- **Do not repeat completed investigation** unless new evidence or a specific question makes it necessary.
+- **Keep repositories separate.** StoryBuilder code and this handoff belong here; MyNovel content and accepted manuscript prose must not be changed as a side effect.
+
+---
+
 ## Latest checkpoint — October 20, 2026: ending-state redesign, context pruning, and historical retrieval (merged)
 
 Tony approved a broad StoryBuilder redesign because proposed ending states repeatedly required extensive manual reconstruction, then supplied a second handoff requiring context reduction without sacrificing continuity. Both requirements are implemented and **merged into main**.
