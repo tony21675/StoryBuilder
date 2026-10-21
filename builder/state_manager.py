@@ -567,10 +567,17 @@ def _clue_identity(value: str) -> str:
             details.add("blood")
         return "facial-scratch:" + ",".join(sorted(details))
 
-    if words.intersection({"smell", "smelled", "smells", "scent", "cologne", "cigarette", "cigarettes", "pine"}):
-        descriptors = words.intersection(
-            {"cigarette", "cigarettes", "cologne", "pine", "needles", "sweet", "smoke", "tobacco", "gasoline", "chemical", "mint", "alcohol"}
-        )
+    scent_markers = {
+        "smell", "smelled", "smells", "smelling", "scent",
+        "odor", "odors", "odour", "odours", "fragrance", "aroma",
+    }
+    if words.intersection(scent_markers):
+        generic_scent_words = scent_markers | {
+            "the", "a", "an", "of", "like", "with", "along", "and", "or",
+            "was", "were", "is", "are", "has", "had", "from", "there",
+            "additional", "another", "extra", "also", "some", "very",
+        }
+        descriptors = words - generic_scent_words
         if descriptors:
             return "scent:" + ",".join(sorted(descriptors))
 
@@ -703,7 +710,7 @@ def recover_clues_from_knowledge(character_knowledge: Any) -> list[str]:
     known_names = [str(name).strip() for name in character_knowledge if str(name).strip()]
     evidence_patterns = (
         r"\b(?:license plate|number plate|plate number)\b",
-        r"\b(?:smell(?:ed|s|ing)?|scent|cologne|cigarettes?|pine needles?)\b",
+        r"\b(?:smell(?:ed|s|ing)?|scent|odor\w*|odour\w*|fragrance|aroma)\b",
         r"\b(?:scratch(?:ed|es|ing)?|raked?|clawed?)\b.{0,80}\b(?:cheek|face|blood|bleed)\b",
         r"\b(?:cheek|face)\b.{0,80}\b(?:scratch|rake|claw|blood|bleed)\b",
         r"\b(?:tattoo|scar|birthmark|distinctive mark|identifying mark)\b",
