@@ -788,8 +788,8 @@ def recover_explicit_unresolved_questions(
     # Scope the event signal to a fact that actually describes taking/capturing
     # someone, so an unrelated missing person is not mistaken for the target.
     abduction_evidence_pattern = re.compile(
-        r"\b(?:abduct\w*|kidnap\w*|captiv\w*)\b"
-        r"|\b(?:taken|captured|carried off)\b.{0,80}\b(?:by|from)\b",
+        r"\b(?:abduction|abducted|abducting|kidnapped|kidnapping|captiv\w*)\b"
+        r"|\b(?:taken|carried off)\b.{0,80}\b(?:by|from)\b",
         re.IGNORECASE,
     )
     abduction_established = any(
