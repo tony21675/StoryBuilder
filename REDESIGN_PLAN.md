@@ -73,3 +73,36 @@ Validation, detailed state repair, package/module JSON, change assistant, prompt
 - Closing the app never triggers an unexpected sync.
 - Existing tests stay green, with focused regression tests for the new workflow.
 - StoryBuilder and novel repositories remain separate.
+
+
+## Migration map from the current 16 sections
+
+| Current section | New home | Treatment |
+|---|---|---|
+| Talk to Builder | A small “Ask Builder” action available when relevant | Combine with Change Assistant rather than a separate main section. |
+| New Novel Assistant | Home / New Novel | Turn into a guided starter flow; preview and approve before creating files. |
+| Story | Story Bible | Keep core metadata and premise. |
+| Canon & Rules | Story Bible | Keep permanent rules plainly editable with review before saving. |
+| Change Assistant | Ask Builder / Advanced | Merge with Talk to Builder; show proposed changes and require approval. |
+| Characters | Story Bible | Combine core characters and supporting people in one organized editor. |
+| Relationships | Story Bible | Put alongside character details so writers do not have to visit a separate section. |
+| Locations | Story Bible | Put alongside canon and characters. |
+| Story Modules | Story Bible / Advanced | Keep optional; expose module controls only when needed. |
+| Story Planning | Plan | Keep genre, tone, conflict, themes, and open questions together. |
+| Story Interview | Home setup / Story Bible | Reuse as a guided way to fill gaps, not a separate permanent destination. |
+| Scene Contract | Write | Prepare automatically; expose editable details in a collapsible “Scene details” area. |
+| Scene Planner | Plan | Keep collaborative planning as an optional tool; do not require it before writing. |
+| Current State | Write summary / Advanced | Show concise current context in Write. Move direct state editing and full-state repair into an advanced panel. |
+| Writer | Write | Make this the central workspace rather than a separate destination from the contract and state. |
+| Manuscript | Manuscript | Keep as a focused reader/navigation area for accepted prose. |
+
+## First implementation slice
+
+Start with the user-facing Write journey, not a broad visual restyle:
+1. Define a single workspace layout and a small, explicit scene status (idea ready, contract ready, draft ready, awaiting review, accepted).
+2. Connect the current idea/contract controls to that workspace, hiding detailed contract fields unless expanded.
+3. Put generation, focused revision, regenerate, accept, and concise ending-state review together.
+4. After acceptance and reviewed state application, prefill the next editable idea and keep the cursor/workflow in Write.
+5. Add explicit Save and Sync status without silently syncing on window close.
+
+Build this slice around existing tested modules where practical. Do not delete the old UI implementation until the new path covers the functions and its tests pass. The first slice must include regression tests for idea auto-fill, correct scene targeting, preservation of existing ideas, state/clue retention, and explicit sync behavior.
