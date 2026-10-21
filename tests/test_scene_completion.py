@@ -21,13 +21,17 @@ class FakeEngine:
         self.prompts = []
         self.reset_calls = []
 
-    def generate(self, prompt):
+    def generate(self, prompt, on_delta=None):
         self.prompts.append(prompt)
         if not self.responses:
             raise RuntimeError("no fake response remains")
         response = self.responses.pop(0)
         if isinstance(response, Exception):
             raise response
+        if callable(on_delta):
+            midpoint = max(1, len(response) // 2)
+            on_delta(response[:midpoint])
+            on_delta(response[midpoint:])
         return response
 
     def reset_context(self, model_path, system_prompt):
@@ -69,6 +73,19 @@ class SceneCompletionTests(unittest.TestCase):
             author_guidance=guidance,
             prose=prose,
         )
+
+    def test_initial_scene_generation_forwards_streamed_text_callback(self):
+        self.engine.responses = ["A scene arriving in pieces."]
+        pieces = []
+        draft, notice = generate_scene_with_completion_check(
+            engine=self.engine, model_path=self.model,
+            writer_system_prompt=self.system_prompt, initial_prompt="write",
+            scene_context=self.scene_context, contract={},
+            current_state=self.state, on_draft_delta=pieces.append,
+        )
+        self.assertEqual(draft, "A scene arriving in pieces.")
+        self.assertEqual("".join(pieces), draft)
+        self.assertEqual(notice, "")
 
     @patch("builder.scene_completion._run_scene_integrity_audit", return_value=PASS_AUDIT)
     @patch("builder.scene_completion.SceneContract.validate_with_engine")
