@@ -1,3 +1,7 @@
+## Contract-context review finding, October 21, 2026
+
+Inspection of `SceneContract.writer_prompt_context` confirms the contract layer separately repeats scene-idea priority/action fidelity/agency, progression/scope, event provenance, and clue boundaries. The static system prompt and scene-boundary brief already cover several of these. Some duplication is intentional, and the contract also supplies unique scene-specific facts, required beats, and the hard stop. The safe first target for simplification is duplicated *general craft guidance*, not canon, agency, character knowledge, required beats, or explicit boundaries. See the updated [STORY_FLOW_REPAIR_PLAN.md](STORY_FLOW_REPAIR_PLAN.md). No code changed.
+
 ## Prompt assembly map added — October 21, 2026
 
 Source inspection found that the actual Writer context is layered: static Writer system prompt, generated Scene Direction/contract context, a separate scene-boundary brief, selected novel reference files, and optional retrieved historical excerpts. The static prompt and scene brief repeat several protections around required beats, emotional agency, clue boundaries, and hard stops. This may be deliberate reinforcement, so no removal is assumed. The read-only Writer Context Preview assembles the layers, estimates context size, and lists included/pruned/compacted files without generating prose or changing story state.
