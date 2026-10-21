@@ -5175,8 +5175,13 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
 
         idea = idea_widget.get("1.0", "end-1c").strip()
         self._save_scene_idea(chapter, scene, idea)
-        self._refresh_writer_scene_guidance()
-        self._build_scene_direction()
+        # Lightweight test stubs may not have the full Writer UI attached.
+        # Refresh the real UI when available without making the saved edit
+        # depend on display widgets or a Tk interpreter being present.
+        if self.__dict__.get("writer_scene_idea_text") is not None:
+            self._refresh_writer_scene_guidance()
+        if self.__dict__.get("writer_direction_text") is not None:
+            self._build_scene_direction()
         self.scene_contract_status.configure(
             text=f"Saved Scene Idea for Chapter {chapter}, Scene {scene}.",
         )
