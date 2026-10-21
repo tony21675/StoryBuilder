@@ -1,3 +1,32 @@
+# CURRENT HANDOFF — StoryBuilder redesign — October 21, 2026
+
+This section supersedes older status and branch-policy notes later in this historical handoff.
+
+## Current repository state
+- Working branch: `redesign/simplified-writing-workflow`.
+- The only remaining local/remote StoryBuilder branches are `main` and `redesign/simplified-writing-workflow`.
+- All other discovered remote branches were removed after comparing them against `main`; the final local `experiment/leaner-scene-boundary` branch was deleted only after confirming its commits were already included in `origin/main`.
+- The automatic next-scene suggestion fix from PR #49 is included on the redesign branch. PR #49 was merged into the redesign branch, not into `main`.
+- Tony ran `python3 -m pytest -q` on the redesign branch and got **312 passed**. This was before the latest documentation-only change.
+- No novel repository or novel-package files were edited as part of branch cleanup or this redesign planning checkpoint. Keep `Taken_at_Dusk` untouched.
+
+## Redesign baseline
+- Created `REDESIGN_PLAN.md` on the working branch. It is a design document, not an application-code rewrite.
+- Code inspection found 16 current UI sections: Talk to Builder, New Novel Assistant, Story, Canon & Rules, Change Assistant, Characters, Relationships, Locations, Story Modules, Story Planning, Story Interview, Scene Contract, Scene Planner, Current State, Writer, and Manuscript.
+- The top toolbar separately exposes New/Open, Save/Save As, Validate, Sync Novel, Close, and Close & Sync Novel.
+- Proposed main areas: **Write**, **Story Bible**, **Plan**, and **Manuscript**, with Home/Open at startup and advanced/diagnostic tools available outside the ordinary writing path.
+- The Write workspace should combine editable next-scene idea, contract preparation, prose generation/revision, acceptance, reviewed continuity updates, and automatic preparation of the next idea. No direct JSON editing should be required for ordinary writing.
+- Closing the app must not trigger an unexpected sync. Save and novel sync should be clear, separate, deliberate actions.
+- Preserve the existing shared novel-package format and compatibility with LocalStoryChat. Keep code and novel repositories separate.
+
+## Next action
+1. Fetch/switch to the latest `origin/redesign/simplified-writing-workflow` on Tony's laptop so the new `REDESIGN_PLAN.md` and this handoff update are present locally.
+2. No code edits yet. Build a feature inventory mapping all current UI functions to the proposed areas, identify duplicates and advanced functions, and decide the new writing screen interaction before restructuring code.
+3. Keep using `python3`, not `python`, for every Python terminal command.
+4. After each meaningful code or workflow milestone, update this handoff immediately. Run `python3 -m pytest -q` after meaningful code changes, and test live model behavior only with `The Long Way Home` in the designated safe test package.
+
+---
+
 ## Writer prompt assembly map, October 21, 2026
 
 The current Writer input is assembled from the static system prompt, generated Scene Direction/contract context, a separate scene-boundary brief, selected novel reference files, and optional historical manuscript excerpts. The static prompt and scene brief repeat some protections for required beats, emotional agency, clue boundaries, and hard stops. This may be purposeful reinforcement; do not remove rules without classifying them and testing. The read-only Writer Context Preview assembles the layers and reports estimated size plus included/pruned/compacted files. See [STORY_FLOW_REPAIR_PLAN.md](STORY_FLOW_REPAIR_PLAN.md). Next: inspect `SceneContract.writer_prompt_context`, then review the preview in the disposable package. No code or novel change.
