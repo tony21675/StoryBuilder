@@ -3523,6 +3523,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         self.writer_generation_start_state = json.loads(
             json.dumps(current_state, ensure_ascii=False)
         )
+        self.writer_stream_buffer = ""
         self.writer_generation_in_progress = True
         self._update_writer_buttons()
 
@@ -3662,6 +3663,22 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
                 )
             )
 
+        def on_scene_delta(fragment):
+            if not fragment:
+                return
+            # Keep a recoverable copy in case the model stops after partial output.
+            self.writer_stream_buffer = str(
+                getattr(self, "writer_stream_buffer", "")
+            ) + str(fragment)
+            try:
+                self.after(
+                    0,
+                    lambda fragment=str(fragment), target=(chapter, scene):
+                        self._append_streamed_scene_chunk(target, fragment),
+                )
+            except tk.TclError:
+                pass
+
         def work():
             answer = ""
             trace_result = None
@@ -3690,6 +3707,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
                     contract=contract,
                     current_state=current_state,
                     author_guidance=author_guidance,
+                    on_draft_delta=on_scene_delta,
                 )
                 if prompt_trace is not None:
                     prompt_trace.record_event(
@@ -3734,6 +3752,18 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
 
         self.writer_thread = threading.Thread(target=work, daemon=True)
         self.writer_thread.start()
+    def _append_streamed_scene_chunk(self, target, fragment):
+        """Append model output to the Writer box on the Tk main thread."""
+        if not getattr(self, "writer_generation_in_progress", False):
+            return
+        if getattr(self, "writer_generation_context", None) != target:
+            return
+        output = self.__dict__.get("writer_output_text")
+        if output is None or not fragment:
+            return
+        output.insert("end", fragment)
+        output.see("end")
+
     def _finish_generated_scene(
         self, answer, error, trace_result=None, completion_notice=""
     ):
@@ -3774,9 +3804,14 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         self.writer_generation_start_state = None
 
         if error:
-            preserved_draft = bool(str(answer or "").strip())
+            error_draft = str(answer or "").strip()
+            if not error_draft:
+                error_draft = str(
+                    self.__dict__.get("writer_stream_buffer", "") or ""
+                ).strip()
+            preserved_draft = bool(error_draft)
             if preserved_draft:
-                self.generated_scene = str(answer).strip()
+                self.generated_scene = error_draft
                 self.generated_scene_context = target or (
                     int(self.package.current_state.get("chapter", 1) or 1),
                     int(self.package.current_state.get("scene", 1) or 1),
