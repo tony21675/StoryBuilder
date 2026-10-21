@@ -1,8 +1,14 @@
-## Active handoff — October 21, 2026: creative-first Writer experiment and collaboration rules
+## Active handoff — October 21, 2026: consolidate on main
 
-**Current focus:** [PR #44 — Experiment: creative-first Writer prompt](https://github.com/tony21675/StoryBuilder/pull/44), branch `experiment/creative-first-writer`, remains open and draft. The recorded GitHub Actions checks passed for its current head, but no live paired writing test has been completed. Do not merge yet.
+**Current state:** PR #44, [Experiment: creative-first Writer prompt](https://github.com/tony21675/StoryBuilder/pull/44), has been merged into `main` at merge commit `e43314e17173d178588fea31c5969769007a7a1e`, at Tony's explicit request.
 
-**Next step:** Discuss and run a small, controlled live comparison of the same scene and model on `main` versus PR #44. Review creative freedom, fidelity to planned beats, continuity, author boundaries, and the scene endpoint. Do not change code or the prompt as part of testing unless Tony and ChatGPT first discuss the finding and agree on a specific change. Preserve accepted prose and all MyNovel content.
+**What's included:** The creative-first Writer system prompt, streamed initial-draft output support in `builder/writer_engine.py` and `builder/scene_completion.py`, and refinements to Scene Contract and continuity-audit guidance. This merge is application code only; it does not merge or change the separate MyNovel repository or accepted manuscript.
+
+**Testing truth:** Automated checks were reported passing on the PR, but the planned live paired writing comparison was not completed before merge. Do not describe this prompt as live-validated. The next time a safe test is practical, review the creative freedom, planned-beat fidelity, continuity, author boundaries, and scene endpoint without touching accepted prose.
+
+**Branch policy:** Tony wants StoryBuilder work consolidated on `main`, with no new experiment or feature branches. PRs #1–43 that were listed as merged are already integrated; do not merge their branches again. The GitHub connection available to this session can merge pull requests but cannot delete branch references, so historical remote branches remain listed on GitHub for now. No branch or local folder should be force-reset or deleted blindly.
+
+**Local setup caution:** The experiment worktree was created at `~/Documents/StoryBuilder-creative-first` from the repository at `~/Documents/StoryBuilder-creative-test`. It was created detached at PR #44's head. Do not launch StoryBuilder from an experimental folder until its novel root has been verified. Before local cleanup or switching checkouts, inspect `git status -sb` and preserve any local work. Never run `./start.sh` from an experimental/non-main checkout because its sync script requires `main`.
 
 ### Active collaboration rules
 
