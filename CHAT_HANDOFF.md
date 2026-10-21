@@ -1,3 +1,11 @@
+# LATEST FOLLOW-UP: Existing prompt wording test restored — October 21, 2026
+
+Tony pulled the endpoint-generation prompt clarification and ran `python3 -m pytest -q`: **317 passed, 1 failed**. The only failure is `SceneContractTests.test_plain_english_idea_survives_as_primary_writer_intent`, which asserts the exact phrase `When the idea gives a clear endpoint, put that endpoint in hard_stop` is present in the contract-builder prompt. The new prompt had equivalent but rewritten wording. Updated `builder/scene_contract.py` on `redesign/simplified-writing-workflow` to restore that exact sentence while retaining the expanded guidance that a clearly intended outcome can serve as the endpoint even when not labeled End. This is a prompt wording compatibility correction, not a change to the fallback logic or novel data.
+
+Latest code commit: `2daf3f4` (`Preserve explicit endpoint wording for regression test`). Tony's laptop has not yet pulled this correction. Next: from `~/Documents/StoryBuilder`, confirm branch/status, then `git pull --ff-only`, then `python3 -m pytest -q`. Do not restart into the scene workflow or replace the saved contract until tests pass. Keep `The Long Way Home` and `Taken_at_Dusk` files untouched during this code/test step.
+
+---
+
 # LATEST FOLLOW-UP: Contract endpoint generation clarified — October 21, 2026
 
 Tony checked the saved local package after Writer's End line remained empty. The read-only inspection confirms this is a missing stored endpoint, not just a display problem. The active package is Chapter 1, Scene 3. Its writing_guidance.json entry has a saved Scene Idea and a short direction, but top-level end_condition, top-level hard_stop, and nested scene_contract.hard_stop are all missing. The nested contract contains only boundaries, max_attempts, and required_beats.
