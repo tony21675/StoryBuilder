@@ -162,3 +162,10 @@ This is a code-only update. The local Mars package's saved state, Scene Idea, ac
 The editable Scene Idea remains the author's one normal input for planning this scene. The Writer's generated Scene Direction is now a read-only display, so typing cannot accidentally replace or desynchronize the generated guidance. StoryBuilder temporarily enables the widget only while refreshing it internally, then disables it again. It is excluded from live spell-check editing hooks.
 
 A **Copy Scene Direction** button copies the complete displayed direction, including the saved-state summary and End line, to the clipboard in one click so Tony can paste it into chat for review. The control does not change novel data. Regression tests verify the read-only UI declaration and copy action.
+
+
+## Follow-up: cross-novel context audit — October 21, 2026
+
+See `CROSS_NOVEL_CONTEXT_AUDIT_2026-10-21.md` for the code-source audit, test updates, and remaining verification steps. Static review found and generalized prior-novel references in shared prompts/UI examples, continuity retrieval, state-manager clue normalization, and the scene integrity audit. Current package loading, Writer reference assembly, historical retrieval, and Writer process reset are scoped to the selected package path/process; a new package-isolation regression test documents the intended boundary.
+
+The actual laptop package at `~/Documents/MyNovel/The-Long-Way-Home` has not yet been scanned. The latest full local suite before this batch was 326 passed / 5 failed. Test wording and prompt-length corrections plus package-isolation tests are now on the redesign branch, but local verification remains pending. After pulling and getting a clean `python3 -m pytest -q`, perform a read-only scan of the local Mars package. Do not delete or rewrite any package material from keyword hits without review, and do not touch `Taken_at_Dusk`.
