@@ -138,3 +138,20 @@ The Write workspace should have one clear primary action for preparing a scene, 
 The saved Mars Scene 3 contract has no `hard_stop`, no top-level `hard_stop`, and no `end_condition`; the Writer was correctly showing no saved endpoint. The prior fallback fixes display when a value exists, but cannot recover a value that was never generated.
 
 The generic contract-builder instruction is now clearer: when the Scene Idea describes what a conversation/meeting/discovery is meant to accomplish, use that author-stated outcome as the endpoint even if it is not labeled “End.” Stop at the named outcome and do not extend into later actions not requested. Leave the endpoint blank only when no defensible outcome or temporal boundary exists. A regression test locks this prompt behavior. This is a generic prompt fix, not a Mars-specific code rule.
+
+
+## Follow-up: author-intent precedence and genre-neutral shared prompts — October 21, 2026
+
+Tony correctly pointed out that writers should not need to repair contradictory Writer prompts by hand. The normal author-facing correction point is the editable Scene Idea, and generated supporting direction must not promote unsupported saved-state claims into facts.
+
+The shared writing/contract/scene-idea/state-knowledge instructions have been revised accordingly:
+- Treat a generated `current_situation` as a fallible starting recap, not proof that every described past event happened.
+- Check consequential historical claims against accepted prose, canon, and the original Scene Idea. The Scene Idea can explicitly correct a stale recap; do not repeat unsupported state-only claims as established history.
+- Scene Idea suggestions use the same evidence-first rule rather than treating saved situation text as unquestionable truth.
+- Removed story-specific examples (bubble bath, abduction clues, and named characters) from shared Writer/contract/validator/knowledge-audit prompt text. Specific story facts belong in that novel's package and test fixtures, not universal app instructions.
+- State-question inference must not turn a generic missing person or an unknown cause into kidnapping questions unless the supplied facts establish an abduction/captivity event. Vehicle-plate follow-up wording is generic.
+- Replaced fixed character-name filtering and a Tiffany-specific clue deduplication identity with logic based on the current story's actual names.
+
+Added regression coverage in `tests/test_generic_prompt_isolation.py`, `tests/test_scene_contract.py`, `tests/test_scene_idea_suggestion.py`, and `tests/test_state_analysis_transitions.py`.
+
+This is a code-only update. The local Mars package's saved state, Scene Idea, accepted manuscript, and newly repaired Scene 3 contract were not edited. The erroneous “pressure leak” phrase remains in the saved state summary for now; Writer instructions are being corrected so that a summary alone cannot establish it as fact. Review behavior with the local tests before generating prose. Keep `Taken_at_Dusk` untouched.
