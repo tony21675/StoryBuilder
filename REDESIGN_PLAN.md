@@ -120,3 +120,14 @@ The revised layout uses a full-width vertical split:
 - Nothing in the detailed contract is deleted; it is only hidden until requested.
 
 A small regression test exercises expanding/collapsing the details panel, and the workspace test checks the vertical rather than horizontal split. This revision responds to the real usability observation that showing two narrow scrolling columns side by side does not solve the screen-space problem.
+
+
+## Follow-up: single scene preparation action and endpoint fallback — October 21, 2026
+
+The Write workspace should have one clear primary action for preparing a scene, rather than separate buttons in different sections that appear to rebuild overlapping prompt material.
+
+- The primary Scene Idea row now exposes **Prepare Scene...**. It creates the generated contract and direction from the idea, with the existing confirmation when a saved contract would be replaced.
+- The Writer's separate **Build Scene Direction** button is removed from the user-facing UI. Scene Direction continues to refresh internally when a scene contract/state is refreshed or the current scene changes. Keep the internal builder method for application code.
+- Writer's displayed **End:** line must use the same endpoint resolution as the contract editor. Resolve the saved nested `scene_contract.hard_stop` first through `SceneContract.from_guidance`, with legacy top-level fields as fallback. A missing top-level `end_condition` must not hide a valid saved hard stop.
+- Regression tests cover both the nested saved-hard-stop fallback and the single primary scene-preparation control.
+- Preserve the replacement confirmation, the Save Idea action, and all local-only novel data. This change is StoryBuilder UI/logic only.
