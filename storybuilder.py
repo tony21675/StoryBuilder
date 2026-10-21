@@ -1374,15 +1374,28 @@ class StoryBuilderApp(tk.Tk):
         direction_header.pack(fill="x")
         ttk.Label(
             direction_header,
-            text="Scene Direction (continuity and supporting guidance)",
+            text="Scene Direction (read-only guidance)",
             font=("", 11, "bold"),
         ).pack(side="left")
-        self.writer_direction_text = tk.Text(content_frame, height=7, wrap="word")
+        ttk.Button(
+            direction_header,
+            text="Copy Scene Direction",
+            command=self._copy_writer_direction,
+        ).pack(side="right")
+        self.writer_direction_text = tk.Text(
+            content_frame,
+            height=7,
+            wrap="word",
+            state="disabled",
+            exportselection=False,
+        )
         self.writer_direction_text.pack(fill="x", pady=(4, 8))
+        self.writer_direction_text.configure(state="normal")
         self.writer_direction_text.insert(
             "1.0",
             "Write the next scene naturally from the current story state. Follow the active scene guidance and preserve established continuity.",
         )
+        self.writer_direction_text.configure(state="disabled")
 
         button_row = ttk.Frame(content_frame)
         button_row.pack(fill="x", pady=(0, 8))
@@ -2935,10 +2948,37 @@ class StoryBuilderApp(tk.Tk):
             "Write natural prose only. Use saved state as a starting-continuity summary, but do not treat unsupported historical claims in it as established fact. Accepted prose, canon, and explicit author intent are evidence for established history. Explicit Location and Time values from the original Scene Idea header control planned scene metadata. The opening cast is not the full scene cast; later arrivals specified by the Scene Idea must remain eligible to enter. The original plain-English Scene Idea controls requested events, order, and ending; generated direction is supporting context only."
         )
 
-        self.writer_direction_text.delete("1.0", "end")
-        self.writer_direction_text.insert("1.0", "\n".join(lines))
+        # The Writer direction is display-only. Temporarily enable it for
+        # internal refreshes, then return it to read-only so it cannot
+        # accidentally diverge from the saved Scene Idea/contract.
+        self.writer_direction_text.configure(state="normal")
+        try:
+            self.writer_direction_text.delete("1.0", "end")
+            self.writer_direction_text.insert("1.0", "\n".join(lines))
+        finally:
+            self.writer_direction_text.configure(state="disabled")
         if update_status:
-            self.writer_status.configure(text="Scene direction built from the current state and active plan.")
+            self.writer_status.configure(text="Scene direction refreshed from the current state and active plan.")
+
+    def _copy_writer_direction(self):
+        """Copy the complete read-only Scene Direction for sharing or review."""
+        widget = self.__dict__.get("writer_direction_text")
+        if widget is None:
+            return
+        value = widget.get("1.0", "end-1c").strip()
+        if not value:
+            self.writer_status.configure(text="There is no Scene Direction to copy yet.")
+            return
+        try:
+            self.clipboard_clear()
+            self.clipboard_append(value)
+            self.update_idletasks()
+        except tk.TclError:
+            self.writer_status.configure(text="Could not copy Scene Direction to the clipboard.")
+            return
+        self.writer_status.configure(
+            text="Scene Direction copied. Paste it into chat with Ctrl+V."
+        )
 
     def _writer_system_prompt(self, files):
         base = """You are the novelist for an ongoing work of fiction. Write a compelling, natural scene, not a checklist.
@@ -9398,7 +9438,6 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             self.scene_planner_input_text,
             self.scene_planner_proposal_text,
             self.supporting_person_text,
-            self.writer_direction_text,
             self.writer_output_text,
             self.writer_state_preview,
             self.manuscript_state_preview,
