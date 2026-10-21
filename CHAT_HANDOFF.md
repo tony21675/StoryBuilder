@@ -1,3 +1,11 @@
+# LATEST UPDATE — October 21, 2026
+
+The design inventory is now recorded in `REDESIGN_PLAN.md`, including a mapping of all 16 existing UI sections into the proposed Home, Write, Story Bible, Plan, Manuscript, and Advanced areas, plus the first implementation slice. Latest redesign-branch planning commit: `141fa50bf55bd781555c69793d86777cde9b270d`.
+
+No application code changed in these latest commits; they only add/update design and handoff documentation. The last full code test run on this branch was `python3 -m pytest -q` with **312 passed**. Next: pull the latest redesign branch onto Tony's laptop, confirm the worktree is clean, then begin the first Write-workspace slice after inspecting the current Writer and state-acceptance handlers. Do not change novel repositories or sync novel content as part of this step.
+
+---
+
 # CURRENT HANDOFF — StoryBuilder redesign — October 21, 2026
 
 This section supersedes older status and branch-policy notes later in this historical handoff.
