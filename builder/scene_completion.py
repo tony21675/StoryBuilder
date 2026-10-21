@@ -229,9 +229,17 @@ def generate_scene_with_completion_check(
     *, engine: Any, model_path: str | Path, writer_system_prompt: str,
     initial_prompt: str, scene_context: str, contract: dict[str, Any],
     current_state: dict[str, Any], author_guidance: str = "",
+    on_draft_delta=None,
 ) -> tuple[str, str]:
-    """Check coverage plus evidence-backed continuity; perform at most one safe recovery."""
-    draft = str(engine.generate(initial_prompt) or "").strip()
+    """Check coverage plus evidence-backed continuity; perform at most one safe recovery.
+
+    Optional on_draft_delta receives the initial prose as it streams from the model.
+    Review/recovery calls remain non-streaming because they can replace or extend it.
+    """
+    if callable(on_draft_delta):
+        draft = str(engine.generate(initial_prompt, on_delta=on_draft_delta) or "").strip()
+    else:
+        draft = str(engine.generate(initial_prompt) or "").strip()
     if not draft or not str((contract or {}).get("author_idea", "") or "").strip():
         return draft, ""
 
