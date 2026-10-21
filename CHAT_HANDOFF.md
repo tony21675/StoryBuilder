@@ -1,3 +1,18 @@
+# LATEST MILESTONE — First unified Write workspace slice — October 21, 2026
+
+Code changes now on `redesign/simplified-writing-workflow`:
+- `_build_write_workspace()` creates one top-level **Write** destination with a horizontal, resizable split. The existing Scene Contract panel is placed on the left and the existing Writer panel on the right. Both retain their existing controls, callbacks, and scrollable content.
+- The separate top-level Scene Contract and Writer destinations are no longer registered; they are embedded in Write. Write is built first so it opens as the primary area. The Current State page remains for now as an advanced/direct-edit destination.
+- `tests/test_scene_workflow_safety.py` has a structural regression test verifying that Write contains the two panels and that the detailed builders do not register separate destinations.
+- Relevant commits: `1755d13` (combined Write workspace) and `b038b93` (test).
+- This is the first workflow slice, not the finished redesign. The two panes currently reuse the existing long forms; next iterations should simplify and collapse detailed contract controls rather than remove working functionality abruptly.
+- The last laptop test run was before these new code/test commits and reported 313 passed. These latest commits have not yet been pulled or tested on the laptop.
+- `main` remains unchanged, and no novel-package files were edited.
+
+**Next action:** Fetch/pull the redesign branch on Tony's laptop and run `python3 -m pytest -q`. If tests pass, launch StoryBuilder directly with `python3 storybuilder.py` (not `./start.sh`, which may sync) and inspect only the new Write layout. The test novel remains `~/Documents/MyNovel/The-Long-Way-Home`; do not open or change `Taken_at_Dusk` for this check. Confirm how the two panes appear before making further visual changes.
+
+---
+
 # LATEST MILESTONE — Window-close sync safety — October 21, 2026
 
 First code change in the redesign branch:
