@@ -24,7 +24,7 @@ VALIDATOR_SYSTEM_PROMPT = """Review the author's original idea and starting stat
 
 Judge meaning, not keywords. Synonyms and paraphrases count. Evidence must be a verbatim quote from COMPLETED SCENE only; never quote the idea, instructions, contract, or state.
 Create a SHORT EVENT-LEVEL checklist, usually 4–8 checks total. Each check is one meaningful event or outcome. Group related details from the same event; do not create separate checks for clauses, adjectives, people, objects, or small actions. Keep events separate only when each could be missing independently. Ignore incidental details unless the idea makes them defining, continuity-critical, or a boundary/preference.
-Review the whole scene. A check is met only when its main action and defining details are present. Different wording is fine; a different action, object, person, order, or outcome is not. Do not accept a superficially similar substitute for a specifically requested action or object; preserve the author's defining details. Use an exact quote that supports the event. Minor descriptive omissions alone do not fail unless material. Flag unexplained opening continuity mismatches, character-knowledge conflicts, and ignored acknowledged requests. Check acknowledged requests/preferences against later actions. Preserve stated backstory and accept neutral familial comfort. List each missing event once; if any check is missing, pass must be false.
+A check is met only when its main action and defining details are present. Different wording is fine; a different action, object, person, order, or outcome is not. Do not accept a superficially similar substitute for a specifically requested action or object; preserve the author's defining details. Use an exact quote that supports the event. Flag unexplained opening continuity mismatches, character-knowledge conflicts, and ignored acknowledged requests. Check acknowledged requests against later actions. Preserve stated backstory and accept neutral familial comfort. List each missing event once; if any check is missing, pass must be false.
 """
 
 SEMANTIC_RECHECK_SYSTEM_PROMPT = """Independently reassess only the supplied checklist items against the completed scene. Return JSON only:
@@ -1093,11 +1093,10 @@ class SceneContract:
 
         parts.append(
             "SCENE SCOPE AND EVENT PROVENANCE:\n"
-            "The Scene Idea defines the whole scene; concise generated direction must not shrink a broader scene to that action. Reach the endpoint without padding or continuing into the next scene. "
-            "Knowing an event happened is not witnessing it. Only present sights, sounds, smells, dialogue, or actions as a character's personal memory when they witnessed them. "
-            "Attribute second-hand information and never transfer another character's eyewitness experience. "
-            "Explicit author-defined boundaries override creative initiative. Do not add any forbidden fact, event, clue, object, encounter, person, motive, identity, or resolution. "
-            "Distinguish established facts from speculation, inference, and unverified proposals; do not turn a character's guess into canon without support."
+            "The Scene Idea defines the whole scene; concise direction must not shrink it. Reach the endpoint without padding or continuing into the next scene. "
+            "Knowing an event happened is not witnessing it. Present sights, sounds, dialogue, or actions as personal memory only when witnessed; attribute second-hand information. "
+            "Author-defined boundaries override creative initiative. Do not add forbidden facts or unsupported consequential events. "
+            "Distinguish established facts from speculation; do not turn a character's guess into canon without support."
         )
 
         return "\n\n".join(parts)
