@@ -187,6 +187,30 @@ class ContinuityContextTests(unittest.TestCase):
         self.assertGreater(result["estimated_tokens"], 0)
         self.assertLessEqual(result["characters"], 1200)
 
+    def test_historical_search_preserves_relevant_correction_from_same_scene(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            chapter_dir = root / "Manuscript" / "Chapters" / "Chapter_01"
+            chapter_dir.mkdir(parents=True)
+            (chapter_dir / "Chapter_01_Section_01.txt").write_text(
+                "Daniel checked the primary oxygen scrubber manifold and the inlet valve.\\n\\n"
+                "It's not a pressure bleed causing the spike.\\n\\n"
+                "The failure point isn't manifold integrity; it is upstream filtration feeding the system.\\n",
+                encoding="utf-8",
+            )
+
+            result = ManuscriptManager(root).search_historical_context(
+                "pressure leak silicate contamination scrubber manifold upstream filtration",
+                before_chapter=1,
+                before_scene=2,
+                limit=4,
+                max_chars=1200,
+            )
+
+        self.assertIn("upstream filtration", result["text"])
+        self.assertIn("not a pressure bleed", result["text"])
+        self.assertLessEqual(result["characters"], 1200)
+
     def test_historical_search_supports_legacy_scene_filenames(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
