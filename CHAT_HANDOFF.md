@@ -1,3 +1,9 @@
+## Natural-flow investigation checkpoint, October 21, 2026
+
+Current plan: [STORY_FLOW_REPAIR_PLAN.md](STORY_FLOW_REPAIR_PLAN.md). Chapter 1 flows from character interaction into plot more naturally than Chapter 2, which sometimes repeats distress/reassurance and overexplains already-clear emotions. This is a hypothesis about craft, not proof that prompt length alone caused the difference.
+
+History confirms the creative-first Writer prompt is already merged: [1c88b91](https://github.com/tony21675/StoryBuilder/commit/1c88b9139203886224a83eb6cdf084e72073b52f), merged at [e43314e](https://github.com/tony21675/StoryBuilder/commit/e43314e17173d178588fea31c5969769007a7a1e). Next, inspect the full runtime prompt/context and any saved traces; do not blindly revert prompts or change code yet. Test one proposed simplification in a disposable package, holding story anchors and model/settings constant. Preserve canon, character knowledge, required beats, and explicit hard stops. No novel prose or state changed.
+
 ## Active handoff — October 21, 2026: current audit checkpoint in [CHAT_HANDOFF_LATEST.md](CHAT_HANDOFF_LATEST.md) and [APP_AUDIT_2026-10-21.md](APP_AUDIT_2026-10-21.md)
 
 **Current checkpoint:** The whole-app audit is at [APP_AUDIT_2026-10-21.md](APP_AUDIT_2026-10-21.md); the up-to-date repair/status/next-step summary is [CHAT_HANDOFF_LATEST.md](CHAT_HANDOFF_LATEST.md). The selection-aware Focused Change repair is committed; the latest code/test baseline passed both CI workflows (302 unit tests; compile passed). This is not yet a live local-model test. The next step is safe local update plus a focused edit in a disposable package. Do not accept or sync the current Scene 3 test draft.
