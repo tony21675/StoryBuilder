@@ -107,14 +107,14 @@ class GenericStoryPromptTests(unittest.TestCase):
             "scene_cast": ["Ari", "Zoe", "Kai"],
             "current_situation": "",
             "location": {
-                "primary": "Ari and Zoe's home",
+                "primary": "Ari and Zoe's outpost office",
                 "Ari": "Ari's shuttle",
                 "Zoe": "Zoe's shuttle",
-                "Kai": "at home",
+                "Kai": "Kai's lab",
             },
         }
         cast = storybuilder_app.StoryBuilderApp._infer_scene_cast(state)
-        self.assertCountEqual(cast, ["Ari", "Zoe"])
+        self.assertCountEqual(cast, ["Ari", "Zoe", "Kai"])
 
     def test_scene_idea_suggestion_does_not_treat_saved_summary_as_proof(self):
         prompt = SCENE_IDEA_SUGGESTION_SYSTEM_PROMPT.casefold()
