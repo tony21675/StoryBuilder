@@ -2015,6 +2015,7 @@ class NovelSyncSafetyTests(unittest.TestCase):
             app.writer_direction_text.value,
         )
         self.assertIn("Scene direction: Tony cares for Maya.", app.writer_direction_text.value)
+        self.assertEqual(app.writer_direction_text.state, "disabled")
         app.writer_status.configure.assert_not_called()
 
     def test_writer_direction_uses_saved_contract_hard_stop_when_end_condition_missing(self):
