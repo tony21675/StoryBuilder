@@ -3261,21 +3261,15 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         self._update_writer_buttons()
 
     def _writer_scene_boundary_prompt(self):
-        """Give the current scene a short creative brief without duplicating a long rule list."""
+        """Add a concise scene brief; core craft guidance lives in the system prompt."""
         return (
             "SCENE INTENT:\n"
             "Write one complete scene from the author's original idea and saved story state. "
-            "Preserve established facts, character knowledge, any explicit boundary, and the intended ending. "
-            "The idea gives purpose and direction, not a script. Its concrete planned beats are deliberate commitments. "
-            "Make specific actions, quoted lines or nicknames, relationship milestones, reveals, and emotional turns happen on-page; "
-            "do not replace them with a generic equivalent or let a shortened contract omit them. Weave them naturally rather than checking them off. "
-            "Use judgment for natural dialogue, emotional progression, atmosphere, incidental details, connective actions, and fitting story turns. "
-            "Preserve who initiates, gives or receives comfort, expresses gratitude, and whose emotional state changes; these are part of the beat, not interchangeable staging. "
-            "Be cautious about inventing past clues or relationship-defining history that is not grounded in canon or the idea. "
-            "Explicit boundaries override creative initiative, but distinguish concrete new evidence from character insight: if new clues are forbidden, do not invent a specific witness, suspicious contact, object, encounter, named destination, or event. "
-            "A friend may suggest a general habit, coping pattern, or familiar type of place based on their relationship; keep it a tentative idea rather than a confirmed lead. "
-            "Do not stop after only the first highlighted action when the scene's movement continues; "
-            "do not cross a stated hard stop.\n\n"
+            "Treat the idea as direction, not a script. Preserve canon, character knowledge, "
+            "concrete planned beats and their agency, explicit boundaries, and the intended endpoint. "
+            "Use creative judgment for dialogue, emotional progression, pacing, atmosphere, "
+            "and connective action. Do not invent unsupported past facts or concrete clues "
+            "forbidden by the author. Do not stop early or cross a stated hard stop.\n\n"
             "Write the scene now. Output only the prose."
         )
 
