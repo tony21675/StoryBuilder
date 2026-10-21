@@ -193,9 +193,9 @@ class ContinuityContextTests(unittest.TestCase):
             chapter_dir = root / "Manuscript" / "Chapters" / "Chapter_01"
             chapter_dir.mkdir(parents=True)
             (chapter_dir / "Chapter_01_Section_01.txt").write_text(
-                "Daniel checked the primary oxygen scrubber manifold and the inlet valve.\\n\\n"
-                "It's not a pressure bleed causing the spike.\\n\\n"
-                "The failure point isn't manifold integrity; it is upstream filtration feeding the system.\\n",
+                "Daniel checked the primary oxygen scrubber manifold and the inlet valve.\n\n"
+                "It's not a pressure bleed causing the spike.\n\n"
+                "The failure point isn't manifold integrity; it is upstream filtration feeding the system.\n",
                 encoding="utf-8",
             )
 
