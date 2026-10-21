@@ -1,3 +1,18 @@
+# LATEST MILESTONE — Full-width Write layout and collapsed details — October 21, 2026
+
+Tony reported that the side-by-side layout did not let him comfortably see the workspace. Revised the first slice accordingly:
+- The Write pane split is now vertical and full-width rather than horizontal; Writer receives a larger pane.
+- The Scene Idea remains visible at the top with short everyday actions: Suggest Idea, Save Idea, and a Scene Details toggle.
+- Contract generation/reload tools, continuity focus, starting-state summary, beginning/middle direction, hard stop, beats, boundaries, and automatic-attempt control are under a collapsible **Scene details (optional)** area, closed by default.
+- Added a test for opening/closing that detail area and changed the layout test to assert the vertical orientation and weights.
+- Commits: `c6a9856` (layout), `d2701c1` (tests). A docs-only plan update follows this milestone.
+- The current laptop checkout has not pulled these changes or tested them yet. The last confirmed laptop suite was **314 passed** before this revision.
+- No novel files were changed. `main` remains untouched.
+
+**Next action:** Pull the latest redesign branch onto Tony's laptop, run `python3 -m pytest -q`, and inspect the Write view. Confirm the Scene Idea controls are visible, Scene details starts collapsed and expands on click, and the Writer area is full-width below. Do not generate/accept a scene during the layout check. If the vertical split is too short, try resizing its sash only for observation and report what fits; avoid further UI edits until that screen check is confirmed.
+
+---
+
 # LATEST MILESTONE — First unified Write workspace slice — October 21, 2026
 
 Code changes now on `redesign/simplified-writing-workflow`:
