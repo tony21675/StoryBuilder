@@ -233,10 +233,12 @@ class SceneCompletionTests(unittest.TestCase):
     def test_audit_requires_verbatim_evidence_for_viewpoint_timeline_privacy_and_scope(self):
         prose = (
             "Last night, Chloe saw Tiffany taken. Maya changed in the kitchen. "
+            "Maya suggested a favorite place she always went when she felt anxious. "
             "Jessica began reviewing traffic cameras."
         )
         context = (
             "The abduction happened Friday afternoon. "
+            "Boundaries: Do not introduce new clues. "
             "The hard stop is before search tasks."
         )
         state = {"location": {"Chloe": "At home sick."}}
@@ -253,6 +255,11 @@ class SceneCompletionTests(unittest.TestCase):
                 "Maya changed in the kitchen", "Maya must change clothes privately.",
                 "The draft contradicts the explicit privacy instruction."
             ),
+            "unsupported_consequential_details": (
+                "a favorite place she always went when she felt anxious",
+                "Boundaries: Do not introduce new clues.",
+                "The draft introduces a specific speculative clue despite the explicit boundary."
+            ),
             "scene_scope_and_hard_stop": (
                 "Jessica began reviewing traffic cameras", "The hard stop is before search tasks.",
                 "The draft begins a later investigative step."
@@ -267,7 +274,7 @@ class SceneCompletionTests(unittest.TestCase):
             }
         result = self._run_audit(prose, context, state, guidance, checks)
         self.assertEqual(result["status"], "conflict")
-        self.assertEqual(len(result["issues"]), 4)
+        self.assertEqual(len(result["issues"]), 5)
         joined = "\n".join(result["issues"])
         for source_quote, *_ in examples.values():
             self.assertIn(source_quote, joined)
@@ -314,7 +321,7 @@ class SceneCompletionTests(unittest.TestCase):
             engine=self.engine,
             model_path=self.model,
             writer_system_prompt=self.system_prompt,
-            scene_context="Scene Idea: end before investigation.",
+            scene_context="Scene Idea: end before investigation. Boundaries: Do not introduce new clues.",
             current_state={"scene_cast": ["Tony"]},
             author_guidance="No investigation in this scene.",
             prose="Tony listened.",
@@ -323,6 +330,9 @@ class SceneCompletionTests(unittest.TestCase):
         for category in AUDIT_CATEGORIES:
             self.assertIn(category, prompt)
         self.assertIn("exact quote", prompt)
+        self.assertIn("even when phrased as a question, guess, possibility, hypothesis, or imagined habit/destination", prompt)
+        self.assertIn("Distinguish neutral brainstorming about general search methods", prompt)
+        self.assertIn("Boundaries: Do not introduce new clues.", prompt)
         self.assertEqual(result["status"], "clear")
 
 
