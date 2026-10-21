@@ -221,7 +221,8 @@ class StoryBuilderApp(tk.Tk):
         self.scene_planner_thread = None
 
         self._build_ui()
-        self.protocol("WM_DELETE_WINDOW", self._close_and_sync)
+        # Closing the window saves locally; syncing requires an explicit user action.
+        self.protocol("WM_DELETE_WINDOW", self._close_without_sync)
         self._load_startup_novel()
 
     def _build_ui(self):
