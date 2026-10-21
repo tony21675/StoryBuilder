@@ -1,5 +1,9 @@
 ## Active handoff — October 21, 2026: current audit checkpoint in [CHAT_HANDOFF_LATEST.md](CHAT_HANDOFF_LATEST.md) and [APP_AUDIT_2026-10-21.md](APP_AUDIT_2026-10-21.md)
 
+**Current checkpoint:** The whole-app audit is at [APP_AUDIT_2026-10-21.md](APP_AUDIT_2026-10-21.md); the up-to-date repair/status/next-step summary is [CHAT_HANDOFF_LATEST.md](CHAT_HANDOFF_LATEST.md). The selection-aware Focused Change repair is committed and its code baseline passed both CI workflows (301 unit tests; compile passed). This is not yet a live local-model test. The next step is safe local update plus a focused edit in a disposable package. Do not accept or sync the current Scene 3 test draft.
+
+
+
 **Current state:** PR #44, [Experiment: creative-first Writer prompt](https://github.com/tony21675/StoryBuilder/pull/44), is merged into `main` at `e43314e17173d178588fea31c5969769007a7a1e`. The merge includes the creative-first Writer prompt, streamed initial-draft output, and Scene Contract/continuity-audit refinements. This changed StoryBuilder application code only. MyNovel and accepted manuscript prose were not changed by the merge.
 
 **Hard rule for every future session:** After each meaningful change or milestone, update the relevant handoff file(s) immediately, before proceeding to the next step. Update this `CHAT_HANDOFF.md` for StoryBuilder code, prompt, application workflow, sync, launch, or test milestones. Update MyNovel's `HANDOFF.md` for story-plan, novel-state, manuscript, or active-story-position milestones. For cross-repository changes or any milestone that affects how the next session should proceed, update both. Record what actually happened, verification/results, current status, safety boundaries, and the exact next action. Do not wait until the end of a task, and do not skip this rule when a new chat starts.
