@@ -1,3 +1,15 @@
+
+
+## Follow-up to local test results — October 21, 2026
+
+Tony pulled the prior audit batch and ran the full suite: **330 passed, 4 failed**. Three failures were stale prompt-text assertions resulting from the deliberate shortening/generalization of shared guidance. The fourth highlighted a real omission: the system prompt for the integrity auditor had been generalized, but the dynamically assembled user prompt in `_audit_prompt` still carried the old mystery-specific instruction paragraph.
+
+The dynamic prompt has now been rewritten in genre-neutral language: identify unsupported consequential facts and author-boundary violations, distinguish character-based speculation from established facts, and judge actual scope/progress. A new regression assertion verifies that the generic dynamic audit prompt does not contain `abduction` or `Tiffany`. The compact validator's wording now explicitly retains acknowledged requests **and preferences**; its measured character count is 1,464, below the 1,500-character test limit. Stale contract test expectations were updated to match the intentionally shorter provenance/scope guidance.
+
+These changes are on the redesign branch through commit `14cb7ba4586d94ee9c52c894a8069a7b7f40e49d`. They have not yet been pulled or tested on the laptop. The next verification is `git pull --ff-only`, then `python3 -m pytest -q`, one command at a time.
+
+The read-only local package scan returned 45 regular files, no symlinks or unreadable files, and six declared Mars crew cards matching the expected names. The current pointer is Chapter 1, Scene 3. Only the unaccepted file `Manuscript/Chapters/Chapter_01/Chapter_01_Section_01_draft.txt` contains old novel character-name matches (Maya x2, Chloe x2); it is 4,309 bytes and was modified on October 21 at 07:16. Source inspection confirms normal history retrieval excludes `*_draft.txt` and startup restores accepted prose, not that draft. No package files were changed. Leave the draft in place until code tests are green and its role has been fully assessed.
+
 # Cross-Novel Context Audit
 Date: October 21, 2026
 Audited ref: `redesign/simplified-writing-workflow` at the code/test updates recorded in this branch.
