@@ -6,6 +6,7 @@ from builder.state_manager import (
     KNOWLEDGE_AUDIT_SYSTEM_PROMPT,
     STATE_SYSTEM_PROMPT,
     StateManager,
+    _knowledge_fact_identity,
     append_recent_events,
     build_state_analysis_context,
     build_state_change_summary,
@@ -345,7 +346,7 @@ class StateAnalysisTransitionTests(unittest.TestCase):
         self.assertEqual(questions, [
             "Who abducted Tiffany?",
             "Where was Tiffany taken?",
-            "What was the van's license plate?",
+            "What was the vehicle's license plate?",
         ])
 
         answered = recover_explicit_unresolved_questions(
@@ -364,6 +365,33 @@ class StateAnalysisTransitionTests(unittest.TestCase):
         self.assertNotIn("Who abducted Tiffany?", resolved)
 
 
+
+    def test_missing_person_does_not_create_kidnapping_questions_without_evidence(self):
+        state = {
+            "scene_cast": ["Zoe Bennett"],
+            "character_knowledge": {
+                "Zoe Bennett": [
+                    "Zoe does not know who disabled the oxygen scrubber.",
+                    "The communications officer is missing.",
+                ],
+            },
+            "unresolved_questions": [],
+        }
+
+        questions = recover_explicit_unresolved_questions(state)
+
+        self.assertEqual(questions, [])
+        self.assertFalse(any("kidnap" in question.casefold() for question in questions))
+
+    def test_demeanor_deduplication_works_without_a_novel_specific_name(self):
+        first = _knowledge_fact_identity(
+            "Saw Ari standing there laughing before the engineer moved."
+        )
+        second = _knowledge_fact_identity(
+            "Observed Ari smiling while standing before the engineer moved."
+        )
+        self.assertEqual(first, "ari-pre-movement-demeanor")
+        self.assertEqual(second, first)
 
     def test_state_analysis_context_excludes_large_unrelated_ledgers(self):
         state = {
