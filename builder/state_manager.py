@@ -101,7 +101,7 @@ def is_routine_action_log_knowledge(
     # or passive phrasing ("Was guided by Tony") instead of naming the actor.
     # Inspect the first meaningful verb after common auxiliaries, but only drop
     # verbs already classified as routine logistics above. Consequential verbs
-    # such as struck, abducted, injured, or scratched are deliberately retained.
+    # such as striking, injuring, damaging, or physically moving something are deliberately retained.
     fragment_match = re.match(
         r"^(?:(?:has|have|had|is|are|was|were|been|being|does|did)\s+)*(?:now\s+)?([a-z]+)\b",
         candidate,
@@ -124,7 +124,7 @@ def is_routine_action_log_knowledge(
     if pronoun_match and pronoun_match.group(1) in ROUTINE_KNOWLEDGE_ACTION_VERBS:
         return True
     # This wording also appears in routine caregiving logs, while preserving
-    # consequential historical statements such as "Tony gave Tiffany Barnaby".
+    # consequential historical statements such as a character giving another person a specific keepsake.
     if re.match(r"^(?:[a-z][a-z '-]+?\s+)?gave\s+(?:her|him|maya|tony)\s+peace\b", candidate):
         return True
 
