@@ -1,3 +1,4 @@
+import inspect
 import json
 import tempfile
 import unittest
@@ -2015,6 +2016,36 @@ class NovelSyncSafetyTests(unittest.TestCase):
         )
         self.assertIn("Scene direction: Tony cares for Maya.", app.writer_direction_text.value)
         app.writer_status.configure.assert_not_called()
+
+    def test_writer_direction_uses_saved_contract_hard_stop_when_end_condition_missing(self):
+        idea = "Tony offers Maya a bubble bath and later makes tea."
+        app = self.make_writer_scene_idea_app(idea)
+        entry = (
+            app.package.extra_json["writing_guidance.json"]["chapter_plans"]["2"]
+            ["scene_plan"]["4"]
+        )
+        entry.pop("end_condition")
+        entry["scene_contract"]["hard_stop"] = "End after they sit together at the kitchen table."
+        app.writer_status = Mock()
+
+        storybuilder_app.StoryBuilderApp._build_scene_direction(app, update_status=False)
+
+        self.assertIn(
+            "End: End after they sit together at the kitchen table.",
+            app.writer_direction_text.value,
+        )
+
+    def test_write_workspace_has_one_primary_scene_preparation_button(self):
+        contract_source = inspect.getsource(
+            storybuilder_app.StoryBuilderApp._build_scene_contract_tab
+        )
+        writer_source = inspect.getsource(
+            storybuilder_app.StoryBuilderApp._build_writer_tab
+        )
+
+        self.assertIn('text="Prepare Scene..."', contract_source)
+        self.assertNotIn('text="Generate / Replace Contract..."', contract_source)
+        self.assertNotIn('text="Build Scene Direction"', writer_source)
 
     def test_compact_tab_calls_on_show_callback_for_selected_page(self):
         class FakePage:
