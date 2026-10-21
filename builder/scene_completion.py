@@ -31,7 +31,7 @@ Return exactly one JSON object with this shape:
 
 Review all five categories independently and include every category exactly once. Each status must be "clear", "conflict", or "uncertain". Every check needs a short reason.
 - "clear" means you checked the supplied evidence and found no material contradiction in that category.
-- "conflict" means you found a material contradiction supported by BOTH a verbatim draft excerpt and a verbatim excerpt from the supplied author idea, starting-state JSON, or stable author guidance.
+- "conflict" means you found a material contradiction supported by BOTH a verbatim draft excerpt and a verbatim excerpt from the supplied author idea, starting-state JSON, stable author guidance, or relevant accepted-manuscript excerpts.
 - "uncertain" means the supplied context does not let you verify the category confidently, or you cannot quote both sides of a possible conflict.
 For a conflict, draft_evidence MUST be an exact contiguous substring of the completed scene. source_evidence MUST be an exact contiguous substring of one of the supplied context blocks. Do not paraphrase either evidence field. Never report a conflict without both exact excerpts. If evidence is missing or you are uncertain, mark that category "uncertain", not "conflict". Do not add a pass field or issues list.
 
