@@ -4,6 +4,10 @@ from unittest.mock import Mock
 from types import SimpleNamespace
 
 import storybuilder as storybuilder_app
+from builder import conversation, guided_setup
+from builder.continuity_context import select_active_character_knowledge
+from builder.scene_completion import INTEGRITY_AUDIT_SYSTEM_PROMPT
+from builder.state_manager import recover_clues_from_knowledge
 from builder.scene_contract import (
     CONTRACT_BUILDER_SYSTEM_PROMPT,
     VALIDATOR_SYSTEM_PROMPT,
@@ -28,11 +32,24 @@ class GenericStoryPromptTests(unittest.TestCase):
             VALIDATOR_SYSTEM_PROMPT,
             SCENE_IDEA_SUGGESTION_SYSTEM_PROMPT,
             KNOWLEDGE_AUDIT_SYSTEM_PROMPT,
+            INTEGRITY_AUDIT_SYSTEM_PROMPT,
         )
         for prompt in prompts:
             lowered = prompt.casefold()
             for novel_specific_term in ("bubble bath", "abduction", "tiffany", "barnaby", "tony", "maya"):
                 self.assertNotIn(novel_specific_term, lowered)
+
+    def test_shared_helpers_and_setup_examples_do_not_name_characters_from_another_novel(self):
+        sources = (
+            inspect.getsource(guided_setup.GuidedSetupSession),
+            inspect.getsource(conversation),
+            inspect.getsource(select_active_character_knowledge),
+            inspect.getsource(recover_clues_from_knowledge),
+        )
+        for source in sources:
+            lowered = source.casefold()
+            for old_novel_name in ("tony", "tiffany", "maya", "barnaby"):
+                self.assertNotIn(old_novel_name, lowered)
 
     def test_writer_scene_direction_is_read_only_and_has_copy_action(self):
         source = inspect.getsource(storybuilder_app.StoryBuilderApp._build_writer_tab)
