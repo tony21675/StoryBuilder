@@ -1,3 +1,15 @@
+# LATEST HANDOFF: Cross-novel contamination audit — October 21, 2026
+
+Read `CROSS_NOVEL_CONTEXT_AUDIT_2026-10-21.md` for the code-source inventory and limits. The audit found previous-novel assumptions in shared runtime prompts and helpers. Removed character/title examples from the chat UI and guided setup, a character-name search cue from continuity retrieval, abduction-specific prose from the general scene integrity audit, and specific scent descriptors from clue ranking/recovery. The shared Writer and scene-planning rules now treat the generated state recap as fallible and preserve the original Scene Idea/canon/evidence precedence. The fixed prior-novel character-name list used by cast inference was replaced with names derived from the current story. Added regression tests for runtime prompt/source isolation and sibling package/manuscript isolation.
+
+Package-source review confirms `StoryPackage.load(folder)` uses the selected folder only, Writer reference files are assembled from the active package object, history retrieval uses that package path, and novel switching stops the previous Writer process. Root audit/handoff Markdown and story-heavy automated test fixtures are not passed as files to the live Writer. A remaining conditional helper generates identity/location/vehicle questions only when the supplied knowledge establishes an abduction/captivity event; a mere missing person or unknown identity must not create kidnapping questions. It does not read another novel's files by itself.
+
+**Local test status:** last run before this batch was `326 passed, 5 failed`. The branch now fixes the wording assertions and validator size, and adds additional regression tests, but no local verification exists yet. Next on laptop: `git status -sb`; if clean on `redesign/simplified-writing-workflow`, `git pull --ff-only`, then `python3 -m pytest -q`.
+
+**Do not alter novel data yet.** After tests pass, run the read-only package scan from chat against `~/Documents/MyNovel/The-Long-Way-Home`, which reports path/symlink and prior-novel keyword counts without printing story prose. Share the results before any cleanup. The actual local package has not yet been scanned, so copied files or notes in that folder remain a possible cause. Keep the saved Mars Scene 3 contract and `Taken_at_Dusk` untouched. Do not generate or accept prose during this audit. Launch directly with `python3 storybuilder.py`, not `./start.sh`, during the check.
+
+---
+
 # LATEST CHECKPOINT — Read-only copyable Writer direction plus generic prompt/state safeguards — October 21, 2026
 
 Current redesign branch changes include the read-only copyable Writer Scene Direction and a larger generic-prompt/state-safety cleanup. These changes are committed to `redesign/simplified-writing-workflow` but have **not** been verified by Tony's local full test suite.
