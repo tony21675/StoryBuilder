@@ -1,3 +1,9 @@
+## Verification complete — October 21, 2026
+
+Current documented main commit: `cb73a10bae2b1e845419d67f79eeb8a98e1abee4`. Both CI workflows passed on this commit: [checks](https://github.com/tony21675/StoryBuilder/actions/runs/39559964629) and [tests](https://github.com/tony21675/StoryBuilder/actions/runs/39559964594). The unit-test job reports **301 tests passed** and compilation succeeded. Code repair commit: [d382e471](https://github.com/tony21675/StoryBuilder/commit/d382e471b3c9046b9c6a77e0049aa2b7caa1221e); the subsequent test-fixture correction is [7ac07a9](https://github.com/tony21675/StoryBuilder/commit/7ac07a9b37df5a16ff9523b2185753bd96a43bcd). Changes after that were handoff documentation only. No local model/UI run has been performed yet.
+
+**Next:** test in the local desktop app against a disposable novel, only after checking for unaccepted prose/generation and updating StoryBuilder main safely. Select only a paragraph/short dialogue span in Generated Scene, type a narrow request, apply, and compare all text before/after the selection byte-for-byte. Test one deliberate failed response/no-selection case if practical. Do not accept or sync the current novel test draft.
+ 
 ## Test-fixture correction — October 21, 2026
 
 Fixed the incorrect stale-offset fixture in `tests/test_focused_revision.py` commit [7ac07a9](https://github.com/tony21675/StoryBuilder/commit/7ac07a9b37df5a16ff9523b2185753bd96a43bcd): its expected selected text now includes the period that is outside the truncated source slice. This was a test assertion problem; no production code changed in this correction. New CI runs have been triggered by this commit. Do not claim the selected revision path is verified until both workflows pass.
