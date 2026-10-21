@@ -9030,7 +9030,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
 
             # Common natural-language equivalents used by the current state
             # schema. This avoids treating "At home" as a separate place from
-            # "Tony and Tiffany's home."
+            # a more specific shared-home label.
             if "home" in primary and "home" in text:
                 return True
             if "house" in primary and ("house" in text or "home" in text):
@@ -9038,10 +9038,25 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             if "garage" in primary and "garage" in text:
                 return True
 
-            # Otherwise require a meaningful shared phrase/token.
+            # Otherwise require a meaningful shared place token. Remove
+            # actual character-name tokens dynamically, rather than relying on
+            # names from one particular novel.
+            character_names = [
+                str(name)
+                for name in location
+                if name != "primary"
+            ]
+            raw_scene_cast = state.get("scene_cast", [])
+            if isinstance(raw_scene_cast, list):
+                character_names.extend(str(name) for name in raw_scene_cast)
+            character_name_tokens = {
+                token
+                for name in character_names
+                for token in re.findall(r"[a-z0-9]+", name.casefold())
+            }
             primary_words = {
                 word for word in re.findall(r"[a-z0-9]+", primary)
-                if len(word) >= 4 and word not in {"tony", "tiffany", "maya", "chloe"}
+                if len(word) >= 4 and word not in character_name_tokens
             }
             text_words = set(re.findall(r"[a-z0-9]+", text))
             return bool(primary_words & text_words)
