@@ -72,11 +72,7 @@ from builder.state_manager import (
     reviewed_state_preview_to_patch,
 )
 from builder.scene_contract import SceneContract, extract_scene_header_metadata
-from builder.focused_revision import (
-    FOCUSED_REVISION_SYSTEM_PROMPT,
-    apply_focused_replacement,
-    build_focused_revision_prompt,
-)
+from builder.focused_revision import revise_selected_passage
 from builder.scene_completion import generate_scene_with_completion_check
 from builder.story_interview import (
     CHARACTER_QUESTIONS,
@@ -1361,7 +1357,9 @@ class StoryBuilderApp(tk.Tk):
             text="Generated Scene",
             font=("", 11, "bold"),
         ).pack(anchor="w")
-        self.writer_output_text = tk.Text(content_frame, height=22, wrap="word", undo=True)
+        self.writer_output_text = tk.Text(
+            content_frame, height=22, wrap="word", undo=True, exportselection=False
+        )
         self.writer_output_text.pack(fill="x", pady=(4, 0))
 
         review_button_row = ttk.Frame(content_frame)
@@ -1390,8 +1388,8 @@ class StoryBuilderApp(tk.Tk):
         ttk.Label(
             revision_frame,
             text=(
-                "Focused change: describe one specific change; other text will be preserved. "
-                "(Ctrl+Enter to apply.)"
+                "Focused change: select the exact passage in Generated Scene, then describe one change. "
+                "Only that selected passage will be replaced. (Ctrl+Enter to apply.)"
             ),
         ).pack(anchor="w")
 
@@ -3891,13 +3889,46 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         if getattr(self, "writer_generation_in_progress", False) or self.__dict__.get("focused_revision_in_progress", False):
             return
 
-        original = self._writer_editor_prose()
+        editor = self.writer_output_text
+        original = editor.get("1.0", "end-1c")
+        if not original.strip():
+            messagebox.showwarning("Focused Change", "There is no scene draft to revise.")
+            return
+
+        # Keep the widget-local selection when focus moves to the request box/button.
+        # Capture its exact source span before starting the asynchronous model call.
+        try:
+            selected_text = editor.get("sel.first", "sel.last")
+            before_text = editor.get("1.0", "sel.first")
+        except tk.TclError:
+            selected_text = ""
+            before_text = ""
+
+        if not selected_text or not selected_text.strip():
+            messagebox.showwarning(
+                "Focused Change",
+                "Select the exact passage you want to change in Generated Scene first, then describe the change below.",
+            )
+            return
+
+        selection_start = len(before_text)
+        selection_end = selection_start + len(selected_text)
+        if original[selection_start:selection_end] != selected_text:
+            self._show_copyable_error(
+                "Focused Change",
+                "The selected passage could not be matched to the current editor text. No text was changed. Select the passage again and retry.",
+            )
+            return
+        if selection_start == 0 and selection_end == len(original):
+            messagebox.showwarning(
+                "Focused Change",
+                "Select a passage smaller than the entire scene. Focused Change is intended for a local edit.",
+            )
+            return
+
         request = self.writer_revision_request_entry.get("1.0", "end-1c").strip()
         if not request:
             messagebox.showwarning("Focused Change", "Describe the specific change you want.")
-            return
-        if not original:
-            messagebox.showwarning("Focused Change", "There is no scene draft to revise.")
             return
 
         engine = self.writer_engine
@@ -3910,52 +3941,28 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         if model is None or not running:
             messagebox.showwarning("Focused Change", "Start the Writer model before requesting a focused change.")
             return
+
         original_system_prompt = str(getattr(engine, "system_prompt", "") or "")
+        before_context = original[max(0, selection_start - 350):selection_start]
+        after_context = original[selection_end:selection_end + 350]
         self.focused_revision_in_progress = True
-        self.writer_status.configure(text="Preparing a focused edit...")
+        self.writer_status.configure(text="Preparing a focused edit to the selected passage...")
         self._update_writer_buttons()
 
         def work():
-            revised = None
-            error = None
-            restore_error = None
-            try:
-                # A short task-specific prompt keeps the exact draft and patch inside
-                # the local model's context window without repeating the full novel bible.
-                engine.reset_context(model, FOCUSED_REVISION_SYSTEM_PROMPT)
-                correction = None
-                previous_response = None
-                last_error = None
-                for _attempt in range(2):
-                    response = engine.generate(
-                        build_focused_revision_prompt(
-                            original,
-                            request,
-                            correction=correction,
-                            previous_response=previous_response,
-                        )
-                    )
-                    try:
-                        revised = apply_focused_replacement(original, response)
-                        last_error = None
-                        break
-                    except ValueError as exc:
-                        last_error = str(exc)
-                        correction = last_error
-                        previous_response = response
-                if revised is None:
-                    raise ValueError(
-                        "The model could not produce a safe, exact-text edit after two attempts. "
-                        + str(last_error or "")
-                    )
-            except Exception as exc:
-                error = str(exc)
-            finally:
-                try:
-                    engine.reset_context(model, original_system_prompt)
-                except Exception as exc:
-                    restore_error = str(exc)
-
+            revised, error, restore_error = revise_selected_passage(
+                engine=engine,
+                model_path=model,
+                original_system_prompt=original_system_prompt,
+                original=original,
+                start=selection_start,
+                end=selection_end,
+                selected_text=selected_text,
+                request=request,
+                before_context=before_context,
+                after_context=after_context,
+                max_attempts=2,
+            )
             self.after(
                 0,
                 lambda: self._finish_focused_scene_change(
@@ -3968,11 +3975,16 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
 
     def _finish_focused_scene_change(self, original, revised, error, restore_error=None):
         self.focused_revision_in_progress = False
-        if revised is not None and self._writer_editor_prose() != original:
-            error = (
-                "The visible draft changed while the focused edit was running. "
-                "No model edit was applied; your current text was left untouched."
-            )
+        if revised is not None:
+            try:
+                current_editor_text = self.writer_output_text.get("1.0", "end-1c")
+            except Exception:
+                current_editor_text = self._writer_editor_prose()
+            if current_editor_text != original:
+                error = (
+                    "The visible draft changed while the focused edit was running. "
+                    "No model edit was applied; your current text was left untouched."
+                )
 
         if error or revised is None:
             self._update_writer_buttons()
@@ -4011,7 +4023,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             )
         else:
             self.writer_status.configure(
-                text="Focused change applied to one exact passage. All other draft text was preserved; review it again."
+                text="Focused change applied to the selected passage. All other draft text was preserved; review it again."
             )
 
     def _undo_focused_scene_change(self):
