@@ -355,8 +355,8 @@ class SceneCompletionTests(unittest.TestCase):
             self.assertIn(category, prompt)
         self.assertIn("exact quote", prompt)
         self.assertIn("unsupported consequential fact", prompt)
-        self.assertIn("Do not flag general speculation merely because the Scene Idea does not spell it out", prompt)
-        self.assertIn("Judge whether the draft supplies or relies on a concrete actionable fact", prompt)
+        self.assertIn("Do not treat ordinary brainstorming as a continuity conflict unless the draft presents or relies on it as fact", prompt)
+        self.assertIn("Check for unsupported consequential facts", prompt)
         self.assertIn("Boundaries: Do not introduce new clues.", prompt)
         self.assertEqual(result["status"], "clear")
 
