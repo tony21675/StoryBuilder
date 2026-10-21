@@ -1,3 +1,12 @@
+## Latest repair checkpoint — October 21, 2026
+
+**Implemented on main:** [d382e471](https://github.com/tony21675/StoryBuilder/commit/d382e471b3c9046b9c6a77e0049aa2b7caa1221e), “Make focused revision selection-aware.” CI is running: [tests](https://github.com/tony21675/StoryBuilder/actions/runs/39559839393), [checks](https://github.com/tony21675/StoryBuilder/actions/runs/39559839228).
+
+Focused Change now requires the author to select the exact passage in Generated Scene. The UI retains the local selection when focus moves to the request box, captures exact source offsets, sends the selected passage plus short read-only neighboring context, and asks the model for replacement_text only. The app checks that offsets still match the selected source, rejects whole-scene selections, and checks the entire editor still matches the captured draft before applying. A mismatch or model failure leaves the draft unchanged. Each retry now starts a fresh task context, then restores the normal Writer context. Added 8 targeted tests, including long-scene/multiline preservation, changed source offsets, target_text rejection, retry context reset, and failed edit handling.
+
+**Not yet verified:** CI results for this commit are pending, and the local desktop/model has not been tested. Do not use the test-copy draft for acceptance or state update. Once CI passes, update local main safely using the project's normal start/sync workflow only after confirming no unfinished or unaccepted work is at risk. Then test selection-based Focused Change in a disposable novel. The previous Scene 3 draft remains unaccepted, with Chloe's emotional beat and the separate hard-stop issue unresolved.
+
+The full audit remains at [APP_AUDIT_2026-10-21.md](APP_AUDIT_2026-10-21.md). Continue honoring all permanent collaboration/safety rules in `CHAT_HANDOFF.md`.
 # Current StoryBuilder Handoff Checkpoint
 Date: October 21, 2026
 
