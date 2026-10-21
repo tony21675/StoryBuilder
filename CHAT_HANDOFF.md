@@ -1,3 +1,16 @@
+# LATEST MILESTONE — Single scene-preparation action and saved endpoint fix — October 21, 2026
+
+Tony confirmed the full-width Write layout is easier to use and that the Scene Details panel expands/collapses correctly. The latest StoryBuilder changes on `redesign/simplified-writing-workflow` are:
+
+- **Saved endpoint fallback:** Writer's Scene Direction now resolves the endpoint through `SceneContract.from_guidance`, so a saved nested `scene_contract.hard_stop` is shown even when the legacy/top-level `end_condition` field is empty. If a saved contract is malformed, direction building falls back to the readable legacy endpoint fields instead of failing outright.
+- **One primary scene-preparation action:** The Scene Idea row now has **Prepare Scene...**. It runs the existing contract-generation workflow and keeps the existing replace-confirmation safeguard. The separate **Build Scene Direction** button is removed from Writer, avoiding two controls that appear to build overlapping prompt guidance. Direction still refreshes automatically from the app's internal update paths.
+- **Regression coverage:** Added a test that a nested saved hard stop appears when `end_condition` is missing, plus a UI-source check for the single primary preparation action.
+- StoryBuilder code/tests/plan/handoff only. No Mars novel files were changed, and `main` remains untouched.
+
+**Verification status:** These remote updates have not yet been pulled or tested on Tony's laptop. After checking `git status -sb` in `~/Documents/StoryBuilder`, fast-forward pull only if the checkout is clean and on `redesign/simplified-writing-workflow`. Then run `python3 -m pytest -q`. If it passes, open the app directly with `python3 storybuilder.py` (not `./start.sh` for this UI check). Confirm the Scene Idea row shows **Prepare Scene...**, Writer no longer has a manual **Build Scene Direction** button, and the displayed Writer direction includes the saved **End:** line. Do not click Prepare Scene during this verification if the current saved contract should remain unchanged. Do not generate or accept a scene as part of the check.
+
+---
+
 # LATEST MILESTONE — Full-width Write layout and collapsed details — October 21, 2026
 
 Tony reported that the side-by-side layout did not let him comfortably see the workspace. Revised the first slice accordingly:
