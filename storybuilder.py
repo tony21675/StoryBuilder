@@ -3265,7 +3265,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         return (
             "SCENE INTENT:\n"
             "Write one complete scene from the author's original idea and saved story state. "
-            "Treat the idea as direction, not a script. Preserve canon, character knowledge, "
+            "The idea gives purpose and direction, not a script. Preserve canon, character knowledge, "
             "concrete planned beats and their agency, explicit boundaries, and the intended endpoint. "
             "Use creative judgment for dialogue, emotional progression, pacing, atmosphere, "
             "and connective action. Do not invent unsupported past facts or concrete clues "
