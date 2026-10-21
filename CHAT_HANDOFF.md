@@ -1,3 +1,16 @@
+# LATEST FOLLOW-UP — Read-only, copyable Scene Direction — October 21, 2026
+
+Tony asked that the generated Writer box be read-only but easy to copy into chat. Implemented on the redesign branch:
+- Writer's **Scene Direction** widget now starts disabled/read-only, with text selection available and `exportselection=False` so selecting the text does not rely on another application's primary selection.
+- **Copy Scene Direction** copies the entire displayed guidance to the clipboard and reports when it is ready to paste with Ctrl+V.
+- `_build_scene_direction` temporarily enables the widget only for its internal refresh and always returns it to disabled state.
+- Removed the generated direction widget from live spell-check hooks because it is no longer an editable field. The saved Scene Idea remains editable.
+- Added tests for the read-only UI and full-text clipboard action.
+
+Latest main code commit for this request: `6cf95f6`; copy/read-only regression tests: `c79d1f4`; docs: `6c4d5bb`. This is StoryBuilder code and docs only; no novel package was modified. Current test suite must be rerun locally after pulling the complete latest branch. Next: `git status -sb`; if clean on `redesign/simplified-writing-workflow`, `git pull --ff-only`, then `python3 -m pytest -q`. Fix any test failures on the branch before launching. Once tests pass, launch directly using `python3 storybuilder.py`, verify Scene Direction cannot be typed into but **Copy Scene Direction** copies all of it, and paste it in chat for review. Do not regenerate the already corrected Scene 3 contract or generate/accept prose during this UI check. Keep `Taken_at_Dusk` untouched.
+
+---
+
 # LATEST FOLLOW-UP — Scene Idea precedence clarified — October 21, 2026
 
 The final wording in the shared Writer and Scene Idea suggestion prompts now explicitly recognizes the existing Scene Idea and author corrections as evidence when correcting a stale generated state recap, alongside accepted prose and canon. This update follows the generic-prompt cleanup and is committed on `redesign/simplified-writing-workflow` at `d12ba39` (Scene Idea suggestion prompt) and `67cf855` (Writer prompt). The latest source/test branch also includes generic state-question safeguards, name-independent scene-cast inference, and regression tests for cross-genre prompt isolation.
