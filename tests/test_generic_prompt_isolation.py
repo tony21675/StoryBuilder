@@ -70,6 +70,20 @@ class GenericStoryPromptTests(unittest.TestCase):
         self.assertIn("must not overrule or contradict the author's intent", context)
         self.assertIn("distinguish established facts from speculation", context)
 
+    def test_scene_cast_inference_uses_actual_names_not_a_fixed_novel_name_list(self):
+        state = {
+            "scene_cast": ["Ari", "Zoe", "Kai"],
+            "current_situation": "",
+            "location": {
+                "primary": "Ari and Zoe's home",
+                "Ari": "Ari's shuttle",
+                "Zoe": "Zoe's shuttle",
+                "Kai": "at home",
+            },
+        }
+        cast = storybuilder_app.StoryBuilderApp._infer_scene_cast(state)
+        self.assertCountEqual(cast, ["Ari", "Zoe"])
+
     def test_scene_idea_suggestion_does_not_treat_saved_summary_as_proof(self):
         prompt = SCENE_IDEA_SUGGESTION_SYSTEM_PROMPT.casefold()
         self.assertIn("not as sole proof", prompt)
