@@ -28,7 +28,7 @@ class GenericStoryPromptTests(unittest.TestCase):
         )
         for prompt in prompts:
             lowered = prompt.casefold()
-            for novel_specific_term in ("bubble bath", "abduction", "tiffany", "barnaby"):
+            for novel_specific_term in ("bubble bath", "abduction", "tiffany", "barnaby", "tony", "maya"):
                 self.assertNotIn(novel_specific_term, lowered)
 
     def test_state_knowledge_audit_prompt_is_genre_neutral(self):
