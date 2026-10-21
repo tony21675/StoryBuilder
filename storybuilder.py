@@ -1902,11 +1902,20 @@ class StoryBuilderApp(tk.Tk):
         ))
 
         scene_characters = {}
+        # When a scene has no declared cast and the plan names no characters,
+        # there is no reliable basis for filtering the story's character cards.
+        # Include the available cards so a new story's opening scene can establish
+        # its intended cast instead of inventing replacement characters.
+        include_all_character_cards = not scene_context_names
         for filename in sorted(self.package.characters):
             data = self.package.characters[filename]
             name = str(data.get("name", "") or "").strip()
             filename_stem = Path(filename).stem.strip()
-            if name.casefold() not in {value.casefold() for value in scene_context_names} and filename_stem.casefold() not in {value.casefold() for value in scene_context_names}:
+            if (
+                not include_all_character_cards
+                and name.casefold() not in {value.casefold() for value in scene_context_names}
+                and filename_stem.casefold() not in {value.casefold() for value in scene_context_names}
+            ):
                 continue
             scene_characters[name or filename_stem] = data
 
