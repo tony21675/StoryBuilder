@@ -1,3 +1,22 @@
+# IMMEDIATE NEXT STEP: latest prompt fixes, October 21, 2026
+
+Local full-suite result on the previous audit code: **330 passed, 4 failed**. A second, dynamically assembled audit prompt still had genre-specific mystery language even after the integrity-audit system prompt had been generalized. This was fixed along with stale test assertions; the compact validator also retains explicit guidance to check acknowledged requests/preferences while remaining below 1,500 characters. A regression assertion now checks that the generic dynamic audit prompt contains neither `abduction` nor `Tiffany`.
+
+Latest remote branch code/test commit: `14cb7ba4586d94ee9c52c894a8069a7b7f40e49d` (the newest handoff update follows this code commit). Tony's laptop has not yet pulled or tested it. Next, one command at a time:
+```bash
+cd ~/Documents/StoryBuilder && git pull --ff-only
+```
+Then:
+```bash
+cd ~/Documents/StoryBuilder && python3 -m pytest -q
+```
+Share the full output before taking any further action. Do not launch StoryBuilder or modify either novel until the test result is clean.
+
+The read-only `The-Long-Way-Home` package audit found 45 regular files, no symlinks, no unreadable files, correct Mars crew cards, and current pointer Chapter 1, Scene 3. The only old-character hits are Maya x2 / Chloe x2 in `Chapter_01_Section_01_draft.txt`. Normal historical retrieval excludes `*_draft.txt`; startup restores accepted prose rather than this saved draft. Do not delete it during verification. `README.md` and `TEST_PROTOCOL.md` mentions of *Taken at Dusk* are documentation and are not loaded into Writer reference context. Keep the real `Taken_at_Dusk` novel untouched.
+
+---
+
+
 # LATEST HANDOFF: Cross-novel contamination audit — October 21, 2026
 
 Read `CROSS_NOVEL_CONTEXT_AUDIT_2026-10-21.md` for the code-source inventory and limits. The audit found previous-novel assumptions in shared runtime prompts and helpers. Removed character/title examples from the chat UI and guided setup, a character-name search cue from continuity retrieval, abduction-specific prose from the general scene integrity audit, and specific scent descriptors from clue ranking/recovery. The shared Writer and scene-planning rules now treat the generated state recap as fallible and preserve the original Scene Idea/canon/evidence precedence. The fixed prior-novel character-name list used by cast inference was replaced with names derived from the current story. Added regression tests for runtime prompt/source isolation and sibling package/manuscript isolation.
