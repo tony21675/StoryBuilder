@@ -2856,10 +2856,19 @@ class StoryBuilderApp(tk.Tk):
             # Use the same endpoint resolution as the contract editor. The
             # saved contract's hard_stop is authoritative when present; legacy
             # top-level hard_stop/end_condition fields are fallback values.
-            saved_contract = SceneContract.from_guidance(guidance, [])
-            current_plan_end = str(
-                saved_contract.get("hard_stop", "") or ""
-            ).strip()
+            try:
+                saved_contract = SceneContract.from_guidance(guidance, [])
+                current_plan_end = str(
+                    saved_contract.get("hard_stop", "") or ""
+                ).strip()
+            except (TypeError, ValueError):
+                # Keep direction generation usable when a saved contract needs
+                # repair; the plain legacy endpoint fields are still readable.
+                current_plan_end = str(
+                    guidance.get("hard_stop", "")
+                    or guidance.get("end_condition", "")
+                    or ""
+                ).strip()
             direction = str(guidance.get("direction", "") or "").strip()
             pacing = str(guidance.get("pacing", "") or "").strip()
             if direction:
