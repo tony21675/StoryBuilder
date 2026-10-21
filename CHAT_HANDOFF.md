@@ -1,6 +1,6 @@
 ## Active handoff — October 21, 2026: current audit checkpoint in [CHAT_HANDOFF_LATEST.md](CHAT_HANDOFF_LATEST.md) and [APP_AUDIT_2026-10-21.md](APP_AUDIT_2026-10-21.md)
 
-**Current checkpoint:** The whole-app audit is at [APP_AUDIT_2026-10-21.md](APP_AUDIT_2026-10-21.md); the up-to-date repair/status/next-step summary is [CHAT_HANDOFF_LATEST.md](CHAT_HANDOFF_LATEST.md). The selection-aware Focused Change repair is committed and its code baseline passed both CI workflows (301 unit tests; compile passed). This is not yet a live local-model test. The next step is safe local update plus a focused edit in a disposable package. Do not accept or sync the current Scene 3 test draft.
+**Current checkpoint:** The whole-app audit is at [APP_AUDIT_2026-10-21.md](APP_AUDIT_2026-10-21.md); the up-to-date repair/status/next-step summary is [CHAT_HANDOFF_LATEST.md](CHAT_HANDOFF_LATEST.md). The selection-aware Focused Change repair is committed; the latest code/test baseline passed both CI workflows (302 unit tests; compile passed). This is not yet a live local-model test. The next step is safe local update plus a focused edit in a disposable package. Do not accept or sync the current Scene 3 test draft.
 
 
 
