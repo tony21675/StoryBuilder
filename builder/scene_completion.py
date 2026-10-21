@@ -54,7 +54,7 @@ def _restore_writer_context(engine: Any, model_path: str | Path, system_prompt: 
         return False
 
 
-def _audit_prompt(scene_context, current_state, author_guidance, prose):
+def _audit_prompt(scene_context, current_state, author_guidance, prose, historical_context=""):
     serialized_state = json.dumps(current_state, ensure_ascii=False, separators=(",", ":"))
     return (
         "AUTHOR'S ORIGINAL SCENE IDEA AND SUPPORTING DIRECTION (source block A):\n"
@@ -64,10 +64,12 @@ def _audit_prompt(scene_context, current_state, author_guidance, prose):
         + serialized_state
         + "\n\nSTABLE AUTHOR GUIDANCE (source block C):\n"
         + str(author_guidance or "").strip()
+        + "\n\nACCEPTED MANUSCRIPT EXCERPTS (source block D; historical evidence, not current physical state):\n"
+        + (str(historical_context or "").strip() or "(no retrieved accepted excerpts included)")
         + "\n\nCOMPLETED SCENE TO AUDIT:\n"
         + str(prose or "").strip()
         + "\n\nRequired category keys: timeline_and_event_order, presence_and_character_knowledge, physical_and_location_continuity, unsupported_consequential_details, scene_scope_and_hard_stop.\nAudit all five required categories. Check for unsupported consequential facts, including unestablished people, objects, encounters, leads, destinations, motives, identities, diagnoses, or events, and for any violation of an explicit author boundary. Distinguish reasonable character-based speculation from established fact: a character may offer a tentative possibility or inference based on established knowledge, but that does not establish the possibility as true. Do not treat ordinary brainstorming as a continuity conflict unless the draft presents or relies on it as fact. Apply boundaries to the actual degree of scene progress and detail. For any conflict, draft_evidence must be an exact quote "
-        "from the completed scene and source_evidence an exact quote from source block A, B, or C. "
+        "from the completed scene and source_evidence an exact quote from source block A, B, C, or D. A direct correction or rejection in accepted manuscript evidence establishes that the earlier hypothesis was not accepted as fact unless later evidence superseded it. Check author boundaries against indirect framing as well as explicit claims; do not seed an explanation or event the author has ruled out through suggestive side details. Preserve neutral observations and compatible character speculation. "
         "If even one category cannot be verified, mark it uncertain. JSON only; no prose outside the object."
     )
 
@@ -83,18 +85,18 @@ def _uncertain_audit(details):
 
 def _run_scene_integrity_audit(
     *, engine, model_path, writer_system_prompt, scene_context,
-    current_state, author_guidance, prose
+    current_state, author_guidance, prose, historical_context=""
 ):
     """Run a five-part evidence-backed audit; ambiguous results fail closed."""
     serialized_state = json.dumps(current_state, ensure_ascii=False, separators=(",", ":"))
     source_material = (
-        str(scene_context or "") + "\n" + serialized_state + "\n" + str(author_guidance or "")
+        str(scene_context or "") + "\n" + serialized_state + "\n" + str(author_guidance or "") + "\n" + str(historical_context or "")
     )
     draft_text = str(prose or "")
     try:
         engine.reset_context(model_path, INTEGRITY_AUDIT_SYSTEM_PROMPT)
         raw_text = engine.generate(
-            _audit_prompt(scene_context, current_state, author_guidance, draft_text)
+            _audit_prompt(scene_context, current_state, author_guidance, draft_text, historical_context=historical_context)
         )
         raw = extract_json_object(raw_text)
     finally:
@@ -229,7 +231,7 @@ def generate_scene_with_completion_check(
     *, engine: Any, model_path: str | Path, writer_system_prompt: str,
     initial_prompt: str, scene_context: str, contract: dict[str, Any],
     current_state: dict[str, Any], author_guidance: str = "",
-    on_draft_delta=None,
+    historical_context: str = "", on_draft_delta=None,
 ) -> tuple[str, str]:
     """Check coverage plus evidence-backed continuity; perform at most one safe recovery.
 
@@ -260,6 +262,7 @@ def generate_scene_with_completion_check(
             engine=engine, model_path=model_path, writer_system_prompt=writer_system_prompt,
             scene_context=scene_context, current_state=current_state,
             author_guidance=author_guidance, prose=draft,
+            historical_context=historical_context,
         )
     except Exception as exc:
         _restore_writer_context(engine, model_path, writer_system_prompt)
@@ -319,6 +322,7 @@ def generate_scene_with_completion_check(
                 engine=engine, model_path=model_path, writer_system_prompt=writer_system_prompt,
                 scene_context=scene_context, current_state=current_state,
                 author_guidance=author_guidance, prose=revised,
+                historical_context=historical_context,
             )
         except Exception as exc:
             _restore_writer_context(engine, model_path, writer_system_prompt)
@@ -379,6 +383,7 @@ def generate_scene_with_completion_check(
             engine=engine, model_path=model_path, writer_system_prompt=writer_system_prompt,
             scene_context=scene_context, current_state=current_state,
             author_guidance=author_guidance, prose=combined,
+            historical_context=historical_context,
         )
     except Exception as exc:
         _restore_writer_context(engine, model_path, writer_system_prompt)
