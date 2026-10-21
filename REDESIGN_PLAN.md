@@ -131,3 +131,10 @@ The Write workspace should have one clear primary action for preparing a scene, 
 - Writer's displayed **End:** line must use the same endpoint resolution as the contract editor. Resolve the saved nested `scene_contract.hard_stop` first through `SceneContract.from_guidance`, with legacy top-level fields as fallback. A missing top-level `end_condition` must not hide a valid saved hard stop.
 - Regression tests cover both the nested saved-hard-stop fallback and the single primary scene-preparation control.
 - Preserve the replacement confirmation, the Save Idea action, and all local-only novel data. This change is StoryBuilder UI/logic only.
+
+
+## Follow-up: build an endpoint from the scene's stated outcome — October 21, 2026
+
+The saved Mars Scene 3 contract has no `hard_stop`, no top-level `hard_stop`, and no `end_condition`; the Writer was correctly showing no saved endpoint. The prior fallback fixes display when a value exists, but cannot recover a value that was never generated.
+
+The generic contract-builder instruction is now clearer: when the Scene Idea describes what a conversation/meeting/discovery is meant to accomplish, use that author-stated outcome as the endpoint even if it is not labeled “End.” Stop at the named outcome and do not extend into later actions not requested. Leave the endpoint blank only when no defensible outcome or temporal boundary exists. A regression test locks this prompt behavior. This is a generic prompt fix, not a Mars-specific code rule.
