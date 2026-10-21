@@ -23,6 +23,14 @@ class SceneIdeaSuggestionTests(unittest.TestCase):
         self.assertIn("author will edit or replace", SCENE_IDEA_SUGGESTION_SYSTEM_PROMPT)
         self.assertIn('"scene_idea"', SCENE_IDEA_SUGGESTION_SYSTEM_PROMPT)
 
+    def test_suggestion_prompt_treats_saved_state_as_fallible(self):
+        prompt = SCENE_IDEA_SUGGESTION_SYSTEM_PROMPT.casefold()
+        self.assertIn("not as sole proof", prompt)
+        self.assertIn("unsupported by accepted prose or canon", prompt)
+        self.assertIn("explicit author corrections take precedence", prompt)
+        self.assertNotIn("as the truth of what has already happened", prompt)
+        self.assertNotIn("villain, sabotage, conspiracy", prompt)
+
     def test_normalizes_valid_idea(self):
         self.assertEqual(
             normalize_scene_idea_suggestion(
