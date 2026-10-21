@@ -106,3 +106,17 @@ Start with the user-facing Write journey, not a broad visual restyle:
 5. Add explicit Save and Sync status without silently syncing on window close.
 
 Build this slice around existing tested modules where practical. Do not delete the old UI implementation until the new path covers the functions and its tests pass. The first slice must include regression tests for idea auto-fill, correct scene targeting, preservation of existing ideas, state/clue retention, and explicit sync behavior.
+
+
+## First usability revision — full-width Write layout
+
+The first side-by-side Write workspace was too cramped on Tony's laptop. Keep this as a design lesson: a combined workspace is only useful if the key writing controls remain readable.
+
+The revised layout uses a full-width vertical split:
+- Scene Idea / Author Notes at the top, with the scene number and only the everyday actions visible: **Suggest Idea**, **Save Idea**, and **Scene Details**.
+- Optional contract details are collapsed by default. Expanding them reveals continuity focus, contract generation/reload controls, the current-state summary, direction, ending, beats, boundaries, and automatic-attempt controls.
+- The Writer panel gets the larger lower area and remains vertically scrollable.
+- The split sash can be resized by the user if they want more room for the idea or prose.
+- Nothing in the detailed contract is deleted; it is only hidden until requested.
+
+A small regression test exercises expanding/collapsing the details panel, and the workspace test checks the vertical rather than horizontal split. This revision responds to the real usability observation that showing two narrow scrolling columns side by side does not solve the screen-space problem.
