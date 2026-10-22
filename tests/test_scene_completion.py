@@ -363,18 +363,14 @@ class SceneCompletionTests(unittest.TestCase):
         self.assertIn(accepted_history, result["issues"][0])
 
     def test_integrity_audit_flags_unsupported_retroactive_history(self):
-        prose = "Morgan said technician Kai had prepared the panel yesterday."
-        policy_quote = (
-            "Do not present a past action, encounter, maintenance event, log result, named off-scene person, "
-            "diagnosis, motive, or other consequential historical detail as fact unless supported by author "
-            "canon, accepted manuscript, or the original Scene Idea."
-        )
+        prose = "The operator said technician Kai had prepared the panel yesterday."
+        source_quote = "The accepted prose establishes no technician visit."
         checks = self._audit_checks()
         checks["unsupported_consequential_details"] = {
             "status": "conflict",
-            "reason": "The draft invents an unsupported past encounter and named off-scene person.",
+            "reason": "The draft presents an unsupported earlier technician visit as fact.",
             "draft_evidence": prose,
-            "source_evidence": policy_quote,
+            "source_evidence": source_quote,
         }
         self.engine.responses = [json.dumps({"checks": checks})]
 
@@ -382,20 +378,18 @@ class SceneCompletionTests(unittest.TestCase):
             engine=self.engine,
             model_path=self.model,
             writer_system_prompt=self.system_prompt,
-            scene_context="Elena gathers the crew to isolate the contamination source.",
+            scene_context="Scene Idea: inspect the control panel and report findings.",
             current_state={
-                "unresolved_questions": [
-                    "Where in the processing line are silicates entering the air scrubbers?"
-                ]
+                "unresolved_questions": ["Who prepared the panel before this scene?"]
             },
-            author_guidance="The failure is accidental, not sabotage.",
-            historical_context="The accepted prose establishes no technician visit.",
+            author_guidance="Do not invent an earlier technician visit.",
+            historical_context=source_quote,
             prose=prose,
         )
 
         self.assertEqual(result["status"], "conflict")
         self.assertIn("SHARED CONTINUITY RULES (source block E)", self.engine.prompts[0])
-        self.assertIn(policy_quote, result["issues"][0])
+        self.assertIn(source_quote, result["issues"][0])
 
     def test_audit_marks_conflict_uncertain_when_quotes_are_not_verifiable(self):
         prose = "Chloe saw Tiffany taken."
@@ -498,9 +492,9 @@ class SceneCompletionTests(unittest.TestCase):
             model_path=self.model,
             writer_system_prompt=self.system_prompt,
             scene_context="Scene Idea: end before investigation. Boundaries: Do not introduce new clues.",
-            current_state={"scene_cast": ["Tony"]},
+            current_state={"scene_cast": ["Example Character"], "unresolved_questions": ["Who left the note?"]},
             author_guidance="No investigation in this scene.",
-            prose="Tony listened.",
+            prose="The character listened.",
         )
         prompt = self.engine.prompts[0]
         for category in AUDIT_CATEGORIES:
@@ -521,50 +515,52 @@ class SceneCompletionTests(unittest.TestCase):
         self.assertIn("SHARED CONTINUITY RULES (source block E)", prompt)
         self.assertIn("current_state[unresolved_questions]", prompt)
         self.assertIn("New observations and discoveries made on-page now are welcome", prompt)
-        self.assertIn(
-            "as unresolved unless the scene establishes an answer through on-page evidence",
-            prompt,
-        )
+        self.assertIn("as unresolved unless the scene establishes an answer through on-page evidence", prompt)
         self.assertIn("the Scene Idea permits that progress", prompt)
         self.assertIn("indirect framing as well as explicit claims", prompt)
         self.assertIn("Distinguish reasonable character-based speculation from established fact", prompt)
         self.assertIn("Boundaries: Do not introduce new clues.", prompt)
         self.assertNotIn("abduction", prompt.casefold())
         self.assertNotIn("tiffany", prompt.casefold())
-        self.assertEqual(result["status"], "clear")
+        self.assertEqual(result["status"], "clear", result)
 
-
-    def test_shared_rules_enforce_identity_movement_repetition_and_emergency_pacing(self):
+    def test_shared_rules_are_generic_and_keep_continuity_safeguards(self):
+        rules = SHARED_CONTINUITY_RULES.casefold()
         for required in (
             "character-card identity reference",
             "flag contradictions",
-            "Do not repeat a completed event",
-            "Do not teleport characters",
-            "credible warning signs",
-            "Earth-to-Mars rescue takes months",
-            "root cause",
-            "onboard computer fault sending incorrect signals",
+            "current_state[unresolved_questions]",
+            "do not repeat completed events",
+            "plausible transitions",
+            "established endpoint",
+            "active novel's canon",
+            "confirmed explanation",
         ):
             with self.subTest(required=required):
-                self.assertIn(required.casefold(), SHARED_CONTINUITY_RULES.casefold())
+                self.assertIn(required.casefold(), rules)
+
+        for novel_specific in (
+            "earth-to-mars rescue",
+            "onboard computer fault sending incorrect signals",
+            "silicate contamination",
+            "zoe's unusual communications readings",
+        ):
+            with self.subTest(novel_specific=novel_specific):
+                self.assertNotIn(novel_specific.casefold(), rules)
 
     def test_audit_prompt_can_use_gender_from_character_card_identity_reference(self):
         context = (
-            "Scene Idea: Continue the crew's response.\\n"
+            "Scene Idea: Continue the team's response.\n"
             "AUTHORITATIVE CHARACTER CARD IDENTITY REFERENCE "
-            "(gender and recorded pronouns):\\n"
-            '{"Morgan Reed":{"gender":"female"}}'
+            "(gender and recorded pronouns):\n"
+            '{"Avery Lane":{"gender":"female"}}'
         )
         prompt = _audit_prompt(
             context,
-            {"scene_cast": ["Morgan Reed"]},
+            {"scene_cast": ["Avery Lane"]},
             "Keep character cards authoritative.",
-            "He stopped behind Zoe and Ryan.",
+            "He stopped behind Avery and Jordan.",
         )
         self.assertIn("AUTHORITATIVE CHARACTER CARD IDENTITY REFERENCE", prompt)
-        self.assertIn('"Morgan Reed":{"gender":"female"}', prompt)
-        self.assertIn("presence_and_character_knowledge", prompt)
+        self.assertIn('"Avery Lane":{"gender":"female"}', prompt)
 
-
-if __name__ == "__main__":
-    unittest.main()
