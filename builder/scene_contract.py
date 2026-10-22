@@ -923,6 +923,11 @@ class SceneContract:
             # old saved contracts cannot keep enforcing an AI-written checklist.
             authored_sections = extract_authored_scene_sections(author_idea)
             contract["required_beats"] = list(authored_sections.get("required_beats", []))
+            # An explicit ending in the current idea outranks a stale saved stop,
+            # even when the author has saved the idea but has not rebuilt the contract.
+            authored_end = str(authored_sections.get("end", "") or "").strip()
+            if authored_end:
+                contract["hard_stop"] = authored_end
             authored_boundaries = list(authored_sections.get("boundaries", []))
             if authored_boundaries:
                 contract["boundaries"] = authored_boundaries
