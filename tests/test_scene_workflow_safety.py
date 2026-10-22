@@ -611,6 +611,10 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         self.assertNotIn("def _save_generated_draft", source)
         self.assertNotIn("_save_unsaved_writer_draft", source)
         self.assertNotIn("ManuscriptManager(self.package.path).save_draft", source)
+        manuscript_source = (
+            Path(storybuilder_app.__file__).parent / "builder" / "manuscript.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("def save_draft", manuscript_source)
         self.assertIn("def _confirm_discard_unaccepted_writer_text", source)
 
     def test_copyable_error_dialog_uses_main_window_clipboard(self):
