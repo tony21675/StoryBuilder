@@ -232,25 +232,49 @@ class StoryBuilderApp(tk.Tk):
         self.protocol("WM_DELETE_WINDOW", self._close_and_sync_app)
         self._load_startup_novel()
 
-    def _build_write_workspace(self):
-        """Combine the scene idea/contract and prose workflow in one main area."""
-        page = ttk.Frame(self.notebook.pages)
-        self.notebook.add(page, text="Write")
-
-        # Use a full-width vertical layout. The current desktop window is not
-        # wide enough for two scrollable panels side by side.
-        panes = ttk.Panedwindow(page, orient=tk.VERTICAL)
-        panes.pack(fill="both", expand=True)
-
-        contract_host = ttk.Frame(panes)
-        writer_host = ttk.Frame(panes)
-        panes.add(contract_host, weight=2)
-        panes.add(writer_host, weight=4)
-
-        self._build_scene_contract_tab(parent=contract_host, register=False)
-        self._build_writer_tab(parent=writer_host, register=False)
-
     def _build_ui(self):
+        toolbar = ttk.Frame(self, padding=8)
+        toolbar.pack(fill="x")
+        for label, command in [
+            ("New Novel", self._new_novel),
+            ("Open Novel", self._open_novel),
+            ("Save Novel", self._save),
+            ("Save As", self._save_as),
+            ("Validate", self._validate),
+        ]:
+            ttk.Button(toolbar, text=label, command=command).pack(side="left", padx=3)
+        ttk.Button(toolbar, text="Sync Novel", command=self._sync_current_novel).pack(side="left", padx=(10, 3))
+        ttk.Button(toolbar, text="Close & Sync App", command=self._close_and_sync_app).pack(side="left", padx=3)
+        self.path_label = ttk.Label(toolbar, text="Unsaved novel")
+        self.path_label.pack(side="right", padx=8)
+
+        self.notebook = CompactTabContainer(self)
+        self.notebook.pack(fill="both", expand=True, padx=8, pady=(0, 8))
+
+        # Keep Scene Contract and Writer on separate tabs. This lets authors
+        # scroll through the planning controls or the writing/review controls
+        # independently, without splitting the short laptop display vertically.
+        self._build_scene_contract_tab()
+        self._build_writer_tab()
+        self._build_chat_tab()
+        self._build_new_novel_assistant_tab()
+        self._build_story_tab()
+        self._build_canon_tab()
+        self._build_change_assistant_tab()
+        self._build_characters_tab()
+        self._build_relationships_tab()
+        self._build_locations_tab()
+        self._build_modules_tab()
+        self._build_planning_tab()
+        self._build_story_interview_tab()
+        self._build_scene_planner_tab()
+        self._build_state_tab()
+        self._build_manuscript_tab()
+        self._install_context_menus()
+        self._install_mousewheel_scrolling()
+        self._install_spellchecking()
+        self.notebook.on_show = self._on_main_section_shown
+
         toolbar = ttk.Frame(self, padding=8)
         toolbar.pack(fill="x")
         for label, command in [
