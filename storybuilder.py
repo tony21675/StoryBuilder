@@ -4275,7 +4275,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             self._show_copyable_error("Writer", str(exc))
     def _accept_generated_scene(self):
         block_reason = str(
-            getattr(self, "writer_scene_accept_block_reason", "") or ""
+            self.__dict__.get("writer_scene_accept_block_reason", "") or ""
         ).strip()
         if block_reason:
             self._show_copyable_error(
