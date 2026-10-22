@@ -34,9 +34,10 @@ SHARED_CONTINUITY_RULES = (
     "against the authoritative character-card identity reference in source block A; flag contradictions. "
     "For emergencies, check that danger progresses for a cause, with credible warning signs, time for response, "
     "and plausible backups or reserves; do not jump from first warning to imminent fatality without evidence. "
-    "Earth-to-Mars rescue takes months, not overnight. Keep signals and diagnostics unresolved when computer, "
-    "relay, decoder, or telemetry faults remain plausible. When the author establishes that a failure is "
-    "accidental, do not imply an intentional actor or conspiracy through indirect framing."
+    "Earth-to-Mars rescue takes months, not overnight. Keep the communication anomaly unresolved: an onboard "
+    "computer fault sending incorrect signals, a relay or decoder fault, telemetry corruption, or ordinary "
+    "interference remain possible explanations, not confirmed answers. When the author establishes that a failure "
+    "is accidental, do not imply an intentional actor or conspiracy through indirect framing."
 )
 
 
