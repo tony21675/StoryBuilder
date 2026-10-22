@@ -30,7 +30,7 @@ def build_scene_idea_suggestion_prompt(context: dict[str, Any]) -> str:
     return (
         "READ-ONLY STORY CONTEXT. Use it to suggest one next scene; do not modify it.\n\n"
         + json.dumps(context, ensure_ascii=False, indent=2)
-        + "\n\nSuggest the next scene now. Return JSON with the scene_idea field only."
+        + "\n\nSuggest the next scene now. Return the complete JSON object with all five planning fields."
     )
 
 
@@ -55,7 +55,7 @@ def normalize_scene_idea_suggestion(value: Any) -> str:
             ):
                 section_value = value.get(key, "")
                 if isinstance(section_value, str) and section_value.strip():
-                    sections.append(f"{label}:\\n{section_value.strip()}")
+                    sections.append(f"{label}:\n{section_value.strip()}")
 
             for key, label in (("planned_beats", "Planned Beats"), ("boundaries", "Boundaries")):
                 raw_items = value.get(key, [])
@@ -65,8 +65,8 @@ def normalize_scene_idea_suggestion(value: Any) -> str:
                     raise ValueError(f"The scene suggestion field '{key}' must be a list.")
                 items = [str(item).strip() for item in raw_items if str(item).strip()]
                 if items:
-                    sections.append(label + ":\\n" + "\\n".join(f"- {item}" for item in items))
-            idea = "\\n\\n".join(sections)
+                    sections.append(label + ":\n" + "\n".join(f"- {item}" for item in items))
+            idea = "\n\n".join(sections)
     elif isinstance(value, str):
         idea = value.strip()
     else:
