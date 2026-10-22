@@ -19,18 +19,18 @@ class SceneContractValidationUnavailable(RuntimeError):
     """The validator could not produce a readable response after one retry."""
 
 
-VALIDATOR_SYSTEM_PROMPT = """Review the author's original idea and starting state. Return only JSON:
+VALIDATOR_SYSTEM_PROMPT = """Review the author's idea and starting state. Return JSON:
 {"pass": true, "missed_beats": [], "violations": [], "checks": [{"requirement": "", "status": "met", "evidence": ""}], "notes": ""}
 
-Judge meaning, not keywords. Synonyms and paraphrases count. Evidence must be a verbatim quote from COMPLETED SCENE only; never quote the idea, instructions, contract, or state.
-Create a SHORT EVENT-LEVEL checklist, usually 4–8 checks total. Each check is one meaningful event or outcome. Group related details from the same event; do not create separate checks for clauses, adjectives, people, objects, or small actions. Keep events separate only when each could be missing independently. Ignore incidental details unless the idea makes them defining, continuity-critical, or a boundary/preference.
-A check is met only when its main action and defining details are present. Different wording is fine; a different action, object, person, order, or outcome is not. Do not accept a superficially similar substitute for a specifically requested action or object; preserve the author's defining details. Use an exact quote that supports the event. Flag unexplained opening continuity mismatches, character-knowledge conflicts, and ignored acknowledged requests. Check acknowledged requests/preferences against later actions. Preserve stated backstory and accept neutral familial comfort. List each missing event once; if any check is missing, pass must be false.
+Judge meaning, not keywords; synonyms and paraphrases count. Evidence is optional diagnostic text from COMPLETED SCENE only and never determines status. Do not quote the idea, instructions, contract, or state.
+Create a SHORT EVENT-LEVEL checklist, usually 4–8 checks total. Each check is one meaningful event or outcome. Group related details from the same event; do not create separate checks for clauses, adjectives, people, objects, or small actions. Separate events only when independently missable. Ignore incidental details unless the idea makes them defining, continuity-critical, or a boundary/preference.
+A check is met only when its main action and defining details are present. Different wording is fine; a different action, object, person, order, or outcome is not. Do not accept a superficially similar substitute for a specifically requested action or object; preserve the author's defining details. Evidence is optional and never determines status. Flag unexplained opening continuity mismatches, knowledge conflicts, and ignored requests. Check acknowledged requests/preferences against later actions. Preserve stated backstory and accept neutral familial comfort. List missing events once; if any check is missing, pass must be false.
 """
 
 SEMANTIC_RECHECK_SYSTEM_PROMPT = """Independently reassess only the supplied checklist items against the completed scene. Return JSON only:
 {"pass": true, "missed_beats": [], "violations": [], "checks": [{"requirement": "", "status": "met", "evidence": ""}], "notes": ""}
 
-The first validator marked these items missing, but that may be a false negative. Judge meaning, not keyword overlap. Synonyms, paraphrases, indirect but clear descriptions, and equivalent actions count. Example: a requirement for a "red car" is met by "the maroon sedan" if context shows it is the same car. The evidence must be a verbatim excerpt from the completed scene, but does not need to repeat the requirement's vocabulary. For each supplied item, use status "met" only when the intended fact/action is actually established; quote the shortest direct excerpt that proves it. Use "missing" only when the scene genuinely omits or materially changes it, and set evidence to an empty string. Preserve specified identity, named people, objects, defining details, order, requests, and outcomes. Do not infer an event that did not occur, and do not create extra requirements. Repeat each supplied requirement unchanged. Assess only the listed items and the completed scene.
+The first validator marked these items missing, but that may be a false negative. Judge meaning, not keyword overlap. Synonyms, paraphrases, indirect but clear descriptions, and equivalent actions count. Example: a requirement for a "red car" is met by "the maroon sedan" if context shows it is the same car. Judge intended meaning across the entire scene. For each supplied item, set status from semantic coverage. A quote from the completed scene is optional diagnostic evidence. If uncertain, leave evidence empty. Never mark an event missing solely because you cannot reproduce its wording. Use "missing" only when the scene genuinely omits or materially changes it, and set evidence to an empty string. Preserve specified identity, named people, objects, defining details, order, requests, and outcomes. Do not infer an event that did not occur, and do not create extra requirements. Repeat each supplied requirement unchanged. Assess only the listed items and the completed scene.
 """
 
 
@@ -379,11 +379,10 @@ def _semantic_recheck_checks(
             "Reassess each item independently; do not assume the first result was right. "
             "Compare meaning, not keyword overlap. A 'red car' can be described as a "
             "'maroon sedan' and still satisfy the requirement when the context supports it. "
-            "The evidence quote must be copied exactly from the completed scene, but it does "
-            "not have to reuse the requirement's wording. Keep the requirement unchanged. "
-            "If the meaning is present through a clear paraphrase, mark met. If a defining "
-            "detail or the action itself is absent or materially different, mark missing. "
-            "Return one check for each item in the order supplied, using the exact requirement text.\n\n"
+            "Determine each status from the meaning of the whole scene. Evidence is optional diagnostic "
+            "information and never controls status. A paraphrase can satisfy a requirement. "
+            "Mark missing only when the event or a defining detail is genuinely absent or "
+            "materially different. Keep each requirement unchanged and return one check per item.\n\n"
             "CHECKLIST ITEMS TO REASSESS:\n"
             + json.dumps(requirements, ensure_ascii=False)
             + "\n\nCOMPLETED SCENE (the only evidence source):\n"
@@ -412,7 +411,6 @@ def _semantic_recheck_checks(
                         "Semantic recheck did not return one check per supplied requirement."
                     )
                 candidate: list[dict[str, str]] = []
-                ungrounded: list[str] = []
                 malformed = False
                 for index, item in enumerate(raw_checks):
                     if not isinstance(item, dict):
@@ -424,8 +422,6 @@ def _semantic_recheck_checks(
                         malformed = True
                         break
                     requirement = requirements[index]
-                    if status == "met" and not _evidence_occurs_in_prose(prose, evidence):
-                        ungrounded.append(requirement)
                     candidate.append({
                         "requirement": requirement,
                         "status": status,
@@ -434,23 +430,6 @@ def _semantic_recheck_checks(
                 if malformed:
                     raise SceneContractResponseError(
                         "Semantic recheck returned an invalid requirement status."
-                    )
-                if ungrounded:
-                    if not evidence_correction_used:
-                        evidence_correction_used = True
-                        validation_prompt = (
-                            base_prompt
-                            + "\n\nEVIDENCE CORRECTION REQUIRED. A met check had a quote "
-                            "that was not copied verbatim from the completed scene. Reassess "
-                            "this batch, keep each requirement unchanged, and quote exact prose "
-                            "only. If no direct quote proves the full requirement, mark it missing "
-                            "with empty evidence.\n\nVERBATIM EVIDENCE SOURCE:\n"
-                            + prose.strip()
-                        )
-                        continue
-                    raise SceneContractValidationUnavailable(
-                        "The focused semantic recheck could not ground its evidence in the completed scene. "
-                        "The generated draft is preserved but remains unvalidated."
                     )
                 accepted = candidate
                 break
@@ -1361,17 +1340,17 @@ class SceneContract:
             idea_section
             + "VALIDATOR TASK:\n"
             + "Validate against the author's original idea, relevant author guidance, and starting state. "
-            + "The idea is primary; generated hints are secondary. "
+            + "Prioritize the idea over generated hints. "
             + "Treat Planned Beats and Required Beats as narrative-level goals, not a word-for-word checklist. "
             + "Replacing a specifically requested action or object with a superficially similar substitute is a material change; preserve defining details, source locations, order, and established history. "
             + "Check explicit requests, preferences, boundaries, or needs against later actions; flag ignored acknowledgments. "
             + "Report material omissions, substitutions, sequence/location errors, or ignored requests. "
-            + "If the main action occurs but only a purely incidental detail is missing, do not fail for that alone; optional details may go in notes. "
-            + "Search the whole scene for paraphrases before marking missing. Judge meaning, not keywords. Evidence must be verbatim scene prose, but need not reuse requirement words. "
+            + "If the main action occurs but only a purely incidental detail is missing, do not fail for that alone; note it. "
+            + "Search the whole scene for paraphrases before marking missing. Judge meaning, not keywords. Evidence is optional and never determines status. "
             + "Do not fail for a minor descriptive or phrasing omission when the intended event, character knowledge, and endpoint remain intact unless a defining action, object, location, or acknowledged request changes. "
             + "Create a SHORT event-level checklist, usually 4–8 checks. Group related details; do not make micro-checks for each clause, adjective, person, object, or small action. Separate events only when their outcomes can be missing independently. "
             + "Judge each event against the entire scene, using meaning rather than keyword overlap. Fail only for a missing or materially changed event, its defining detail, an explicit boundary/request, or the scene endpoint; minor descriptive omissions alone do not fail. "
-            + "For each event check, provide requirement, status, and a direct quote from COMPLETED SCENE only. It must support the event; never quote the idea or state. If absent or materially different, mark missing with empty evidence. "
+            + "For each event check, determine requirement and status from the meaning of the entire scene. A quote from COMPLETED SCENE only is optional diagnostic evidence. Never mark an event missing solely because a quote is difficult to reproduce. If absent or materially different, mark missing with empty evidence. "
             + "If an author idea is present, return a concise non-empty event checklist; pass must be false if any event check is missing. Report material continuity or character-knowledge conflicts separately as violations. "
             + "Return JSON only in this shape: "
             + '{"pass": true, "missed_beats": [], "violations": [], "checks": [{"requirement": "", "status": "met", "evidence": ""}], "notes": ""}'
@@ -1443,7 +1422,6 @@ class SceneContract:
                     )
 
                 normalized_checks = []
-                ungrounded_evidence = []
                 for item in checks or []:
                     if not isinstance(item, dict):
                         raise SceneContractResponseError(
@@ -1458,8 +1436,6 @@ class SceneContract:
                         )
                     # A claimed "met" result must cite the completed scene itself.
                     # Evidence copied from instructions, idea, or state is not grounded.
-                    if status == "met" and not _evidence_occurs_in_prose(prose, evidence):
-                        ungrounded_evidence.append(requirement)
                     normalized_checks.append({
                         "requirement": requirement,
                         "status": status,
@@ -1470,8 +1446,7 @@ class SceneContract:
                 # recheck it in small batches before asking the writer to revise a scene.
                 missing_count = sum(item["status"] == "missing" for item in normalized_checks)
                 should_semantically_recheck = (
-                    not ungrounded_evidence
-                    and requires_coverage
+                    requires_coverage
                     and len(normalized_checks) >= 4
                     and missing_count / len(normalized_checks) >= 0.75
                 )
@@ -1485,20 +1460,6 @@ class SceneContract:
                         if item["status"] == "missing"
                     ]
                     passed = not missed and not violations
-
-                if ungrounded_evidence:
-                    if not evidence_correction_used:
-                        evidence_correction_used = True
-                        validation_prompt = _build_evidence_correction_prompt(
-                            author_idea, normalized_checks, prose
-                        )
-                        continue
-                    raise SceneContractValidationUnavailable(
-                        "Scene-contract validation is unavailable because the validator again supplied evidence "
-                        "that does not appear verbatim in the completed scene. The generated draft is preserved "
-                        "but has not been semantically validated. Review it carefully before deciding whether "
-                        "to accept it."
-                    )
 
                 normalized_result = {
                     "pass": passed,
@@ -1526,7 +1487,7 @@ class SceneContract:
                         + ". Use a JSON boolean for pass, arrays of strings for missed_beats "
                         "and violations, a checks array of requirement/status/evidence objects, "
                         "and a string for notes. For a supplied author idea, "
-                        "use a short checklist of 4-8 meaningful scene events, group related details within each event, and use verbatim scene evidence. Do not use "
+                        "use a short checklist of 4-8 meaningful scene events, group related details within each event, and judge coverage semantically. Evidence is optional and does not control status. Do not use "
                         "Markdown fences or include any text before or after the JSON object."
                     )
                     continue

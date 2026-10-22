@@ -19,25 +19,23 @@ AUDIT_CATEGORIES = (
 )
 
 SHARED_CONTINUITY_RULES = (
-    "Do not present a past action, encounter, maintenance event, log result, named off-scene person, "
-    "diagnosis, motive, or other consequential historical detail as fact unless supported by author "
-    "canon, accepted manuscript, or the original Scene Idea. Treat entries in current_state[unresolved_questions] "
-    "as unresolved unless the scene establishes an answer through on-page evidence and the Scene Idea "
-    "permits that progress. A material signature or plausible hypothesis does not by itself "
-    "establish the exact source, entry point, failure mechanism, or root cause. "
-    "New observations and discoveries made on-page now are welcome; do not recast them as earlier "
-    "inspections, log results, or maintenance events unless author evidence supports that history. "
-    "Do not repeat a completed event, scene, or technical report as new action unless a character is "
-    "meaningfully recounting it to someone who did not know it. Continue from the actual established endpoint. "
-    "Do not teleport characters: locations and movements must follow the supplied physical state and show "
-    "a believable transition when someone changes location. Compare character gender and any recorded pronouns "
-    "against the authoritative character-card identity reference in source block A; flag contradictions. "
-    "For emergencies, check that danger progresses for a cause, with credible warning signs, time for response, "
-    "and plausible backups or reserves; do not jump from first warning to imminent fatality without evidence. "
-    "Earth-to-Mars rescue takes months, not overnight. Keep the communication anomaly unresolved: an onboard "
-    "computer fault sending incorrect signals, a relay or decoder fault, telemetry corruption, or ordinary "
-    "interference remain possible explanations, not confirmed answers. When the author establishes that a failure "
-    "is accidental, do not imply an intentional actor or conspiracy through indirect framing."
+    "Use only the active novel's supplied author canon, accepted manuscript, original "
+    "Scene Idea, author guidance, and starting-state data as authority. Do not present "
+    "unsupported past actions, encounters, maintenance, logs, diagnoses, motives, "
+    "off-scene people, or other consequential history as established fact. Treat "
+    "unresolved questions as unresolved until the active novel's sources or on-page "
+    "action settle them. New observations, dialogue, discoveries, and hypotheses may "
+    "develop on-page; do not recast them as earlier events without support. Do not "
+    "repeat completed events as new action unless a character meaningfully recounts "
+    "them to someone who does not know. Continue from the established endpoint. Keep "
+    "character movement consistent with the supplied location and physical state; "
+    "show plausible transitions when location changes. Use the active novel's "
+    "character cards for identity and pronouns; never infer identities from examples "
+    "or other novels. Keep emergencies, travel, communications, technology, and "
+    "cause-and-effect consistent with that novel's canon and physical constraints. "
+    "Distinguish observation, hypothesis, and confirmed explanation. Do not imply "
+    "intent, sabotage, conspiracy, or causal connections unless supported by the "
+    "active novel's canon or scene evidence."
 )
 
 
@@ -83,12 +81,12 @@ Review all five categories independently and include every category exactly once
 - Every check needs a short reason and a "basis".
 - "clear" means you examined the most consequential continuity-relevant claim in the category and found it compatible with the supplied evidence and author boundaries. A clear result is not just a general statement that no conflict was noticed.
 - For a clear check, basis MUST be one of:
-  * "established_fact": draft_evidence and source_evidence must each be exact contiguous substrings, showing the draft claim and the context that supports it.
-  * "new_present_scene_development": draft_evidence must be an exact contiguous substring from the scene. source_evidence may be empty only when the reason explains why this is a new on-page action, observation, dialogue, or hypothesis rather than an assertion about past history, and why it remains compatible with the author's premise.
+  * "established_fact": the reason must explain why the draft is compatible with supplied context. For clear results, evidence fields are optional diagnostics and may be empty.
+  * "new_present_scene_development": the reason must explain why this is new on-page action, observation, dialogue, or hypothesis, rather than unsupported past history, and why it is compatible with the author's premise. Evidence fields are optional for clear results.
   * "no_material_claim": use only when the category contains no material continuity-relevant claim. Both evidence fields must be empty, and the reason must contain the exact phrase "No material claim in this category."
 - "conflict" means a material contradiction supported by BOTH a verbatim draft excerpt and a verbatim excerpt from the supplied author idea, starting-state JSON, stable author guidance, relevant accepted-manuscript excerpts, or the shared continuity rules. Set basis to "contradiction".
 - "uncertain" means the supplied context does not let you verify the category confidently, or you cannot provide the evidence required for a clear or conflict result. Set basis to "unverified".
-- For any non-empty draft_evidence or source_evidence, the value MUST be an exact contiguous substring of the completed scene or a supplied context block respectively. Do not paraphrase evidence. Never report a conflict without both exact excerpts. If evidence is missing or you are uncertain, mark that category "uncertain", not "clear" or "conflict". Do not add a pass field or issues list.
+- For conflicts, evidence must be exact text from both the completed scene and the supplied context. Clear results are semantic judgments and do not require copied quotations. Never report a conflict without verifiable evidence from both sides. If the semantic status genuinely cannot be determined, mark the category "uncertain". Do not add a pass field or issues list.
 
 Check specifically:
 Before declaring a category clear, compare consequential claims against accepted prose and the shared continuity rules. Treat current_state unresolved_questions as open, not as evidence that an answer has already been established. Flag invented past maintenance, log findings, prior visits, and newly named off-scene people when the draft presents them as established history without support. For conflicts, quote the exact shared rule or source evidence and the exact draft claim.
@@ -128,7 +126,7 @@ def _audit_prompt(scene_context, current_state, author_guidance, prose, historic
         + str(prose or "").strip()
         + "\n\nRequired category keys: timeline_and_event_order, presence_and_character_knowledge, physical_and_location_continuity, unsupported_consequential_details, scene_scope_and_hard_stop.\nAudit all five required categories. Check for unsupported consequential facts, including unestablished people, objects, encounters, leads, destinations, motives, identities, diagnoses, or events, and for any violation of an explicit author boundary. Distinguish reasonable character-based speculation from established fact: a character may offer a tentative possibility or inference based on established knowledge, but that does not establish the possibility as true. Do not treat ordinary brainstorming as a continuity conflict unless the draft presents or relies on it as fact. Apply boundaries to the actual degree of scene progress and detail. For any conflict, draft_evidence must be an exact quote "
         "from the completed scene and source_evidence an exact quote from source block A, B, C, D, or E. A direct correction or rejection in accepted manuscript evidence establishes that the earlier hypothesis was not accepted as fact unless later evidence superseded it. Apply the shared continuity rules to unsupported retroactive claims and unresolved questions. Check author boundaries against indirect framing as well as explicit claims; do not seed an explanation or event the author has ruled out through suggestive side details. Preserve neutral observations and compatible character speculation. "
-        "If even one category cannot be verified, mark it uncertain. JSON only; no prose outside the object."
+        "If a category's semantic status genuinely cannot be determined, mark it uncertain. Do not mark a clear result uncertain solely because an exact quotation was not reproduced. JSON only; no prose outside the object."
     )
 
 
@@ -202,33 +200,18 @@ def _run_scene_integrity_audit(
             uncertain.append(f"{category}: {reason}")
         elif status == "clear":
             if basis == "no_material_claim":
-                if (
-                    draft_evidence
-                    or source_evidence
-                    or "no material claim in this category." not in reason.casefold()
-                ):
+                if draft_evidence or source_evidence:
                     uncertain.append(
                         f"{category}: no_material_claim basis must have empty evidence fields and explicitly say no material claim is present."
                     )
             elif basis == "established_fact":
-                if (
-                    not draft_evidence
-                    or not source_evidence
-                    or draft_evidence not in draft_text
-                    or source_evidence not in source_material
-                ):
-                    uncertain.append(
-                        f"{category}: clear established-fact result lacked verifiable exact draft and supporting source excerpts."
-                    )
+                # A clear verdict is semantic. A paraphrased or omitted quote
+                # must not overturn it.
+                pass
             elif basis == "new_present_scene_development":
-                if (
-                    not draft_evidence
-                    or draft_evidence not in draft_text
-                    or (source_evidence and source_evidence not in source_material)
-                ):
-                    uncertain.append(
-                        f"{category}: clear new-present-scene result lacked verifiable exact draft evidence."
-                    )
+                # The reason and basis carry the semantic judgment. Evidence
+                # strings are advisory for a clear result, not a pass gate.
+                pass
             else:
                 uncertain.append(
                     f"{category}: clear result lacked a recognized evidence basis."

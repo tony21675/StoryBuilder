@@ -412,8 +412,8 @@ class StoryBuilderApp(tk.Tk):
         self.change_request_text.pack(fill="x", pady=(4, 8))
         ttk.Label(
             tab,
-            text=("Example: Make Jessica the computer expert. Rick served in the regular Army, not Special Forces. "
-                  "Beth will use her neighborhood connections to help."),
+            text=("Example: Give one character technical expertise and another a relevant service background; "
+                  "a third character can contribute useful local connections."),
             wraplength=900, justify="left",
         ).pack(anchor="w", pady=(0, 8))
         actions = ttk.Frame(tab)
@@ -3012,9 +3012,9 @@ Physical movement must fit the established layout. A character remains where the
 
 Do not repeat completed events, scenes, or technical reports as if they were happening for the first time. Continue from the actual endpoint of the previous scene and move the story forward. Recap an event only when a character is genuinely telling it to someone who was absent or the recollection has a clear narrative purpose.
 
-Pace a life-threatening emergency as a credible chain of events, not a shortcut to instant danger. Show warning signs, backup systems or reserves when plausible, reasonable time for checks and procedures, and a cause for each escalation. Do not turn an initial alarm into imminent fatality within moments unless established evidence warrants that pace; do not offer instant repairs without a credible explanation. Earth cannot send a rescue ship to Mars overnight: interplanetary travel takes months, and communications delays vary with planetary geometry. The crew must respond with the resources already available while outside help remains delayed.
+Pace a life-threatening emergency as a credible chain of events, not a shortcut to instant danger. Show warning signs, backup systems or reserves when plausible, reasonable time for checks and procedures, and a cause for each escalation. Do not turn an initial alarm into imminent fatality within moments unless established evidence warrants that pace; do not offer instant repairs without a credible explanation. Respect the active novel's established geography, travel limits, communication delays, available resources, and cause-and-effect. Do not invent instant travel or assistance that contradicts the story's canon.
 
-Separate observation, theory, and confirmation. Characters may speculate, disagree, test ideas, and make mistakes, but a possible mechanism or material signature does not prove its source, route, diagnosis, or root cause. Keep Zoe's unusual communications readings unresolved; an onboard computer fault sending incorrect signals, a relay or decoder fault, telemetry corruption, or ordinary interference are possible, not confirmed. Do not imply intent, sabotage, conspiracy, or a connection between the signal anomaly and the life-support fault without evidence.
+Separate observation, theory, and confirmation. Characters may speculate, disagree, test ideas, and make mistakes, but a possible mechanism or material signature does not prove its source, route, diagnosis, or root cause. Keep unresolved mysteries unresolved. Distinguish observations, character hypotheses, and confirmed explanations. Do not imply intent, sabotage, conspiracy, or causal connections between separate events without supporting evidence.
 
 SHAPE AND VOICE
 Write a complete scene with a natural flow of opening, development, and consequence. Every concrete story commitment named in the original Scene Idea must happen on-page, including specific dialogue or nicknames, relationship milestones, and planned emotional turns. Include the important movements named in the idea without mechanically checking off incidental wording. If the scene spans several phases or time, carry it through that arc instead of stopping after the first prominent action. Honor an explicit endpoint or hard stop; do not end too early or cross the boundary into a later scene. If no endpoint is specified, choose the most satisfying natural stopping point.
@@ -8637,7 +8637,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         if not selection:
             messagebox.showinfo(
                 "Promote to Core Character",
-                "Select Beth, Jessica, or Rick under Supporting People first.",
+                "Select the relevant person under Supporting People first.",
             )
             return
 

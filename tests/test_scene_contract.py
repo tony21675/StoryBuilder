@@ -424,7 +424,7 @@ Preserve all established character roles and knowledge boundaries; do not invent
         self.assertIn("Do not accept a superficially similar substitute for a specifically requested action or object", prompt)
         self.assertIn("preserve the author's defining details", prompt)
         self.assertIn('"checks": [{"requirement": "", "status": "met", "evidence": ""}]', prompt)
-        self.assertIn("verbatim quote from COMPLETED SCENE only", prompt)
+        self.assertIn("Evidence is optional diagnostic text from COMPLETED SCENE only", prompt)
         self.assertIn("COMPLETED SCENE only", prompt)
         self.assertIn("never quote the idea, instructions, contract", prompt)
         self.assertIn("Preserve stated backstory", prompt)
@@ -704,53 +704,22 @@ Preserve all established character roles and knowledge boundaries; do not invent
             )
         self.assertEqual(result["missed_beats"], raw_result["missed_beats"])
 
-    def test_copied_instruction_evidence_is_retried_and_corrected_scene_quote_can_pass(self):
-        idea = "Tony offers Maya a warm bubble bath with unscented bubbles and gives her privacy."
-        prose = (
-            "Tony offered Maya a warm bubble bath with unscented bubbles, "
-            "then left the room to give her privacy."
-        )
-        ungrounded_result = {
+    def test_invalid_evidence_does_not_trigger_retry(self):
+        idea = "Tony offers Maya a warm bubble bath and gives her privacy."
+        prose = "Tony offered Maya a warm bath, then left the room to give her privacy."
+        raw = {
             "pass": True,
             "missed_beats": [],
             "violations": [],
-            "checks": [
-                {
-                    "requirement": "Tony offers a warm bubble bath with unscented bubbles.",
-                    "status": "met",
-                    "evidence": "If the main action occurs but only a purely incidental detail is missing, do not fail for that alone.",
-                },
-                {
-                    "requirement": "Tony gives Maya privacy.",
-                    "status": "met",
-                    "evidence": "left the room to give her privacy.",
-                },
-            ],
+            "checks": [{
+                "requirement": "Tony offers Maya a warm bath.",
+                "status": "met",
+                "evidence": "An explanation that is not copied from the scene.",
+            }],
             "notes": "",
         }
-        corrected_result = {
-            "pass": True,
-            "missed_beats": [],
-            "violations": [],
-            "checks": [
-                {
-                    "requirement": "Tony offers a warm bubble bath with unscented bubbles.",
-                    "status": "met",
-                    "evidence": "Tony offered Maya a warm bubble bath with unscented bubbles",
-                },
-                {
-                    "requirement": "Tony gives Maya privacy.",
-                    "status": "met",
-                    "evidence": "left the room to give her privacy.",
-                },
-            ],
-            "notes": "",
-        }
-
         with patch.object(
-            scene_contract,
-            "_run_validator",
-            side_effect=[ungrounded_result, corrected_result],
+            scene_contract, "_run_validator", return_value=raw
         ) as run_validator:
             result = SceneContract.validate_with_engine(
                 FakeEngine(),
@@ -758,135 +727,57 @@ Preserve all established character roles and knowledge boundaries; do not invent
                 {"chapter": 2, "scene": 4},
                 prose,
             )
-
         self.assertTrue(result["pass"], result)
-        self.assertEqual(run_validator.call_count, 2)
-        retry_prompt = run_validator.call_args_list[1].args[1]
-        self.assertIn("FOCUSED SCENE-CONTRACT VALIDATION RETRY", retry_prompt)
-        self.assertIn("AUTHOR'S ORIGINAL SCENE IDEA:\n" + idea, retry_prompt)
-        self.assertIn("Tony offers a warm bubble bath with unscented bubbles.", retry_prompt)
-        self.assertIn("CHECKLIST TO REASSESS (requirements only; discard prior statuses and evidence):", retry_prompt)
-        self.assertIn("COMPLETED SCENE (only permitted evidence source):", retry_prompt)
-        self.assertNotIn("If the main action occurs but only a purely incidental detail is missing", retry_prompt)
-        self.assertNotIn("STARTING STATE", retry_prompt)
-        self.assertTrue(retry_prompt.rstrip().endswith(prose))
-        self.assertLess(
-            len(retry_prompt),
-            len(run_validator.call_args_list[0].args[1]),
-            "Evidence correction should use a shorter prompt than the full validation prompt.",
-        )
+        self.assertEqual(run_validator.call_count, 1)
 
-    def test_repeated_fabricated_quote_evidence_fails_closed_and_retry_omits_prior_quotes(self):
-        idea = (
-            "Elena consolidates Daniel and Ryan's findings, gathers Morgan and Priya, "
-            "and gives the crew clear next steps for isolating the contamination source."
-        )
-        prose = (
-            "Daniel displayed the spectral analysis. Morgan emerged from a maintenance alcove, "
-            "and Priya followed behind him. Elena summarized the findings, then assigned Ryan "
-            "to isolate the feed lines and asked Morgan to monitor Intake Delta."
-        )
-        fabricated_result = {
-            "pass": True,
-            "missed_beats": [],
+    def test_missing_event_still_fails_with_invalid_evidence_elsewhere(self):
+        idea = "Elena gathers Morgan and gives clear next steps."
+        prose = "Morgan entered. Elena reviewed the situation."
+        raw = {
+            "pass": False,
+            "missed_beats": ["Elena gives clear next steps."],
             "violations": [],
             "checks": [
-                {
-                    "requirement": "Elena consolidates Daniel and Ryan's findings.",
-                    "status": "met",
-                    "evidence": "Daniel, give me the final assessment on those silicates; I need to tie this whole particulate issue down.",
-                },
-                {
-                    "requirement": "Elena gathers Morgan and Priya.",
-                    "status": "met",
-                    "evidence": "Morgan, come over here for a second. You were close to where that feed went down.",
-                },
-                {
-                    "requirement": "Elena gives clear next steps.",
-                    "status": "met",
-                    "evidence": "Okay, based on what Daniel and Ryan found, we need to isolate the source immediately before this spreads or causes further damage.",
-                },
+                {"requirement": "Elena gathers Morgan.", "status": "met",
+                 "evidence": "A paraphrase not copied from the draft."},
+                {"requirement": "Elena gives clear next steps.", "status": "missing",
+                 "evidence": ""},
             ],
             "notes": "",
         }
-
         with patch.object(
-            scene_contract,
-            "_run_validator",
-            side_effect=[fabricated_result, fabricated_result],
+            scene_contract, "_run_validator", return_value=raw
         ) as run_validator:
-            with self.assertRaises(SceneContractValidationUnavailable) as raised:
-                SceneContract.validate_with_engine(
-                    FakeEngine(),
-                    {"author_idea": idea, "required_beats": []},
-                    {"chapter": 1, "scene": 3},
-                    prose,
-                )
+            result = SceneContract.validate_with_engine(
+                FakeEngine(),
+                {"author_idea": idea, "required_beats": []},
+                {"chapter": 1, "scene": 3},
+                prose,
+            )
+        self.assertFalse(result["pass"], result)
+        self.assertTrue(result["missed_beats"], result)
+        self.assertEqual(run_validator.call_count, 1)
 
-        self.assertIn("does not appear verbatim", str(raised.exception))
-        self.assertEqual(run_validator.call_count, 2)
-        original_prompt = run_validator.call_args_list[0].args[1]
-        retry_prompt = run_validator.call_args_list[1].args[1]
-        self.assertIn(idea, retry_prompt)
-        self.assertIn("Elena consolidates Daniel and Ryan's findings.", retry_prompt)
-        self.assertIn("Elena gathers Morgan and Priya.", retry_prompt)
-        self.assertNotIn("Daniel, give me the final assessment on those silicates", retry_prompt)
-        self.assertNotIn("Morgan, come over here for a second.", retry_prompt)
-        self.assertNotIn("Okay, based on what Daniel and Ryan found", retry_prompt)
-        self.assertTrue(retry_prompt.rstrip().endswith(prose))
-        self.assertLess(len(retry_prompt), len(original_prompt))
-        self.assertIn("only permitted source for evidence", retry_prompt)
-
-    def test_schema_correction_does_not_consume_evidence_correction(self):
-        idea = "Tony offers Maya a warm bubble bath with unscented bubbles and gives her privacy."
-        prose = (
-            "Tony offered Maya a warm bubble bath with unscented bubbles, "
-            "then left the room to give her privacy."
-        )
-        ungrounded_result = {
+    def test_schema_correction_does_not_require_evidence_retry(self):
+        idea = "Tony offers Maya a warm bath and gives her privacy."
+        prose = "Tony offered Maya a warm bath, then left the room."
+        raw = {
             "pass": True,
             "missed_beats": [],
             "violations": [],
-            "checks": [
-                {
-                    "requirement": "Tony offers a warm bubble bath with unscented bubbles.",
-                    "status": "met",
-                    "evidence": "",
-                },
-                {
-                    "requirement": "Tony gives Maya privacy.",
-                    "status": "met",
-                    "evidence": "",
-                },
-            ],
+            "checks": [{
+                "requirement": idea,
+                "status": "met",
+                "evidence": "Evidence phrased differently from the prose.",
+            }],
             "notes": "",
         }
-        corrected_result = {
-            "pass": True,
-            "missed_beats": [],
-            "violations": [],
-            "checks": [
-                {
-                    "requirement": "Tony offers a warm bubble bath with unscented bubbles.",
-                    "status": "met",
-                    "evidence": "Tony offered Maya a warm bubble bath with unscented bubbles",
-                },
-                {
-                    "requirement": "Tony gives Maya privacy.",
-                    "status": "met",
-                    "evidence": "left the room to give her privacy",
-                },
-            ],
-            "notes": "",
-        }
-
         with patch.object(
             scene_contract,
             "_run_validator",
             side_effect=[
                 SceneContractResponseError("invalid 'pass' value"),
-                ungrounded_result,
-                corrected_result,
+                raw,
             ],
         ) as run_validator:
             result = SceneContract.validate_with_engine(
@@ -895,53 +786,35 @@ Preserve all established character roles and knowledge boundaries; do not invent
                 {"chapter": 2, "scene": 4},
                 prose,
             )
-
         self.assertTrue(result["pass"], result)
-        self.assertEqual(run_validator.call_count, 3)
-        schema_retry_prompt = run_validator.call_args_list[1].args[1]
-        evidence_retry_prompt = run_validator.call_args_list[2].args[1]
-        self.assertIn("CORRECTION REQUIRED", schema_retry_prompt)
-        self.assertIn("FOCUSED SCENE-CONTRACT VALIDATION RETRY", evidence_retry_prompt)
-        self.assertIn("COMPLETED SCENE (only permitted evidence source):", evidence_retry_prompt)
-        self.assertTrue(evidence_retry_prompt.rstrip().endswith(prose))
+        self.assertEqual(run_validator.call_count, 2)
+        self.assertIn("CORRECTION REQUIRED", run_validator.call_args_list[1].args[1])
 
-    def test_repeated_invalid_evidence_returns_validation_unavailable(self):
-        idea = "Tony offers Maya a warm bubble bath with unscented bubbles and gives her privacy."
+    def test_invalid_evidence_does_not_make_validation_unavailable(self):
+        idea = "Tony offers Maya a warm bubble bath and gives her privacy."
         prose = "Tony offered Maya a warm bath, then left the room to give her privacy."
-        copied_idea_result = {
+        raw = {
             "pass": True,
             "missed_beats": [],
             "violations": [],
-            "checks": [
-                {
-                    "requirement": "Tony offers a warm bubble bath with unscented bubbles.",
-                    "status": "met",
-                    "evidence": idea,
-                },
-            ],
+            "checks": [{
+                "requirement": idea,
+                "status": "met",
+                "evidence": "A paraphrased explanation that is not present verbatim.",
+            }],
             "notes": "",
         }
-
         with patch.object(
-            scene_contract,
-            "_run_validator",
-            side_effect=[copied_idea_result, copied_idea_result],
+            scene_contract, "_run_validator", return_value=raw
         ) as run_validator:
-            with self.assertRaises(SceneContractValidationUnavailable) as raised:
-                SceneContract.validate_with_engine(
-                    FakeEngine(),
-                    {"author_idea": idea, "required_beats": []},
-                    {"chapter": 2, "scene": 4},
-                    prose,
-                )
-
-        self.assertEqual(run_validator.call_count, 2)
-        self.assertIn("not been semantically validated", str(raised.exception))
-        self.assertIn("evidence", str(raised.exception).lower())
-        self.assertIn(
-            "COMPLETED SCENE (only permitted evidence source):",
-            run_validator.call_args_list[1].args[1],
-        )
+            result = SceneContract.validate_with_engine(
+                FakeEngine(),
+                {"author_idea": idea, "required_beats": []},
+                {"chapter": 2, "scene": 4},
+                prose,
+            )
+        self.assertTrue(result["pass"], result)
+        self.assertEqual(run_validator.call_count, 1)
 
     def test_plain_english_idea_cannot_pass_without_coverage_report(self):
         idea = "Tony offers Maya a warm bubble bath and leaves her private."
@@ -1360,7 +1233,7 @@ Preserve all established character roles and knowledge boundaries; do not invent
         self.assertTrue(any("warm bubble bath" in item for item in result["missed_beats"]))
         self.assertIn(idea, captured["prompts"][0])
         self.assertNotIn('"author_idea"', captured["prompts"][0])
-        self.assertIn("The idea is primary", captured["prompts"][0])
+        self.assertIn("Prioritize the idea over generated hints", captured["prompts"][0])
         self.assertIn('"checks": [{"requirement": "", "status": "met", "evidence": ""}]', captured["prompts"][0])
         self.assertIn("original idea", scene_contract.VALIDATOR_SYSTEM_PROMPT)
 

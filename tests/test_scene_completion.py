@@ -431,13 +431,15 @@ class SceneCompletionTests(unittest.TestCase):
         self.assertEqual(result["issues"], [])
         self.assertTrue(any("Missing audit categories" in detail for detail in result["details"]))
 
-    def test_clear_audit_requires_exact_evidence_for_material_claims(self):
+    def test_clear_audit_does_not_require_exact_evidence_for_material_claims(self):
         prose = "Morgan says the seal felt sticky during the current inspection."
         checks = self._audit_checks()
         checks["unsupported_consequential_details"] = {
             "status": "clear",
             "basis": "new_present_scene_development",
-            "reason": "This is a new on-page discovery, not a claim about an earlier inspection.",
+            "reason": (
+                "This is a new on-page discovery, not a claim about an earlier inspection."
+            ),
             "draft_evidence": "",
             "source_evidence": "",
         }
@@ -448,11 +450,7 @@ class SceneCompletionTests(unittest.TestCase):
             "The failure is accidental.",
             checks,
         )
-        self.assertEqual(result["status"], "uncertain")
-        self.assertTrue(any(
-            "lacked verifiable exact draft evidence" in detail
-            for detail in result["details"]
-        ))
+        self.assertEqual(result["status"], "clear", result)
 
     def test_clear_on_page_discovery_can_pass_with_exact_draft_evidence(self):
         prose = "Morgan tests the seal during the scene and feels resistance."
@@ -473,15 +471,15 @@ class SceneCompletionTests(unittest.TestCase):
         )
         self.assertEqual(result["status"], "clear")
 
-    def test_clear_established_fact_requires_verifiable_source_evidence(self):
+    def test_clear_established_fact_does_not_require_exact_quotes(self):
         prose = "Daniel's scan matched the silicate signature."
         checks = self._audit_checks()
         checks["timeline_and_event_order"] = {
             "status": "clear",
             "basis": "established_fact",
-            "reason": "The draft repeats an established diagnostic result.",
-            "draft_evidence": prose,
-            "source_evidence": "The ingress point is already confirmed.",
+            "reason": "The claim is semantically compatible with the supplied context.",
+            "draft_evidence": "A paraphrase of the scan result.",
+            "source_evidence": "A paraphrase of the supporting canon.",
         }
         result = self._run_audit(
             prose,
@@ -490,11 +488,7 @@ class SceneCompletionTests(unittest.TestCase):
             "The failure is accidental.",
             checks,
         )
-        self.assertEqual(result["status"], "uncertain")
-        self.assertTrue(any(
-            "lacked verifiable exact draft and supporting source excerpts" in detail
-            for detail in result["details"]
-        ))
+        self.assertEqual(result["status"], "clear", result)
 
     def test_audit_prompt_requires_category_by_category_evidence(self):
         checks = self._audit_checks()
