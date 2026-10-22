@@ -26,7 +26,7 @@ Rules:
 - Knowledge is not an event log. Never list routine scene actions, a character's own actions, or the act of telling/asking/offering as knowledge. A character making tea is an event, not a knowledge fact; a character learning a specific fact from another character is a fact in the learner's knowledge.
 - Temporary physical state, location, posture, contact, movement, clothing, and immediate activity belong in physical_state, not cumulative knowledge. Do not add them as new knowledge unless they have independent lasting significance.
 - Only supersede an exact fact present in the supplied selected existing-knowledge context, and only when the prose directly contradicts or resolves it. Do not supersede facts merely because the current scene omits them.
-- Keep durable observations, discoveries, evidence, and historical knowledge even when the character's interpretation later changes. The _superseded_facts field is only for temporary current-state notes (such as someone currently wearing an outfit or being asleep) that belong in physical_state instead of cumulative knowledge.
+- Keep durable observations, discoveries, evidence, and historical knowledge even when the character's interpretation later changes. The _superseded_facts field may remove temporary current-state notes (such as someone currently wearing an outfit or being asleep) and an explicitly replaced current belief/unknown-status note. Do not remove a durable observation just because a later interpretation changes.
 - Deduplicate paraphrases of the same observation in your output. Keep independently consequential details separate.
 - If there are no valid new facts or supersessions, return {}.
 - Output JSON only, without markdown or explanations.
@@ -1808,16 +1808,23 @@ class StateManager:
                 key = text_value.casefold()
                 if not key or key not in superseded_keys:
                     return False
-                # Knowledge is a durable record, not merely the latest belief.
-                # Only allow explicit supersession to remove a temporary status
-                # that belongs in physical_state, never a substantive observation
-                # or discovery that remains part of the character's history.
-                return bool(re.match(
+                # Durable observations and discoveries remain in memory even if
+                # interpretations change. Permit supersession only for temporary
+                # physical statuses or an explicitly obsolete "believes unknown"
+                # style status that the audit specifically identified.
+                temporary_physical_status = re.match(
                     r"^(?:(?:currently|now)\s+)?(?:is|was|are|were)\s+"
                     r"(?:wearing|asleep|sleeping|sitting|standing|lying|seated|positioned|located)\b",
                     text_value,
                     re.IGNORECASE,
-                ))
+                )
+                replaced_unknown_belief = re.match(
+                    r"^(?:believes?|thinks?|suspects?)\b.*\b"
+                    r"(?:unknown|unidentified|not yet known|not established)\b",
+                    text_value,
+                    re.IGNORECASE,
+                )
+                return bool(temporary_physical_status or replaced_unknown_belief)
 
             proposed_values = values if isinstance(values, list) else []
             prior_values = [value for value in prior_values if not is_superseded(value)]
