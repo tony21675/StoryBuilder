@@ -31,7 +31,7 @@ class WriterSceneBoundaryPromptTests(unittest.TestCase):
             "character cards are authoritative for each character's established gender",
             "never jump someone between locations",
             "do not repeat completed events, scenes, or reports",
-            "pace a life-threatening emergency as a credible chain of events",
+            "keep danger and consequences proportionate to the situation",
             "respect the active novel's established geography",
             "separate observation, theory, and confirmation",
         ):
@@ -43,6 +43,11 @@ class WriterSceneBoundaryPromptTests(unittest.TestCase):
             "interplanetary travel takes months",
             "an onboard computer fault sending incorrect signals",
             "zoe's unusual communications readings",
+            "material signature",
+            "suspected pathway",
+            "exact entry point",
+            "do not introduce floral scents",
+            "neutral familial comfort",
         ):
             with self.subTest(novel_specific=novel_specific):
                 self.assertNotIn(novel_specific.casefold(), lower)
