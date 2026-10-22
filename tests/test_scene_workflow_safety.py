@@ -1214,6 +1214,73 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             self.assertEqual(app.pending_state_patch, analysis_patch)
             self.assertNotIn("PLANNED BUT NOT PROVEN", app.writer_state_preview.get("1.0", "end"))
 
+    def test_quick_state_edits_update_plain_preview_without_editing_json(self):
+        before = {
+            "chapter": 1,
+            "scene": 4,
+            "status": "in_progress",
+            "scene_completed": False,
+            "chapter_completed": False,
+            "current_situation": "The manifold temperature is rising.",
+            "character_knowledge": {
+                "Daniel": [
+                    "The manifold temperature continues to rise."
+                ]
+            },
+            "active_objectives": {
+                "Daniel": "Track the manifold temperature.",
+                "Zoe": "Monitor communications independently.",
+            },
+        }
+        expected = json.loads(json.dumps(before))
+        expected["current_situation"] = "Proposed short summary."
+        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+        app.package = SimpleNamespace(current_state=before)
+        app.pending_state_patch = {"current_situation": "Proposed short summary."}
+        app.writer_state_preview = FakeText(json.dumps(expected))
+        app.writer_state_situation_quick = FakeText(
+            "Pressure remains stable; the trace is unverified and the cause remains unknown."
+        )
+
+        class FakeCharacterSelector:
+            def get(self):
+                return "Daniel"
+
+        app.writer_state_character_selector = FakeCharacterSelector()
+        app.writer_state_knowledge_quick = FakeText(
+            "The manifold temperature continues to rise.\n"
+            "The silicate-like trace is not proof of contamination or its source."
+        )
+        app.writer_state_objective_quick = FakeText(
+            "Track the temperature trend and estimate the remaining operating margin."
+        )
+        app._quick_edit_state = json.loads(json.dumps(expected))
+        app.writer_state_diff_preview = FakeText()
+        app.writer_status = SimpleLabel()
+        app._update_writer_buttons = lambda: None
+
+        storybuilder_app.StoryBuilderApp._apply_quick_state_edits_to_preview(app)
+
+        preview = json.loads(app.writer_state_preview.get("1.0", "end"))
+        self.assertIn("trace is unverified", preview["current_situation"])
+        self.assertEqual(
+            preview["character_knowledge"]["Daniel"],
+            [
+                "The manifold temperature continues to rise.",
+                "The silicate-like trace is not proof of contamination or its source.",
+            ],
+        )
+        self.assertEqual(
+            preview["active_objectives"]["Daniel"],
+            "Track the temperature trend and estimate the remaining operating margin.",
+        )
+        self.assertEqual(
+            preview["active_objectives"]["Zoe"],
+            "Monitor communications independently.",
+        )
+        self.assertEqual(app.package.current_state, before)
+        self.assertIn("preview only", app.writer_status.text.casefold())
+
     def test_writer_state_analysis_previews_full_reconciled_state_without_applying_it(self):
         before = {
             "chapter": 2,
