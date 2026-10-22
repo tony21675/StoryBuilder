@@ -549,7 +549,7 @@ class SceneCompletionTests(unittest.TestCase):
             "credible warning signs",
             "Earth-to-Mars rescue takes months",
             "root cause",
-            "computer, relay, decoder, or telemetry faults",
+            "onboard computer fault sending incorrect signals",
         ):
             with self.subTest(required=required):
                 self.assertIn(required.casefold(), SHARED_CONTINUITY_RULES.casefold())
