@@ -854,7 +854,7 @@ Preserve all established character roles and knowledge boundaries; do not invent
             "- Keep action sentences short during tense moments.",
         ] + [
             "- Unrelated guidance about distant plot arcs and background lore."
-            for _ in range(20)
+            for _ in range(35)
         ])
         compact_guidance = scene_contract._compact_validator_guidance(
             guidance, idea, ["Avery", "Jordan"]
