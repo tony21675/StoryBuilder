@@ -3826,6 +3826,21 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             except tk.TclError:
                 pass
 
+        identity_reference = {}
+        character_cards = getattr(self.package, "characters", {})
+        if isinstance(character_cards, dict):
+            for filename, card in character_cards.items():
+                if not isinstance(card, dict):
+                    continue
+                character_name = str(card.get("name", "") or "").strip() or Path(str(filename)).stem
+                identity = {}
+                for identity_key in ("gender", "pronouns"):
+                    identity_value = str(card.get(identity_key, "") or "").strip()
+                    if identity_value:
+                        identity[identity_key] = identity_value
+                if character_name and identity:
+                    identity_reference[character_name] = identity
+
         def work():
             answer = ""
             trace_result = None
@@ -3845,12 +3860,19 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
                         prompt_characters=len(base_prompt),
                         context_budget=context_metrics,
                     )
+                audit_scene_context = writer_context
+                if identity_reference:
+                    audit_scene_context += (
+                        "\n\nAUTHORITATIVE CHARACTER CARD IDENTITY REFERENCE "
+                        "(gender and recorded pronouns):\n"
+                        + json.dumps(identity_reference, indent=2, ensure_ascii=False)
+                    )
                 answer, completion_notice = generate_scene_with_completion_check(
                     engine=self.writer_engine,
                     model_path=model,
                     writer_system_prompt=system_prompt,
                     initial_prompt=base_prompt,
-                    scene_context=writer_context,
+                    scene_context=audit_scene_context,
                     contract=contract,
                     current_state=current_state,
                     author_guidance=author_guidance,
