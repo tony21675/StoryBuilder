@@ -288,7 +288,6 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             "writer_start_button",
             "writer_stop_button",
             "writer_write_button",
-            "writer_save_draft_button",
             "writer_accept_button",
             "writer_reject_button",
             "writer_analyze_button",
@@ -300,7 +299,6 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
 
         app._update_writer_buttons()
 
-        self.assertEqual(app.writer_save_draft_button.options["state"], "normal")
         self.assertEqual(app.writer_accept_button.options["state"], "disabled")
         self.assertEqual(app.writer_reject_button.options["state"], "normal")
     def test_draft_without_completion_result_is_preserved_but_not_acceptable(self):
@@ -322,7 +320,6 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             "writer_start_button",
             "writer_stop_button",
             "writer_write_button",
-            "writer_save_draft_button",
             "writer_accept_button",
             "writer_reject_button",
             "writer_analyze_button",
@@ -342,7 +339,6 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         showwarning.assert_not_called()
         self.assertEqual(app.generated_scene, draft)
         self.assertEqual(app.writer_output_text.value, draft)
-        self.assertEqual(app.writer_save_draft_button.options["state"], "normal")
         self.assertEqual(app.writer_accept_button.options["state"], "disabled")
         self.assertEqual(app.writer_reject_button.options["state"], "normal")
     def test_failed_completion_check_opens_copyable_report_popup(self):
@@ -423,8 +419,8 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             app.writer_scene_accept_block_reason,
             summary=(
                 "StoryBuilder has blocked acceptance because scene generation or its "
-                "completion/continuity check did not finish successfully. You can save "
-                "the text as a draft or regenerate it, but it will not be added to the manuscript."
+                "completion/continuity check did not finish successfully. You can regenerate "
+                "the scene, but this version will not be added to the manuscript."
             ),
             copy_label="Copy Full Check Report",
         )
@@ -581,7 +577,7 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             app.package = SimpleNamespace(path=Path(tmp))
             app.writer_engine = SimpleNamespace(stop=Mock())
             app.dirty = False
-            app._save_unsaved_writer_draft = Mock(return_value=True)
+            app._confirm_discard_unaccepted_writer_text = Mock(return_value=True)
             app._save = Mock()
             app._show_copyable_error = Mock()
             app.destroy = Mock()
@@ -654,45 +650,15 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         )
         app.update_idletasks.assert_called_once_with()
 
-    def test_unfinished_writer_text_is_saved_to_origin_scene_not_current_selection(self):
+    def test_unaccepted_writer_text_is_discarded_without_creating_a_draft_file(self):
         with tempfile.TemporaryDirectory() as tmp:
-            app = self.make_app(tmp, "Scene 1 draft text", context=(2, 1))
-            with (
-                patch.object(storybuilder_app.messagebox, "askyesnocancel", return_value=True) as ask,
-                patch.object(storybuilder_app.messagebox, "showwarning"),
-                patch.object(storybuilder_app.messagebox, "showerror"),
-            ):
-                self.assertTrue(app._save_unsaved_writer_draft())
-
-            expected = (
-                Path(tmp)
-                / "Manuscript"
-                / "Chapters"
-                / "Chapter_02"
-                / "Chapter_02_Section_01_draft.txt"
-            )
-            wrong_scene = (
-                Path(tmp)
-                / "Manuscript"
-                / "Chapters"
-                / "Chapter_02"
-                / "Chapter_02_Section_02_draft.txt"
-            )
-            self.assertEqual(expected.read_text(encoding="utf-8"), "Scene 1 draft text\n")
-            self.assertFalse(wrong_scene.exists())
-            self.assertEqual(app.writer_draft_saved_text, "Scene 1 draft text")
-            ask.assert_called_once()
-            self.assertIn("Choose Yes to Save Draft", ask.call_args.args[1])
-            self.assertIn("Choose No to discard", ask.call_args.args[1])
-            self.assertIn("Choose Cancel", ask.call_args.args[1])
-
-    def test_unfinished_writer_cancel_keeps_text_and_does_not_save(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            app = self.make_app(tmp, "Attempt to discard", context=(2, 1))
+            app = self.make_app(tmp, "Temporary scene text", context=(2, 1))
+            app.writer_status = FakeButton()
+            app._update_writer_buttons = Mock()
             with patch.object(
-                storybuilder_app.messagebox, "askyesnocancel", return_value=None
+                storybuilder_app.messagebox, "askyesnocancel", return_value=True
             ) as ask:
-                self.assertFalse(app._save_unsaved_writer_draft())
+                self.assertTrue(app._confirm_discard_unaccepted_writer_text())
 
             draft = (
                 Path(tmp)
@@ -702,67 +668,45 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
                 / "Chapter_02_Section_01_draft.txt"
             )
             self.assertFalse(draft.exists())
-            self.assertEqual(app.generated_scene, "Attempt to discard")
-            self.assertEqual(app.writer_output_text.value, "Attempt to discard")
-            ask.assert_called_once()
-
-    def test_unfinished_writer_discard_does_not_save_and_clears_attempt(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            app = self.make_app(tmp, "Attempt to discard", context=(2, 1))
-            with patch.object(
-                storybuilder_app.messagebox, "askyesnocancel", return_value=False
-            ):
-                self.assertTrue(app._save_unsaved_writer_draft())
-
-            draft = (
-                Path(tmp)
-                / "Manuscript"
-                / "Chapters"
-                / "Chapter_02"
-                / "Chapter_02_Section_01_draft.txt"
-            )
-            self.assertFalse(draft.exists())
+            self.assertFalse((Path(tmp) / "Manuscript").exists())
             self.assertEqual(app.generated_scene, "")
             self.assertEqual(app.writer_output_text.value, "")
             self.assertIsNone(app.generated_scene_context)
             self.assertIsNone(app.generated_scene_start_state)
+            self.assertIn("Unaccepted scene text discarded", app.writer_status.options["text"])
+            ask.assert_called_once()
+            self.assertIn("Choose Yes to discard", ask.call_args.args[1])
+            self.assertIn("Choose No or Cancel to stay", ask.call_args.args[1])
+            app._update_writer_buttons.assert_called_once()
 
-    def test_discard_removes_matching_autosaved_draft_but_preserves_different_saved_version(self):
+    def test_canceling_unaccepted_text_keeps_it_visible_without_saving(self):
         with tempfile.TemporaryDirectory() as tmp:
-            app = self.make_app(tmp, "Current attempt", context=(2, 1))
-            draft = (
-                Path(tmp)
-                / "Manuscript"
-                / "Chapters"
-                / "Chapter_02"
-                / "Chapter_02_Section_01_draft.txt"
+            app = self.make_app(tmp, "Keep this text on screen", context=(2, 1))
+            app._update_writer_buttons = Mock()
+            with patch.object(
+                storybuilder_app.messagebox, "askyesnocancel", return_value=None
+            ) as ask:
+                self.assertFalse(app._confirm_discard_unaccepted_writer_text())
+
+            self.assertEqual(app.generated_scene, "Keep this text on screen")
+            self.assertEqual(app.writer_output_text.value, "Keep this text on screen")
+            self.assertFalse((Path(tmp) / "Manuscript").exists())
+            ask.assert_called_once()
+            app._update_writer_buttons.assert_not_called()
+
+    def test_unchanged_accepted_text_needs_no_discard_prompt(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            app = self.make_app(
+                tmp, "Already accepted prose", context=(2, 1), accepted="Already accepted prose"
             )
-            draft.parent.mkdir(parents=True)
-            draft.write_text("Current attempt\n", encoding="utf-8")
-            with patch.object(
-                storybuilder_app.messagebox, "askyesnocancel", return_value=False
-            ):
-                self.assertTrue(app._save_unsaved_writer_draft())
-            self.assertFalse(draft.exists())
-
-            app = self.make_app(tmp, "New attempt", context=(2, 1))
-            draft.write_text("Previously saved version\n", encoding="utf-8")
-            with patch.object(
-                storybuilder_app.messagebox, "askyesnocancel", return_value=False
-            ):
-                self.assertTrue(app._save_unsaved_writer_draft())
-            self.assertEqual(draft.read_text(encoding="utf-8"), "Previously saved version\n")
-            self.assertEqual(app.generated_scene, "")
-
-    def test_explicitly_saved_draft_does_not_prompt_again_when_unchanged(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            app = self.make_app(tmp, "Saved attempt", context=(2, 1))
-            app.writer_draft_saved_text = "Saved attempt"
+            app._update_writer_buttons = Mock()
             with patch.object(
                 storybuilder_app.messagebox, "askyesnocancel"
             ) as ask:
-                self.assertTrue(app._save_unsaved_writer_draft())
+                self.assertTrue(app._confirm_discard_unaccepted_writer_text())
             ask.assert_not_called()
+            self.assertEqual(app.writer_output_text.value, "Already accepted prose")
+            self.assertFalse((Path(tmp) / "Manuscript").exists())
 
     def test_write_workspace_embeds_contract_and_writer_into_one_primary_area(self):
         app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
@@ -871,7 +815,7 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         app.package = SimpleNamespace(path=Path("/tmp/novel"))
         app.writer_engine = SimpleNamespace(stop=Mock())
         app.dirty = False
-        app._save_unsaved_writer_draft = Mock(return_value=False)
+        app._confirm_discard_unaccepted_writer_text = Mock(return_value=False)
         app._save = Mock()
         app.destroy = Mock()
 
@@ -963,7 +907,7 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             app.writer_state_preview = FakeText(json.dumps({**state, **app.pending_state_patch}))
             app.writer_status = SimpleLabel()
             app._writer_editor_prose = lambda: ""
-            app._save_unsaved_writer_draft = lambda: True
+            app._confirm_discard_unaccepted_writer_text = lambda: True
             app._final_planned_scene_for_chapter = lambda _chapter: 4
             app._scene_plan_cast = lambda chapter, scene: ["Maya", "Tony"] if (chapter, scene) == (2, 2) else []
             app._refresh_all = lambda: None
@@ -1027,7 +971,7 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             app.writer_state_preview = FakeText(json.dumps({**state, **app.pending_state_patch}))
             app.writer_status = SimpleLabel()
             app._writer_editor_prose = lambda: ""
-            app._save_unsaved_writer_draft = lambda: True
+            app._confirm_discard_unaccepted_writer_text = lambda: True
             app._final_planned_scene_for_chapter = lambda _chapter: 2
             app._scene_plan_cast = lambda _chapter, _scene: []
             app._refresh_all = lambda: None
@@ -1116,7 +1060,7 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             app.dirty = False
             app.accepted_scene = ""
             app._ask_yes_no = lambda *_args: True
-            app._save_unsaved_writer_draft = lambda: True
+            app._confirm_discard_unaccepted_writer_text = lambda: True
             app._apply_all_edits = lambda: True
             app._update_path_label = lambda: None
             app._refresh_all = lambda: None
@@ -1644,7 +1588,7 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         app.writer_generation_in_progress = writer_generation
         app.scene_contract_building = False
         app.dirty = False
-        app._save_unsaved_writer_draft = lambda: True
+        app._confirm_discard_unaccepted_writer_text = lambda: True
         app._clear_writer_scene_workspace = lambda *_args: None
         app._update_path_label = lambda: None
         app._build_scene_direction = lambda: None
@@ -1722,7 +1666,7 @@ class SceneResetSafetyTests(unittest.TestCase):
         app.writer_notes_update_in_progress = False
         app.generated_scene = ""
         app.accepted_scene = ""
-        app._save_unsaved_writer_draft = lambda: True
+        app._confirm_discard_unaccepted_writer_text = lambda: True
         app._clear_writer_scene_workspace = lambda *_args: None
         app._refresh_all = lambda: None
         app._build_scene_direction = lambda: None
