@@ -776,6 +776,72 @@ Preserve all established character roles and knowledge boundaries; do not invent
             "Evidence correction should use a shorter prompt than the full validation prompt.",
         )
 
+    def test_empty_evidence_after_focused_retry_is_marked_missing_not_unavailable(self):
+        idea = "Tony offers Maya a warm bath and gives her privacy."
+        prose = "Tony offered Maya a warm bath, then left the room to give her privacy."
+        first_result = {
+            "pass": True,
+            "missed_beats": [],
+            "violations": [],
+            "checks": [
+                {
+                    "requirement": "Tony offers Maya a warm bath.",
+                    "status": "met",
+                    "evidence": "Tony promised to bring tea before dawn.",
+                },
+                {
+                    "requirement": "Tony gives Maya privacy.",
+                    "status": "met",
+                    "evidence": "left the room to give her privacy.",
+                },
+            ],
+            "notes": "",
+        }
+        retry_result = {
+            "pass": True,
+            "missed_beats": [],
+            "violations": [],
+            "checks": [
+                {
+                    "requirement": "Tony offers Maya a warm bath.",
+                    "status": "met",
+                    "evidence": "Tony offered Maya a warm bath",
+                },
+                {
+                    "requirement": "Tony gives Maya privacy.",
+                    "status": "met",
+                    "evidence": "",
+                },
+            ],
+            "notes": "",
+        }
+
+        with patch.object(
+            scene_contract,
+            "_run_validator",
+            side_effect=[first_result, retry_result],
+        ) as run_validator:
+            result = SceneContract.validate_with_engine(
+                FakeEngine(),
+                {"author_idea": idea, "required_beats": []},
+                {"chapter": 2, "scene": 4},
+                prose,
+            )
+
+        self.assertFalse(result["pass"])
+        self.assertEqual(run_validator.call_count, 2)
+        self.assertTrue(
+            any(
+                "Tony gives Maya privacy" in missed
+                for missed in result["missed_beats"]
+            ),
+            result["missed_beats"],
+        )
+        self.assertFalse(
+            any("Tony offers Maya a warm bath" in missed for missed in result["missed_beats"]),
+            result["missed_beats"],
+        )
+
     def test_repeated_fabricated_quote_evidence_fails_closed_and_retry_omits_prior_quotes(self):
         idea = (
             "Elena consolidates Daniel and Ryan's findings, gathers Morgan and Priya, "
