@@ -80,7 +80,8 @@ class AppSyncTests(unittest.TestCase):
 
         self.assertIn(["add", "-A"], calls)
         self.assertTrue(any(call and call[0] == "commit" for call in calls))
-        self.assertLess(calls.index(["commit", next(x for x in calls if x[0] == "commit")[1]]), calls.index(["fetch", "--prune", "origin"]))
+        commit_index = next(i for i, call in enumerate(calls) if call and call[0] == "commit")
+        self.assertLess(commit_index, calls.index(["fetch", "--prune", "origin"]))
 
     def test_diverged_remote_stops_without_push(self):
         root = self.make_app_root()
