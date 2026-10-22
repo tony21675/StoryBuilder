@@ -1544,20 +1544,19 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         )
         self.assertIn("Creative developments are welcome when they fit the story.", prompt)
         self.assertIn("Preserve the direction of agency and emotional causality in each beat", prompt)
-        self.assertIn("Distinguish confirmed facts from hypotheses, interpretations, suggestions, and uncertainty.", prompt)
-        self.assertIn("Respect explicit author-defined boundaries", prompt)
+        self.assertIn("Separate observation, theory, and confirmation.", prompt)
+        self.assertIn("Respect explicit boundaries", prompt)
         self.assertIn("The Scene Idea also contains the author's deliberate story commitments.", prompt)
         self.assertIn("quoted lines or nicknames, relationship milestones", prompt)
         self.assertIn("Every concrete story commitment named in the original Scene Idea must happen on-page", prompt)
         self.assertIn("Take creative initiative in present-scene action", prompt)
         self.assertIn(
-            "Do not invent a past action, consequential event, motive, promise,",
+            "Do not invent consequential past events, promises, encounters, motives, or relationship-defining moments as established fact",
             prompt,
         )
-        self.assertIn("maintenance event, log result, prior encounter,", prompt)
-        self.assertIn("relationship-defining moment as established fact", prompt)
-        self.assertIn("Do not invent a named off-scene person", prompt)
-        self.assertIn("A character may offer a theory or possibility, but keep it tentative until established.", prompt)
+        self.assertNotIn("maintenance event, log result, prior encounter,", prompt)
+        self.assertIn("Do not use invented off-page people or actions to explain events without author support.", prompt)
+        self.assertIn("Keep theories tentative unless the story's evidence and the Scene Idea establish them.", prompt)
         self.assertIn("Let character voice, mood, and author preferences shape the prose without turning them into formulas.", prompt)
         self.assertNotIn("Respect privacy, dignity, established boundaries, and relationship-specific behavior", prompt)
         self.assertNotIn("Do not add unprompted ominous narration", prompt)
@@ -1640,7 +1639,7 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         self.assertIn("Flag unexplained opening continuity mismatches", scene_contract.VALIDATOR_SYSTEM_PROMPT)
         self.assertIn("unexplained opening continuity mismatches", scene_contract.VALIDATOR_SYSTEM_PROMPT)
         self.assertIn("sitting upright against the headboard", captured["prompt"])
-        self.assertIn("neutral familial comfort", scene_contract.VALIDATOR_SYSTEM_PROMPT)
+        self.assertIn("Preserve established relationship facts and interpret ordinary social behavior in context.", scene_contract.VALIDATOR_SYSTEM_PROMPT)
         self.assertIn("Tony provides a familiar fatherly comfort gesture.", captured["prompt"])
 
     def make_save_app(self, package_path, situation, writer_generation=False):
