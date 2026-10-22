@@ -502,6 +502,11 @@ class SceneCompletionTests(unittest.TestCase):
         self.assertIn("exact quote", prompt)
         self.assertIn("unsupported consequential fact", prompt)
         audit_system_prompt = self.engine.reset_calls[0][1]
+        self.assertNotIn('"draft_evidence":"exact quote from completed scene"', audit_system_prompt)
+        self.assertEqual(
+            audit_system_prompt.count('"draft_evidence":"optional exact scene quote or empty string"'),
+            5,
+        )
         for required_text in (
             "basis",
             "most consequential continuity-relevant claim",
