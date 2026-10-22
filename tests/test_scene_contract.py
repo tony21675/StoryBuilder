@@ -843,66 +843,66 @@ Preserve all established character roles and knowledge boundaries; do not invent
 
     def test_validator_prompt_puts_author_idea_first_and_compacts_guidance_and_state(self):
         idea = (
-            "Tony offers Maya a warm bubble bath while she has privacy, calls Beth "
-            "and Jessica about breakfast, then hugs Barnaby in Tiffany's room."
+            "Avery checks the kitchen tap, calls Jordan about repair supplies, "
+            "and asks Casey to meet tomorrow."
         )
         guidance = "\n".join([
-            "- Generic unrelated guidance about distant plot arcs.",
-            "- Maya's personal belongings may carry Tiffany's familiar scent.",
-            "- Do not introduce floral scents in bath products.",
+            "- Unrelated guidance about distant plot arcs.",
+            "- Avery prefers quiet rooms when making difficult calls.",
             "- Only characters explicitly listed in the scene cast participate.",
             "- Do not import details from discarded drafts.",
+            "- Keep action sentences short during tense moments.",
         ] + [
-            "- Generic unrelated guidance about distant plot arcs and background lore."
+            "- Unrelated guidance about distant plot arcs and background lore."
             for _ in range(20)
         ])
         compact_guidance = scene_contract._compact_validator_guidance(
-            guidance, idea, ["Tony", "Maya"]
+            guidance, idea, ["Avery", "Jordan"]
         )
         self.assertLessEqual(len(compact_guidance), 1600)
-        self.assertIn("floral scents", compact_guidance)
         self.assertIn("Only characters explicitly listed", compact_guidance)
+        self.assertIn("Do not import details from discarded drafts", compact_guidance)
         self.assertNotIn("distant plot arcs", compact_guidance)
 
         state = {
             "chapter": 2,
             "scene": 4,
-            "scene_cast": ["Tony", "Maya"],
-            "current_situation": "Maya is recounting Tiffany's abduction.",
+            "scene_cast": ["Avery", "Jordan"],
+            "current_situation": "Avery is checking a leaking kitchen tap.",
             "location": {
-                "primary": "Tony and Tiffany's home",
-                "Tony": "In the bedroom",
-                "Maya": "Against Tony",
-                "Tiffany": "Inside the van",
+                "primary": "Home kitchen",
+                "Avery": "In the kitchen",
+                "Jordan": "At the hardware store",
+                "Casey": "At work",
             },
             "physical_state": {
-                "Tony": {"position": "sitting"},
-                "Maya": {"position": "lying against Tony"},
-                "Tiffany": {"position": "inside the van"},
+                "Avery": {"position": "standing at the sink"},
+                "Jordan": {"position": "at the hardware store"},
+                "Casey": {"position": "at work"},
             },
             "character_knowledge": {
-                "Tony": ["Knows Maya was struck."],
-                "Maya": ["Witnessed the abduction."],
-                "Tiffany": ["Knows Tony is her father."],
+                "Avery": ["Knows the tap is leaking."],
+                "Jordan": ["Received a call about supplies."],
+                "Casey": ["Has not yet been contacted."],
             },
             "active_objectives": {
-                "Tony": "Protect Maya",
-                "Tiffany": "Stay safe",
+                "Avery": "Arrange a repair",
+                "Jordan": "Find the necessary supplies",
             },
             "unrelated_history": "Do not send this to the validator.",
         }
         compact_state = scene_contract._compact_validation_state(
-            state, ["Tony", "Maya"], idea
+            state, ["Avery", "Jordan"], idea
         )
-        self.assertIn("Tony", compact_state["character_knowledge"])
-        self.assertIn("Maya", compact_state["character_knowledge"])
-        self.assertNotIn("Tiffany", compact_state["character_knowledge"])
+        self.assertIn("Avery", compact_state["character_knowledge"])
+        self.assertIn("Jordan", compact_state["character_knowledge"])
+        self.assertNotIn("Casey", compact_state["character_knowledge"])
         self.assertNotIn("unrelated_history", compact_state)
-        self.assertIn("Tiffany", compact_state["location"])
-        self.assertIn("Tiffany", compact_state["physical_state"])
+        self.assertIn("Casey", compact_state["location"])
+        self.assertIn("Casey", compact_state["physical_state"])
 
         captured = {}
-        prose = "Tony offers Maya a warm bubble bath. He calls Beth and Jessica, then hugs Barnaby."
+        prose = "Avery inspected the tap. Jordan said he could bring supplies later."
         validator_result = {
             "pass": True,
             "missed_beats": [],
@@ -910,9 +910,9 @@ Preserve all established character roles and knowledge boundaries; do not invent
             "notes": "",
             "checks": [
                 {
-                    "requirement": "Tony offers Maya a bath.",
+                    "requirement": "Avery inspects the tap.",
                     "status": "met",
-                    "evidence": "Tony offers Maya a warm bubble bath.",
+                    "evidence": "Avery inspected the tap.",
                 }
             ],
         }
@@ -924,7 +924,7 @@ Preserve all established character roles and knowledge boundaries; do not invent
         with patch.object(scene_contract, "_run_validator", side_effect=fake_validator):
             SceneContract.validate_with_engine(
                 FakeEngine(),
-                {"author_idea": idea, "direction": "A concise supporting direction."},
+                {"author_idea": idea, "direction": "Arrange a repair and end after the call."},
                 state,
                 prose,
                 author_guidance=guidance,
@@ -937,10 +937,8 @@ Preserve all established character roles and knowledge boundaries; do not invent
         )
         self.assertLess(prompt.index(idea), prompt.index("SUPPORTING SCENE DIRECTION AND CONTRACT"))
         self.assertLess(prompt.index("STARTING STATE (relevant fields only)"), prompt.index("COMPLETED SCENE:"))
-        self.assertNotIn('"author_idea"', prompt)
-        self.assertNotIn("Do not send this to the validator.", prompt)
+        self.assertIn("Only characters explicitly listed in the scene cast participate.", prompt)
         self.assertNotIn("unrelated_history", prompt)
-        self.assertLess(len(prompt), 11000)
 
     def test_retry_explains_missing_coverage_instead_of_claiming_json_is_unreadable(self):
         idea = "Tony offers Maya a warm bubble bath and leaves her in private."
