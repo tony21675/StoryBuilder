@@ -1440,7 +1440,13 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         self.assertIn("quoted lines or nicknames, relationship milestones", prompt)
         self.assertIn("Every concrete story commitment named in the original Scene Idea must happen on-page", prompt)
         self.assertIn("Take creative initiative in present-scene action", prompt)
-        self.assertIn("Do not invent a past action, consequential event, motive, promise, or relationship-defining moment as established fact", prompt)
+        self.assertIn(
+            "Do not invent a past action, consequential event, motive, promise,",
+            prompt,
+        )
+        self.assertIn("maintenance event, log result, prior encounter,", prompt)
+        self.assertIn("relationship-defining moment as established fact", prompt)
+        self.assertIn("Do not invent a named off-scene person", prompt)
         self.assertIn("A character may offer a theory or possibility, but keep it tentative until established.", prompt)
         self.assertIn("Let character voice, mood, and author preferences shape the prose without turning them into formulas.", prompt)
         self.assertNotIn("Respect privacy, dignity, established boundaries, and relationship-specific behavior", prompt)

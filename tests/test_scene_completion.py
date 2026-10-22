@@ -421,7 +421,12 @@ class SceneCompletionTests(unittest.TestCase):
         self.assertIn("Check for unsupported consequential facts", prompt)
         self.assertIn("direct correction or rejection in accepted manuscript evidence", prompt)
         self.assertIn("SHARED CONTINUITY RULES (source block E)", prompt)
-        self.assertIn("Treat current_state unresolved_questions as open, not as evidence that an answer has already been established", prompt)
+        self.assertIn("current_state[unresolved_questions]", prompt)
+        self.assertIn(
+            "as unresolved unless the scene establishes an answer through on-page evidence",
+            prompt,
+        )
+        self.assertIn("the Scene Idea permits that progress", prompt)
         self.assertIn("indirect framing as well as explicit claims", prompt)
         self.assertIn("Distinguish reasonable character-based speculation from established fact", prompt)
         self.assertIn("Boundaries: Do not introduce new clues.", prompt)
