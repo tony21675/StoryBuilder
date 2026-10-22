@@ -32,7 +32,7 @@ class WriterSceneBoundaryPromptTests(unittest.TestCase):
             "Do not repeat completed events, scenes, or technical reports",
             "Pace a life-threatening emergency as a credible chain of events",
             "interplanetary travel takes months",
-            "a computer, relay, decoder, telemetry, or interference fault remains possible",
+            "an onboard computer fault sending incorrect signals",
         ):
             with self.subTest(required=required):
                 self.assertIn(required.casefold(), prompt.casefold())
