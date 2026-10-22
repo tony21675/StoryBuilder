@@ -23,7 +23,11 @@ SHARED_CONTINUITY_RULES = (
     "canon, accepted manuscript, or the original Scene Idea. Treat entries in current_state[unresolved_questions] "
     "as unresolved unless the scene establishes an answer through on-page evidence and the Scene Idea "
     "permits that progress. A material signature or plausible hypothesis does not by itself "
-    "establish the exact source, entry point, failure mechanism, or root cause."
+    "establish the exact source, entry point, failure mechanism, or root cause. "
+    "New observations and discoveries made on-page now are welcome; do not recast them as earlier "
+    "inspections, log results, or maintenance events unless author evidence supports that history. "
+    "When the author establishes that a failure is accidental, do not imply an intentional actor "
+    "through indirect framing without new on-page evidence."
 )
 
 
@@ -31,19 +35,24 @@ INTEGRITY_AUDIT_SYSTEM_PROMPT = """You are an independent continuity and scene-s
 Return exactly one JSON object with this shape:
 {
   "checks": {
-    "timeline_and_event_order": {"status":"clear","reason":"brief reason","draft_evidence":"","source_evidence":""},
-    "presence_and_character_knowledge": {"status":"clear","reason":"brief reason","draft_evidence":"","source_evidence":""},
-    "physical_and_location_continuity": {"status":"clear","reason":"brief reason","draft_evidence":"","source_evidence":""},
-    "unsupported_consequential_details": {"status":"clear","reason":"brief reason","draft_evidence":"","source_evidence":""},
-    "scene_scope_and_hard_stop": {"status":"clear","reason":"brief reason","draft_evidence":"","source_evidence":""}
+    "timeline_and_event_order": {"status":"clear","basis":"established_fact","reason":"brief reason","draft_evidence":"exact quote from completed scene","source_evidence":"exact quote from supplied source"},
+    "presence_and_character_knowledge": {"status":"clear","basis":"established_fact","reason":"brief reason","draft_evidence":"exact quote from completed scene","source_evidence":"exact quote from supplied source"},
+    "physical_and_location_continuity": {"status":"clear","basis":"established_fact","reason":"brief reason","draft_evidence":"exact quote from completed scene","source_evidence":"exact quote from supplied source"},
+    "unsupported_consequential_details": {"status":"clear","basis":"established_fact","reason":"brief reason","draft_evidence":"exact quote from completed scene","source_evidence":"exact quote from supplied source"},
+    "scene_scope_and_hard_stop": {"status":"clear","basis":"established_fact","reason":"brief reason","draft_evidence":"exact quote from completed scene","source_evidence":"exact quote from supplied source"}
   }
 }
 
 Review all five categories independently and include every category exactly once. Each status must be "clear", "conflict", or "uncertain". Every check needs a short reason.
-- "clear" means you checked the supplied evidence and found no material contradiction in that category.
-- "conflict" means you found a material contradiction supported by BOTH a verbatim draft excerpt and a verbatim excerpt from the supplied author idea, starting-state JSON, stable author guidance, relevant accepted-manuscript excerpts, or the shared continuity rules.
-- "uncertain" means the supplied context does not let you verify the category confidently, or you cannot quote both sides of a possible conflict.
-For a conflict, draft_evidence MUST be an exact contiguous substring of the completed scene. source_evidence MUST be an exact contiguous substring of one of the supplied context blocks. Do not paraphrase either evidence field. Never report a conflict without both exact excerpts. If evidence is missing or you are uncertain, mark that category "uncertain", not "conflict". Do not add a pass field or issues list.
+- Every check needs a short reason and a "basis".
+- "clear" means you examined the most consequential continuity-relevant claim in the category and found it compatible with the supplied evidence and author boundaries. A clear result is not just a general statement that no conflict was noticed.
+- For a clear check, basis MUST be one of:
+  * "established_fact": draft_evidence and source_evidence must each be exact contiguous substrings, showing the draft claim and the context that supports it.
+  * "new_present_scene_development": draft_evidence must be an exact contiguous substring from the scene. source_evidence may be empty only when the reason explains why this is a new on-page action, observation, dialogue, or hypothesis rather than an assertion about past history, and why it remains compatible with the author's premise.
+  * "no_material_claim": use only when the category contains no material continuity-relevant claim. Both evidence fields must be empty, and the reason must contain the exact phrase "No material claim in this category."
+- "conflict" means a material contradiction supported by BOTH a verbatim draft excerpt and a verbatim excerpt from the supplied author idea, starting-state JSON, stable author guidance, relevant accepted-manuscript excerpts, or the shared continuity rules. Set basis to "contradiction".
+- "uncertain" means the supplied context does not let you verify the category confidently, or you cannot provide the evidence required for a clear or conflict result. Set basis to "unverified".
+- For any non-empty draft_evidence or source_evidence, the value MUST be an exact contiguous substring of the completed scene or a supplied context block respectively. Do not paraphrase evidence. Never report a conflict without both exact excerpts. If evidence is missing or you are uncertain, mark that category "uncertain", not "clear" or "conflict". Do not add a pass field or issues list.
 
 Check specifically:
 Before declaring a category clear, compare consequential claims against accepted prose and the shared continuity rules. Treat current_state unresolved_questions as open, not as evidence that an answer has already been established. Flag invented past maintenance, log findings, prior visits, and newly named off-scene people when the draft presents them as established history without support. For conflicts, quote the exact shared rule or source evidence and the exact draft claim.
@@ -139,6 +148,7 @@ def _run_scene_integrity_audit(
             uncertain.append(f"{category}: check was not a JSON object.")
             continue
         status = str(item.get("status", "") or "").strip().casefold()
+        basis = str(item.get("basis", "") or "").strip().casefold()
         reason = str(item.get("reason", "") or "").strip()
         draft_evidence = str(item.get("draft_evidence", "") or "").strip()
         source_evidence = str(item.get("source_evidence", "") or "").strip()
@@ -147,12 +157,46 @@ def _run_scene_integrity_audit(
             continue
         normalized[category] = {
             "status": status,
+            "basis": basis,
             "reason": reason,
             "draft_evidence": draft_evidence,
             "source_evidence": source_evidence,
         }
         if status == "uncertain":
             uncertain.append(f"{category}: {reason}")
+        elif status == "clear":
+            if basis == "no_material_claim":
+                if (
+                    draft_evidence
+                    or source_evidence
+                    or "no material claim in this category." not in reason.casefold()
+                ):
+                    uncertain.append(
+                        f"{category}: no_material_claim basis must have empty evidence fields and explicitly say no material claim is present."
+                    )
+            elif basis == "established_fact":
+                if (
+                    not draft_evidence
+                    or not source_evidence
+                    or draft_evidence not in draft_text
+                    or source_evidence not in source_material
+                ):
+                    uncertain.append(
+                        f"{category}: clear established-fact result lacked verifiable exact draft and supporting source excerpts."
+                    )
+            elif basis == "new_present_scene_development":
+                if (
+                    not draft_evidence
+                    or draft_evidence not in draft_text
+                    or (source_evidence and source_evidence not in source_material)
+                ):
+                    uncertain.append(
+                        f"{category}: clear new-present-scene result lacked verifiable exact draft evidence."
+                    )
+            else:
+                uncertain.append(
+                    f"{category}: clear result lacked a recognized evidence basis."
+                )
         elif status == "conflict":
             if (
                 not draft_evidence
@@ -255,8 +299,16 @@ def generate_scene_with_completion_check(
         draft = str(engine.generate(initial_prompt, on_delta=on_draft_delta) or "").strip()
     else:
         draft = str(engine.generate(initial_prompt) or "").strip()
-    if not draft or not str((contract or {}).get("author_idea", "") or "").strip():
-        return draft, ""
+    if not draft:
+        return draft, (
+            "AUTOMATED REVIEW SKIPPED: no draft prose was returned, so the completion and continuity checks did not run."
+        )
+    if not str((contract or {}).get("author_idea", "") or "").strip():
+        return draft, (
+            "AUTOMATED REVIEW SKIPPED: no saved author Scene Idea was present in the runtime contract, "
+            "so the completion and continuity checks did not run. Review this draft manually and save "
+            "the Scene Idea before generating another scene."
+        )
 
     try:
         review = SceneContract.validate_with_engine(
@@ -365,8 +417,14 @@ def generate_scene_with_completion_check(
 
     if review.get("pass") is True:
         if _restore_writer_context(engine, model_path, writer_system_prompt):
-            return draft, ""
-        return draft, "Completion review passed, but Writer could not be restored. Restart Writer before the next scene."
+            return draft, (
+                "AUTOMATED REVIEW: scene-contract validation and the continuity/scope audit reported no issues. "
+                "This is a screening result, not a guarantee; review facts, uncertainty, and author boundaries before accepting."
+            )
+        return draft, (
+            "AUTOMATED REVIEW: no issues were reported, but Writer could not be restored. "
+            "Restart Writer before the next scene."
+        )
 
     missed = _clean_findings(review, "missed_beats")
     if not missed:

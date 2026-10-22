@@ -55,7 +55,8 @@ class SceneCompletionTests(unittest.TestCase):
         return {
             category: {
                 "status": "clear",
-                "reason": "Reviewed the supplied source evidence; no material conflict appears in this category.",
+                "basis": "no_material_claim",
+                "reason": "No material claim in this category.",
                 "draft_evidence": "",
                 "source_evidence": "",
             }
@@ -85,7 +86,7 @@ class SceneCompletionTests(unittest.TestCase):
         )
         self.assertEqual(draft, "A scene arriving in pieces.")
         self.assertEqual("".join(pieces), draft)
-        self.assertEqual(notice, "")
+        self.assertIn("AUTOMATED REVIEW SKIPPED", notice)
 
     @patch("builder.scene_completion._run_scene_integrity_audit", return_value=PASS_AUDIT)
     @patch("builder.scene_completion.SceneContract.validate_with_engine")
@@ -97,7 +98,8 @@ class SceneCompletionTests(unittest.TestCase):
             current_state=self.state,
         )
         self.assertEqual(draft, "Draft scene.")
-        self.assertEqual(notice, "")
+        self.assertIn("AUTOMATED REVIEW:", notice)
+        self.assertIn("reported no issues", notice)
         self.assertEqual(len(self.engine.prompts), 1)
         self.assertEqual(self.engine.reset_calls, [(self.model, self.system_prompt)])
 
@@ -196,7 +198,7 @@ class SceneCompletionTests(unittest.TestCase):
             current_state=self.state,
         )
         self.assertEqual(draft, "Draft scene.")
-        self.assertEqual(notice, "")
+        self.assertIn("AUTOMATED REVIEW SKIPPED", notice)
         validate.assert_not_called()
         _audit.assert_not_called()
 
@@ -288,6 +290,16 @@ class SceneCompletionTests(unittest.TestCase):
             "Maya and Chloe are lifelong friends of Tiffany."
         )
         checks = self._audit_checks()
+        checks["unsupported_consequential_details"] = {
+            "status": "clear",
+            "basis": "new_present_scene_development",
+            "reason": (
+                "This is a tentative suggestion spoken during the current scene, not a claim "
+                "that a location or prior event is established."
+            ),
+            "draft_evidence": prose,
+            "source_evidence": "",
+        }
         self.engine.responses = [json.dumps({"checks": checks})]
         result = _run_scene_integrity_audit(
             engine=self.engine,
@@ -400,6 +412,71 @@ class SceneCompletionTests(unittest.TestCase):
         self.assertEqual(result["issues"], [])
         self.assertTrue(any("Missing audit categories" in detail for detail in result["details"]))
 
+    def test_clear_audit_requires_exact_evidence_for_material_claims(self):
+        prose = "Morgan says the seal felt sticky during the current inspection."
+        checks = self._audit_checks()
+        checks["unsupported_consequential_details"] = {
+            "status": "clear",
+            "basis": "new_present_scene_development",
+            "reason": "This is a new on-page discovery, not a claim about an earlier inspection.",
+            "draft_evidence": "",
+            "source_evidence": "",
+        }
+        result = self._run_audit(
+            prose,
+            "Scene Idea: Elena gathers the crew to investigate contamination.",
+            {"unresolved_questions": ["Where are silicates entering the system?"]},
+            "The failure is accidental.",
+            checks,
+        )
+        self.assertEqual(result["status"], "uncertain")
+        self.assertTrue(any(
+            "lacked verifiable exact draft evidence" in detail
+            for detail in result["details"]
+        ))
+
+    def test_clear_on_page_discovery_can_pass_with_exact_draft_evidence(self):
+        prose = "Morgan tests the seal during the scene and feels resistance."
+        checks = self._audit_checks()
+        checks["unsupported_consequential_details"] = {
+            "status": "clear",
+            "basis": "new_present_scene_development",
+            "reason": "This is a new on-page discovery, not a claim about an earlier inspection.",
+            "draft_evidence": prose,
+            "source_evidence": "",
+        }
+        result = self._run_audit(
+            prose,
+            "Scene Idea: Elena gathers the crew to investigate contamination.",
+            {"unresolved_questions": ["Where are silicates entering the system?"]},
+            "The failure is accidental.",
+            checks,
+        )
+        self.assertEqual(result["status"], "clear")
+
+    def test_clear_established_fact_requires_verifiable_source_evidence(self):
+        prose = "Daniel's scan matched the silicate signature."
+        checks = self._audit_checks()
+        checks["timeline_and_event_order"] = {
+            "status": "clear",
+            "basis": "established_fact",
+            "reason": "The draft repeats an established diagnostic result.",
+            "draft_evidence": prose,
+            "source_evidence": "The ingress point is already confirmed.",
+        }
+        result = self._run_audit(
+            prose,
+            "Scene Idea: Elena consolidates the crew's findings.",
+            {"unresolved_questions": ["Where are silicates entering the system?"]},
+            "The failure is accidental.",
+            checks,
+        )
+        self.assertEqual(result["status"], "uncertain")
+        self.assertTrue(any(
+            "lacked verifiable exact draft and supporting source excerpts" in detail
+            for detail in result["details"]
+        ))
+
     def test_audit_prompt_requires_category_by_category_evidence(self):
         checks = self._audit_checks()
         self.engine.responses = [json.dumps({"checks": checks})]
@@ -416,12 +493,17 @@ class SceneCompletionTests(unittest.TestCase):
         for category in AUDIT_CATEGORIES:
             self.assertIn(category, prompt)
         self.assertIn("exact quote", prompt)
+        self.assertIn("basis", prompt)
+        self.assertIn("most consequential continuity-relevant claim", prompt)
+        self.assertIn("No material claim in this category.", prompt)
+        self.assertIn("new on-page action, observation, dialogue, or hypothesis", prompt)
         self.assertIn("unsupported consequential fact", prompt)
         self.assertIn("Do not treat ordinary brainstorming as a continuity conflict unless the draft presents or relies on it as fact", prompt)
         self.assertIn("Check for unsupported consequential facts", prompt)
         self.assertIn("direct correction or rejection in accepted manuscript evidence", prompt)
         self.assertIn("SHARED CONTINUITY RULES (source block E)", prompt)
         self.assertIn("current_state[unresolved_questions]", prompt)
+        self.assertIn("New observations and discoveries made on-page now are welcome", prompt)
         self.assertIn(
             "as unresolved unless the scene establishes an answer through on-page evidence",
             prompt,

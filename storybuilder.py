@@ -2951,7 +2951,7 @@ class StoryBuilderApp(tk.Tk):
             lines.append("Beats: " + " | ".join(module_beats))
 
         lines.append(
-            "Write natural prose only. Use saved state as a starting-continuity summary, but do not treat unsupported historical claims in it as established fact. Accepted prose, canon, and explicit author intent are evidence for established history. Explicit Location and Time values from the original Scene Idea header control planned scene metadata. The opening cast is not the full scene cast; later arrivals specified by the Scene Idea must remain eligible to enter. The original plain-English Scene Idea controls requested events, order, and ending; generated direction is supporting context only."
+            "Write natural prose only. Use saved state as a starting-continuity summary, but do not treat unsupported historical claims in it as established fact. Accepted prose, canon, and explicit author intent are evidence for established history. Explicit Location and Time values from the original Scene Idea header control planned scene metadata. The opening cast is not the full scene cast; later arrivals specified by the Scene Idea must remain eligible to enter. The original plain-English Scene Idea guides the scene's purpose, direction, and explicit author commitments. It does not prescribe an order unless it clearly specifies a sequence, and it is not a beat-by-beat outline. Keep its named priorities evident through natural, creative staging; honor any explicit endpoint or hard stop. Generated direction is supporting context only."
         )
 
         # The Writer direction is display-only. Temporarily enable it for

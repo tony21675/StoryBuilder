@@ -7,6 +7,7 @@ on:
     branches:
       - main
       - "fix/**"
+      - redesign/simplified-writing-workflow
   workflow_dispatch:
 
 permissions:
