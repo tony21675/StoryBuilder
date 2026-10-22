@@ -7544,18 +7544,20 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         self.generated_scene = accepted
         self.writer_scene_accept_block_reason = ""
         self.focused_revision_history = []
-        if hasattr(self, "writer_output_text"):
-            self.writer_output_text.delete("1.0", "end")
+        writer_output_text = self.__dict__.get("writer_output_text")
+        if writer_output_text is not None:
+            writer_output_text.delete("1.0", "end")
             if accepted:
-                self.writer_output_text.insert("1.0", accepted)
+                writer_output_text.insert("1.0", accepted)
         if not accepted:
             self.generated_scene_context = None
             self.generated_scene_start_state = None
         revision_entry = self.__dict__.get("writer_revision_request_entry")
         if revision_entry is not None:
             revision_entry.delete("1.0", "end")
-        if hasattr(self, "writer_state_preview"):
-            self.writer_state_preview.delete("1.0", "end")
+        writer_state_preview = self.__dict__.get("writer_state_preview")
+        if writer_state_preview is not None:
+            writer_state_preview.delete("1.0", "end")
         diff_preview = self.__dict__.get("writer_state_diff_preview")
         if diff_preview is not None:
             diff_preview.configure(state="normal")
