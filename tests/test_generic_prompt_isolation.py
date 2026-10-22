@@ -132,11 +132,13 @@ class GenericStoryPromptTests(unittest.TestCase):
         self.assertIn("check consequential claims about prior events", prompt)
         self.assertIn("do not repeat it as established history", prompt)
         self.assertIn("the original scene idea can explicitly correct a stale or mistaken summary", prompt)
-        self.assertIn("accepted manuscript evidence explicitly rejects, corrects, or replaces an earlier explanation", prompt)
-        self.assertIn("do not seed it indirectly through suggestive framing", prompt)
+        self.assertIn("preserve corrections established by accepted prose", prompt)
+        self.assertIn("do not indirectly introduce events or explanations the author has ruled out", prompt)
         self.assertIn("treat explicit unresolved_questions as open questions", prompt)
-        self.assertIn("do not invent a named off-scene person", prompt)
-        self.assertIn("suspected pathway, exact entry point, failure mechanism, and confirmed root cause", prompt)
+        self.assertIn("do not use invented off-page people or actions to explain events without author support", prompt)
+        self.assertIn("distinguish what characters observe, infer, suspect, and know", prompt)
+        self.assertNotIn("suspected pathway", prompt)
+        self.assertNotIn("exact entry point", prompt)
 
     def test_scene_idea_is_authoritative_over_a_stale_summary(self):
         context = SceneContract.writer_prompt_context(
