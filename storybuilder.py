@@ -7498,9 +7498,9 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         choice = messagebox.askyesnocancel(
             "Unaccepted Writer Text",
             (
-                f"There is unaccepted Writer text for Chapter {chapter}, Scene {scene}.\\n\\n"
-                "Choose Yes to discard this temporary text and continue.\\n"
-                "Choose No or Cancel to stay in StoryBuilder and keep working.\\n\\n"
+                f"There is unaccepted Writer text for Chapter {chapter}, Scene {scene}.\n\n"
+                "Choose Yes to discard this temporary text and continue.\n"
+                "Choose No or Cancel to stay in StoryBuilder and keep working.\n\n"
                 "Unaccepted text is not saved as a separate draft file."
             ),
             parent=self,
