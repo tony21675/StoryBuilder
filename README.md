@@ -75,9 +75,9 @@ StoryWorkspace/
 └── llama.cpp/
 ```
 
-Each novel directory is its own Git repository. StoryBuilder does not need to know the GitHub repository name or URL. It opens the selected novel folder and, when you use **Sync Novel** or **Close & Sync**, commits, rebases against `origin`, and pushes that novel repository only.
+Each novel directory is its own Git repository. StoryBuilder does not need to know the GitHub repository name or URL. It opens the selected novel folder. **Save Novel** writes the currently loaded novel locally. **Sync Novel** saves and synchronizes only that novel repository. **Close & Sync App** synchronizes only the StoryBuilder application repository on its current development branch; it never saves or synchronizes novel data. If the novel has unsaved edits, closing warns and lets you cancel so you can save or sync the novel separately.
 
-The StoryBuilder repository and the novel repository are synchronized independently:
+The StoryBuilder application and each novel repository are synchronized independently. Use **Close & Sync App** for application files and **Sync Novel** for novel files:
 
 ```
 StoryBuilder/
