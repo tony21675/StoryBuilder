@@ -24,7 +24,7 @@ VALIDATOR_SYSTEM_PROMPT = """Review the author's original idea and starting stat
 
 Judge meaning, not keywords; synonyms and paraphrases count. Evidence is optional diagnostic text from COMPLETED SCENE only and never determines status. never quote the idea, instructions, contract, or state.
 Create a SHORT EVENT-LEVEL checklist, usually 4–8 checks total. Each check is one meaningful event or outcome. Group related details from the same event; do not create separate checks for clauses, adjectives, people, objects, or small actions. Separate events only when independently missable. Ignore incidental details unless the idea makes them defining, continuity-critical, or a boundary/preference.
-A check is met only when its main action and defining details are present. Different wording is fine; a different action, object, person, order, or outcome is not. Do not accept a superficially similar substitute for a specifically requested action or object; preserve the author's defining details. Evidence is optional and never determines status. Flag unexplained opening continuity mismatches, knowledge conflicts, and ignored requests. Check acknowledged requests/preferences against later actions. Preserve stated backstory and accept neutral familial comfort. List missing events once; if any check is missing, pass must be false.
+A check is met only when its main action and defining details are present. Different wording is fine; a different action, object, person, order, or outcome is not. Do not accept a superficially similar substitute for a specifically requested action or object; preserve the author's defining details. Evidence is optional and never determines status. Flag unexplained opening continuity mismatches, knowledge conflicts, and ignored requests. Check acknowledged requests/preferences against later actions. Preserve established relationship facts and interpret ordinary social behavior in context. List missing events once; if any check is missing, pass must be false.
 """
 
 SEMANTIC_RECHECK_SYSTEM_PROMPT = """Independently reassess only the supplied checklist items against the completed scene. Return JSON only:
@@ -294,58 +294,6 @@ def _run_validator(
     return normalized_result
 
 
-def _evidence_occurs_in_prose(prose: str, evidence: str) -> bool:
-    """Require validator evidence to be a verbatim excerpt from the completed scene."""
-    def normalize(value: str) -> str:
-        return re.sub(r"\s+", " ", str(value or "")).strip().casefold()
-
-    normalized_evidence = normalize(evidence)
-    return bool(normalized_evidence and normalized_evidence in normalize(prose))
-
-
-def _build_evidence_correction_prompt(
-    author_idea: str,
-    checks: list[dict[str, Any]],
-    prose: str,
-) -> str:
-    """Build a compact retry that prevents instructions and prior quotes becoming evidence."""
-    requirements: list[str] = []
-    for item in checks:
-        requirement = str(item.get("requirement", "") or "").strip()
-        if requirement and requirement not in requirements:
-            requirements.append(requirement)
-
-    if not requirements:
-        requirements.append(
-            "Check whether the main events required by the author's original scene idea occur."
-        )
-
-    checklist = "\n".join(
-        f"{index}. {requirement}"
-        for index, requirement in enumerate(requirements, start=1)
-    )
-    return (
-        "FOCUSED SCENE-CONTRACT VALIDATION RETRY\n"
-        "Your previous validation response used at least one fabricated quote. "
-        "Reassess the scene against the original idea and checklist below. Do not write or revise story prose.\n\n"
-        "STRICT EVIDENCE RULES:\n"
-        "- The COMPLETED SCENE at the end is the only permitted source for evidence.\n"
-        "- For every check marked met, copy a short, exact, continuous excerpt from that scene which directly supports the requirement.\n"
-        "- Never invent, reconstruct, or repair dialogue. The idea and checklist describe requirements; they are not evidence.\n"
-        "- If no exact scene excerpt directly supports a requirement, mark it missing and set evidence to an empty string.\n"
-        "- Reassess each check; prior statuses and evidence are untrusted. Keep each checklist requirement unchanged.\n"
-        "- Set pass to false if any check is missing or any material violation is reported.\n"
-        "Return one JSON object only, with this shape: "
-        '{"pass": true, "missed_beats": [], "violations": [], "checks": [{"requirement": "", "status": "met", "evidence": ""}], "notes": ""}.\n\n'
-        "AUTHOR'S ORIGINAL SCENE IDEA:\n"
-        + str(author_idea or "").strip()
-        + "\n\nCHECKLIST TO REASSESS (requirements only; discard prior statuses and evidence):\n"
-        + checklist
-        + "\n\nCOMPLETED SCENE (only permitted evidence source):\n"
-        + str(prose or "").strip()
-    )
-
-
 def _normalize_check_status(value: Any) -> str | None:
     """Normalize common model wording without accepting ambiguous validation labels."""
     status = re.sub(r"[\s_-]+", " ", str(value or "").strip().casefold())
@@ -394,7 +342,6 @@ def _semantic_recheck_checks(
         )
         validation_prompt = base_prompt
         response_correction_used = False
-        evidence_correction_used = False
         accepted: list[dict[str, str]] | None = None
         for _attempt in range(3):
             try:
@@ -442,8 +389,8 @@ def _semantic_recheck_checks(
                         + str(exc)
                         + " Return one complete JSON object only, with exactly one check per "
                           "supplied requirement. Use the exact requirement text and a JSON "
-                          "status of met or missing. For met checks, evidence must be an exact "
-                          "quote from the completed scene."
+                          "status of met or missing. Evidence is optional diagnostic information "
+                          "and must never override the semantic judgment."
                     )
                     continue
                 raise SceneContractValidationUnavailable(
@@ -522,7 +469,6 @@ def _compact_validator_guidance(
         if any(phrase in folded for phrase in (
             "current story state", "only characters explicitly listed",
             "do not import details from discarded drafts",
-            "do not introduce floral scents",
         )):
             score += 12
         if score:
@@ -1370,10 +1316,8 @@ class SceneContract:
 
         validation_prompt = prompt
         normalized_result = None
-        # Schema/shape failures and ungrounded evidence are independent failure modes.
-        # A correction for one must not consume the correction budget for the other.
+        # Retry malformed or incomplete validator responses once; evidence text is optional.
         response_correction_used = False
-        evidence_correction_used = False
         for validator_attempt in range(3):
             try:
                 if _engine_is_running(engine):
@@ -1434,8 +1378,7 @@ class SceneContract:
                         raise SceneContractResponseError(
                             "Scene-contract validator returned an invalid requirement check."
                         )
-                    # A claimed "met" result must cite the completed scene itself.
-                    # Evidence copied from instructions, idea, or state is not grounded.
+                    # Evidence is optional diagnostic context and never controls the semantic status.
                     normalized_checks.append({
                         "requirement": requirement,
                         "status": status,
