@@ -70,10 +70,10 @@ Return exactly one JSON object with this shape:
 {
   "checks": {
     "timeline_and_event_order": {"status":"clear","basis":"established_fact","reason":"brief reason","draft_evidence":"optional exact scene quote or empty string","source_evidence":"optional exact source quote or empty string"},
-    "presence_and_character_knowledge": {"status":"clear","basis":"established_fact","reason":"brief reason","draft_evidence":"exact quote from completed scene","source_evidence":"exact quote from supplied source"},
-    "physical_and_location_continuity": {"status":"clear","basis":"established_fact","reason":"brief reason","draft_evidence":"exact quote from completed scene","source_evidence":"exact quote from supplied source"},
-    "unsupported_consequential_details": {"status":"clear","basis":"established_fact","reason":"brief reason","draft_evidence":"exact quote from completed scene","source_evidence":"exact quote from supplied source"},
-    "scene_scope_and_hard_stop": {"status":"clear","basis":"established_fact","reason":"brief reason","draft_evidence":"exact quote from completed scene","source_evidence":"exact quote from supplied source"}
+    "presence_and_character_knowledge": {"status":"clear","basis":"established_fact","reason":"brief reason","draft_evidence":"optional exact scene quote or empty string","source_evidence":"optional exact source quote or empty string"},
+    "physical_and_location_continuity": {"status":"clear","basis":"established_fact","reason":"brief reason","draft_evidence":"optional exact scene quote or empty string","source_evidence":"optional exact source quote or empty string"},
+    "unsupported_consequential_details": {"status":"clear","basis":"established_fact","reason":"brief reason","draft_evidence":"optional exact scene quote or empty string","source_evidence":"optional exact source quote or empty string"},
+    "scene_scope_and_hard_stop": {"status":"clear","basis":"established_fact","reason":"brief reason","draft_evidence":"optional exact scene quote or empty string","source_evidence":"optional exact source quote or empty string"}
   }
 }
 
