@@ -6956,7 +6956,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             # Sync the app before stopping the writer so a failed sync leaves
             # the current session available for the user to resolve the problem.
             try:
-                result = sync_storybuilder_repository(Path(__file__).resolve().parent)
+                sync_storybuilder_repository(Path(__file__).resolve().parent)
             except (StoryBuilderSyncError, OSError, subprocess.SubprocessError) as exc:
                 self._show_copyable_error(
                     "Close & Sync App",
@@ -6975,7 +6975,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             except Exception:
                 pass
 
-            self._chat("Builder", result)
+            # Do not write a sync-status message into the novel package on close.
             self.destroy()
         except Exception as exc:
             self._show_copyable_error(
