@@ -233,6 +233,18 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         self.assertIn("Discard the current unsaved Scene Idea edits", app._ask_yes_no.call_args.args[1])
         self.assertIn("Reloaded the saved Scene Idea", app.scene_contract_status.options["text"])
 
+    def test_reload_saved_scene_idea_refreshes_writer_when_preview_exists(self):
+        app = self.make_scene_idea_reload_app(
+            "Saved scene beats.", "Saved scene beats.", confirm=False
+        )
+        app.writer_scene_idea_text = FakeText("Writer preview")
+        app._refresh_writer_scene_guidance = Mock()
+
+        app._reload_saved_scene_idea()
+
+        app._refresh_writer_scene_guidance.assert_called_once_with()
+        self.assertEqual(app.scene_idea_text.value, "Saved scene beats.")
+
     def test_reload_saved_scene_idea_cancel_keeps_editor_text(self):
         app = self.make_scene_idea_reload_app(
             "Saved scene beats.", "Unsaved revised beats.", confirm=False
