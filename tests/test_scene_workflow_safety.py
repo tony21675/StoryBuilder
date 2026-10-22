@@ -806,58 +806,16 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             self.assertEqual(app.writer_output_text.value, "Already accepted prose")
             self.assertFalse((Path(tmp) / "Manuscript").exists())
 
-    def test_write_workspace_embeds_contract_and_writer_into_one_primary_area(self):
-        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
-        app.notebook = Mock()
-        app.notebook.pages = object()
-        app._build_scene_contract_tab = Mock()
-        app._build_writer_tab = Mock()
+    def test_scene_contract_and_writer_are_separate_primary_tabs(self):
+        source = inspect.getsource(storybuilder_app.StoryBuilderApp._build_ui)
 
-        class FakeLayoutContainer:
-            instances = []
+        contract_call = source.index("self._build_scene_contract_tab()")
+        writer_call = source.index("self._build_writer_tab()")
+        chat_call = source.index("self._build_chat_tab()")
 
-            def __init__(self, master=None, **kwargs):
-                self.master = master
-                self.options = kwargs
-                self.children = []
-                self.pack_options = None
-                type(self).instances.append(self)
-
-            def pack(self, *args, **kwargs):
-                self.pack_options = (args, kwargs)
-
-            def add(self, child, **kwargs):
-                self.children.append((child, kwargs))
-
-        FakeLayoutContainer.instances.clear()
-        with (
-            patch.object(storybuilder_app.ttk, "Frame", FakeLayoutContainer),
-            patch.object(storybuilder_app.ttk, "Panedwindow", FakeLayoutContainer),
-        ):
-            storybuilder_app.StoryBuilderApp._build_write_workspace(app)
-
-        page = app.notebook.add.call_args.args[0]
-        self.assertEqual(app.notebook.add.call_args.kwargs, {"text": "Write"})
-        self.assertIs(page.master, app.notebook.pages)
-
-        panes = next(
-            widget for widget in FakeLayoutContainer.instances
-            if "orient" in widget.options
-        )
-        self.assertEqual(panes.options["orient"], storybuilder_app.tk.VERTICAL)
-        self.assertEqual(len(panes.children), 2)
-        contract_host, contract_options = panes.children[0]
-        writer_host, writer_options = panes.children[1]
-        self.assertEqual(contract_options["weight"], 2)
-        self.assertEqual(writer_options["weight"], 4)
-        app._build_scene_contract_tab.assert_called_once_with(
-            parent=contract_host,
-            register=False,
-        )
-        app._build_writer_tab.assert_called_once_with(
-            parent=writer_host,
-            register=False,
-        )
+        self.assertLess(contract_call, writer_call)
+        self.assertLess(writer_call, chat_call)
+        self.assertNotIn("_build_write_workspace()", source)
 
     def test_scene_plan_details_are_visible_when_workspace_opens(self):
         source = inspect.getsource(storybuilder_app.StoryBuilderApp._build_scene_contract_tab)
@@ -2333,7 +2291,7 @@ class NovelSyncSafetyTests(unittest.TestCase):
             CONTRACT_BUILDER_SYSTEM_PROMPT,
         )
 
-    def test_write_workspace_has_one_primary_scene_preparation_button(self):
+    def test_separate_tabs_keep_one_primary_scene_preparation_button(self):
         contract_source = inspect.getsource(
             storybuilder_app.StoryBuilderApp._build_scene_contract_tab
         )
