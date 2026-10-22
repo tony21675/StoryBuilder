@@ -275,46 +275,6 @@ class StoryBuilderApp(tk.Tk):
         self._install_spellchecking()
         self.notebook.on_show = self._on_main_section_shown
 
-        toolbar = ttk.Frame(self, padding=8)
-        toolbar.pack(fill="x")
-        for label, command in [
-            ("New Novel", self._new_novel),
-            ("Open Novel", self._open_novel),
-            ("Save Novel", self._save),
-            ("Save As", self._save_as),
-            ("Validate", self._validate),
-        ]:
-            ttk.Button(toolbar, text=label, command=command).pack(side="left", padx=3)
-        ttk.Button(toolbar, text="Sync Novel", command=self._sync_current_novel).pack(side="left", padx=(10, 3))
-        ttk.Button(toolbar, text="Close & Sync App", command=self._close_and_sync_app).pack(side="left", padx=3)
-        self.path_label = ttk.Label(toolbar, text="Unsaved novel")
-        self.path_label.pack(side="right", padx=8)
-
-        self.notebook = CompactTabContainer(self)
-        self.notebook.pack(fill="both", expand=True, padx=8, pady=(0, 8))
-
-        # Make writing the first and primary workspace. Scene Contract and Writer
-        # are embedded together there; their detailed tools remain intact.
-        self._build_write_workspace()
-        self._build_chat_tab()
-        self._build_new_novel_assistant_tab()
-        self._build_story_tab()
-        self._build_canon_tab()
-        self._build_change_assistant_tab()
-        self._build_characters_tab()
-        self._build_relationships_tab()
-        self._build_locations_tab()
-        self._build_modules_tab()
-        self._build_planning_tab()
-        self._build_story_interview_tab()
-        self._build_scene_planner_tab()
-        self._build_state_tab()
-        self._build_manuscript_tab()
-        self._install_context_menus()
-        self._install_mousewheel_scrolling()
-        self._install_spellchecking()
-        self.notebook.on_show = self._on_main_section_shown
-
     def _make_scrollable_tab(self, page, padding=12):
         """Place a tab's content in a vertical scrolling area.
 
