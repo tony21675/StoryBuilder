@@ -23,20 +23,27 @@ class WriterSceneBoundaryPromptTests(unittest.TestCase):
         self.assertNotIn("A friend may suggest", prompt)
         self.assertLess(len(prompt), 1100)
 
-    def test_writer_system_prompt_enforces_continuity_and_emergency_rules(self):
+    def test_writer_system_prompt_enforces_generic_continuity_and_emergency_rules(self):
         prompt = StoryBuilderApp._writer_system_prompt(None, [])
+        lower = prompt.casefold()
 
         for required in (
-            "Character cards are authoritative for each character's established gender",
+            "character cards are authoritative for each character's established gender",
             "never jump someone between locations",
-            "Do not repeat completed events, scenes, or technical reports",
-            "Pace a life-threatening emergency as a credible chain of events",
-            "interplanetary travel takes months",
-            "an onboard computer fault sending incorrect signals",
+            "do not repeat completed events, scenes, or technical reports",
+            "pace a life-threatening emergency as a credible chain of events",
+            "respect the active novel's established geography",
+            "separate observation, theory, and confirmation",
         ):
             with self.subTest(required=required):
-                self.assertIn(required.casefold(), prompt.casefold())
+                self.assertIn(required.casefold(), lower)
 
+        for novel_specific in (
+            "earth cannot send a rescue ship to mars overnight",
+            "interplanetary travel takes months",
+            "an onboard computer fault sending incorrect signals",
+            "zoe's unusual communications readings",
+        ):
+            with self.subTest(novel_specific=novel_specific):
+                self.assertNotIn(novel_specific.casefold(), lower)
 
-if __name__ == "__main__":
-    unittest.main()
