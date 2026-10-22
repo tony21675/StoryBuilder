@@ -957,7 +957,7 @@ class StoryBuilderApp(tk.Tk):
         idea_secondary_button_row = ttk.Frame(idea_frame)
         idea_secondary_button_row.pack(fill="x", pady=(4, 0))
 
-        details_frame = ttk.LabelFrame(content, text="Scene details (optional)")
+        details_frame = ttk.LabelFrame(content, text="Scene Plan and Continuity Details")
         details_frame.pack(fill="x", pady=(0, 10))
         self.scene_contract_details_frame = details_frame
 
@@ -986,7 +986,7 @@ class StoryBuilderApp(tk.Tk):
 
         self.scene_contract_details_toggle_button = ttk.Button(
             idea_button_row,
-            text="Scene Details ▸",
+            text="Hide Scene Details ▾",
             command=self._toggle_scene_details,
         )
         self.scene_contract_details_toggle_button.pack(side="left")
@@ -1111,9 +1111,9 @@ class StoryBuilderApp(tk.Tk):
             anchor="w",
         )
         self.scene_contract_status.pack(side="left", fill="x", expand=True)
-        # Detail fields are available on demand, rather than occupying the
-        # writing workspace for every scene.
-        self.scene_contract_details_frame.pack_forget()
+        # Keep the generated plan fields visible by default. Hiding them here
+        # made the prepared beginning, middle, ending, beats, and boundaries
+        # invisible unless the author discovered and clicked Scene Details.
 
     def _toggle_scene_details(self):
         """Show or hide the optional contract details in the Write workspace."""
