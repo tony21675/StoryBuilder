@@ -360,7 +360,7 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         app._update_writer_buttons = Mock()
 
         storybuilder_app.StoryBuilderApp._finish_generated_scene(
-            app, draft, None, notice
+            app, draft, None, None, notice
         )
 
         app._show_copyable_error.assert_called_once_with(
@@ -396,7 +396,7 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         app._update_writer_buttons = Mock()
 
         storybuilder_app.StoryBuilderApp._finish_generated_scene(
-            app, draft, None, notice
+            app, draft, None, None, notice
         )
 
         app._show_copyable_error.assert_not_called()
