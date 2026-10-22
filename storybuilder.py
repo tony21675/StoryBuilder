@@ -6930,28 +6930,30 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         self._closing = True
 
         try:
-            if not self._confirm_discard_unaccepted_writer_text():
-                self._closing = False
-                return
-
-            # Apply visible form edits to memory only so dirty state can detect
-            # unsaved novel changes. This deliberately does not call Save or Sync Novel.
-            if self.package is not None and not self._apply_all_edits():
-                self._closing = False
-                return
-
-            if self.package is not None and self.dirty:
+            # UI editors can contain changes before self.dirty is set. Always
+            # make the no-novel-save behavior explicit before closing.
+            if self.package is not None:
+                change_note = (
+                    "StoryBuilder currently marks the novel as modified. "
+                    if self.dirty
+                    else ""
+                )
                 if not self._ask_yes_no(
-                    "Unsaved Novel Changes",
+                    "Close & Sync App",
                     (
-                        "The novel has unsaved changes. Close & Sync App synchronizes only "
-                        "StoryBuilder application files; it will not save or sync the novel.\n\n"
-                        "Choose Yes to close and discard these unsaved novel changes. Choose "
-                        "No to cancel closing and use Save Novel or Sync Novel first."
+                        change_note
+                        + "This action synchronizes only StoryBuilder application files. It will not "
+                        "save or sync the novel. Any unsaved novel edits will be discarded from memory.\n\n"
+                        "Choose No to cancel closing and use Save Novel or Sync Novel first. "
+                        "Choose Yes to continue closing without saving the novel."
                     ),
                 ):
                     self._closing = False
                     return
+
+            if not self._confirm_discard_unaccepted_writer_text():
+                self._closing = False
+                return
 
             # Sync the app before stopping the writer so a failed sync leaves
             # the current session available for the user to resolve the problem.
@@ -6975,7 +6977,6 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             except Exception:
                 pass
 
-            # Do not write a sync-status message into the novel package on close.
             self.destroy()
         except Exception as exc:
             self._show_copyable_error(
