@@ -97,6 +97,35 @@ class FakePopupWidget:
 
 
 class SceneWorkflowSafetyTests(unittest.TestCase):
+    def test_structured_scene_idea_populates_plan_preview_without_saving(self):
+        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+        app.scene_contract_direction_text = FakeText()
+        app.scene_contract_end_text = FakeText()
+        app.scene_contract_texts = {
+            "required_beats": FakeText(),
+            "boundaries": FakeText(),
+        }
+        idea = (
+            "Daniel reports a temperature projection while Elena keeps the inspection external.\\n\\n"
+            "Beginning:\\nDaniel presents the projection and its uncertainty.\\n\\n"
+            "Middle:\\nElena leads an external inspection while Ryan and Zoe check signal timing.\\n\\n"
+            "End / Hard Stop:\\nStop after the crew records observations; the cause remains unknown.\\n\\n"
+            "Planned Beats:\\n- Daniel explains the projection.\\n- The team records visible conditions.\\n\\n"
+            "Boundaries:\\n- Keep the hatch closed until external and sensor causes are assessed."
+        )
+
+        sections = storybuilder_app.StoryBuilderApp._preview_scene_idea_sections(app, idea)
+
+        self.assertIn("Beginning: Daniel presents the projection", app.scene_contract_direction_text.value)
+        self.assertIn("Middle: Elena leads an external inspection", app.scene_contract_direction_text.value)
+        self.assertIn("cause remains unknown", app.scene_contract_end_text.value)
+        self.assertEqual(app.scene_contract_texts["required_beats"].value,
+                         "Daniel explains the projection.\\nThe team records visible conditions.")
+        self.assertEqual(app.scene_contract_texts["boundaries"].value,
+                         "Keep the hatch closed until external and sensor causes are assessed.")
+        self.assertEqual(len(sections["required_beats"]), 2)
+        self.assertEqual(app.scene_contract_end_text.state, "disabled")
+
     def make_app(self, package_path, prose, context=(2, 1), accepted=""):
         # Avoid opening a real Tk window; these tests exercise the file/state
         # safety helpers and replace UI callbacks with harmless fakes.
