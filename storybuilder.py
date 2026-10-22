@@ -74,7 +74,10 @@ from builder.state_manager import (
 from builder.scene_contract import SceneContract, extract_scene_header_metadata
 from builder.scene_idea_suggestion import generate_scene_idea_suggestion
 from builder.focused_revision import revise_selected_passage
-from builder.scene_completion import generate_scene_with_completion_check
+from builder.scene_completion import (
+    completion_notice_is_success,
+    generate_scene_with_completion_check,
+)
 from builder.story_interview import (
     CHARACTER_QUESTIONS,
     RELATIONSHIP_QUESTIONS,
@@ -3998,8 +4001,20 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             "regenerate it, or accept it when you are satisfied."
         )
         if completion_notice:
-            status_text += "\n\n" + completion_notice
+            # Keep the status area readable even when the diagnostic includes a traceback.
+            status_text += "\n\n" + str(completion_notice).splitlines()[0]
         self.writer_status.configure(text=status_text)
+        if completion_notice and not completion_notice_is_success(completion_notice):
+            self._show_copyable_error(
+                "Scene Completion Check",
+                str(completion_notice),
+                summary=(
+                    "The generated scene remains an unaccepted draft. Its automated completion/"
+                    "continuity check failed, was skipped, or could not verify the scene. "
+                    "Copy the full report below when reporting this problem."
+                ),
+                copy_label="Copy Full Check Report",
+            )
     def _regenerate_generated_scene(self):
         if not self._has_pending_generated_scene():
             return

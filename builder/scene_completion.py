@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import traceback
 from pathlib import Path
 from typing import Any
 
@@ -29,6 +30,32 @@ SHARED_CONTINUITY_RULES = (
     "When the author establishes that a failure is accidental, do not imply an intentional actor "
     "through indirect framing without new on-page evidence."
 )
+
+
+_SUCCESSFUL_COMPLETION_NOTICE_PREFIXES = (
+    "AUTOMATED REVIEW: scene-contract validation and the continuity/scope audit reported no issues.",
+    "StoryBuilder found an evidence-backed continuity/scope conflict and regenerated the whole scene once. "
+    "The revised draft passed follow-up checks;",
+    "StoryBuilder added one continuation for missing planned events.",
+)
+
+
+def completion_notice_is_success(notice: str | None) -> bool:
+    """Return True only for known successful review outcomes, not skipped/uncertain checks."""
+    text = str(notice or "").strip()
+    return bool(text) and any(
+        text.startswith(prefix) for prefix in _SUCCESSFUL_COMPLETION_NOTICE_PREFIXES
+    )
+
+
+def _exception_diagnostic(label: str, exc: Exception) -> str:
+    """Preserve the exception message and traceback for the copyable error dialog."""
+    detail = str(exc).strip() or "No additional exception message was provided."
+    message = f"{label} ({type(exc).__name__}): {detail}"
+    stack = traceback.format_exc().strip()
+    if stack:
+        message += "\n\nDiagnostic traceback:\n" + stack
+    return message
 
 
 INTEGRITY_AUDIT_SYSTEM_PROMPT = """You are an independent continuity and scene-scope auditor for a novel draft. Do not rewrite the prose.
@@ -317,9 +344,10 @@ def generate_scene_with_completion_check(
         )
     except Exception as exc:
         restored = _restore_writer_context(engine, model_path, writer_system_prompt)
-        note = f"Scene completion check failed ({type(exc).__name__}); the original draft was preserved."
+        note = _exception_diagnostic("Scene completion check failed", exc)
+        note += "\n\nThe original draft was preserved."
         if not restored:
-            note += " Restart Writer before the next scene."
+            note += "\nRestart Writer before the next scene."
         return draft, note
 
     try:
@@ -331,7 +359,10 @@ def generate_scene_with_completion_check(
         )
     except Exception as exc:
         _restore_writer_context(engine, model_path, writer_system_prompt)
-        return draft, f"Continuity/scope audit failed ({type(exc).__name__}); the original draft was preserved."
+        return draft, (
+            _exception_diagnostic("Continuity/scope audit failed", exc)
+            + "\n\nThe original draft was preserved."
+        )
 
     audit_status = _integrity_status(audit)
     validator_issues = _clean_findings(review, "violations")
@@ -391,7 +422,10 @@ def generate_scene_with_completion_check(
             )
         except Exception as exc:
             _restore_writer_context(engine, model_path, writer_system_prompt)
-            return draft, f"The full-scene retry could not be verified ({type(exc).__name__}). Original draft preserved."
+            return draft, (
+                _exception_diagnostic("The full-scene retry could not be verified", exc)
+                + "\n\nOriginal draft preserved."
+            )
         if (
             revised_review.get("pass") is True
             and not _clean_findings(revised_review, "missed_beats")
@@ -444,7 +478,10 @@ def generate_scene_with_completion_check(
         continuation = str(engine.generate(_build_continuation_prompt(scene_context, draft, missed[:8])) or "").strip()
     except Exception as exc:
         _restore_writer_context(engine, model_path, writer_system_prompt)
-        return draft, f"Continuation failed ({type(exc).__name__}). Original draft preserved."
+        return draft, (
+            _exception_diagnostic("Continuation failed", exc)
+            + "\n\nOriginal draft preserved."
+        )
     if not continuation:
         _restore_writer_context(engine, model_path, writer_system_prompt)
         return draft, "No continuation was returned. Original draft preserved."
@@ -458,7 +495,10 @@ def generate_scene_with_completion_check(
         )
     except Exception as exc:
         _restore_writer_context(engine, model_path, writer_system_prompt)
-        return draft, f"The continuation could not be audited ({type(exc).__name__}). Original draft preserved."
+        return draft, (
+            _exception_diagnostic("The continuation could not be audited", exc)
+            + "\n\nOriginal draft preserved."
+        )
     if _integrity_status(combined_audit) != "clear":
         _restore_writer_context(engine, model_path, writer_system_prompt)
         return draft, "The continuation's continuity/scope checks were not fully clear. Original draft preserved."

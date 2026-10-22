@@ -340,6 +340,69 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         self.assertEqual(app.writer_save_draft_button.options["state"], "normal")
         self.assertEqual(app.writer_accept_button.options["state"], "normal")
         self.assertEqual(app.writer_reject_button.options["state"], "normal")
+    def test_failed_completion_check_opens_copyable_report_popup(self):
+        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+        draft = "Draft preserved after the completion check failed."
+        notice = (
+            "Scene completion check failed (SceneContractValidationUnavailable): validator unavailable\n\n"
+            "Diagnostic traceback:\nTraceback (most recent call last):\nRuntimeError: validator unavailable\n\n"
+            "The original draft was preserved."
+        )
+        app.package = SimpleNamespace(current_state={"chapter": 2, "scene": 4})
+        app.generated_scene = ""
+        app.accepted_scene = ""
+        app.writer_generation_context = (2, 4)
+        app.writer_generation_start_state = {"chapter": 2, "scene": 4}
+        app.writer_generation_in_progress = True
+        app.writer_output_text = FakeText()
+        app.writer_status = FakeButton()
+        app._show_copyable_error = Mock()
+        app._update_writer_buttons = Mock()
+
+        storybuilder_app.StoryBuilderApp._finish_generated_scene(
+            app, draft, None, notice
+        )
+
+        app._show_copyable_error.assert_called_once_with(
+            "Scene Completion Check",
+            notice,
+            summary=(
+                "The generated scene remains an unaccepted draft. Its automated completion/"
+                "continuity check failed, was skipped, or could not verify the scene. "
+                "Copy the full report below when reporting this problem."
+            ),
+            copy_label="Copy Full Check Report",
+        )
+        self.assertEqual(app.generated_scene, draft)
+        self.assertIn("Scene completion check failed", app.writer_status.options["text"])
+        self.assertNotIn("Diagnostic traceback:", app.writer_status.options["text"])
+
+    def test_successful_completion_check_does_not_open_popup(self):
+        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+        draft = "Draft scene after a clean review."
+        notice = (
+            "AUTOMATED REVIEW: scene-contract validation and the continuity/scope audit reported no issues. "
+            "This is a screening result, not a guarantee."
+        )
+        app.package = SimpleNamespace(current_state={"chapter": 2, "scene": 4})
+        app.generated_scene = ""
+        app.accepted_scene = ""
+        app.writer_generation_context = (2, 4)
+        app.writer_generation_start_state = {"chapter": 2, "scene": 4}
+        app.writer_generation_in_progress = True
+        app.writer_output_text = FakeText()
+        app.writer_status = FakeButton()
+        app._show_copyable_error = Mock()
+        app._update_writer_buttons = Mock()
+
+        storybuilder_app.StoryBuilderApp._finish_generated_scene(
+            app, draft, None, notice
+        )
+
+        app._show_copyable_error.assert_not_called()
+        self.assertEqual(app.generated_scene, draft)
+        self.assertIn("AUTOMATED REVIEW:", app.writer_status.options["text"])
+
     def test_author_can_accept_draft_without_validator_confirmation(self):
         with tempfile.TemporaryDirectory() as tmp:
             state = {"chapter": 2, "scene": 4}
