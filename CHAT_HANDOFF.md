@@ -1,3 +1,22 @@
+# Latest working-session note — October 22, 2026
+
+Read [CHAT_HANDOFF_LATEST.md](CHAT_HANDOFF_LATEST.md) first for the detailed current checkpoint.
+
+Tony asked to stop for tonight and **not pull the latest changes to the laptop yet**. Latest code edits live on remote branch `redesign/simplified-writing-workflow`; local code has not been updated.
+
+- Scene 4 in the Mars story remains saved/accepted. Its analysis completed, but the proposed ending-state changes were not applied. Rebuild the proposal after updating StoryBuilder, then review it with Tony one field at a time.
+- Quick Edit bug diagnosed and fixed remotely: changing the character dropdown caused the callback to save the text for the previously displayed character under the newly selected character name. The fix tracks the loaded character name and saves under that old name before loading the next character. Regression test added; both CI workflows passed on latest code commit `52592660d671f6f3a6a81cc862aaedf897dbe3e9`.
+- Tony prefers separate **Scene Contract** and **Writer** tabs because the combined vertical workspace was harder to scroll and see. This has been restored remotely in the same latest commit; both tests and compile workflows passed:
+  - [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/39775656160)
+  - [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/39775656121)
+- Do not apply the current Quick Edit preview. The six-character fields looked identical, and the old screen may have a contaminated in-memory draft. On resume: check readiness and app state first, run `git status -sb`, reconcile local changes if any, then fast-forward pull only when safe; use `python3` for tests and launch commands. Re-analyze the accepted Scene 4 after the updated app starts and verify character-specific knowledge/objectives before applying any state update.
+- Preserve the story's unresolved threads: the scrubber manifold keeps heating, Daniel's silicate-like trace remains unverified, and the patterned communications bursts are unexplained. At Scene 4's end, Elena has begun partial pressurization while Morgan and Priya check external housing mounts; internal inspection findings must not be invented.
+- Tony prefers instructions one at a time. Do not offer a multi-field list when he is actively working through Quick Edit.
+
+No changes were pulled onto the laptop, and no state update was applied.
+
+---
+
 # IMMEDIATE NEXT STEP: latest prompt fixes, October 21, 2026
 
 Local full-suite result on the previous audit code: **330 passed, 4 failed**. A second, dynamically assembled audit prompt still had genre-specific mystery language even after the integrity-audit system prompt had been generalized. This was fixed along with stale test assertions; the compact validator also retains explicit guidance to check acknowledged requests/preferences while remaining below 1,500 characters. A regression assertion now checks that the generic dynamic audit prompt contains neither `abduction` nor `Tiffany`.
