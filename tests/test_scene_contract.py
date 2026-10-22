@@ -901,8 +901,8 @@ Preserve all established character roles and knowledge boundaries; do not invent
         schema_retry_prompt = run_validator.call_args_list[1].args[1]
         evidence_retry_prompt = run_validator.call_args_list[2].args[1]
         self.assertIn("CORRECTION REQUIRED", schema_retry_prompt)
-        self.assertIn("TARGETED EVIDENCE CORRECTION REQUIRED", evidence_retry_prompt)
-        self.assertIn("EVIDENCE SOURCE (only this passage may be quoted):", evidence_retry_prompt)
+        self.assertIn("FOCUSED SCENE-CONTRACT VALIDATION RETRY", evidence_retry_prompt)
+        self.assertIn("COMPLETED SCENE (only permitted evidence source):", evidence_retry_prompt)
         self.assertTrue(evidence_retry_prompt.rstrip().endswith(prose))
 
     def test_repeated_invalid_evidence_returns_validation_unavailable(self):
@@ -939,7 +939,7 @@ Preserve all established character roles and knowledge boundaries; do not invent
         self.assertIn("not been semantically validated", str(raised.exception))
         self.assertIn("evidence", str(raised.exception).lower())
         self.assertIn(
-            "EVIDENCE SOURCE (only this passage may be quoted):",
+            "COMPLETED SCENE (only permitted evidence source):",
             run_validator.call_args_list[1].args[1],
         )
 
