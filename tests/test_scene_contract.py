@@ -762,11 +762,80 @@ Preserve all established character roles and knowledge boundaries; do not invent
         self.assertTrue(result["pass"], result)
         self.assertEqual(run_validator.call_count, 2)
         retry_prompt = run_validator.call_args_list[1].args[1]
-        self.assertIn("TARGETED EVIDENCE CORRECTION REQUIRED", retry_prompt)
-        self.assertIn("author's idea", retry_prompt)
-        self.assertIn("starting state", retry_prompt)
-        self.assertIn("EVIDENCE SOURCE (only this passage may be quoted):", retry_prompt)
+        self.assertIn("FOCUSED SCENE-CONTRACT VALIDATION RETRY", retry_prompt)
+        self.assertIn("AUTHOR'S ORIGINAL SCENE IDEA:\\n" + idea, retry_prompt)
+        self.assertIn("Tony offers a warm bubble bath with unscented bubbles.", retry_prompt)
+        self.assertIn("CHECKLIST TO REASSESS (requirements only; discard prior statuses and evidence):", retry_prompt)
+        self.assertIn("COMPLETED SCENE (only permitted evidence source):", retry_prompt)
+        self.assertNotIn("If the main action occurs but only a purely incidental detail is missing", retry_prompt)
+        self.assertNotIn("STARTING STATE", retry_prompt)
         self.assertTrue(retry_prompt.rstrip().endswith(prose))
+        self.assertLess(
+            len(retry_prompt),
+            len(run_validator.call_args_list[0].args[1]),
+            "Evidence correction should use a shorter prompt than the full validation prompt.",
+        )
+
+    def test_repeated_fabricated_quote_evidence_fails_closed_and_retry_omits_prior_quotes(self):
+        idea = (
+            "Elena consolidates Daniel and Ryan's findings, gathers Morgan and Priya, "
+            "and gives the crew clear next steps for isolating the contamination source."
+        )
+        prose = (
+            "Daniel displayed the spectral analysis. Morgan emerged from a maintenance alcove, "
+            "and Priya followed behind him. Elena summarized the findings, then assigned Ryan "
+            "to isolate the feed lines and asked Morgan to monitor Intake Delta."
+        )
+        fabricated_result = {
+            "pass": True,
+            "missed_beats": [],
+            "violations": [],
+            "checks": [
+                {
+                    "requirement": "Elena consolidates Daniel and Ryan's findings.",
+                    "status": "met",
+                    "evidence": "Daniel, give me the final assessment on those silicates; I need to tie this whole particulate issue down.",
+                },
+                {
+                    "requirement": "Elena gathers Morgan and Priya.",
+                    "status": "met",
+                    "evidence": "Morgan, come over here for a second. You were close to where that feed went down.",
+                },
+                {
+                    "requirement": "Elena gives clear next steps.",
+                    "status": "met",
+                    "evidence": "Okay, based on what Daniel and Ryan found, we need to isolate the source immediately before this spreads or causes further damage.",
+                },
+            ],
+            "notes": "",
+        }
+
+        with patch.object(
+            scene_contract,
+            "_run_validator",
+            side_effect=[fabricated_result, fabricated_result],
+        ) as run_validator:
+            with self.assertRaises(SceneContractValidationUnavailable) as raised:
+                SceneContract.validate_with_engine(
+                    FakeEngine(),
+                    {"author_idea": idea, "required_beats": []},
+                    {"chapter": 1, "scene": 3},
+                    prose,
+                )
+
+        self.assertIn("does not appear verbatim", str(raised.exception))
+        self.assertEqual(run_validator.call_count, 2)
+        original_prompt = run_validator.call_args_list[0].args[1]
+        retry_prompt = run_validator.call_args_list[1].args[1]
+        self.assertIn(idea, retry_prompt)
+        self.assertIn("Elena consolidates Daniel and Ryan's findings.", retry_prompt)
+        self.assertIn("Elena gathers Morgan and Priya.", retry_prompt)
+        self.assertNotIn("Daniel, give me the final assessment on those silicates", retry_prompt)
+        self.assertNotIn("Morgan, come over here for a second.", retry_prompt)
+        self.assertNotIn("Okay, based on what Daniel and Ryan found", retry_prompt)
+        self.assertTrue(retry_prompt.rstrip().endswith(prose))
+        self.assertLess(len(retry_prompt), len(original_prompt))
+        self.assertIn("only permitted source for evidence", retry_prompt)
 
     def test_schema_correction_does_not_consume_evidence_correction(self):
         idea = "Tony offers Maya a warm bubble bath with unscented bubbles and gives her privacy."
