@@ -570,7 +570,7 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
                 kwargs["summary"],
             )
 
-    def test_close_and_sync_failure_uses_copyable_error_dialog(self):
+    def test_close_and_sync_app_failure_uses_copyable_error_dialog_without_novel_sync(self):
         with tempfile.TemporaryDirectory() as tmp:
             app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
             app._closing = False
@@ -578,28 +578,86 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             app.writer_engine = SimpleNamespace(stop=Mock())
             app.dirty = False
             app._confirm_discard_unaccepted_writer_text = Mock(return_value=True)
-            app._save = Mock()
+            app._apply_all_edits = Mock(return_value=True)
+            app._ask_yes_no = Mock(return_value=True)
             app._show_copyable_error = Mock()
+            app._chat = Mock()
             app.destroy = Mock()
 
             with (
                 patch.object(
                     storybuilder_app,
-                    "sync_novel_repository",
-                    side_effect=storybuilder_app.NovelSyncError("simulated rebase conflict"),
+                    "sync_storybuilder_repository",
+                    side_effect=storybuilder_app.StoryBuilderSyncError("simulated app branch conflict"),
                 ),
+                patch.object(storybuilder_app, "sync_novel_repository") as sync_novel,
                 patch.object(storybuilder_app.messagebox, "showerror") as showerror,
             ):
-                storybuilder_app.StoryBuilderApp._close_and_sync(app)
+                storybuilder_app.StoryBuilderApp._close_and_sync_app(app)
 
             app._show_copyable_error.assert_called_once()
             args, kwargs = app._show_copyable_error.call_args
-            self.assertEqual(args[0], "Close & Sync")
-            self.assertIn("simulated rebase conflict", args[1])
+            self.assertEqual(args[0], "Close & Sync App")
+            self.assertIn("simulated app branch conflict", args[1])
+            self.assertIn("novel was not saved or synced", args[1])
             self.assertIn("Copy Full Error", kwargs["summary"])
             self.assertFalse(app._closing)
+            app.writer_engine.stop.assert_not_called()
             app.destroy.assert_not_called()
+            sync_novel.assert_not_called()
             showerror.assert_not_called()
+
+    def test_close_syncs_only_app_and_never_saves_or_syncs_novel(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+            app._closing = False
+            package = SimpleNamespace(path=Path(tmp), save=Mock())
+            app.package = package
+            app.writer_engine = SimpleNamespace(stop=Mock())
+            app.dirty = False
+            app._confirm_discard_unaccepted_writer_text = Mock(return_value=True)
+            app._apply_all_edits = Mock(return_value=True)
+            app._save = Mock()
+            app._chat = Mock()
+            app.destroy = Mock()
+
+            with (
+                patch.object(
+                    storybuilder_app,
+                    "sync_storybuilder_repository",
+                    return_value="StoryBuilder application synchronized successfully.",
+                ) as sync_app,
+                patch.object(storybuilder_app, "sync_novel_repository") as sync_novel,
+            ):
+                storybuilder_app.StoryBuilderApp._close_and_sync_app(app)
+
+            sync_app.assert_called_once_with(Path(storybuilder_app.__file__).resolve().parent)
+            sync_novel.assert_not_called()
+            package.save.assert_not_called()
+            app._save.assert_not_called()
+            app.writer_engine.stop.assert_called_once_with()
+            app.destroy.assert_called_once_with()
+
+    def test_close_can_be_canceled_to_preserve_unsaved_novel_changes(self):
+        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+        app._closing = False
+        app.package = SimpleNamespace(path=Path("/tmp/novel"))
+        app.writer_engine = SimpleNamespace(stop=Mock())
+        app.dirty = True
+        app._confirm_discard_unaccepted_writer_text = Mock(return_value=True)
+        app._apply_all_edits = Mock(return_value=True)
+        app._ask_yes_no = Mock(return_value=False)
+        app.destroy = Mock()
+
+        with patch.object(storybuilder_app, "sync_storybuilder_repository") as sync_app:
+            storybuilder_app.StoryBuilderApp._close_and_sync_app(app)
+
+        self.assertFalse(app._closing)
+        app._ask_yes_no.assert_called_once()
+        self.assertIn("will not save or sync the novel", app._ask_yes_no.call_args.args[1])
+        app.writer_engine.stop.assert_not_called()
+        sync_app.assert_not_called()
+        app.destroy.assert_not_called()
 
     def test_application_error_popups_use_copyable_dialog(self):
         source = Path(storybuilder_app.__file__).read_text(encoding="utf-8")
@@ -810,32 +868,36 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         self.assertEqual(frame.pack_forget_calls, 1)
         self.assertEqual(toggle.options["text"], "Scene Details ▸")
 
-    def test_window_close_defaults_to_local_close_without_sync(self):
+    def test_window_close_syncs_app_and_has_no_close_and_sync_novel_button(self):
         source = Path(storybuilder_app.__file__).read_text(encoding="utf-8")
         self.assertIn(
-            'self.protocol("WM_DELETE_WINDOW", self._close_without_sync)',
+            'self.protocol("WM_DELETE_WINDOW", self._close_and_sync_app)',
             source,
         )
-        self.assertNotIn(
-            'self.protocol("WM_DELETE_WINDOW", self._close_and_sync)',
-            source,
-        )
+        self.assertIn('text="Close & Sync App"', source)
+        self.assertIn('text="Sync Novel"', source)
+        self.assertNotIn('text="Close & Sync Novel"', source)
+        self.assertNotIn('self._close_without_sync', source)
+        self.assertNotIn('self._close_and_sync(', source)
 
-    def test_close_cancel_keeps_storybuilder_open_and_does_not_save_package(self):
+    def test_close_cancel_keeps_storybuilder_open_without_saving_or_syncing(self):
         app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
         app._closing = False
         app.package = SimpleNamespace(path=Path("/tmp/novel"))
         app.writer_engine = SimpleNamespace(stop=Mock())
         app.dirty = False
         app._confirm_discard_unaccepted_writer_text = Mock(return_value=False)
+        app._apply_all_edits = Mock(return_value=True)
         app._save = Mock()
         app.destroy = Mock()
 
-        storybuilder_app.StoryBuilderApp._close_without_sync(app)
+        with patch.object(storybuilder_app, "sync_storybuilder_repository") as sync_app:
+            storybuilder_app.StoryBuilderApp._close_and_sync_app(app)
 
         self.assertFalse(app._closing)
         app.writer_engine.stop.assert_not_called()
         app._save.assert_not_called()
+        sync_app.assert_not_called()
         app.destroy.assert_not_called()
 
     def test_edited_prose_can_be_accepted_without_contract_revalidation(self):
