@@ -11,9 +11,9 @@ from builder.scene_contract import _run_with_existing_engine
 SCENE_IDEA_SUGGESTION_SYSTEM_PROMPT = """You are a thoughtful scene-planning partner for an ongoing novel.
 
 Return exactly one valid JSON object with this shape:
-{"scene_idea": "A short editable suggestion for the next scene."}
+{"scene_idea":"A short editable 2-5 sentence scene idea.","beginning":"How the scene opens from the current state.","middle":"The main development or turn in this scene.","end":"The natural stopping point for this scene.","planned_beats":["A meaningful event the scene should include."],"boundaries":["A continuity or scope limit the scene must respect."]}
 
-Offer one scene idea, not a full scene, outline, checklist, or list of alternatives. Write 2-5 clear sentences that give the next scene a purpose, a plausible progression, and a natural stopping point. The author will edit or replace the suggestion before accepting it.
+Give the author a compact scene idea PLUS a practical first-draft plan. The beginning, middle, and end must describe the same scene as the 2-5 sentence idea, not introduce separate events. Make them specific enough to guide writing but brief enough to leave room for original dialogue and staging. Give 2-4 meaningful, event-level planned beats, not a checklist of incidental actions. Identify any real boundaries supported by the current state, accepted story context, or author plan, especially explicit safety limits, facts not yet established, and decisions the prior scene has deferred. Do not invent arbitrary prohibitions. Return an empty boundaries array only when no concrete boundary is supported. Do not repeat the same instruction in multiple beats.
 
 Use the saved situation as a starting summary, not as sole proof that every historical claim is true. Build naturally from established events, current objectives, unresolved questions, character knowledge, physical continuity, the story premise, accepted prose, canon, and any author-written story plan provided. Do not repeat completed events or claim an uncertain hypothesis is fact. If a consequential past-event claim appears only in a generated state summary and is unsupported by accepted prose or canon, do not carry it forward as fact unless the existing Scene Idea explicitly establishes it. The existing Scene Idea and explicit author corrections take precedence over a stale or mistaken summary. Keep open questions open unless the story context establishes their answer. Respect the established genre, tone, author boundaries, and story direction. Do not introduce an unsupported major premise shift or consequential historical fact.
 
@@ -35,15 +35,46 @@ def build_scene_idea_suggestion_prompt(context: dict[str, Any]) -> str:
 
 
 def normalize_scene_idea_suggestion(value: Any) -> str:
-    """Validate the one editable scene idea returned by the local model."""
+    """Validate and format an editable idea with its matching scene-plan fields."""
     if isinstance(value, dict):
-        value = value.get("scene_idea")
-    if not isinstance(value, str):
+        idea_value = value.get("scene_idea")
+        if not isinstance(idea_value, str):
+            raise ValueError("The scene suggestion did not contain a text scene_idea value.")
+        idea = idea_value.strip()
+        if not idea:
+            raise ValueError("The model returned an empty scene suggestion.")
+
+        # Keep compatibility with older models/tests that return only scene_idea.
+        structured_keys = ("beginning", "middle", "end", "planned_beats", "boundaries")
+        if any(key in value for key in structured_keys):
+            sections = [idea]
+            for key, label in (
+                ("beginning", "Beginning"),
+                ("middle", "Middle"),
+                ("end", "End / Hard Stop"),
+            ):
+                section_value = value.get(key, "")
+                if isinstance(section_value, str) and section_value.strip():
+                    sections.append(f"{label}:\\n{section_value.strip()}")
+
+            for key, label in (("planned_beats", "Planned Beats"), ("boundaries", "Boundaries")):
+                raw_items = value.get(key, [])
+                if raw_items is None:
+                    raw_items = []
+                if not isinstance(raw_items, list):
+                    raise ValueError(f"The scene suggestion field '{key}' must be a list.")
+                items = [str(item).strip() for item in raw_items if str(item).strip()]
+                if items:
+                    sections.append(label + ":\\n" + "\\n".join(f"- {item}" for item in items))
+            idea = "\\n\\n".join(sections)
+    elif isinstance(value, str):
+        idea = value.strip()
+    else:
         raise ValueError("The scene suggestion did not contain a text scene_idea value.")
-    idea = value.strip()
+
     if not idea:
         raise ValueError("The model returned an empty scene suggestion.")
-    if len(idea) > 2400:
+    if len(idea) > 4000:
         raise ValueError("The scene suggestion was too long. Generate a shorter suggestion.")
     return idea
 
