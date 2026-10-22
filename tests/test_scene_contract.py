@@ -1697,7 +1697,7 @@ The story's location is Tony's home."""
             contract["boundaries"],
             ["Do not identify the kidnapper. Do not call the police. Do not begin rescue planning."],
         )
-        self.assertIn("framework for the private effort begins to take shape", contract["hard_stop"])
+        self.assertIn("rough framework begins to take shape", contract["hard_stop"])
         self.assertNotIn("Old stop must be replaced", contract["hard_stop"])
         writer_context = SceneContract.writer_prompt_context("Current scene context.", contract)
         self.assertIn("AUTHOR-DEFINED BOUNDARIES (MANDATORY)", writer_context)
