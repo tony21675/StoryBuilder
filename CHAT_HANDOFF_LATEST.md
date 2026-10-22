@@ -1,3 +1,59 @@
+# Session close checkpoint — October 22, 2026 (latest)
+
+**Tony is closing StoryBuilder for tonight. Stop here. Do not ask him to pull, run tests, reopen the app, or continue reviewing state tonight.**
+
+## User workflow requirement: no manual code or JSON editing
+
+Tony clearly stated that he cannot reasonably edit code or navigate hundreds of lines of code to change one sentence, and he should not be expected to manage raw JSON to write a novel. Previous instructions made the workflow frustrating and too technical. This is a product usability requirement, not a user failing.
+
+- Never ask Tony to edit `storybuilder.py`, search through large source files, or hand-edit a large JSON state.
+- Do not use the Full State JSON editor as the default solution to ordinary continuity problems.
+- Give one simple UI action at a time while actively testing, not multiple fields/instructions in a single turn.
+- The assistant should handle code changes remotely on the working branch, test them, and update the handoff; Tony will pull only when he chooses to resume.
+- Improve StoryBuilder so normal state corrections, including location/physical-state continuity, can be handled in accessible plain language controls with a clear refreshed review. Do not make the author manually reconstruct an entire state object.
+- Tony prefers separate **Scene Contract** and **Writer** tabs because each is easier to scroll and inspect than the combined vertical workspace. The latest remote code restores separate tabs.
+
+## Scene 4 status: accepted prose safe, ending-state update not applied
+
+- The Mars story's Scene 4 prose is accepted and remains saved in the manuscript. It has not been rewritten or lost.
+- Post-scene analysis completed. Tony reviewed the proposed state changes and edited character knowledge/objectives through Quick Edits.
+- Character review included Daniel, Elena, Morgan, Priya, Ryan, and Zoe. Corrections intended:
+  - Daniel: do not add the claim that temperature rises exponentially; scene says steady/incremental and mentions the curve flattening slightly. Preserve his existing objective.
+  - Elena: her fourth knowledge line ("She decided against monitoring the readings further...") is an action, not new knowledge; remove that line only. Objective should reflect beginning partial pressurization and preliminary external inspection, not an internal inspection already underway.
+  - Morgan: keep existing knowledge; objective is external casing and housing mounts, watching for heat/sounds/visible stress.
+  - Priya: keep existing knowledge; objective is preliminary external inspection with vent safety caution.
+  - Ryan: keep existing knowledge and objective; unexplained burst investigation should not be assumed connected to life support.
+  - Zoe: preserve her three prior knowledge facts and add the new rhythmic-bursts/power-fluctuation hypothesis as unverified. The latest Changes to Review showed only that new Zoe fact added, with no removals. Objective compares bursts with power-grid diagnostics without assuming a life-support link.
+- Canonical Scene 4 physical endpoint: Elena has reached the sealed maintenance hatch and begins the partial pressurization sequence; Morgan and Priya check the external housing mounts. The internal scrubber-housing inspection has not begun. No physical findings from an internal inspection are established.
+- Preserve the unresolved threads: primary scrubber manifold temperature keeps rising, Daniel's silicate-like trace remains unverified and establishes no source/route/cause, and the patterned communications bursts remain unexplained with no established connection to life support.
+- Tony pasted/shared a Full State JSON snapshot to get help with the entire correction, then the Changes to Review panel continued to display old proposed location details. The review did not clearly reflect the full intended corrections. Tony was told not to apply the proposal and did not report clicking Apply State Update. Treat the current state preview as **unapplied/uncertain**. Do not assume manually editing the JSON successfully refreshed the review.
+- Do not apply the current state proposal. When Tony resumes, inspect app state safely and make the state-review workflow usable before asking him to do more review. A fresh re-analysis may be appropriate after the fixed app is available, but do not force this as the first action before confirming his readiness.
+
+## Remote code checkpoint
+
+Branch: `redesign/simplified-writing-workflow`.
+
+Latest code commit before this handoff update: `52592660d671f6f3a6a81cc862aaedf897dbe3e9`. It contains:
+- Quick Edit character-switch fix: track which character's text is loaded, save edits to that previously loaded character before loading the newly selected character, and regression coverage.
+- Restore independent, scrollable Scene Contract and Writer tabs.
+
+Both CI workflows passed on that code commit:
+- [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/39775656160)
+- [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/39775656121)
+
+Handoff-only documentation commits occur after the code commit. No local desktop verification has confirmed the Quick Edit fix or separate-tab layout.
+
+## Resume next session
+
+1. Start calmly by acknowledging this checkpoint and ask whether Tony is ready to resume. Do not make him repeat what happened.
+2. Do not tell him to pull automatically. Confirm the app is closed and check current local git state safely before recommending any pull. Tony had pulled an earlier fix during the session, then was asked to stop pulling while the separate-tab change was still being finished; do not assume his checkout has the latest remote commit.
+3. Before handling state, make sure the current/accepted scene remains safe and no analysis or generation is running. Do not apply the old proposal.
+4. Primary development task: make post-scene state review accessible without raw JSON. Ensure author-edited location/physical-state/current-situation/character knowledge/objective changes are reflected in the review summary before applying. The review should make it obvious which preview is current, preserve untouched fields, avoid overwriting knowledge across characters, and prevent stale change summaries after advanced JSON edits.
+5. Test the corrected UI, including dropdown character switching, keeping each character's knowledge/objective distinct, and making sure no state is saved before explicit approval. Keep instructions one action per turn during live testing.
+6. Longer-term test path remains: finish the Mars story test, try a fresh children's-book project for cross-genre coverage, then return to *Taken at Dusk*.
+
+---
+
 # Latest session checkpoint — October 22, 2026
 
 **STOP POINT: Tony explicitly asked to leave the laptop alone tonight. Do not tell him to pull or run commands until he resumes.** The code updates below are on GitHub only and have not been pulled to his laptop.
