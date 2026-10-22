@@ -106,12 +106,12 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             "boundaries": FakeText(),
         }
         idea = (
-            "Daniel reports a temperature projection while Elena keeps the inspection external.\\n\\n"
-            "Beginning:\\nDaniel presents the projection and its uncertainty.\\n\\n"
-            "Middle:\\nElena leads an external inspection while Ryan and Zoe check signal timing.\\n\\n"
-            "End / Hard Stop:\\nStop after the crew records observations; the cause remains unknown.\\n\\n"
-            "Planned Beats:\\n- Daniel explains the projection.\\n- The team records visible conditions.\\n\\n"
-            "Boundaries:\\n- Keep the hatch closed until external and sensor causes are assessed."
+            "Daniel reports a temperature projection while Elena keeps the inspection external.\n\n"
+            "Beginning:\nDaniel presents the projection and its uncertainty.\n\n"
+            "Middle:\nElena leads an external inspection while Ryan and Zoe check signal timing.\n\n"
+            "End / Hard Stop:\nStop after the crew records observations; the cause remains unknown.\n\n"
+            "Planned Beats:\n- Daniel explains the projection.\n- The team records visible conditions.\n\n"
+            "Boundaries:\n- Keep the hatch closed until external and sensor causes are assessed."
         )
 
         sections = storybuilder_app.StoryBuilderApp._preview_scene_idea_sections(app, idea)
@@ -120,7 +120,7 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         self.assertIn("Middle: Elena leads an external inspection", app.scene_contract_direction_text.value)
         self.assertIn("cause remains unknown", app.scene_contract_end_text.value)
         self.assertEqual(app.scene_contract_texts["required_beats"].value,
-                         "Daniel explains the projection.\\nThe team records visible conditions.")
+                         "Daniel explains the projection.\nThe team records visible conditions.")
         self.assertEqual(app.scene_contract_texts["boundaries"].value,
                          "Keep the hatch closed until external and sensor causes are assessed.")
         self.assertEqual(len(sections["required_beats"]), 2)
@@ -2052,7 +2052,7 @@ class NovelSyncSafetyTests(unittest.TestCase):
                 if args == ("status",):
                     return SimpleNamespace(
                         returncode=0,
-                        stdout="On branch main\\nnothing to commit, working tree clean",
+                        stdout="On branch main\nnothing to commit, working tree clean",
                         stderr="",
                     )
                 if args == ("diff", "--name-only", "--diff-filter=U"):
