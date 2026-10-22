@@ -1022,8 +1022,10 @@ class StoryBuilderApp(tk.Tk):
         ttk.Label(
             details_frame,
             text=(
-                "Use these optional details to refine continuity, direction, beats, or boundaries. "
-                "You do not need to edit them for every scene."
+                "Prepare Scene drafts the Beginning / Middle Direction and End / Hard Stop from your idea. "
+                "Planned / Required Beats and Author Boundaries are copied only when you explicitly label "
+                "those sections in the Scene Idea. Leave them blank when you have no extra must-hit events "
+                "or restrictions; the original idea and Current State still guide the scene."
             ),
             wraplength=900,
             justify="left",
