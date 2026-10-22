@@ -132,6 +132,29 @@ class StateAnalysisTransitionTests(unittest.TestCase):
         )
         self.assertNotIn("Is wearing borrowed pajamas.", facts)
 
+    def test_knowledge_merge_preserves_durable_observation_despite_supersession_claim(self):
+        prior_fact = (
+            "A sensor trace contains markers consistent with a sample profile, "
+            "but the source remains unconfirmed."
+        )
+        before = {
+            "scene_cast": ["Ari"],
+            "character_knowledge": {"Ari": [prior_fact]},
+        }
+        patch = {}
+        delta = {
+            "Ari": [
+                "The same sensor trace could reflect calibration drift, so its source remains unconfirmed."
+            ],
+            "_superseded_facts": {"Ari": [prior_fact]},
+        }
+
+        StateManager._merge_knowledge_delta(before, patch, delta)
+
+        facts = patch["character_knowledge"]["Ari"]
+        self.assertIn(prior_fact, facts)
+        self.assertTrue(any("calibration drift" in fact for fact in facts))
+
     def test_state_prompts_treat_objectives_events_and_temporary_clothing_as_transitions(self):
         self.assertIn("active_objectives", STATE_SYSTEM_PROMPT)
         self.assertIn("new_recent_events", STATE_SYSTEM_PROMPT)
