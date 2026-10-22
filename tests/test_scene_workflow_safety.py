@@ -859,6 +859,11 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             register=False,
         )
 
+    def test_scene_plan_details_are_visible_when_workspace_opens(self):
+        source = inspect.getsource(storybuilder_app.StoryBuilderApp._build_scene_contract_tab)
+        self.assertIn('text="Hide Scene Details ▾"', source)
+        self.assertNotIn("self.scene_contract_details_frame.pack_forget()", source)
+
     def test_scene_details_toggle_shows_and_hides_optional_contract_fields(self):
         app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
 
