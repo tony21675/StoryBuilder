@@ -118,16 +118,6 @@ class ManuscriptManager:
             return int(chapter_match.group(1)), int(scene_match.group(1))
         return None
 
-    def save_draft(self, chapter: int, scene: int, text: str) -> Path:
-        target = self.scene_path(chapter, scene)
-        draft = target.with_name(target.stem + "_draft.txt")
-        draft.parent.mkdir(parents=True, exist_ok=True)
-        draft.write_text(
-            (text or "").strip() + "\n",
-            encoding="utf-8",
-        )
-        return draft
-
     def load_scene_for_state_review(
         self,
         chapter: int,
