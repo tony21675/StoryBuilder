@@ -112,7 +112,7 @@ def _restore_writer_context(engine: Any, model_path: str | Path, system_prompt: 
 def _audit_prompt(scene_context, current_state, author_guidance, prose, historical_context=""):
     serialized_state = json.dumps(current_state, ensure_ascii=False, separators=(",", ":"))
     return (
-        "AUTHOR'S ORIGINAL SCENE IDEA AND SUPPORTING DIRECTION (source block A):\n"
+        "AUTHOR'S ORIGINAL SCENE IDEA, SUPPORTING DIRECTION, AND CHARACTER-CARD IDENTITY REFERENCE (source block A):\n"
         + str(scene_context or "").strip()
         + "\n\nSTARTING STORY STATE JSON (source block B; inspect relevant fields including current_situation, "
         "location, time, character_knowledge, recent_events, physical_state, continuity_requirements and scene_cast):\n"
