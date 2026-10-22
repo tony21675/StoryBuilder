@@ -507,6 +507,7 @@ class SceneCompletionTests(unittest.TestCase):
             "most consequential continuity-relevant claim",
             "No material claim in this category.",
             "new on-page action, observation, dialogue, or hypothesis",
+            "Optional diagnostic evidence is not required for a clear result",
         ):
             self.assertIn(required_text, audit_system_prompt)
         self.assertIn("Do not treat ordinary brainstorming as a continuity conflict unless the draft presents or relies on it as fact", prompt)
