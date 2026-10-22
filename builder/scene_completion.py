@@ -27,8 +27,16 @@ SHARED_CONTINUITY_RULES = (
     "establish the exact source, entry point, failure mechanism, or root cause. "
     "New observations and discoveries made on-page now are welcome; do not recast them as earlier "
     "inspections, log results, or maintenance events unless author evidence supports that history. "
-    "When the author establishes that a failure is accidental, do not imply an intentional actor "
-    "through indirect framing without new on-page evidence."
+    "Do not repeat a completed event, scene, or technical report as new action unless a character is "
+    "meaningfully recounting it to someone who did not know it. Continue from the actual established endpoint. "
+    "Do not teleport characters: locations and movements must follow the supplied physical state and show "
+    "a believable transition when someone changes location. Compare character gender and any recorded pronouns "
+    "against the authoritative character-card identity reference in source block A; flag contradictions. "
+    "For emergencies, check that danger progresses for a cause, with credible warning signs, time for response, "
+    "and plausible backups or reserves; do not jump from first warning to imminent fatality without evidence. "
+    "Earth-to-Mars rescue takes months, not overnight. Keep signals and diagnostics unresolved when computer, "
+    "relay, decoder, or telemetry faults remain plausible. When the author establishes that a failure is "
+    "accidental, do not imply an intentional actor or conspiracy through indirect framing."
 )
 
 
@@ -84,7 +92,7 @@ Review all five categories independently and include every category exactly once
 Check specifically:
 Before declaring a category clear, compare consequential claims against accepted prose and the shared continuity rules. Treat current_state unresolved_questions as open, not as evidence that an answer has already been established. Flag invented past maintenance, log findings, prior visits, and newly named off-scene people when the draft presents them as established history without support. For conflicts, quote the exact shared rule or source evidence and the exact draft claim.
 1. Timeline and event order: explicit day, time-of-day, before/after relationships, and whether the draft changes an established time or repeats an event already completed.
-2. Presence and character knowledge: who is present or absent, who witnessed an event firsthand, who learned it secondhand, and what the character could know at this point.
+2. Presence and character knowledge: who is present or absent, who witnessed an event firsthand, who learned it secondhand, and what the character could know at this point. Compare all character gender/pronoun references with the authoritative character-card identity reference in source block A; flag contradictory pronouns or gender only when the card supports the conflict.
 3. Physical and location continuity: where people are, movement between locations, established clothing/sleepwear, and explicit privacy requirements such as changing clothes privately.
 4. Unsupported consequential details and explicit author boundaries: check whether the draft invents consequential evidence or events, such as an unestablished witness, contact, object, encounter, destination, motive, identity, or event. An ordinary plausible detail is not automatically a problem merely because it is not listed. If the author explicitly forbids new clues or other additions, honor that boundary. Distinguish reasonable character-based speculation from established fact: a character may suggest a familiar habit, likely routine, or possible type of place based on established knowledge of another character, but that is not proof the event occurred or that the possibility is true. Do not flag general speculation merely because the Scene Idea does not spell it out. Assess whether the scene invents or relies on an unsupported consequential fact, not merely whether a character considers a reasonable possibility.
 5. Scene scope and hard stop: whether the draft goes beyond the specified endpoint, such as beginning a later investigation, assigning detailed tasks, adding training, or resolving something reserved for later. Read explicit boundaries as binding constraints, not suggestions; a tentative label does not excuse a prohibited advance.
