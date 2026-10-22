@@ -1551,8 +1551,9 @@ class StoryBuilderApp(tk.Tk):
             content_frame,
             text=(
                 "The first tab shows only what this scene changes. Fields not listed are preserved. "
-                "Use Full State JSON (Advanced) only when a manual correction is needed. Applying the "
-                "proposal merges those edits into the saved state; scene navigation remains app-controlled."
+                "Use Quick Edits (No JSON) for ordinary corrections, or Full State JSON (Advanced) "
+                "for specialized edits. Nothing is saved until you click Apply State Update; "
+                "scene navigation remains app-controlled."
             ),
             wraplength=900,
             justify="left",
