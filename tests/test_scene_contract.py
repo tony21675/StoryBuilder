@@ -763,7 +763,7 @@ Preserve all established character roles and knowledge boundaries; do not invent
         self.assertEqual(run_validator.call_count, 2)
         retry_prompt = run_validator.call_args_list[1].args[1]
         self.assertIn("FOCUSED SCENE-CONTRACT VALIDATION RETRY", retry_prompt)
-        self.assertIn("AUTHOR'S ORIGINAL SCENE IDEA:\\n" + idea, retry_prompt)
+        self.assertIn("AUTHOR'S ORIGINAL SCENE IDEA:\n" + idea, retry_prompt)
         self.assertIn("Tony offers a warm bubble bath with unscented bubbles.", retry_prompt)
         self.assertIn("CHECKLIST TO REASSESS (requirements only; discard prior statuses and evidence):", retry_prompt)
         self.assertIn("COMPLETED SCENE (only permitted evidence source):", retry_prompt)
