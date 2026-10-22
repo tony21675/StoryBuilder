@@ -30,7 +30,7 @@ class WriterSceneBoundaryPromptTests(unittest.TestCase):
         for required in (
             "character cards are authoritative for each character's established gender",
             "never jump someone between locations",
-            "do not repeat completed events, scenes, or technical reports",
+            "do not repeat completed events, scenes, or reports",
             "pace a life-threatening emergency as a credible chain of events",
             "respect the active novel's established geography",
             "separate observation, theory, and confirmation",
