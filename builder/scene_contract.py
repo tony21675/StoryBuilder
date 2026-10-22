@@ -303,6 +303,49 @@ def _evidence_occurs_in_prose(prose: str, evidence: str) -> bool:
     return bool(normalized_evidence and normalized_evidence in normalize(prose))
 
 
+def _build_evidence_correction_prompt(
+    author_idea: str,
+    checks: list[dict[str, Any]],
+    prose: str,
+) -> str:
+    """Build a compact retry that prevents instructions and prior quotes becoming evidence."""
+    requirements: list[str] = []
+    for item in checks:
+        requirement = str(item.get("requirement", "") or "").strip()
+        if requirement and requirement not in requirements:
+            requirements.append(requirement)
+
+    if not requirements:
+        requirements.append(
+            "Check whether the main events required by the author's original scene idea occur."
+        )
+
+    checklist = "\n".join(
+        f"{index}. {requirement}"
+        for index, requirement in enumerate(requirements, start=1)
+    )
+    return (
+        "FOCUSED SCENE-CONTRACT VALIDATION RETRY\n"
+        "Your previous validation response used at least one fabricated quote. "
+        "Reassess the scene against the original idea and checklist below. Do not write or revise story prose.\n\n"
+        "STRICT EVIDENCE RULES:\n"
+        "- The COMPLETED SCENE at the end is the only permitted source for evidence.\n"
+        "- For every check marked met, copy a short, exact, continuous excerpt from that scene which directly supports the requirement.\n"
+        "- Never invent, reconstruct, or repair dialogue. The idea and checklist describe requirements; they are not evidence.\n"
+        "- If no exact scene excerpt directly supports a requirement, mark it missing and set evidence to an empty string.\n"
+        "- Reassess each check; prior statuses and evidence are untrusted. Keep each checklist requirement unchanged.\n"
+        "- Set pass to false if any check is missing or any material violation is reported.\n"
+        "Return one JSON object only, with this shape: "
+        '{"pass": true, "missed_beats": [], "violations": [], "checks": [{"requirement": "", "status": "met", "evidence": ""}], "notes": ""}.\n\n'
+        "AUTHOR'S ORIGINAL SCENE IDEA:\n"
+        + str(author_idea or "").strip()
+        + "\n\nCHECKLIST TO REASSESS (requirements only; discard prior statuses and evidence):\n"
+        + checklist
+        + "\n\nCOMPLETED SCENE (only permitted evidence source):\n"
+        + str(prose or "").strip()
+    )
+
+
 def _normalize_check_status(value: Any) -> str | None:
     """Normalize common model wording without accepting ambiguous validation labels."""
     status = re.sub(r"[\s_-]+", " ", str(value or "").strip().casefold())
@@ -1446,12 +1489,8 @@ class SceneContract:
                 if ungrounded_evidence:
                     if not evidence_correction_used:
                         evidence_correction_used = True
-                        validation_prompt = (
-                            prompt
-                            + "\n\nTARGETED EVIDENCE CORRECTION REQUIRED:\n"
-                            + "Your previous response marked one or more checks met using evidence that does not occur verbatim in the completed scene. Reassess the entire scene. For every met check, quote only exact text from the following EVIDENCE SOURCE. The author's idea, validator instructions, supporting direction/contract, and starting state are not scene prose and must never be quoted as evidence. If no exact quote from the EVIDENCE SOURCE directly supports the full requirement, use status 'missing' and evidence empty. Do not rewrite the scene. Return only the requested JSON object.\n\n"
-                            + "EVIDENCE SOURCE (only this passage may be quoted):\n"
-                            + prose.strip()
+                        validation_prompt = _build_evidence_correction_prompt(
+                            author_idea, normalized_checks, prose
                         )
                         continue
                     raise SceneContractValidationUnavailable(
