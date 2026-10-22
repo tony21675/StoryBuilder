@@ -4563,9 +4563,12 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             self.scene_idea_text.insert("1.0", loaded_idea)
 
         # The reload may replace an unsaved idea that was already reflected in
-        # the visible Writer direction. Refresh that derived UI as well, without
-        # rebuilding or replacing the saved scene contract.
-        self._refresh_writer_scene_guidance()
+        # the visible Writer direction. Refresh that derived UI if its preview
+        # exists, without rebuilding or replacing the saved scene contract.
+        # Use __dict__ directly because Tkinter __getattr__ can recurse on
+        # lightweight test instances that have no underlying Tcl interpreter.
+        if self.__dict__.get("writer_scene_idea_text") is not None:
+            self._refresh_writer_scene_guidance()
 
         if source == "saved":
             status = f"Reloaded the saved Scene Idea for Chapter {chapter}, Scene {scene}."
