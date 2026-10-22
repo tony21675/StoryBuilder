@@ -5117,7 +5117,14 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         self.scene_idea_text.delete("1.0", "end")
         self.scene_idea_text.insert("1.0", idea)
         self.scene_idea_text.edit_modified(True)
-        self._preview_scene_idea_sections(idea)
+        # Keep lightweight UI test fixtures compatible; the full application
+        # always has these scene-contract preview widgets.
+        if (
+            self.__dict__.get("scene_contract_direction_text") is not None
+            and self.__dict__.get("scene_contract_end_text") is not None
+            and self.__dict__.get("scene_contract_texts") is not None
+        ):
+            self._preview_scene_idea_sections(idea)
         self._refresh_writer_scene_guidance()
         self.scene_contract_status.configure(
             text=(
