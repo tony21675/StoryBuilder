@@ -72,7 +72,7 @@ from builder.state_manager import (
     remove_prior_chapter_opening_markers,
     reviewed_state_preview_to_patch,
 )
-from builder.scene_contract import SceneContract, extract_scene_header_metadata
+from builder.scene_contract import SceneContract, extract_authored_scene_sections, extract_scene_header_metadata
 from builder.scene_idea_suggestion import generate_scene_idea_suggestion
 from builder.focused_revision import revise_selected_passage
 from builder.scene_completion import (
@@ -5117,11 +5117,13 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         self.scene_idea_text.delete("1.0", "end")
         self.scene_idea_text.insert("1.0", idea)
         self.scene_idea_text.edit_modified(True)
+        self._preview_scene_idea_sections(idea)
         self._refresh_writer_scene_guidance()
         self.scene_contract_status.configure(
             text=(
-                f"Suggested Scene Idea for Chapter {chapter}, Scene {scene}. "
-                "It is editable and has not been saved. Edit it, then generate the contract or save the idea."
+                f"Suggested Scene Idea and draft plan for Chapter {chapter}, Scene {scene}. "
+                "Beginning, Middle, End, Planned Beats, and supported Boundaries are shown above. "
+                "Review/edit the idea, then use Save Idea to keep it or Prepare Scene to build and save its contract."
             )
         )
 
@@ -5168,6 +5170,31 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             return planned_idea.strip(), "plan", None
         return "", "none", None
 
+    def _preview_scene_idea_sections(self, scene_idea: str) -> dict:
+        """Show the structured draft fields embedded in a suggested/saved Scene Idea."""
+        sections = extract_authored_scene_sections(scene_idea)
+        direction_parts = []
+        beginning = str(sections.get("beginning", "") or "").strip()
+        middle = str(sections.get("middle", "") or "").strip()
+        if beginning:
+            direction_parts.append("Beginning: " + beginning)
+        if middle:
+            direction_parts.append("Middle: " + middle)
+        self._set_generated_contract_text(
+            self.scene_contract_direction_text,
+            "\n\n".join(direction_parts),
+        )
+        self._set_generated_contract_text(
+            self.scene_contract_end_text,
+            str(sections.get("end", "") or "").strip(),
+        )
+        for key, widget in self.scene_contract_texts.items():
+            self._set_generated_contract_text(
+                widget,
+                "\n".join(self._contract_list(sections, key)),
+            )
+        return sections
+
     def _refresh_scene_contract_editor(self):
         if not hasattr(self, "scene_contract_start_text") or self.package is None:
             return
@@ -5197,27 +5224,31 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             if continuity_focus:
                 focus_widget.insert("1.0", continuity_focus)
         contract_error = None
+        # A structured Scene Idea can supply a useful draft even before the
+        # author builds/saves a generated contract from it.
+        authored_sections = self._preview_scene_idea_sections(scene_idea)
         try:
             contract = SceneContract.from_guidance(entry, [])
         except (TypeError, ValueError) as exc:
             contract = {}
             contract_error = str(exc)
 
-        self._set_generated_contract_text(
-            self.scene_contract_direction_text,
-            str(entry.get("direction", "") or ""),
-        )
+        saved_direction = str(entry.get("direction", "") or "").strip()
+        if saved_direction:
+            self._set_generated_contract_text(
+                self.scene_contract_direction_text,
+                saved_direction,
+            )
 
-        self._set_generated_contract_text(
-            self.scene_contract_end_text,
-            str(contract.get("hard_stop") or entry.get("end_condition") or ""),
-        )
+        saved_end = str(contract.get("hard_stop") or entry.get("end_condition") or "").strip()
+        if saved_end:
+            self._set_generated_contract_text(self.scene_contract_end_text, saved_end)
 
         for key, widget in self.scene_contract_texts.items():
-            self._set_generated_contract_text(
-                widget,
-                "\n".join(self._contract_list(contract, key)),
-            )
+            values = self._contract_list(contract, key)
+            if not values:
+                values = self._contract_list(authored_sections, key)
+            self._set_generated_contract_text(widget, "\n".join(values))
 
         attempts = contract.get("max_attempts", 3)
         self.scene_contract_attempts_var.set(str(attempts))
