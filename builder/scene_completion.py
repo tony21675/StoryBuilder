@@ -20,9 +20,9 @@ AUDIT_CATEGORIES = (
 SHARED_CONTINUITY_RULES = (
     "Do not present a past action, encounter, maintenance event, log result, named off-scene person, "
     "diagnosis, motive, or other consequential historical detail as fact unless supported by author "
-    "canon, accepted manuscript, or the original Scene Idea. Treat entries in current_state unresolved "
-    "questions as unresolved unless the scene establishes an answer through on-page evidence and the "
-    "Scene Idea permits that progress. A material signature or plausible hypothesis does not by itself "
+    "canon, accepted manuscript, or the original Scene Idea. Treat entries in current_state[unresolved_questions] "
+    "as unresolved unless the scene establishes an answer through on-page evidence and the Scene Idea "
+    "permits that progress. A material signature or plausible hypothesis does not by itself "
     "establish the exact source, entry point, failure mechanism, or root cause."
 )
 
