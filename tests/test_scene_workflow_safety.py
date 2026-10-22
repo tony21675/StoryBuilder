@@ -303,7 +303,7 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         self.assertEqual(app.writer_save_draft_button.options["state"], "normal")
         self.assertEqual(app.writer_accept_button.options["state"], "disabled")
         self.assertEqual(app.writer_reject_button.options["state"], "normal")
-    def test_generated_scene_returns_for_author_review_without_validator(self):
+    def test_draft_without_completion_result_is_preserved_but_not_acceptable(self):
         app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
         app.package = SimpleNamespace(current_state={"chapter": 2, "scene": 4})
         app.generated_scene = ""
@@ -335,13 +335,15 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         with patch.object(storybuilder_app.messagebox, "showwarning") as showwarning:
             storybuilder_app.StoryBuilderApp._finish_generated_scene(app, draft, None)
 
-        app._show_copyable_error.assert_not_called()
+        app._show_copyable_error.assert_called_once()
+        args, kwargs = app._show_copyable_error.call_args
+        self.assertEqual(args[0], "Scene Completion Check")
+        self.assertIn("no completion-check result was returned", args[1])
         showwarning.assert_not_called()
         self.assertEqual(app.generated_scene, draft)
         self.assertEqual(app.writer_output_text.value, draft)
-        self.assertIn("Review it", app.writer_status.options["text"])
         self.assertEqual(app.writer_save_draft_button.options["state"], "normal")
-        self.assertEqual(app.writer_accept_button.options["state"], "normal")
+        self.assertEqual(app.writer_accept_button.options["state"], "disabled")
         self.assertEqual(app.writer_reject_button.options["state"], "normal")
     def test_failed_completion_check_opens_copyable_report_popup(self):
         app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)

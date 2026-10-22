@@ -3109,7 +3109,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             state="normal" if has_pending and self.package and not busy else "disabled"
         )
         acceptance_blocked = bool(
-            str(getattr(self, "writer_scene_accept_block_reason", "") or "").strip()
+            str(self.__dict__.get("writer_scene_accept_block_reason", "") or "").strip()
         )
         self.writer_accept_button.configure(
             state="normal"
@@ -3997,8 +3997,14 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
 
         self.writer_draft_saved_text = None
         self.generated_scene = str(answer or "").strip()
-        if completion_notice and not completion_notice_is_success(completion_notice):
-            self.writer_scene_accept_block_reason = str(completion_notice)
+        completion_notice = str(completion_notice or "").strip()
+        if not completion_notice:
+            completion_notice = (
+                "AUTOMATED REVIEW ERROR: no completion-check result was returned. "
+                "The original draft was preserved. Regenerate the scene before accepting."
+            )
+        if not completion_notice_is_success(completion_notice):
+            self.writer_scene_accept_block_reason = completion_notice
         else:
             self.writer_scene_accept_block_reason = ""
         self.generated_scene_context = target or (
