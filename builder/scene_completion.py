@@ -23,14 +23,14 @@ SHARED_CONTINUITY_RULES = (
     "Scene Idea, author guidance, and starting-state data as authority. Do not present "
     "unsupported past actions, encounters, maintenance, logs, diagnoses, motives, "
     "off-scene people, or other consequential history as established fact. Treat "
-    "unresolved questions as unresolved until the active novel's sources or on-page "
-    "action settle them. New observations, dialogue, discoveries, and hypotheses may "
+    "current_state[unresolved_questions] as unresolved unless the scene establishes an answer through on-page evidence and the Scene Idea permits that progress. "
+    "New observations and discoveries made on-page now are welcome; dialogue and hypotheses may "
     "develop on-page; do not recast them as earlier events without support. Do not "
     "repeat completed events as new action unless a character meaningfully recounts "
     "them to someone who does not know. Continue from the established endpoint. Keep "
     "character movement consistent with the supplied location and physical state; "
     "show plausible transitions when location changes. Use the active novel's "
-    "character cards for identity and pronouns; never infer identities from examples "
+    "character-card identity reference for names, gender, and pronouns; flag contradictions only when supplied sources support them. Never infer identities from examples "
     "or other novels. Keep emergencies, travel, communications, technology, and "
     "cause-and-effect consistent with that novel's canon and physical constraints. "
     "Distinguish observation, hypothesis, and confirmed explanation. Do not imply "
@@ -114,7 +114,7 @@ def _audit_prompt(scene_context, current_state, author_guidance, prose, historic
         "AUTHOR'S ORIGINAL SCENE IDEA, SUPPORTING DIRECTION, AND CHARACTER-CARD IDENTITY REFERENCE (source block A):\n"
         + str(scene_context or "").strip()
         + "\n\nSTARTING STORY STATE JSON (source block B; inspect relevant fields including current_situation, "
-        "location, time, character_knowledge, recent_events, physical_state, continuity_requirements and scene_cast):\n"
+        "location, time, character_knowledge, recent_events, physical_state, continuity_requirements, scene_cast, and current_state[unresolved_questions]):\n"
         + serialized_state
         + "\n\nSTABLE AUTHOR GUIDANCE (source block C):\n"
         + str(author_guidance or "").strip()
