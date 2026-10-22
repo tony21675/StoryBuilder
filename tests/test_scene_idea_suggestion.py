@@ -39,6 +39,32 @@ class SceneIdeaSuggestionTests(unittest.TestCase):
             "Daniel checks the filtration logs while Zoe compares sensor readings.",
         )
 
+    def test_formats_structured_plan_fields_into_parseable_scene_idea(self):
+        idea = normalize_scene_idea_suggestion({
+            "scene_idea": "Daniel compares the sensor logs as Elena plans a safe outside inspection.",
+            "beginning": "Daniel reports the current temperature projection.",
+            "middle": "Elena organizes an external inspection while Ryan and Zoe check the signal pattern.",
+            "end": "Stop after the crew records the observations; the root cause remains unknown.",
+            "planned_beats": [
+                "Daniel explains the projection and its uncertainty.",
+                "The inspection team records visible conditions without opening the hatch.",
+            ],
+            "boundaries": [
+                "Do not open the hatch before external and sensor-related causes are assessed.",
+                "Do not declare the cause of the temperature rise established.",
+            ],
+        })
+
+        from builder.scene_contract import extract_authored_scene_sections
+        sections = extract_authored_scene_sections(idea)
+        self.assertEqual(sections["beginning"], "Daniel reports the current temperature projection.")
+        self.assertIn("Elena organizes an external inspection", sections["middle"])
+        self.assertIn("root cause remains unknown", sections["end"])
+        self.assertEqual(len(sections["required_beats"]), 2)
+        self.assertEqual(len(sections["boundaries"]), 2)
+        self.assertIn("End / Hard Stop:", idea)
+        self.assertNotIn("\\nPlanned Beats:", idea)
+
     def test_rejects_missing_or_empty_idea(self):
         with self.assertRaises(ValueError):
             normalize_scene_idea_suggestion({})
