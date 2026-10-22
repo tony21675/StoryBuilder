@@ -1417,12 +1417,6 @@ class StoryBuilderApp(tk.Tk):
             command=self._preview_writer_context,
         )
         self.writer_preview_context_button.pack(side="left", padx=(8, 0))
-        self.writer_save_draft_button = ttk.Button(
-            button_row,
-            text="Save Draft",
-            command=self._save_generated_draft,
-        )
-        self.writer_save_draft_button.pack(side="left", padx=(8, 0))
 
         trace_row = ttk.Frame(content_frame)
         trace_row.pack(fill="x", pady=(0, 8))
@@ -3105,9 +3099,6 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         self.writer_write_button.configure(
             state="normal" if running and self.package and not has_pending and not busy else "disabled"
         )
-        self.writer_save_draft_button.configure(
-            state="normal" if has_pending and self.package and not busy else "disabled"
-        )
         acceptance_blocked = bool(
             str(self.__dict__.get("writer_scene_accept_block_reason", "") or "").strip()
         )
@@ -3995,7 +3986,6 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
                 )
             return
 
-        self.writer_draft_saved_text = None
         self.generated_scene = str(answer or "").strip()
         completion_notice = str(completion_notice or "").strip()
         if not completion_notice:
@@ -4174,7 +4164,6 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             self.focused_revision_history = history
         history.append(original)
         self.generated_scene = revised
-        self.writer_draft_saved_text = None
         self.writer_output_text.delete("1.0", "end")
         self.writer_output_text.insert("1.0", revised)
         self.writer_revision_request_entry.delete("1.0", "end")
@@ -4202,7 +4191,6 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             return
         previous = history.pop()
         self.generated_scene = previous
-        self.writer_draft_saved_text = None
         self.writer_output_text.delete("1.0", "end")
         self.writer_output_text.insert("1.0", previous)
         self._update_writer_buttons()
@@ -4239,40 +4227,6 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
                 else "Scene rejected. The current story state and accepted manuscript were not changed."
             ),
         )
-    def _save_generated_draft(self):
-        if not self.package:
-            return
-
-        prose = self._writer_editor_prose()
-        if not prose:
-            return
-
-        if self.package.path is None:
-            messagebox.showwarning(
-                "Writer",
-                "Save the novel package with Save As / Export before saving a manuscript draft.",
-            )
-            return
-
-        state = self.package.current_state
-        fallback_key = (
-            int(state.get("chapter", 1) or 1),
-            int(state.get("scene", 1) or 1),
-        )
-        context = getattr(self, "generated_scene_context", None) or fallback_key
-        try:
-            chapter, scene = int(context[0]), int(context[1])
-            path = ManuscriptManager(self.package.path).save_draft(chapter, scene, prose)
-            self.generated_scene = prose
-            self.generated_scene_context = (chapter, scene)
-            self.writer_draft_saved_text = prose
-            self._refresh_manuscript()
-            messagebox.showinfo(
-                "Writer",
-                f"Draft saved for Chapter {chapter}, Scene {scene}:\n\n{path}",
-            )
-        except Exception as exc:
-            self._show_copyable_error("Writer", str(exc))
     def _accept_generated_scene(self):
         block_reason = str(
             self.__dict__.get("writer_scene_accept_block_reason", "") or ""
@@ -4283,8 +4237,8 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
                 block_reason,
                 summary=(
                     "StoryBuilder has blocked acceptance because scene generation or its "
-                    "completion/continuity check did not finish successfully. You can save "
-                    "the text as a draft or regenerate it, but it will not be added to the manuscript."
+                    "completion/continuity check did not finish successfully. You can regenerate "
+                    "the scene, but this version will not be added to the manuscript."
                 ),
                 copy_label="Copy Full Check Report",
             )
@@ -4317,26 +4271,20 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             chapter, scene = current_key
 
         if (chapter, scene) != current_key:
-            if prose != str(getattr(self, "accepted_scene", "") or "").strip():
-                if not self._save_unsaved_writer_draft():
-                    return
             messagebox.showwarning(
                 "Writer",
-                f"This draft belongs to Chapter {chapter}, Scene {scene}, but the current state is "
+                f"This temporary scene belongs to Chapter {chapter}, Scene {scene}, but the current state is "
                 f"Chapter {current_key[0]}, Scene {current_key[1]}. It was not accepted under the wrong scene number. "
-                "Return to its original scene or load the saved draft from Manuscript.",
+                "The text remains on screen for review. Return to the matching scene or discard it and generate again.",
             )
             return
 
         start_state = getattr(self, "generated_scene_start_state", None)
         if isinstance(start_state, dict) and start_state != state:
-            if prose != str(getattr(self, "accepted_scene", "") or "").strip():
-                if not self._save_unsaved_writer_draft():
-                    return
             messagebox.showwarning(
                 "Writer",
                 "The current story state changed after this prose was generated. The scene was not accepted against "
-                "a different starting state. Restore the scene's starting state or rebuild Writer direction and generate again.",
+                "a different starting state. The temporary text remains on screen; restore the starting state or rebuild Writer direction and generate again.",
             )
             return
 
@@ -5740,7 +5688,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         visible = self._writer_editor_prose()
         accepted_before = str(getattr(self, "accepted_scene", "") or "").strip()
         if not startup and visible and visible != accepted_before and visible != prose:
-            if not self._save_unsaved_writer_draft():
+            if not self._confirm_discard_unaccepted_writer_text():
                 return False
 
         self.generated_scene = prose
@@ -5748,7 +5696,6 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         self.accepted_scene_context = (chapter, scene)
         self.generated_scene_context = (chapter, scene)
         self.generated_scene_start_state = restored["start_state"]
-        self.writer_draft_saved_text = None
         self.focused_revision_history = []
         self.pending_state_patch = None
         self.writer_output_text.delete("1.0", "end")
@@ -5999,7 +5946,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
                 getattr(self, "accepted_scene", "") or self._writer_editor_prose() or ""
             ).strip()
 
-            if not self._save_unsaved_writer_draft():
+            if not self._confirm_discard_unaccepted_writer_text():
                 return
 
             self.package.current_state = StateManager.merge_patch(
@@ -6610,7 +6557,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         ):
             return
 
-        if not self._save_unsaved_writer_draft():
+        if not self._confirm_discard_unaccepted_writer_text():
             return
         # Apply any pending edits before refreshing the form, so canon, character,
         # location, and scene-idea edits are not silently discarded by finalization.
@@ -6949,7 +6896,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         self._closing = True
 
         try:
-            if not self._save_unsaved_writer_draft():
+            if not self._confirm_discard_unaccepted_writer_text():
                 self._closing = False
                 return
             try:
@@ -6982,7 +6929,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         self._closing = True
 
         try:
-            if not self._save_unsaved_writer_draft():
+            if not self._confirm_discard_unaccepted_writer_text():
                 self._closing = False
                 return
             try:
@@ -7103,7 +7050,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
                 "Finish the current novel's automatic writing-notes update before switching novels.",
             )
             return
-        if not self._save_unsaved_writer_draft():
+        if not self._confirm_discard_unaccepted_writer_text():
             return
         self.guided_setup.stop()
         self._reset_new_novel_assistant(clear_brief=True)
@@ -7159,7 +7106,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
                 f"Choose a novel folder directly inside {NOVEL_ROOT}.",
             )
             return
-        if not self._save_unsaved_writer_draft():
+        if not self._confirm_discard_unaccepted_writer_text():
             return
         try:
             self.writer_engine.stop()
@@ -7506,8 +7453,8 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
                 return visible
         return str(getattr(self, "generated_scene", "") or "").strip()
 
-    def _save_unsaved_writer_draft(self) -> bool:
-        """Ask before saving or discarding unfinished Writer prose."""
+    def _confirm_discard_unaccepted_writer_text(self) -> bool:
+        """Confirm that temporary, unaccepted Writer text may be discarded."""
         if self.package is None:
             return True
         if getattr(self, "writer_generation_in_progress", False) or self.__dict__.get("focused_revision_in_progress", False):
@@ -7535,12 +7482,6 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
 
         accepted = str(getattr(self, "accepted_scene", "") or "").strip()
         if accepted and prose == accepted:
-            # Accepted prose already exists in the manuscript.
-            return True
-
-        # An explicit Save Draft click marks this exact text as saved. Do not
-        # ask again on close unless the author changes the Writer text afterward.
-        if self.__dict__.get("writer_draft_saved_text") == prose:
             return True
 
         state = self.package.current_state
@@ -7555,87 +7496,46 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             chapter, scene = fallback_key
 
         choice = messagebox.askyesnocancel(
-            "Unfinished Writer Draft",
+            "Unaccepted Writer Text",
             (
-                f"There is unfinished, unaccepted prose for Chapter {chapter}, Scene {scene}.\n\n"
-                "Choose Yes to Save Draft before continuing.\n"
-                "Choose No to discard this attempt without saving it. If an earlier saved draft "
-                "contains different text, it will be kept.\n"
-                "Choose Cancel to stay in StoryBuilder and keep the current text."
+                f"There is unaccepted Writer text for Chapter {chapter}, Scene {scene}.\\n\\n"
+                "Choose Yes to discard this temporary text and continue.\\n"
+                "Choose No or Cancel to stay in StoryBuilder and keep working.\\n\\n"
+                "Unaccepted text is not saved as a separate draft file."
             ),
             parent=self,
         )
-        if choice is None:
+        if choice is not True:
             return False
 
-        manager = None
-        draft_path = None
-        if self.package.path is not None:
-            manager = ManuscriptManager(self.package.path)
-            target = manager.scene_path(chapter, scene)
-            draft_path = target.with_name(target.stem + "_draft.txt")
-
-        if choice is False:
-            # Remove a draft file only when it contains exactly the text the
-            # author is discarding. Preserve any earlier saved version with
-            # different contents.
-            if draft_path is not None and draft_path.is_file():
-                try:
-                    existing = draft_path.read_text(encoding="utf-8").strip()
-                    if existing == prose.strip():
-                        draft_path.unlink()
-                        self._refresh_manuscript()
-                except OSError as exc:
-                    self._show_copyable_error(
-                        "Discard Draft",
-                        "StoryBuilder could not safely discard the matching draft file. "
-                        "The current text has been kept.\n\n"
-                        f"{exc}"
-                    )
-                    return False
-
-            # If the scene was already accepted, restore its accepted prose;
-            # otherwise clear this unaccepted attempt from the Writer.
-            self.generated_scene = accepted
-            self.writer_draft_saved_text = None
-            if hasattr(self, "writer_output_text"):
-                self.writer_output_text.delete("1.0", "end")
-                if accepted:
-                    self.writer_output_text.insert("1.0", accepted)
-            if not accepted:
-                self.generated_scene_context = None
-                self.generated_scene_start_state = None
-            return True
-
-        if self.package.path is None or manager is None:
-            messagebox.showwarning(
-                "Save Draft",
-                "There is unfinished Writer text, but this novel has no saved project folder yet. "
-                "Use Save As / Export before saving the draft.",
-                parent=self,
-            )
-            return False
-
-        try:
-            saved_path = manager.save_draft(chapter, scene, prose)
-            self.generated_scene = prose
-            self.generated_scene_context = (chapter, scene)
-            self.writer_draft_saved_text = prose
-            self._refresh_manuscript()
-            self._chat(
-                "Builder",
-                f"Preserved unfinished Writer text as a draft for Chapter {chapter}, Scene {scene}: {saved_path.name}.",
-            )
-            return True
-        except Exception as exc:
-            self._show_copyable_error(
-                "Save Draft",
-                f"StoryBuilder could not preserve the unfinished scene. The current scene was not changed.\n\n{exc}"
-            )
-            return False
+        self.generated_scene = accepted
+        self.writer_scene_accept_block_reason = ""
+        self.focused_revision_history = []
+        if hasattr(self, "writer_output_text"):
+            self.writer_output_text.delete("1.0", "end")
+            if accepted:
+                self.writer_output_text.insert("1.0", accepted)
+        if not accepted:
+            self.generated_scene_context = None
+            self.generated_scene_start_state = None
+        revision_entry = self.__dict__.get("writer_revision_request_entry")
+        if revision_entry is not None:
+            revision_entry.delete("1.0", "end")
+        if hasattr(self, "writer_state_preview"):
+            self.writer_state_preview.delete("1.0", "end")
+        diff_preview = self.__dict__.get("writer_state_diff_preview")
+        if diff_preview is not None:
+            diff_preview.configure(state="normal")
+            diff_preview.delete("1.0", "end")
+            diff_preview.configure(state="disabled")
+        self._update_writer_buttons()
+        self.writer_status.configure(
+            text="Unaccepted scene text discarded. The accepted manuscript was not changed."
+        )
+        return True
 
     def _prepare_for_scene_change(self, target_chapter: int, target_scene: int) -> bool:
-        """Prevent scene switches from silently discarding or misfiling Writer text."""
+        """Prevent scene switches from silently discarding unaccepted Writer text."""
         if self.package is None:
             return True
 
@@ -7667,7 +7567,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             # Save post-accept edits safely, but do not let navigation skip the
             # accepted scene's state-analysis/apply step.
             prose = self._writer_editor_prose()
-            if prose and prose != accepted and not self._save_unsaved_writer_draft():
+            if prose and prose != accepted and not self._confirm_discard_unaccepted_writer_text():
                 return False
             messagebox.showwarning(
                 "Finish Current Scene",
@@ -7676,17 +7576,16 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             )
             return False
 
-        return self._save_unsaved_writer_draft()
+        return self._confirm_discard_unaccepted_writer_text()
 
     def _clear_writer_scene_workspace(self, status: str | None = None) -> None:
-        """Clear scene-specific Writer memory only after its text is safely saved."""
+        """Clear scene-specific Writer memory after its text is accepted or discarded."""
         self.generated_scene = ""
         self.accepted_scene = ""
         self.accepted_scene_context = None
         self.focused_revision_history = []
         self.generated_scene_context = None
         self.generated_scene_start_state = None
-        self.writer_draft_saved_text = None
         self.writer_generation_context = None
         self.writer_generation_start_state = None
         self.pending_state_patch = None
@@ -7811,7 +7710,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         ):
             return
 
-        if not self._save_unsaved_writer_draft():
+        if not self._confirm_discard_unaccepted_writer_text():
             return
 
         old_state = json.loads(json.dumps(state, ensure_ascii=False))
@@ -9315,7 +9214,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             accepted = str(getattr(self, "accepted_scene", "") or "").strip()
             if accepted and not self.package.current_state.get("scene_completed", False):
                 prose = self._writer_editor_prose()
-                if prose and prose != accepted and not self._save_unsaved_writer_draft():
+                if prose and prose != accepted and not self._confirm_discard_unaccepted_writer_text():
                     return False
                 messagebox.showwarning(
                     "Current Situation",
@@ -9323,11 +9222,11 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
                 )
                 return False
 
-            if not self._save_unsaved_writer_draft():
+            if not self._confirm_discard_unaccepted_writer_text():
                 return False
             if self.generated_scene.strip() or self.accepted_scene.strip():
                 self._clear_writer_scene_workspace(
-                    "Starting situation changed. Any unfinished prose was preserved as a draft."
+                    "Starting situation changed. Unfinished Writer text was cleared."
                 )
 
         self.package.current_state["current_situation"] = new_situation
