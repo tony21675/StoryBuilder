@@ -493,11 +493,15 @@ class SceneCompletionTests(unittest.TestCase):
         for category in AUDIT_CATEGORIES:
             self.assertIn(category, prompt)
         self.assertIn("exact quote", prompt)
-        self.assertIn("basis", prompt)
-        self.assertIn("most consequential continuity-relevant claim", prompt)
-        self.assertIn("No material claim in this category.", prompt)
-        self.assertIn("new on-page action, observation, dialogue, or hypothesis", prompt)
         self.assertIn("unsupported consequential fact", prompt)
+        audit_system_prompt = self.engine.reset_calls[0][1]
+        for required_text in (
+            "basis",
+            "most consequential continuity-relevant claim",
+            "No material claim in this category.",
+            "new on-page action, observation, dialogue, or hypothesis",
+        ):
+            self.assertIn(required_text, audit_system_prompt)
         self.assertIn("Do not treat ordinary brainstorming as a continuity conflict unless the draft presents or relies on it as fact", prompt)
         self.assertIn("Check for unsupported consequential facts", prompt)
         self.assertIn("direct correction or rejection in accepted manuscript evidence", prompt)
