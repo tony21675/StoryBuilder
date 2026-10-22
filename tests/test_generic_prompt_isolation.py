@@ -69,6 +69,11 @@ class GenericStoryPromptTests(unittest.TestCase):
         self.assertIn("Relationship With Zoe", answer)
         self.assertIn("Ari trusts Zoe with technical decisions.", answer)
 
+    def test_reloading_scene_idea_refreshes_writer_direction(self):
+        source = inspect.getsource(storybuilder_app.StoryBuilderApp._reload_saved_scene_idea)
+        self.assertIn("self._refresh_writer_scene_guidance()", source)
+        self.assertIn("without", source.casefold())
+
     def test_writer_scene_direction_is_read_only_and_has_copy_action(self):
         source = inspect.getsource(storybuilder_app.StoryBuilderApp._build_writer_tab)
         self.assertIn('text="Scene Direction (read-only guidance)"', source)
