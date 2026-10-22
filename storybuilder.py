@@ -176,6 +176,9 @@ class StoryBuilderApp(tk.Tk):
         self.writer_thread = None
         self.writer_notes_update_in_progress = False
         self.generated_scene = ""
+        # Non-empty when the current draft cannot safely be accepted due to a
+        # generation or automated completion-review failure.
+        self.writer_scene_accept_block_reason = ""
         self.accepted_scene = ""
         self.accepted_scene_context = None
         self.focused_revision_history = []
@@ -3105,8 +3108,13 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         self.writer_save_draft_button.configure(
             state="normal" if has_pending and self.package and not busy else "disabled"
         )
+        acceptance_blocked = bool(
+            str(getattr(self, "writer_scene_accept_block_reason", "") or "").strip()
+        )
         self.writer_accept_button.configure(
-            state="normal" if has_pending and self.package and not busy else "disabled"
+            state="normal"
+            if has_pending and self.package and not busy and not acceptance_blocked
+            else "disabled"
         )
         self.writer_reject_button.configure(
             state="normal" if has_pending and self.package and not busy else "disabled"
@@ -3581,6 +3589,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         """
         if not preserve_draft:
             self.generated_scene = ""
+            self.writer_scene_accept_block_reason = ""
             self.generated_scene_context = None
             self.generated_scene_start_state = None
             self.focused_revision_history = []
@@ -3949,6 +3958,11 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             preserved_draft = bool(error_draft)
             if preserved_draft:
                 self.generated_scene = error_draft
+                self.writer_scene_accept_block_reason = (
+                    "Scene generation failed before a verified completion result was available. "
+                    "Regenerate the scene and let the completion check pass before accepting it.\n\n"
+                    + str(error)
+                )
                 self.generated_scene_context = target or (
                     int(self.package.current_state.get("chapter", 1) or 1),
                     int(self.package.current_state.get("scene", 1) or 1),
@@ -3975,6 +3989,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
                     text="Regeneration failed. Your previous draft remains unchanged."
                 )
             else:
+                self.writer_scene_accept_block_reason = ""
                 self.writer_status.configure(
                     text="Scene generation failed. No scene was accepted or saved."
                 )
@@ -3982,6 +3997,10 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
 
         self.writer_draft_saved_text = None
         self.generated_scene = str(answer or "").strip()
+        if completion_notice and not completion_notice_is_success(completion_notice):
+            self.writer_scene_accept_block_reason = str(completion_notice)
+        else:
+            self.writer_scene_accept_block_reason = ""
         self.generated_scene_context = target or (
             int(self.package.current_state.get("chapter", 1) or 1),
             int(self.package.current_state.get("scene", 1) or 1),
@@ -4249,6 +4268,21 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         except Exception as exc:
             self._show_copyable_error("Writer", str(exc))
     def _accept_generated_scene(self):
+        block_reason = str(
+            getattr(self, "writer_scene_accept_block_reason", "") or ""
+        ).strip()
+        if block_reason:
+            self._show_copyable_error(
+                "Scene Not Ready to Accept",
+                block_reason,
+                summary=(
+                    "StoryBuilder has blocked acceptance because scene generation or its "
+                    "completion/continuity check did not finish successfully. You can save "
+                    "the text as a draft or regenerate it, but it will not be added to the manuscript."
+                ),
+                copy_label="Copy Full Check Report",
+            )
+            return
         if not self.package or not self.generated_scene.strip():
             return
         if self.package.path is None:

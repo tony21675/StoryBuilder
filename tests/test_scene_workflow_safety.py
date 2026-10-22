@@ -266,7 +266,7 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         self.assertEqual(app.scene_idea_text.value, "Saved scene beats.")
         app._ask_yes_no.assert_not_called()
 
-    def test_pending_draft_can_be_accepted_after_author_review(self):
+    def test_pending_draft_is_not_acceptable_after_completion_check_failure(self):
         app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
         app.writer_engine = SimpleNamespace(
             child=SimpleNamespace(isalive=lambda: True),
@@ -276,8 +276,11 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         app.generated_scene = "Complete draft awaiting author review."
         app.accepted_scene = ""
         app.pending_state_patch = None
-        # Legacy state must no longer block acceptance in the author-review flow.
+        # This explicit failed-check result, not a generic legacy flag, blocks acceptance.
         app.writer_validation_failed = True
+        app.writer_scene_accept_block_reason = (
+            "Scene completion check failed (SceneContractValidationUnavailable)."
+        )
         app.scene_contract_building = False
         app.__dict__["writer_generation_in_progress"] = False
         app.__dict__["writer_notes_update_in_progress"] = False
@@ -298,7 +301,7 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         app._update_writer_buttons()
 
         self.assertEqual(app.writer_save_draft_button.options["state"], "normal")
-        self.assertEqual(app.writer_accept_button.options["state"], "normal")
+        self.assertEqual(app.writer_accept_button.options["state"], "disabled")
         self.assertEqual(app.writer_reject_button.options["state"], "normal")
     def test_generated_scene_returns_for_author_review_without_validator(self):
         app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
@@ -376,6 +379,7 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         self.assertEqual(app.generated_scene, draft)
         self.assertIn("Scene completion check failed", app.writer_status.options["text"])
         self.assertNotIn("Diagnostic traceback:", app.writer_status.options["text"])
+        self.assertEqual(app.writer_scene_accept_block_reason, notice)
 
     def test_successful_completion_check_does_not_open_popup(self):
         app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
@@ -402,6 +406,27 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         app._show_copyable_error.assert_not_called()
         self.assertEqual(app.generated_scene, draft)
         self.assertIn("AUTOMATED REVIEW:", app.writer_status.options["text"])
+
+    def test_accept_handler_refuses_draft_after_completion_check_failure(self):
+        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+        app.writer_scene_accept_block_reason = (
+            "Scene completion check failed (SceneContractValidationUnavailable)."
+        )
+        app._show_copyable_error = Mock()
+
+        storybuilder_app.StoryBuilderApp._accept_generated_scene(app)
+
+        app._show_copyable_error.assert_called_once_with(
+            "Scene Not Ready to Accept",
+            app.writer_scene_accept_block_reason,
+            summary=(
+                "StoryBuilder has blocked acceptance because scene generation or its "
+                "completion/continuity check did not finish successfully. You can save "
+                "the text as a draft or regenerate it, but it will not be added to the manuscript."
+            ),
+            copy_label="Copy Full Check Report",
+        )
+        self.assertNotIn("package", app.__dict__)
 
     def test_author_can_accept_draft_without_validator_confirmation(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -461,6 +486,7 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         self.assertEqual(app.generated_scene, draft)
         self.assertEqual(app.writer_output_text.value, draft)
         self.assertIn("remains available for your review", app.writer_status.options["text"])
+        self.assertIn("Scene generation failed", app.writer_scene_accept_block_reason)
         app._update_writer_buttons.assert_called_once_with()
 
     def test_partial_stream_is_preserved_if_generation_errors(self):
