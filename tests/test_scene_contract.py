@@ -427,7 +427,7 @@ Preserve all established character roles and knowledge boundaries; do not invent
         self.assertIn("Evidence is optional diagnostic text from COMPLETED SCENE only", prompt)
         self.assertIn("COMPLETED SCENE only", prompt)
         self.assertIn("never quote the idea, instructions, contract", prompt)
-        self.assertIn("Preserve stated backstory", prompt)
+        self.assertIn("Preserve established relationship facts", prompt)
         self.assertIn("a different action, object, person, order, or outcome is not", prompt)
         self.assertIn("Create a SHORT EVENT-LEVEL checklist, usually 4–8 checks total", prompt)
         self.assertIn("Group related details from the same event", prompt)
