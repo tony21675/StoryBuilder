@@ -43,6 +43,8 @@ def normalize_scene_idea_suggestion(value: Any) -> str:
         idea = idea_value.strip()
         if not idea:
             raise ValueError("The model returned an empty scene suggestion.")
+        if len(idea) > 2400:
+            raise ValueError("The scene suggestion was too long. Generate a shorter suggestion.")
 
         # Keep compatibility with older models/tests that return only scene_idea.
         structured_keys = ("beginning", "middle", "end", "planned_beats", "boundaries")
