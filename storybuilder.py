@@ -1562,13 +1562,76 @@ class StoryBuilderApp(tk.Tk):
         self.writer_state_review_notebook.pack(fill="both", expand=True, pady=(4, 0))
 
         self.writer_state_diff_tab = ttk.Frame(self.writer_state_review_notebook)
+        self.writer_state_quick_tab = ttk.Frame(self.writer_state_review_notebook)
         self.writer_state_json_tab = ttk.Frame(self.writer_state_review_notebook)
         self.writer_state_review_notebook.add(
             self.writer_state_diff_tab, text="Changes to Review"
         )
         self.writer_state_review_notebook.add(
+            self.writer_state_quick_tab, text="Quick Edits (No JSON)"
+        )
+        self.writer_state_review_notebook.add(
             self.writer_state_json_tab, text="Full State JSON (Advanced)"
         )
+
+        ttk.Label(
+            self.writer_state_quick_tab,
+            text=(
+                "Make simple corrections here without editing JSON. Edit the ending situation, "
+                "then choose each character to review their stored knowledge and current objective. "
+                "Knowledge uses one fact per line. These edits are only a preview until you click "
+                "Apply State Update."
+            ),
+            wraplength=900,
+            justify="left",
+        ).pack(anchor="w", padx=10, pady=(10, 6))
+
+        ttk.Label(
+            self.writer_state_quick_tab,
+            text="Ending situation for the next scene",
+            font=("", 10, "bold"),
+        ).pack(anchor="w", padx=10)
+        self.writer_state_situation_quick = tk.Text(
+            self.writer_state_quick_tab, height=4, wrap="word", undo=True
+        )
+        self.writer_state_situation_quick.pack(fill="x", padx=10, pady=(3, 8))
+
+        quick_character_row = ttk.Frame(self.writer_state_quick_tab)
+        quick_character_row.pack(fill="x", padx=10, pady=(0, 6))
+        ttk.Label(quick_character_row, text="Character").pack(side="left")
+        self.writer_state_character_selector = ttk.Combobox(
+            quick_character_row, state="readonly", width=32
+        )
+        self.writer_state_character_selector.pack(side="left", padx=(8, 0))
+        self.writer_state_character_selector.bind(
+            "<<ComboboxSelected>>", self._on_quick_state_character_selected
+        )
+
+        ttk.Label(
+            self.writer_state_quick_tab,
+            text="What this character knows (one fact per line)",
+            font=("", 10, "bold"),
+        ).pack(anchor="w", padx=10)
+        self.writer_state_knowledge_quick = tk.Text(
+            self.writer_state_quick_tab, height=7, wrap="word", undo=True
+        )
+        self.writer_state_knowledge_quick.pack(fill="both", expand=True, padx=10, pady=(3, 8))
+
+        ttk.Label(
+            self.writer_state_quick_tab,
+            text="This character's current objective (leave blank to remove it)",
+            font=("", 10, "bold"),
+        ).pack(anchor="w", padx=10)
+        self.writer_state_objective_quick = tk.Text(
+            self.writer_state_quick_tab, height=3, wrap="word", undo=True
+        )
+        self.writer_state_objective_quick.pack(fill="x", padx=10, pady=(3, 6))
+
+        ttk.Button(
+            self.writer_state_quick_tab,
+            text="Use Quick Edits in Preview",
+            command=self._apply_quick_state_edits_to_preview,
+        ).pack(anchor="e", padx=10, pady=(0, 10))
 
         diff_frame = ttk.Frame(self.writer_state_diff_tab)
         diff_frame.pack(fill="both", expand=True)
@@ -5926,10 +5989,139 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             "1.0",
             json.dumps(reconstructed_state, indent=2, ensure_ascii=False),
         )
+        self._refresh_quick_state_editor(reconstructed_state)
         self.writer_status.configure(
             text=(
                 "Full ending-state preview ready. Nothing has been applied; "
                 "review the JSON before choosing Apply State Update."
+            )
+        )
+        self._update_writer_buttons()
+
+    def _refresh_quick_state_editor(self, state):
+        """Populate the plain-text state correction tab from a proposed ending state."""
+        self._quick_edit_state = json.loads(json.dumps(state, ensure_ascii=False))
+        self.writer_state_situation_quick.delete("1.0", "end")
+        self.writer_state_situation_quick.insert(
+            "1.0", str(state.get("current_situation", "") or "")
+        )
+        names = []
+        for field in ("scene_cast", "character_knowledge", "active_objectives"):
+            value = state.get(field, [])
+            candidates = value.keys() if isinstance(value, dict) else value if isinstance(value, list) else []
+            for raw_name in candidates:
+                name = str(raw_name).strip()
+                if name and name.casefold() not in {item.casefold() for item in names}:
+                    names.append(name)
+        self.writer_state_character_selector.configure(values=names)
+        selected = self.writer_state_character_selector.get().strip()
+        if selected not in names:
+            selected = names[0] if names else ""
+        self.writer_state_character_selector.set(selected)
+        self._load_quick_state_character_fields()
+
+    def _save_quick_state_character_fields(self):
+        """Store the visible character fields in the in-memory plain-text draft."""
+        state = getattr(self, "_quick_edit_state", None)
+        if not isinstance(state, dict):
+            return
+        name = self.writer_state_character_selector.get().strip()
+        if not name:
+            return
+        knowledge_text = self.writer_state_knowledge_quick.get("1.0", "end").strip()
+        facts = [line.strip() for line in knowledge_text.splitlines() if line.strip()]
+        knowledge = state.setdefault("character_knowledge", {})
+        if facts:
+            knowledge[name] = facts
+        else:
+            knowledge.pop(name, None)
+        objective_text = self.writer_state_objective_quick.get("1.0", "end").strip()
+        objectives = state.setdefault("active_objectives", {})
+        if objective_text:
+            objectives[name] = objective_text
+        else:
+            objectives.pop(name, None)
+
+    def _load_quick_state_character_fields(self):
+        """Show one character's current knowledge and objective as editable plain text."""
+        state = getattr(self, "_quick_edit_state", {})
+        name = self.writer_state_character_selector.get().strip()
+        knowledge = state.get("character_knowledge", {})
+        if not isinstance(knowledge, dict):
+            knowledge = {}
+        facts = knowledge.get(name, [])
+        if isinstance(facts, str):
+            facts = [facts]
+        if not isinstance(facts, list):
+            facts = []
+        objectives = state.get("active_objectives", {})
+        objective = objectives.get(name, "") if isinstance(objectives, dict) else ""
+        self.writer_state_knowledge_quick.delete("1.0", "end")
+        self.writer_state_knowledge_quick.insert(
+            "1.0", "\n".join(str(item) for item in facts if str(item).strip())
+        )
+        self.writer_state_objective_quick.delete("1.0", "end")
+        self.writer_state_objective_quick.insert("1.0", str(objective or ""))
+
+    def _on_quick_state_character_selected(self, _event=None):
+        self._save_quick_state_character_fields()
+        self._load_quick_state_character_fields()
+
+    def _apply_quick_state_edits_to_preview(self):
+        """Fold simple text corrections into the existing proposed-state preview."""
+        if self.package is None or not isinstance(self.pending_state_patch, dict):
+            self.writer_status.configure(
+                text="Analyze the accepted scene before preparing quick state edits."
+            )
+            return
+        try:
+            preview_text = self.writer_state_preview.get("1.0", "end").strip()
+            state = json.loads(preview_text)
+            if not isinstance(state, dict):
+                raise ValueError("The ending-state preview must be a JSON object.")
+            self._save_quick_state_character_fields()
+            quick_state = getattr(self, "_quick_edit_state", {})
+            situation = self.writer_state_situation_quick.get("1.0", "end").strip()
+            if not situation:
+                raise ValueError("The ending situation cannot be blank.")
+            state["current_situation"] = situation
+            for field in ("character_knowledge", "active_objectives"):
+                proposed = quick_state.get(field, {})
+                if isinstance(proposed, dict) and proposed:
+                    state[field] = proposed
+                else:
+                    state.pop(field, None)
+            StateManager.validate_patch(
+                self.package.current_state,
+                reviewed_state_preview_to_patch(
+                    StateManager.merge_patch(
+                        self.package.current_state, self.pending_state_patch
+                    ),
+                    state,
+                ),
+            )
+        except (TypeError, ValueError) as exc:
+            self._show_copyable_error(
+                "Quick State Edits",
+                "The plain-text corrections were not copied into the proposal. Nothing was saved.\n\n"
+                + str(exc),
+            )
+            return
+
+        self.writer_state_preview.delete("1.0", "end")
+        self.writer_state_preview.insert(
+            "1.0", json.dumps(state, indent=2, ensure_ascii=False)
+        )
+        self.writer_state_diff_preview.configure(state="normal")
+        self.writer_state_diff_preview.delete("1.0", "end")
+        self.writer_state_diff_preview.insert(
+            "1.0", build_state_change_summary(self.package.current_state, state)
+        )
+        self.writer_state_diff_preview.configure(state="disabled")
+        self.writer_status.configure(
+            text=(
+                "Quick edits are in the preview only. Review Changes to Review, then click "
+                "Apply State Update to save them and prepare the next scene."
             )
         )
         self._update_writer_buttons()
@@ -6032,6 +6224,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
 
             self.dirty = True
             self.pending_state_patch = None
+            self._quick_edit_state = None
             self.generated_scene = ""
             self.accepted_scene = ""
             self.accepted_scene_context = None
