@@ -4,6 +4,8 @@ from unittest.mock import patch
 
 from builder.scene_completion import (
     AUDIT_CATEGORIES,
+    SHARED_CONTINUITY_RULES,
+    _audit_prompt,
     _run_scene_integrity_audit,
     completion_notice_is_success,
     generate_scene_with_completion_check,
@@ -536,6 +538,38 @@ class SceneCompletionTests(unittest.TestCase):
         self.assertNotIn("abduction", prompt.casefold())
         self.assertNotIn("tiffany", prompt.casefold())
         self.assertEqual(result["status"], "clear")
+
+
+    def test_shared_rules_enforce_identity_movement_repetition_and_emergency_pacing(self):
+        for required in (
+            "character-card identity reference",
+            "flag contradictions",
+            "Do not repeat a completed event",
+            "Do not teleport characters",
+            "credible warning signs",
+            "Earth-to-Mars rescue takes months",
+            "root cause",
+            "computer, relay, decoder, or telemetry faults",
+        ):
+            with self.subTest(required=required):
+                self.assertIn(required.casefold(), SHARED_CONTINUITY_RULES.casefold())
+
+    def test_audit_prompt_can_use_gender_from_character_card_identity_reference(self):
+        context = (
+            "Scene Idea: Continue the crew's response.\\n"
+            "AUTHORITATIVE CHARACTER CARD IDENTITY REFERENCE "
+            "(gender and recorded pronouns):\\n"
+            '{"Morgan Reed":{"gender":"female"}}'
+        )
+        prompt = _audit_prompt(
+            context,
+            {"scene_cast": ["Morgan Reed"]},
+            "Keep character cards authoritative.",
+            "He stopped behind Zoe and Ryan.",
+        )
+        self.assertIn("AUTHORITATIVE CHARACTER CARD IDENTITY REFERENCE", prompt)
+        self.assertIn('"Morgan Reed":{"gender":"female"}', prompt)
+        self.assertIn("presence_and_character_knowledge", prompt)
 
 
 if __name__ == "__main__":
