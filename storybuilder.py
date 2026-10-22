@@ -5989,7 +5989,8 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             "1.0",
             json.dumps(reconstructed_state, indent=2, ensure_ascii=False),
         )
-        self._refresh_quick_state_editor(reconstructed_state)
+        if "writer_state_situation_quick" in self.__dict__:
+            self._refresh_quick_state_editor(reconstructed_state)
         self.writer_status.configure(
             text=(
                 "Full ending-state preview ready. Nothing has been applied; "
