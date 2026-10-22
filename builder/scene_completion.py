@@ -17,6 +17,16 @@ AUDIT_CATEGORIES = (
     "scene_scope_and_hard_stop",
 )
 
+SHARED_CONTINUITY_RULES = (
+    "Do not present a past action, encounter, maintenance event, log result, named off-scene person, "
+    "diagnosis, motive, or other consequential historical detail as fact unless supported by author "
+    "canon, accepted manuscript, or the original Scene Idea. Treat entries in current_state unresolved "
+    "questions as unresolved unless the scene establishes an answer through on-page evidence and the "
+    "Scene Idea permits that progress. A material signature or plausible hypothesis does not by itself "
+    "establish the exact source, entry point, failure mechanism, or root cause."
+)
+
+
 INTEGRITY_AUDIT_SYSTEM_PROMPT = """You are an independent continuity and scene-scope auditor for a novel draft. Do not rewrite the prose.
 Return exactly one JSON object with this shape:
 {
@@ -31,11 +41,12 @@ Return exactly one JSON object with this shape:
 
 Review all five categories independently and include every category exactly once. Each status must be "clear", "conflict", or "uncertain". Every check needs a short reason.
 - "clear" means you checked the supplied evidence and found no material contradiction in that category.
-- "conflict" means you found a material contradiction supported by BOTH a verbatim draft excerpt and a verbatim excerpt from the supplied author idea, starting-state JSON, stable author guidance, or relevant accepted-manuscript excerpts.
+- "conflict" means you found a material contradiction supported by BOTH a verbatim draft excerpt and a verbatim excerpt from the supplied author idea, starting-state JSON, stable author guidance, relevant accepted-manuscript excerpts, or the shared continuity rules.
 - "uncertain" means the supplied context does not let you verify the category confidently, or you cannot quote both sides of a possible conflict.
 For a conflict, draft_evidence MUST be an exact contiguous substring of the completed scene. source_evidence MUST be an exact contiguous substring of one of the supplied context blocks. Do not paraphrase either evidence field. Never report a conflict without both exact excerpts. If evidence is missing or you are uncertain, mark that category "uncertain", not "conflict". Do not add a pass field or issues list.
 
 Check specifically:
+Before declaring a category clear, compare consequential claims against accepted prose and the shared continuity rules. Treat current_state unresolved_questions as open, not as evidence that an answer has already been established. Flag invented past maintenance, log findings, prior visits, and newly named off-scene people when the draft presents them as established history without support. For conflicts, quote the exact shared rule or source evidence and the exact draft claim.
 1. Timeline and event order: explicit day, time-of-day, before/after relationships, and whether the draft changes an established time or repeats an event already completed.
 2. Presence and character knowledge: who is present or absent, who witnessed an event firsthand, who learned it secondhand, and what the character could know at this point.
 3. Physical and location continuity: where people are, movement between locations, established clothing/sleepwear, and explicit privacy requirements such as changing clothes privately.
@@ -66,10 +77,12 @@ def _audit_prompt(scene_context, current_state, author_guidance, prose, historic
         + str(author_guidance or "").strip()
         + "\n\nACCEPTED MANUSCRIPT EXCERPTS (source block D; historical evidence, not current physical state):\n"
         + (str(historical_context or "").strip() or "(no retrieved accepted excerpts included)")
+        + "\n\nSHARED CONTINUITY RULES (source block E):\n"
+        + SHARED_CONTINUITY_RULES
         + "\n\nCOMPLETED SCENE TO AUDIT:\n"
         + str(prose or "").strip()
         + "\n\nRequired category keys: timeline_and_event_order, presence_and_character_knowledge, physical_and_location_continuity, unsupported_consequential_details, scene_scope_and_hard_stop.\nAudit all five required categories. Check for unsupported consequential facts, including unestablished people, objects, encounters, leads, destinations, motives, identities, diagnoses, or events, and for any violation of an explicit author boundary. Distinguish reasonable character-based speculation from established fact: a character may offer a tentative possibility or inference based on established knowledge, but that does not establish the possibility as true. Do not treat ordinary brainstorming as a continuity conflict unless the draft presents or relies on it as fact. Apply boundaries to the actual degree of scene progress and detail. For any conflict, draft_evidence must be an exact quote "
-        "from the completed scene and source_evidence an exact quote from source block A, B, C, or D. A direct correction or rejection in accepted manuscript evidence establishes that the earlier hypothesis was not accepted as fact unless later evidence superseded it. Check author boundaries against indirect framing as well as explicit claims; do not seed an explanation or event the author has ruled out through suggestive side details. Preserve neutral observations and compatible character speculation. "
+        "from the completed scene and source_evidence an exact quote from source block A, B, C, D, or E. A direct correction or rejection in accepted manuscript evidence establishes that the earlier hypothesis was not accepted as fact unless later evidence superseded it. Apply the shared continuity rules to unsupported retroactive claims and unresolved questions. Check author boundaries against indirect framing as well as explicit claims; do not seed an explanation or event the author has ruled out through suggestive side details. Preserve neutral observations and compatible character speculation. "
         "If even one category cannot be verified, mark it uncertain. JSON only; no prose outside the object."
     )
 
@@ -90,7 +103,7 @@ def _run_scene_integrity_audit(
     """Run a five-part evidence-backed audit; ambiguous results fail closed."""
     serialized_state = json.dumps(current_state, ensure_ascii=False, separators=(",", ":"))
     source_material = (
-        str(scene_context or "") + "\n" + serialized_state + "\n" + str(author_guidance or "") + "\n" + str(historical_context or "")
+        str(scene_context or "") + "\n" + serialized_state + "\n" + str(author_guidance or "") + "\n" + str(historical_context or "") + "\n" + SHARED_CONTINUITY_RULES
     )
     draft_text = str(prose or "")
     try:
