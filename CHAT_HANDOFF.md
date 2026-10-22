@@ -1,3 +1,50 @@
+# Session close checkpoint — October 22, 2026
+
+Read `CHAT_HANDOFF_LATEST.md` first; it contains the authoritative current checkpoint and the next-session plan.
+
+Tony is closing StoryBuilder for tonight. Do not ask him to pull code, run tests, reopen the app, or continue this state review until he chooses to resume.
+
+## Important collaboration requirement: no manual code or JSON editing
+
+Tony explained that he cannot reasonably edit code or find a sentence inside hundreds of lines of source, and should not have to navigate raw JSON to write his novel. Previous help became too technical and frustrating. This is a usability problem for StoryBuilder and an instruction about how to collaborate.
+
+- Never ask Tony to edit `storybuilder.py`, search large source files, or manually reconstruct a full state JSON object.
+- Use one clear UI action at a time when he is actively testing; wait for his result before giving the next action.
+- Assistant should handle code changes remotely on the development branch, test them, and update handoffs. Tony decides when he is ready to pull.
+- Normal state corrections, including character locations/physical state and character knowledge/objectives, need usable plain-language controls and a review that reflects the actual current preview. Do not route ordinary corrections through Full State JSON.
+- Tony prefers separate, independently scrollable **Scene Contract** and **Writer** tabs. The latest remote code restores this layout.
+
+## Scene 4 / post-scene state status
+
+- The Mars story's accepted Scene 4 remains saved in the manuscript. It was not rewritten or lost.
+- Analysis finished and proposed a state update. Tony worked through all six characters in Quick Edits. The latest review showed Zoe's new knowledge added while her earlier three facts were preserved after correction.
+- A full state snapshot was shared for assistance; the Changes to Review panel continued showing older proposed location details instead of visibly reflecting the intended full-state corrections. Tony was told not to apply the proposal. He did not report clicking Apply State Update. Treat the preview as unapplied and uncertain, and do not apply it.
+- Intended continuity endpoint: Elena is at the sealed maintenance hatch beginning to partially pressurize the inspection chamber while Morgan and Priya check the external housing mounts. Internal inspection has not begun, and no internal inspection findings have been established.
+- Preserve story threads: rising primary oxygen scrubber manifold temperature, Daniel's unverified silicate-like trace (no confirmed contamination/source/route/cause), and unexplained patterned communications bursts with no established life-support connection.
+- Character-specific review decisions: Daniel should not gain an “exponential” temperature claim; Elena's action sentence should not be stored as new knowledge; Morgan and Priya stay with an external inspection objective; Ryan's established investigation continues; Zoe's old three knowledge facts must not be removed, and the new rhythmic-burst/power-fluctuation theory remains explicitly unverified.
+
+## Current remote code checkpoint
+
+Branch: `redesign/simplified-writing-workflow`.
+
+Latest code commit before handoff documentation updates: `52592660d671f6f3a6a81cc862aaedf897dbe3e9`. It includes the Quick Edit character-switch fix and restored separate Scene Contract / Writer tabs. Both automated workflows passed:
+- [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/39775656160)
+- [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/39775656121)
+
+No local desktop/UI verification has confirmed those changes. Tony pulled an earlier fix during this session, but then was asked to stop pulling while the separate-tab layout change was still being completed; do not assume his local checkout is at the latest remote commit. When he resumes, confirm readiness, ensure the app is closed and no generation is running, inspect the local git status, and only recommend a safe fast-forward when appropriate.
+
+## Next development priorities
+
+1. Fix the author-facing ending-state review workflow so corrections to current situation, locations/physical state, character knowledge, and objectives can be made without JSON.
+2. Ensure Changes to Review refreshes from the exact currently edited preview; it must not display stale location proposals after a full-state preview edit.
+3. Ensure character-dropdown switching preserves each character's own data and never saves the previously visible field under the newly selected name.
+4. Keep the proposed update preview-only until Tony explicitly approves Apply State Update.
+5. Resume live testing one simple action at a time. Roadmap remains: finish Mars test, use a fresh children's-book project as a cross-genre check, then return to `Taken at Dusk`.
+
+No ending-state update was applied in this session.
+
+---
+
 # Latest working-session note — October 22, 2026
 
 Read [CHAT_HANDOFF_LATEST.md](CHAT_HANDOFF_LATEST.md) first for the detailed current checkpoint.
