@@ -6066,12 +6066,16 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         self.writer_state_character_selector.set(selected)
         self._load_quick_state_character_fields()
 
-    def _save_quick_state_character_fields(self):
-        """Store the visible character fields in the in-memory plain-text draft."""
+    def _save_quick_state_character_fields(self, character_name=None):
+        """Store the visible character fields for the character currently being edited."""
         state = getattr(self, "_quick_edit_state", None)
         if not isinstance(state, dict):
             return
-        name = self.writer_state_character_selector.get().strip()
+        name = str(
+            character_name
+            if character_name is not None
+            else self.writer_state_character_selector.get()
+        ).strip()
         if not name:
             return
         knowledge_text = self.writer_state_knowledge_quick.get("1.0", "end").strip()
@@ -6108,9 +6112,15 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         )
         self.writer_state_objective_quick.delete("1.0", "end")
         self.writer_state_objective_quick.insert("1.0", str(objective or ""))
+        # The combobox selection changes before its selection event fires.
+        # Track whose data is actually displayed so edits are saved to that
+        # character, not mistakenly copied onto the newly selected character.
+        self._quick_edit_loaded_character = name
 
     def _on_quick_state_character_selected(self, _event=None):
-        self._save_quick_state_character_fields()
+        previous_name = getattr(self, "_quick_edit_loaded_character", "")
+        if previous_name:
+            self._save_quick_state_character_fields(previous_name)
         self._load_quick_state_character_fields()
 
     def _apply_quick_state_edits_to_preview(self):
