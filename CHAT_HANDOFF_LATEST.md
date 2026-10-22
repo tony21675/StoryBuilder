@@ -1,3 +1,44 @@
+# Latest session checkpoint — October 22, 2026
+
+**STOP POINT: Tony explicitly asked to leave the laptop alone tonight. Do not tell him to pull or run commands until he resumes.** The code updates below are on GitHub only and have not been pulled to his laptop.
+
+## Current scene-review status
+
+- The Mars story's Scene 4 prose remains saved/accepted in the manuscript.
+- Its post-scene analysis completed and produced an ending-state proposal. The proposed state update has **not** been applied.
+- Tony opened Quick Edit and found that switching through all six characters showed the same knowledge and current objective for each. He also requested instructions one field at a time; honor that pacing and do not dump multiple edits/instructions at once.
+- Do not apply the existing Quick Edit preview. Once the corrected app is installed, re-analyze the accepted Scene 4 to rebuild a clean proposal, then review it together one field at a time. Preserve the three ongoing story threads: rising scrubber-manifold temperature/thermal-runaway risk, Daniel's unverified silicate-like trace, and the unexplained patterned communications bursts. The scene ends with Elena beginning partial pressurization while Morgan and Priya check external housing mounts; do not assume an internal inspection has begun.
+
+## Quick Edit character-switch bug — fixed remotely, local verification pending
+
+Cause: the Tk combobox changes to the new character before its selection callback runs. The old callback saved the currently visible character fields using the *new* dropdown name, which could overwrite/copy the previous character's knowledge and objective into the newly selected character.
+
+Remote fix tracks `_quick_edit_loaded_character` and saves the visible text under the previously loaded name before loading the newly selected character. A regression test covers preserving Daniel's and Zoe's separate knowledge/objectives during a switch.
+
+## Restore separate Scene Contract and Writer tabs
+
+Tony said the old separate-tab layout was easier to scroll and see than the combined vertical Write workspace. The remote code has restored independent, scrollable **Scene Contract** and **Writer** tabs. The intermediate UI commits had CI failures while the replacement test and duplicate initialization were being corrected; the latest commit below is the corrected version.
+
+## Latest remote code and CI
+
+Branch: `redesign/simplified-writing-workflow`
+
+Latest commit: `52592660d671f6f3a6a81cc862aaedf897dbe3e9` — “Remove duplicate initialization from restored tab layout”. It includes the Quick Edit character-switch fix and separate-tab restoration. Both workflows passed:
+- [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/39775656160)
+- [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/39775656121)
+
+These are GitHub CI results only, not a local desktop run. Nothing was pulled locally.
+
+## Next session: safe sequence
+
+1. Start by confirming Tony is ready to resume. Do not rush him or assume the laptop has pulled these changes.
+2. Before pulling, ensure no generation/revision is running, check whether any unaccepted prose needs preserving, then inspect local status with `cd ~/Documents/StoryBuilder && git status -sb`. If local changes or divergence appear, inspect/reconcile; never reset or blindly overwrite.
+3. When safe, pull the latest remote branch with `git pull --ff-only origin redesign/simplified-writing-workflow`, run `python3 -m pytest -q`, then launch `python3 storybuilder.py`.
+4. Re-analyze the accepted Scene 4 and inspect the state proposal. Verify that selecting a character loads distinct stored knowledge/objective and no data is applied until Tony approves it.
+5. Keep Scene Contract and Writer on separate tabs. Continue testing the Mars story first, then a new children's-book project, and later return to *Taken at Dusk*.
+
+---
+
 ## Final runtime-source grep follow-up — October 21, 2026
 
 After the latest local `334 passed` run, Tony searched runtime source/templates for the old novel's character names and terms. One match remained at `storybuilder.py`: the Story Interview's Relationships section explicitly read `relationship_with_tony`. It was not a Writer prompt or cross-package loader, but it was still an unnecessary prior-novel field assumption.
