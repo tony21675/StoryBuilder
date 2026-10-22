@@ -1315,6 +1315,65 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         self.assertEqual(app.package.current_state, before)
         self.assertIn("preview only", app.writer_status.text.casefold())
 
+    def test_quick_state_character_switch_preserves_each_characters_own_data(self):
+        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+        app._quick_edit_state = {
+            "character_knowledge": {
+                "Daniel": ["Daniel knows the manifold is heating."],
+                "Zoe": ["Zoe sees unexplained communications bursts."],
+            },
+            "active_objectives": {
+                "Daniel": "Monitor the manifold temperature.",
+                "Zoe": "Analyze the communications bursts.",
+            },
+        }
+
+        class FakeCharacterSelector:
+            def get(self):
+                # Tk has already changed this to Zoe when the selection event fires.
+                return "Zoe"
+
+        app.writer_state_character_selector = FakeCharacterSelector()
+        app.writer_state_knowledge_quick = FakeText(
+            "Daniel knows the manifold is heating.\n"
+            "Daniel's spectral trace remains unverified."
+        )
+        app.writer_state_objective_quick = FakeText(
+            "Track the temperature trend and report changes."
+        )
+        app._quick_edit_loaded_character = "Daniel"
+
+        storybuilder_app.StoryBuilderApp._on_quick_state_character_selected(app)
+
+        self.assertEqual(
+            app._quick_edit_state["character_knowledge"]["Daniel"],
+            [
+                "Daniel knows the manifold is heating.",
+                "Daniel's spectral trace remains unverified.",
+            ],
+        )
+        self.assertEqual(
+            app._quick_edit_state["character_knowledge"]["Zoe"],
+            ["Zoe sees unexplained communications bursts."],
+        )
+        self.assertEqual(
+            app._quick_edit_state["active_objectives"]["Daniel"],
+            "Track the temperature trend and report changes.",
+        )
+        self.assertEqual(
+            app._quick_edit_state["active_objectives"]["Zoe"],
+            "Analyze the communications bursts.",
+        )
+        self.assertEqual(
+            app.writer_state_knowledge_quick.value,
+            "Zoe sees unexplained communications bursts.",
+        )
+        self.assertEqual(
+            app.writer_state_objective_quick.value,
+            "Analyze the communications bursts.",
+        )
+        self.assertEqual(app._quick_edit_loaded_character, "Zoe")
+
     def test_writer_state_analysis_previews_full_reconciled_state_without_applying_it(self):
         before = {
             "chapter": 2,
