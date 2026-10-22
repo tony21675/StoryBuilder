@@ -29,7 +29,7 @@ def _git_root(novel_path: Path) -> Path:
     if result.returncode != 0:
         raise NovelSyncError(
             "The selected novel is not a Git repository. "
-            "Use the regular Close button or initialize/clone the novel repository first."
+            "Use Save Novel to write a local package, or initialize/clone the novel repository first."
         )
     return Path(result.stdout.strip()).resolve()
 
