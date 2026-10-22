@@ -578,10 +578,9 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             app.writer_engine = SimpleNamespace(stop=Mock())
             app.dirty = False
             app._confirm_discard_unaccepted_writer_text = Mock(return_value=True)
-            app._apply_all_edits = Mock(return_value=True)
+            app._apply_all_edits = Mock()
             app._ask_yes_no = Mock(return_value=True)
             app._show_copyable_error = Mock()
-            app._chat = Mock()
             app.destroy = Mock()
 
             with (
@@ -616,9 +615,9 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             app.writer_engine = SimpleNamespace(stop=Mock())
             app.dirty = False
             app._confirm_discard_unaccepted_writer_text = Mock(return_value=True)
-            app._apply_all_edits = Mock(return_value=True)
+            app._apply_all_edits = Mock()
+            app._ask_yes_no = Mock(return_value=True)
             app._save = Mock()
-            app._chat = Mock()
             app.destroy = Mock()
 
             with (
@@ -645,7 +644,7 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         app.writer_engine = SimpleNamespace(stop=Mock())
         app.dirty = True
         app._confirm_discard_unaccepted_writer_text = Mock(return_value=True)
-        app._apply_all_edits = Mock(return_value=True)
+        app._apply_all_edits = Mock()
         app._ask_yes_no = Mock(return_value=False)
         app.destroy = Mock()
 
@@ -887,7 +886,8 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         app.writer_engine = SimpleNamespace(stop=Mock())
         app.dirty = False
         app._confirm_discard_unaccepted_writer_text = Mock(return_value=False)
-        app._apply_all_edits = Mock(return_value=True)
+        app._apply_all_edits = Mock()
+        app._ask_yes_no = Mock(return_value=True)
         app._save = Mock()
         app.destroy = Mock()
 
@@ -897,6 +897,7 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         self.assertFalse(app._closing)
         app.writer_engine.stop.assert_not_called()
         app._save.assert_not_called()
+        app._apply_all_edits.assert_not_called()
         sync_app.assert_not_called()
         app.destroy.assert_not_called()
 
