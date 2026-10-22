@@ -1493,12 +1493,31 @@ class SceneContract:
                             author_idea, normalized_checks, prose
                         )
                         continue
-                    raise SceneContractValidationUnavailable(
-                        "Scene-contract validation is unavailable because the validator again supplied evidence "
-                        "that does not appear verbatim in the completed scene. The generated draft is preserved "
-                        "but has not been semantically validated. Review it carefully before deciding whether "
-                        "to accept it."
-                    )
+
+                    # Missing evidence means the event has not been demonstrated.
+                    # Downgrade an unsupported "met" check to missing instead of
+                    # treating an empty citation as a fabricated quote. Non-empty
+                    # evidence that still fails the exact-prose check remains a
+                    # hard validation failure.
+                    fabricated_evidence = [
+                        item
+                        for item in normalized_checks
+                        if item["status"] == "met"
+                        and item["evidence"]
+                        and not _evidence_occurs_in_prose(prose, item["evidence"])
+                    ]
+                    if fabricated_evidence:
+                        raise SceneContractValidationUnavailable(
+                            "Scene-contract validation is unavailable because the validator again supplied evidence "
+                            "that does not appear verbatim in the completed scene. The generated draft is preserved "
+                            "but has not been semantically validated. Review it carefully before deciding whether "
+                            "to accept it."
+                        )
+                    for item in normalized_checks:
+                        if item["status"] == "met" and not item["evidence"]:
+                            item["status"] = "missing"
+                            item["evidence"] = ""
+                            passed = False
 
                 normalized_result = {
                     "pass": passed,
