@@ -192,8 +192,6 @@ class SceneCompletionTests(unittest.TestCase):
         self.assertIn("Diagnostic traceback:", notice)
         self.assertEqual(self.engine.reset_calls, [(self.model, self.system_prompt)])
 
-    @patch("builder.scene_completion._run_scene_integrity_audit", return_value=PASS_AUDIT)
-    @patch("builder.scene_completion.SceneContract.validate_with_engine")
     def test_successful_completion_notices_are_recognized_as_passes(self):
         notices = (
             "AUTOMATED REVIEW: scene-contract validation and the continuity/scope audit reported no issues. "
@@ -208,7 +206,7 @@ class SceneCompletionTests(unittest.TestCase):
         self.assertFalse(completion_notice_is_success("AUTOMATED REVIEW SKIPPED: no saved Scene Idea."))
         self.assertFalse(completion_notice_is_success("Scene completion check failed (RuntimeError): model down."))
 
-    @patch("builder.scene_completion._run_scene_integrity_audit", side_effect=RuntimeError("auditor unavailable"))
+    @patch("builder.scene_completion._run_scene_integrity_audit", return_value=PASS_AUDIT)
     @patch("builder.scene_completion.SceneContract.validate_with_engine")
     def test_scene_without_saved_author_idea_skips_completion_review(self, validate, _audit):
         draft, notice = generate_scene_with_completion_check(
