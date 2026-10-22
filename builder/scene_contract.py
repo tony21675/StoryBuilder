@@ -19,10 +19,10 @@ class SceneContractValidationUnavailable(RuntimeError):
     """The validator could not produce a readable response after one retry."""
 
 
-VALIDATOR_SYSTEM_PROMPT = """Review the author's idea and starting state. Return JSON:
+VALIDATOR_SYSTEM_PROMPT = """Review the author's original idea and starting state. Return JSON:
 {"pass": true, "missed_beats": [], "violations": [], "checks": [{"requirement": "", "status": "met", "evidence": ""}], "notes": ""}
 
-Judge meaning, not keywords; synonyms and paraphrases count. Evidence is optional diagnostic text from COMPLETED SCENE only and never determines status. Do not quote the idea, instructions, contract, or state.
+Judge meaning, not keywords; synonyms and paraphrases count. Evidence is optional diagnostic text from COMPLETED SCENE only and never determines status. never quote the idea, instructions, contract, or state.
 Create a SHORT EVENT-LEVEL checklist, usually 4–8 checks total. Each check is one meaningful event or outcome. Group related details from the same event; do not create separate checks for clauses, adjectives, people, objects, or small actions. Separate events only when independently missable. Ignore incidental details unless the idea makes them defining, continuity-critical, or a boundary/preference.
 A check is met only when its main action and defining details are present. Different wording is fine; a different action, object, person, order, or outcome is not. Do not accept a superficially similar substitute for a specifically requested action or object; preserve the author's defining details. Evidence is optional and never determines status. Flag unexplained opening continuity mismatches, knowledge conflicts, and ignored requests. Check acknowledged requests/preferences against later actions. Preserve stated backstory and accept neutral familial comfort. List missing events once; if any check is missing, pass must be false.
 """
