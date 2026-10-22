@@ -64,6 +64,7 @@ from builder.writer_context_budget import (
 )
 from builder.scene_flow import review_chapter_flow
 from builder.novel_sync import NovelSyncError, sync_novel_repository
+from builder.app_sync import StoryBuilderSyncError, sync_storybuilder_repository
 from builder.state_manager import (
     StateManager,
     build_state_change_summary,
@@ -228,7 +229,7 @@ class StoryBuilderApp(tk.Tk):
 
         self._build_ui()
         # Closing the window saves locally; syncing requires an explicit user action.
-        self.protocol("WM_DELETE_WINDOW", self._close_without_sync)
+        self.protocol("WM_DELETE_WINDOW", self._close_and_sync_app)
         self._load_startup_novel()
 
     def _build_write_workspace(self):
@@ -255,14 +256,13 @@ class StoryBuilderApp(tk.Tk):
         for label, command in [
             ("New Novel", self._new_novel),
             ("Open Novel", self._open_novel),
-            ("Save", self._save),
+            ("Save Novel", self._save),
             ("Save As", self._save_as),
             ("Validate", self._validate),
         ]:
             ttk.Button(toolbar, text=label, command=command).pack(side="left", padx=3)
         ttk.Button(toolbar, text="Sync Novel", command=self._sync_current_novel).pack(side="left", padx=(10, 3))
-        ttk.Button(toolbar, text="Close", command=self._close_without_sync).pack(side="left", padx=(10, 3))
-        ttk.Button(toolbar, text="Close & Sync Novel", command=self._close_and_sync).pack(side="left", padx=3)
+        ttk.Button(toolbar, text="Close & Sync App", command=self._close_and_sync_app).pack(side="left", padx=3)
         self.path_label = ttk.Label(toolbar, text="Unsaved novel")
         self.path_label.pack(side="right", padx=8)
 
@@ -6917,11 +6917,12 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
                     "Review or copy the full error details below."
                 ),
             )
-    def _close_without_sync(self):
+    def _close_and_sync_app(self):
+        """Sync only StoryBuilder application files; never save or sync novel data."""
         if self.__dict__.get("writer_notes_update_in_progress", False):
             messagebox.showwarning(
-                "Close",
-                "StoryBuilder is updating the novel's writing notes. The app will remain open until the update is saved.",
+                "Close & Sync App",
+                "StoryBuilder is updating the novel's temporary writing notes. The app will remain open until the update finishes.",
             )
             return
         if self._closing:
@@ -6932,87 +6933,58 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             if not self._confirm_discard_unaccepted_writer_text():
                 self._closing = False
                 return
+
+            # Apply visible form edits to memory only so dirty state can detect
+            # unsaved novel changes. This deliberately does not call Save or Sync Novel.
+            if self.package is not None and not self._apply_all_edits():
+                self._closing = False
+                return
+
+            if self.package is not None and self.dirty:
+                if not self._ask_yes_no(
+                    "Unsaved Novel Changes",
+                    (
+                        "The novel has unsaved changes. Close & Sync App synchronizes only "
+                        "StoryBuilder application files; it will not save or sync the novel.\n\n"
+                        "Choose Yes to close and discard these unsaved novel changes. Choose "
+                        "No to cancel closing and use Save Novel or Sync Novel first."
+                    ),
+                ):
+                    self._closing = False
+                    return
+
+            # Sync the app before stopping the writer so a failed sync leaves
+            # the current session available for the user to resolve the problem.
             try:
-                self.writer_engine.stop()
-            except Exception:
-                pass
-
-            # Save all current editor contents locally, but never run the GitHub sync.
-            self._save()
-            if self.dirty:
-                self._closing = False
-                return
-
-            self.destroy()
-        except Exception as exc:
-            self._show_copyable_error(
-                "Close",
-                f"The novel was saved locally, but the app could not close cleanly.\n\n{exc}\n\nThe app will remain open."
-            )
-            self._closing = False
-    def _close_and_sync(self):
-        if self.__dict__.get("writer_notes_update_in_progress", False):
-            messagebox.showwarning(
-                "Close & Sync",
-                "StoryBuilder is updating the novel's writing notes. The app will remain open until the update is saved.",
-            )
-            return
-        if self._closing:
-            return
-        self._closing = True
-
-        try:
-            if not self._confirm_discard_unaccepted_writer_text():
-                self._closing = False
-                return
-            try:
-                self.writer_engine.stop()
-            except Exception:
-                pass
-
-            # Save all current editor contents before running the repository sync.
-            self._save()
-            if self.dirty:
-                self._closing = False
-                return
-
-            if self.package.path is None:
-                messagebox.showwarning(
-                    "Close & Sync",
-                    "The novel is saved locally but has no project folder yet.\n\n"
-                    "Use Save As / Export to place it in its own novel project folder.",
-                )
-                self._closing = False
-                return
-
-            try:
-                sync_novel_repository(self.package.path)
-            except NovelSyncError as exc:
+                result = sync_storybuilder_repository(Path(__file__).resolve().parent)
+            except (StoryBuilderSyncError, OSError, subprocess.SubprocessError) as exc:
                 self._show_copyable_error(
-                    "Close & Sync",
-                    "The novel was saved locally, but GitHub sync failed.\n\n"
-                    + str(exc)
-                    + "\n\nThe app will remain open so you can resolve the problem.",
+                    "Close & Sync App",
+                    "StoryBuilder application sync failed. The novel was not saved or synced.\n\n"
+                    + str(exc),
                     summary=(
-                        "The novel is saved locally, but GitHub synchronization did not complete. "
-                        "Use Copy Full Error or select the text and press Ctrl+C, then paste the details into chat."
+                        "The app could not sync safely, so StoryBuilder remains open. "
+                        "No novel save or novel sync was attempted. Use Copy Full Error to review the details."
                     ),
                 )
                 self._closing = False
                 return
 
+            try:
+                self.writer_engine.stop()
+            except Exception:
+                pass
+
+            self._chat("Builder", result)
             self.destroy()
-        except (OSError, subprocess.SubprocessError) as exc:
+        except Exception as exc:
             self._show_copyable_error(
-                "Close & Sync",
-                "The novel was saved locally, but the GitHub sync could not be completed.\n\n"
-                f"{exc}\n\nThe app will remain open.",
-                summary=(
-                    "The novel is saved locally, but GitHub synchronization did not complete. "
-                    "Use Copy Full Error or select the text and press Ctrl+C, then paste the details into chat."
-                ),
+                "Close & Sync App",
+                "StoryBuilder could not close cleanly. The novel was not saved or synced by the close action.\n\n"
+                + str(exc),
             )
             self._closing = False
+
     def _load_startup_novel(self):
         """Open the sole novel automatically, or ask when the library has several."""
         candidates = find_novel_packages(NOVEL_ROOT)
