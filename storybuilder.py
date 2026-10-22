@@ -950,8 +950,12 @@ class StoryBuilderApp(tk.Tk):
         ).pack(anchor="w")
         self.scene_idea_text = tk.Text(idea_frame, height=5, wrap="word", undo=True)
         self.scene_idea_text.pack(fill="x", pady=(4, 6))
+        # Keep the primary scene-preparation action visible on narrow screens.
+        # Two short rows prevent Tk from clipping the final buttons at high display scaling.
         idea_button_row = ttk.Frame(idea_frame)
-        idea_button_row.pack(anchor="w")
+        idea_button_row.pack(fill="x")
+        idea_secondary_button_row = ttk.Frame(idea_frame)
+        idea_secondary_button_row.pack(fill="x", pady=(4, 0))
 
         details_frame = ttk.LabelFrame(content, text="Scene details (optional)")
         details_frame.pack(fill="x", pady=(0, 10))
@@ -973,20 +977,6 @@ class StoryBuilderApp(tk.Tk):
         )
         self.scene_continuity_focus_text.pack(fill="x", padx=8, pady=(0, 8))
 
-        self.scene_contract_suggest_button = ttk.Button(
-            idea_button_row,
-            text="Suggest Idea",
-            command=self._suggest_scene_idea,
-        )
-        self.scene_contract_suggest_button.pack(side="left", padx=(0, 8))
-
-        self.scene_contract_save_idea_button = ttk.Button(
-            idea_button_row,
-            text="Save Idea",
-            command=self._apply_scene_contract_edits,
-        )
-        self.scene_contract_save_idea_button.pack(side="left", padx=(0, 8))
-
         self.scene_contract_build_button = ttk.Button(
             idea_button_row,
             text="Prepare Scene...",
@@ -1000,6 +990,20 @@ class StoryBuilderApp(tk.Tk):
             command=self._toggle_scene_details,
         )
         self.scene_contract_details_toggle_button.pack(side="left")
+
+        self.scene_contract_suggest_button = ttk.Button(
+            idea_secondary_button_row,
+            text="Suggest Idea",
+            command=self._suggest_scene_idea,
+        )
+        self.scene_contract_suggest_button.pack(side="left", padx=(0, 8))
+
+        self.scene_contract_save_idea_button = ttk.Button(
+            idea_secondary_button_row,
+            text="Save Idea",
+            command=self._apply_scene_contract_edits,
+        )
+        self.scene_contract_save_idea_button.pack(side="left", padx=(0, 8))
 
         detail_button_row = ttk.Frame(details_frame)
         detail_button_row.pack(fill="x", padx=8, pady=(8, 4))
