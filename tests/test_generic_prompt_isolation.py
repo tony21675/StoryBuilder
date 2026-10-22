@@ -136,7 +136,7 @@ class GenericStoryPromptTests(unittest.TestCase):
         self.assertIn("do not seed it indirectly through suggestive framing", prompt)
         self.assertIn("treat explicit unresolved_questions as open questions", prompt)
         self.assertIn("do not invent a named off-scene person", prompt)
-        self.assertIn("a suspected pathway, exact entry point, failure mechanism, and confirmed root cause", prompt)
+        self.assertIn("suspected pathway, exact entry point, failure mechanism, and confirmed root cause", prompt)
 
     def test_scene_idea_is_authoritative_over_a_stale_summary(self):
         context = SceneContract.writer_prompt_context(
