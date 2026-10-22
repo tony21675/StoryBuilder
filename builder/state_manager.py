@@ -26,6 +26,7 @@ Rules:
 - Knowledge is not an event log. Never list routine scene actions, a character's own actions, or the act of telling/asking/offering as knowledge. A character making tea is an event, not a knowledge fact; a character learning a specific fact from another character is a fact in the learner's knowledge.
 - Temporary physical state, location, posture, contact, movement, clothing, and immediate activity belong in physical_state, not cumulative knowledge. Do not add them as new knowledge unless they have independent lasting significance.
 - Only supersede an exact fact present in the supplied selected existing-knowledge context, and only when the prose directly contradicts or resolves it. Do not supersede facts merely because the current scene omits them.
+- Keep durable observations, discoveries, evidence, and historical knowledge even when the character's interpretation later changes. The _superseded_facts field is only for temporary current-state notes (such as someone currently wearing an outfit or being asleep) that belong in physical_state instead of cumulative knowledge.
 - Deduplicate paraphrases of the same observation in your output. Keep independently consequential details separate.
 - If there are no valid new facts or supersessions, return {}.
 - Output JSON only, without markdown or explanations.
@@ -1803,8 +1804,20 @@ class StateManager:
             }
 
             def is_superseded(value: Any) -> bool:
-                key = re.sub(r"\s+", " ", str(value).strip()).casefold()
-                return bool(key and key in superseded_keys)
+                text_value = re.sub(r"\s+", " ", str(value).strip())
+                key = text_value.casefold()
+                if not key or key not in superseded_keys:
+                    return False
+                # Knowledge is a durable record, not merely the latest belief.
+                # Only allow explicit supersession to remove a temporary status
+                # that belongs in physical_state, never a substantive observation
+                # or discovery that remains part of the character's history.
+                return bool(re.match(
+                    r"^(?:(?:currently|now)\s+)?(?:is|was|are|were)\s+"
+                    r"(?:wearing|asleep|sleeping|sitting|standing|lying|seated|positioned|located)\b",
+                    text_value,
+                    re.IGNORECASE,
+                ))
 
             proposed_values = values if isinstance(values, list) else []
             prior_values = [value for value in prior_values if not is_superseded(value)]
