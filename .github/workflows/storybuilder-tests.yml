@@ -36,6 +36,9 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
 
+      - name: Check shell launcher syntax
+        run: bash -n start.sh sync.sh
+
       - name: Compile application and tests
         run: python -m compileall -q builder storybuilder.py tests
 
