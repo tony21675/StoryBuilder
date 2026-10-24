@@ -6126,7 +6126,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         if not name:
             return
 
-        location_widget = getattr(self, "writer_state_location_quick", None)
+        location_widget = self.__dict__.get("writer_state_location_quick")
         location_text = (
             location_widget.get("1.0", "end").strip()
             if location_widget is not None else ""
@@ -6162,7 +6162,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             ("writer_state_posture_quick", "posture"),
             ("writer_state_movement_quick", "movement"),
         ):
-            widget = getattr(self, widget_name, None)
+            widget = self.__dict__.get(widget_name)
             if widget is None:
                 continue
             value = widget.get("1.0", "end").strip()
@@ -6215,7 +6215,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             ("writer_state_posture_quick", character_state.get("posture", "")),
             ("writer_state_movement_quick", character_state.get("movement", "")),
         ):
-            widget = getattr(self, widget_name, None)
+            widget = self.__dict__.get(widget_name)
             if widget is None:
                 continue
             widget.delete("1.0", "end")
