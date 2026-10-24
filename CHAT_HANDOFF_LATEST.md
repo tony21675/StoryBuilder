@@ -1,3 +1,27 @@
+# Shell launcher and sync repair — October 24, 2026
+
+## Root cause and repair
+
+The shell launcher was blocked by an outdated branch rule. `sync.sh` refused to run unless the branch name was exactly `main`, while the repository's current default/development branch is `redesign/simplified-writing-workflow` and the app's own `builder/app_sync.py` intentionally syncs the current development branch while refusing `main`. Since `start.sh` calls `sync.sh start` first, it could exit before opening the app.
+
+Changes now committed to `redesign/simplified-writing-workflow`:
+- `sync.sh` follows the app's policy: refuses `main`, requires the current branch to track `origin/<same branch>`, and stops before syncing if a Git operation or unresolved conflict is present.
+- Startup sync stashes and restores uncommitted tracked and untracked changes, fetches, and uses `git pull --ff-only`. It does not rebase or reset local work.
+- Finish sync stages and commits local app changes, fetches and fast-forwards only when safe, and will not push if the branch cannot be fast-forwarded. Any local commit is preserved on failure.
+- `start.sh` uses Bash strict mode, resolves the application directory safely, invokes the Bash sync helper explicitly, and launches `python3 storybuilder.py` only after sync succeeds. Existing theme/context/token defaults are preserved.
+- Added `tests/test_shell_sync.py` to guard the branch policy and startup ordering.
+- Added `bash -n start.sh sync.sh` to the StoryBuilder GitHub Actions workflow.
+
+Relevant code commits:
+- `87964666e0de35f9b60cdad91b8b7510d00fb21c` — repair shell sync.
+- `a52c0030e1a9e0ad16e36eecad1768c75b64aad1` — harden launcher.
+- `86a43675bb9cba9fce0d43cb9bb8c4bc46cc9f41` — add shell sync regression tests.
+- `4ad14f46bf6abd902d18f6fa9e57ee8ceb386b53` — validate shell syntax in CI.
+
+**Do not ask Tony to pull until both GitHub Actions workflows pass on the latest branch head.** Then give one terminal action at a time: first `git pull --ff-only origin redesign/simplified-writing-workflow`, next `python3 -m pytest -q`, and then launch with `./start.sh`. The launcher will perform its own safe sync. Do not switch or delete branches as part of this repair. The accepted Scene 4 prose remains saved, the bad state proposal remains unapplied, and no novel files were changed.
+
+---
+
 # Post-scene continuity input repair: October 24, 2026
 
 ## Repair under test
