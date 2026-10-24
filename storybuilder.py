@@ -6233,7 +6233,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         objective = objectives.get(name, "") if isinstance(objectives, dict) else ""
         self.writer_state_knowledge_quick.delete("1.0", "end")
         self.writer_state_knowledge_quick.insert(
-            "1.0", "\\n".join(str(item) for item in facts if str(item).strip())
+            "1.0", "\n".join(str(item) for item in facts if str(item).strip())
         )
         self.writer_state_objective_quick.delete("1.0", "end")
         self.writer_state_objective_quick.insert("1.0", str(objective or ""))
@@ -6348,7 +6348,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         except (TypeError, ValueError) as exc:
             self._show_copyable_error(
                 "Refresh State Review",
-                "The review was not refreshed because the preview is invalid. Nothing was saved.\\n\\n"
+                "The review was not refreshed because the preview is invalid. Nothing was saved.\n\n"
                 + str(exc),
             )
             return
