@@ -1,3 +1,21 @@
+# Latest resumed-session note — October 24, 2026
+
+Read `CHAT_HANDOFF_LATEST.md` first for the full current checkpoint.
+
+Tony's local checkout was clean at `c91d1ed`; he pulled the handoff-only update, ran `python3 -m pytest -q` (**363 passed**), launched StoryBuilder, and confirmed Scene Contract and Writer are separate tabs. He re-analyzed accepted Scene 4, selected Daniel, switched to Elena and confirmed her knowledge/objective displayed, then switched back to Daniel and confirmed his data returned. The local character-switch fix is verified.
+
+The generated ending-state proposal still incorrectly advances the Mars crew into an internal scrubber inspection. Do not apply it: Scene 4 ends with Elena beginning to partially pressurize the chamber while Morgan and Priya check the external mounts. The accepted Scene 4 prose remains safe.
+
+## Latest remote state-review UI changes
+
+Latest code commit: `915c3db4b166452d5acf2675dcf144ba0bb93b9e`. It adds plain-language Quick Edit fields for per-character location, physical position/activity, posture, and movement; carries these through into location/physical_state in the proposed preview; adds **Refresh Changes to Review** for advanced JSON edits; and blocks applying a preview if its JSON changed since the displayed review was refreshed. Regression tests cover these behaviors and character-specific field switching. Both CI workflows passed:
+- [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/40136729286)
+- [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/40136729327)
+
+This latest UI update is remote-only and has not yet been pulled to the laptop. Tony's StoryBuilder app is still open. When continuing, do not ask him to edit code or JSON. First ask him to safely close StoryBuilder, then guide him one action at a time to pull the latest code, run `python3 -m pytest -q`, reopen the app, and verify the new Quick Edit controls. Do not apply the old Scene 4 state proposal. The truncated “Prepare Scene...” button label is a minor later UI fix, not a blocker.
+
+---
+
 # Session close checkpoint — October 22, 2026
 
 Read `CHAT_HANDOFF_LATEST.md` first; it contains the authoritative current checkpoint and the next-session plan.
