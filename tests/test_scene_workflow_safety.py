@@ -1183,9 +1183,8 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
                     "current_situation": "PLANNED BUT NOT PROVEN: Maya gives a full account."
                 }
             }
-            app._scene_end_guidance = lambda *_args: (
-                "EXPECTED END STATE HINT:\n"
-                "{\"current_situation\": \"PLANNED BUT NOT PROVEN: Maya gives a full account.\"}"
+            app._scene_end_guidance = lambda *_args: self.fail(
+                "Post-scene analysis must not calculate or pass Scene End Guidance."
             )
             app._update_writer_buttons = lambda: None
             app.after = lambda _delay, callback: callback()
@@ -1202,7 +1201,8 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
                 storybuilder_app.StoryBuilderApp._analyze_accepted_scene(app)
 
             propose.assert_called_once()
-            self.assertIn("EXPECTED END STATE HINT", propose.call_args.kwargs["scene_end_guidance"])
+            self.assertNotIn("scene_end_guidance", propose.call_args.kwargs)
+            self.assertEqual(propose.call_args.args[2], app.accepted_scene)
             self.assertEqual(app.pending_state_patch, analysis_patch)
             self.assertNotIn("PLANNED BUT NOT PROVEN", app.writer_state_preview.get("1.0", "end"))
 

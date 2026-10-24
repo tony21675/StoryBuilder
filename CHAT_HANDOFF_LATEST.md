@@ -12,6 +12,8 @@ The working-branch change:
 - A focused regression test supplies conflicting Mars guidance claiming the crew has entered the scrubber housing while the accepted prose stops at partial pressurization and external mount checks. It verifies that the conflicting guidance is absent from the prompt.
 - No extra checklist or repeated warnings were added to the writer prompt.
 
+- Updated the existing app-level workflow test so it now fails if Scene End Guidance is computed and verifies StateManager receives the accepted scene text without a guidance keyword. This replaces the old test expectation that required passing the hint.
+
 The previous JSON parsing/event-shape fix remains included. The accepted Scene 4 prose remains saved; its invalid proposed state update is still unapplied. No novel files were edited.
 
 Do not ask Tony to pull until both GitHub Actions workflows pass on the latest repair commit. Then give one terminal action at a time: pull fast-forward only from origin/redesign/simplified-writing-workflow, run python3 -m pytest -q, then retry Scene 4 analysis. Inspect the proposal before any state is applied.
