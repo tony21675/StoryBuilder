@@ -1568,10 +1568,9 @@ class StoryBuilderApp(tk.Tk):
         ttk.Label(
             self.writer_state_quick_tab,
             text=(
-                "Make simple corrections here without editing JSON. Edit the ending situation, "
-                "then choose each character to review their stored knowledge and current objective. "
-                "Knowledge uses one fact per line. These edits are only a preview until you click "
-                "Apply State Update."
+                "Make ordinary corrections here without editing JSON. Edit the ending situation, "
+                "then choose a character to review their location, physical state, knowledge, and objective. "
+                "Knowledge uses one fact per line. Nothing is saved until you apply the reviewed update."
             ),
             wraplength=900,
             justify="left",
@@ -1600,13 +1599,53 @@ class StoryBuilderApp(tk.Tk):
 
         ttk.Label(
             self.writer_state_quick_tab,
+            text="Character's current location",
+            font=("", 10, "bold"),
+        ).pack(anchor="w", padx=10)
+        self.writer_state_location_quick = tk.Text(
+            self.writer_state_quick_tab, height=2, wrap="word", undo=True
+        )
+        self.writer_state_location_quick.pack(fill="x", padx=10, pady=(3, 5))
+
+        ttk.Label(
+            self.writer_state_quick_tab,
+            text="Physical position / current activity",
+            font=("", 10, "bold"),
+        ).pack(anchor="w", padx=10)
+        self.writer_state_position_quick = tk.Text(
+            self.writer_state_quick_tab, height=2, wrap="word", undo=True
+        )
+        self.writer_state_position_quick.pack(fill="x", padx=10, pady=(3, 5))
+
+        ttk.Label(
+            self.writer_state_quick_tab,
+            text="Posture (optional)",
+            font=("", 10, "bold"),
+        ).pack(anchor="w", padx=10)
+        self.writer_state_posture_quick = tk.Text(
+            self.writer_state_quick_tab, height=1, wrap="word", undo=True
+        )
+        self.writer_state_posture_quick.pack(fill="x", padx=10, pady=(3, 5))
+
+        ttk.Label(
+            self.writer_state_quick_tab,
+            text="Movement (for example, walking or stationary)",
+            font=("", 10, "bold"),
+        ).pack(anchor="w", padx=10)
+        self.writer_state_movement_quick = tk.Text(
+            self.writer_state_quick_tab, height=1, wrap="word", undo=True
+        )
+        self.writer_state_movement_quick.pack(fill="x", padx=10, pady=(3, 5))
+
+        ttk.Label(
+            self.writer_state_quick_tab,
             text="What this character knows (one fact per line)",
             font=("", 10, "bold"),
         ).pack(anchor="w", padx=10)
         self.writer_state_knowledge_quick = tk.Text(
-            self.writer_state_quick_tab, height=7, wrap="word", undo=True
+            self.writer_state_quick_tab, height=5, wrap="word", undo=True
         )
-        self.writer_state_knowledge_quick.pack(fill="both", expand=True, padx=10, pady=(3, 8))
+        self.writer_state_knowledge_quick.pack(fill="x", padx=10, pady=(3, 8))
 
         ttk.Label(
             self.writer_state_quick_tab,
@@ -1637,6 +1676,18 @@ class StoryBuilderApp(tk.Tk):
         diff_scrollbar.configure(command=self.writer_state_diff_preview.yview)
         self.writer_state_diff_preview.pack(side="left", fill="both", expand=True)
         diff_scrollbar.pack(side="right", fill="y")
+
+        json_toolbar = ttk.Frame(self.writer_state_json_tab)
+        json_toolbar.pack(fill="x", padx=8, pady=(6, 0))
+        ttk.Label(
+            json_toolbar,
+            text="After advanced edits, refresh the review before applying.",
+        ).pack(side="left")
+        ttk.Button(
+            json_toolbar,
+            text="Refresh Changes to Review",
+            command=self._refresh_state_review_from_json,
+        ).pack(side="right")
 
         json_frame = ttk.Frame(self.writer_state_json_tab)
         json_frame.pack(fill="both", expand=True)
@@ -6018,6 +6069,9 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             "1.0",
             json.dumps(reconstructed_state, indent=2, ensure_ascii=False),
         )
+        self._writer_state_reviewed_preview = json.dumps(
+            reconstructed_state, sort_keys=True, ensure_ascii=False
+        )
         if "writer_state_situation_quick" in self.__dict__:
             self._refresh_quick_state_editor(reconstructed_state)
         self.writer_status.configure(
@@ -6029,18 +6083,27 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         self._update_writer_buttons()
 
     def _refresh_quick_state_editor(self, state):
-        """Populate the plain-text state correction tab from a proposed ending state."""
+        """Populate plain-text correction fields from a proposed ending state."""
         self._quick_edit_state = json.loads(json.dumps(state, ensure_ascii=False))
         self.writer_state_situation_quick.delete("1.0", "end")
         self.writer_state_situation_quick.insert(
             "1.0", str(state.get("current_situation", "") or "")
         )
         names = []
-        for field in ("scene_cast", "character_knowledge", "active_objectives"):
+        for field in (
+            "scene_cast", "character_knowledge", "active_objectives",
+            "location", "physical_state",
+        ):
             value = state.get(field, [])
-            candidates = value.keys() if isinstance(value, dict) else value if isinstance(value, list) else []
+            candidates = (
+                value.keys() if isinstance(value, dict)
+                else value if isinstance(value, list)
+                else []
+            )
             for raw_name in candidates:
                 name = str(raw_name).strip()
+                if field == "location" and name.casefold() == "primary":
+                    continue
                 if name and name.casefold() not in {item.casefold() for item in names}:
                     names.append(name)
         self.writer_state_character_selector.configure(values=names)
@@ -6051,7 +6114,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         self._load_quick_state_character_fields()
 
     def _save_quick_state_character_fields(self, character_name=None):
-        """Store the visible character fields for the character currently being edited."""
+        """Store visible text fields for the character whose data is displayed."""
         state = getattr(self, "_quick_edit_state", None)
         if not isinstance(state, dict):
             return
@@ -6062,24 +6125,102 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         ).strip()
         if not name:
             return
+
+        location_widget = getattr(self, "writer_state_location_quick", None)
+        location_text = (
+            location_widget.get("1.0", "end").strip()
+            if location_widget is not None else ""
+        )
+        if location_text:
+            locations = state.setdefault("location", {})
+            if not isinstance(locations, dict):
+                locations = {}
+                state["location"] = locations
+            locations[name] = location_text
+
+            physical_states = state.setdefault("physical_state", {})
+            if not isinstance(physical_states, dict):
+                physical_states = {}
+                state["physical_state"] = physical_states
+            character_state = physical_states.setdefault(name, {})
+            if not isinstance(character_state, dict):
+                character_state = {}
+                physical_states[name] = character_state
+            character_state["location"] = location_text
+
+        physical_states = state.setdefault("physical_state", {})
+        if not isinstance(physical_states, dict):
+            physical_states = {}
+            state["physical_state"] = physical_states
+        character_state = physical_states.setdefault(name, {})
+        if not isinstance(character_state, dict):
+            character_state = {}
+            physical_states[name] = character_state
+
+        for widget_name, state_key in (
+            ("writer_state_position_quick", "position"),
+            ("writer_state_posture_quick", "posture"),
+            ("writer_state_movement_quick", "movement"),
+        ):
+            widget = getattr(self, widget_name, None)
+            if widget is None:
+                continue
+            value = widget.get("1.0", "end").strip()
+            # Blank location/physical fields do not erase existing state.
+            # Use a clear value such as "stationary" when that is the intended state.
+            if value:
+                character_state[state_key] = value
+
         knowledge_text = self.writer_state_knowledge_quick.get("1.0", "end").strip()
         facts = [line.strip() for line in knowledge_text.splitlines() if line.strip()]
         knowledge = state.setdefault("character_knowledge", {})
+        if not isinstance(knowledge, dict):
+            knowledge = {}
+            state["character_knowledge"] = knowledge
         if facts:
             knowledge[name] = facts
         else:
             knowledge.pop(name, None)
+
         objective_text = self.writer_state_objective_quick.get("1.0", "end").strip()
         objectives = state.setdefault("active_objectives", {})
+        if not isinstance(objectives, dict):
+            objectives = {}
+            state["active_objectives"] = objectives
         if objective_text:
             objectives[name] = objective_text
         else:
             objectives.pop(name, None)
 
     def _load_quick_state_character_fields(self):
-        """Show one character's current knowledge and objective as editable plain text."""
+        """Show one character's own location, physical state, knowledge, and objective."""
         state = getattr(self, "_quick_edit_state", {})
         name = self.writer_state_character_selector.get().strip()
+
+        locations = state.get("location", {})
+        location_value = locations.get(name, "") if isinstance(locations, dict) else ""
+        physical_states = state.get("physical_state", {})
+        character_state = (
+            physical_states.get(name, {})
+            if isinstance(physical_states, dict) else {}
+        )
+        if not isinstance(character_state, dict):
+            character_state = {}
+        if not location_value:
+            location_value = character_state.get("location", "")
+
+        for widget_name, value in (
+            ("writer_state_location_quick", location_value),
+            ("writer_state_position_quick", character_state.get("position", "")),
+            ("writer_state_posture_quick", character_state.get("posture", "")),
+            ("writer_state_movement_quick", character_state.get("movement", "")),
+        ):
+            widget = getattr(self, widget_name, None)
+            if widget is None:
+                continue
+            widget.delete("1.0", "end")
+            widget.insert("1.0", str(value or ""))
+
         knowledge = state.get("character_knowledge", {})
         if not isinstance(knowledge, dict):
             knowledge = {}
@@ -6092,7 +6233,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         objective = objectives.get(name, "") if isinstance(objectives, dict) else ""
         self.writer_state_knowledge_quick.delete("1.0", "end")
         self.writer_state_knowledge_quick.insert(
-            "1.0", "\n".join(str(item) for item in facts if str(item).strip())
+            "1.0", "\\n".join(str(item) for item in facts if str(item).strip())
         )
         self.writer_state_objective_quick.delete("1.0", "end")
         self.writer_state_objective_quick.insert("1.0", str(objective or ""))
@@ -6131,6 +6272,10 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
                     state[field] = proposed
                 else:
                     state.pop(field, None)
+            for field in ("location", "physical_state"):
+                proposed = quick_state.get(field)
+                if isinstance(proposed, dict):
+                    state[field] = proposed
             StateManager.validate_patch(
                 self.package.current_state,
                 reviewed_state_preview_to_patch(
@@ -6152,6 +6297,9 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         self.writer_state_preview.insert(
             "1.0", json.dumps(state, indent=2, ensure_ascii=False)
         )
+        self._writer_state_reviewed_preview = json.dumps(
+            state, sort_keys=True, ensure_ascii=False
+        )
         self.writer_state_diff_preview.configure(state="normal")
         self.writer_state_diff_preview.delete("1.0", "end")
         self.writer_state_diff_preview.insert(
@@ -6166,6 +6314,67 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         )
         self._update_writer_buttons()
 
+    def _refresh_state_review_from_json(self):
+        """Validate the advanced preview and refresh its human-readable change list."""
+        if self.package is None or not isinstance(self.pending_state_patch, dict):
+            self.writer_status.configure(
+                text="Analyze the accepted scene before refreshing the state review."
+            )
+            return
+
+        try:
+            preview_text = self.writer_state_preview.get("1.0", "end").strip()
+            if not preview_text:
+                raise ValueError("The ending-state preview is empty.")
+            candidate_state = json.loads(preview_text)
+            if not isinstance(candidate_state, dict):
+                raise ValueError("The ending-state preview must be a JSON object.")
+            expected_state = StateManager.merge_patch(
+                self.package.current_state,
+                self.pending_state_patch,
+            )
+            preview_edits = reviewed_state_preview_to_patch(
+                expected_state,
+                candidate_state,
+            )
+            patch_to_review = combine_state_patches(
+                self.pending_state_patch,
+                preview_edits,
+            )
+            StateManager.validate_patch(
+                self.package.current_state,
+                patch_to_review,
+            )
+        except (TypeError, ValueError) as exc:
+            self._show_copyable_error(
+                "Refresh State Review",
+                "The review was not refreshed because the preview is invalid. Nothing was saved.\\n\\n"
+                + str(exc),
+            )
+            return
+
+        self.writer_state_diff_preview.configure(state="normal")
+        self.writer_state_diff_preview.delete("1.0", "end")
+        self.writer_state_diff_preview.insert(
+            "1.0",
+            build_state_change_summary(self.package.current_state, candidate_state),
+        )
+        self.writer_state_diff_preview.configure(state="disabled")
+        self._writer_state_reviewed_preview = json.dumps(
+            candidate_state, sort_keys=True, ensure_ascii=False
+        )
+        if "writer_state_situation_quick" in self.__dict__:
+            self._refresh_quick_state_editor(candidate_state)
+        if "writer_state_review_notebook" in self.__dict__ and "writer_state_diff_tab" in self.__dict__:
+            self.writer_state_review_notebook.select(self.writer_state_diff_tab)
+        self.writer_status.configure(
+            text=(
+                "Changes to Review has been refreshed from the advanced preview. "
+                "Nothing has been applied or saved."
+            )
+        )
+        self._update_writer_buttons()
+
     def _apply_state_update(self):
         if self.package is None or not isinstance(self.pending_state_patch, dict):
             return
@@ -6176,6 +6385,30 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
                 raise ValueError("The ending-state preview is empty. Analyze the accepted scene again.")
 
             reviewed_preview = json.loads(preview_text)
+            if not isinstance(reviewed_preview, dict):
+                raise ValueError("The ending-state preview must be a JSON object.")
+            last_reviewed = self.__dict__.get("_writer_state_reviewed_preview")
+            if last_reviewed is not None:
+                current_serialized = json.dumps(
+                    reviewed_preview, sort_keys=True, ensure_ascii=False
+                )
+                if current_serialized != last_reviewed:
+                    messagebox.showwarning(
+                        "Review Needs Refresh",
+                        "The advanced state preview changed after the change list was last refreshed. "
+                        "Nothing has been applied. Open Full State JSON (Advanced) and click "
+                        "'Refresh Changes to Review' before applying this state update.",
+                    )
+                    if (
+                        "writer_state_review_notebook" in self.__dict__
+                        and "writer_state_json_tab" in self.__dict__
+                    ):
+                        self.writer_state_review_notebook.select(self.writer_state_json_tab)
+                    self.writer_status.configure(
+                        text="Refresh Changes to Review before applying the edited preview."
+                    )
+                    self._update_writer_buttons()
+                    return
             expected_preview = StateManager.merge_patch(
                 self.package.current_state,
                 self.pending_state_patch,
@@ -6265,6 +6498,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             self.dirty = True
             self.pending_state_patch = None
             self._quick_edit_state = None
+            self._writer_state_reviewed_preview = None
             self.generated_scene = ""
             self.accepted_scene = ""
             self.accepted_scene_context = None
