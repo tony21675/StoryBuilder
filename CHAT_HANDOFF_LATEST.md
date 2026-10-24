@@ -1,3 +1,23 @@
+# Post-scene continuity input repair: October 24, 2026
+
+## Repair under test
+
+Tony approved trying one narrow change rather than adding another model checklist. Post-scene state analysis was receiving Scene End Guidance, including an optional expected end-state hint, alongside the accepted prose and before-state. This is a competing input that can describe a planned ending beyond what actually happened in the scene.
+
+The working-branch change:
+- State analysis no longer inserts Scene End Guidance or an expected end-state hint into the model prompt.
+- The accepted prose and the before-state remain the input sources for the continuity proposal.
+- The GUI no longer computes or passes scene-end guidance for post-scene analysis or manuscript state recovery.
+- The optional StateManager.propose argument is retained for compatibility, but deliberately ignored.
+- A focused regression test supplies conflicting Mars guidance claiming the crew has entered the scrubber housing while the accepted prose stops at partial pressurization and external mount checks. It verifies that the conflicting guidance is absent from the prompt.
+- No extra checklist or repeated warnings were added to the writer prompt.
+
+The previous JSON parsing/event-shape fix remains included. The accepted Scene 4 prose remains saved; its invalid proposed state update is still unapplied. No novel files were edited.
+
+Do not ask Tony to pull until both GitHub Actions workflows pass on the latest repair commit. Then give one terminal action at a time: pull fast-forward only from origin/redesign/simplified-writing-workflow, run python3 -m pytest -q, then retry Scene 4 analysis. Inspect the proposal before any state is applied.
+
+---
+
 # Continuity proposal parsing repair: October 24, 2026
 
 ## Current defect and fix

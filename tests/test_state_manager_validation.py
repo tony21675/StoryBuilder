@@ -758,6 +758,102 @@ class StateUpdateValidationTests(unittest.TestCase):
                 {"event": "Tony carried Maya back onto the bed."},
             )
 
+
+    def test_state_analysis_ignores_conflicting_scene_end_guidance(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            model = root / "writer.gguf"
+            llama = root / "llama-cli"
+            model.touch()
+            llama.touch()
+
+            current_state = {
+                "chapter": 1,
+                "scene": 4,
+                "status": "in_progress",
+                "scene_completed": False,
+                "current_situation": (
+                    "Emergency ventilation and the reserve blower are keeping pressure "
+                    "within range while the primary scrubber manifold temperature rises."
+                ),
+                "location": {
+                    "primary": "Mars outpost environmental hub",
+                    "Elena Vasquez": "near the environmental hub",
+                    "Morgan Reed": "near the environmental hub",
+                    "Priya Shah": "near the environmental hub",
+                },
+                "physical_state": {},
+                "active_objectives": {},
+                "scene_cast": [
+                    "Daniel Okafor",
+                    "Elena Vasquez",
+                    "Morgan Reed",
+                    "Priya Shah",
+                    "Ryan Mercer",
+                    "Zoe Bennett",
+                ],
+                "character_knowledge": {},
+                "recent_events": [],
+                "active_clues": [],
+                "unresolved_questions": [],
+            }
+            accepted_scene = (
+                "Elena reached the sealed maintenance hatch and began the sequence to "
+                "partially pressurize the inspection chamber. Morgan and Priya stayed "
+                "outside, checking the external housing mounts for visible stress or "
+                "unusual heat. Daniel continued watching the manifold temperature trend "
+                "from the environmental hub. Ryan and Zoe compared the patterned "
+                "communications bursts with the power diagnostics, finding no correlation yet."
+            )
+            conflicting_guidance = (
+                "EXPECTED END STATE HINT: Elena, Morgan, and Priya have entered the "
+                "scrubber housing and internal inspection is already underway."
+            )
+            model_patch = {
+                "current_situation": (
+                    "Elena has begun partial pressurization at the sealed maintenance hatch. "
+                    "Morgan and Priya continue checking external housing mounts; Daniel "
+                    "monitors the manifold trend, while Ryan and Zoe analyze communications."
+                )
+            }
+
+            class FakeProcess:
+                returncode = 0
+
+                def communicate(self, timeout=None):
+                    return json.dumps(model_patch), None
+
+            with (
+                patch.object(state_manager_module, "DEFAULT_LLAMA", llama),
+                patch.object(state_manager_module.subprocess, "Popen", return_value=FakeProcess()) as popen,
+                patch.object(StateManager, "_detect_accelerator", return_value=None),
+                patch.object(StateManager, "_propose_knowledge_delta", return_value={}),
+            ):
+                result = StateManager.propose(
+                    model,
+                    current_state,
+                    accepted_scene,
+                    scene_end_guidance=conflicting_guidance,
+                    scene_characters=[
+                        "Daniel Okafor",
+                        "Elena Vasquez",
+                        "Morgan Reed",
+                        "Priya Shah",
+                        "Ryan Mercer",
+                        "Zoe Bennett",
+                    ],
+                )
+
+            self.assertEqual(result["current_situation"], model_patch["current_situation"])
+            self.assertEqual(popen.call_count, 1)
+            args = popen.call_args.args[0]
+            prompt = args[args.index("--prompt") + 1]
+            self.assertIn(accepted_scene, prompt)
+            self.assertNotIn(conflicting_guidance, prompt)
+            self.assertNotIn("SCENE END GUIDANCE", prompt)
+            self.assertNotIn("EXPECTED END STATE HINT", prompt)
+
+
     def test_retries_event_log_and_knowledge_pollution_then_returns_ending_state(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

@@ -171,7 +171,7 @@ Rules:
 - For any character whose location or immediate situation changes during the section, include that changed character under location even if the before-state already listed a different location. The character's location entry and physical_state.<character>.location must describe the same ending area at comparable granularity. When the prose moves someone from one named area to another, update both fields; a relational position such as leaning over another character is not a substitute for the actual location. Never preserve a before-state location that conflicts with the completed prose.
 - Update active_objectives only for characters whose current goal or role is changed or newly established by the accepted prose. Return a partial object with concise replacement text for those characters only; use null for a character whose prior objective is no longer active. If a group has only agreed to help, keep the objective broad and do not invent assignments, leads, investigation steps, or rescue plans. Replace objectives directly contradicted by the scene; use null to remove objectives that are completed, abandoned, or superseded instead of carrying them forward unchanged.
 - Return new_recent_events as an array of concise factual event strings newly established in the completed section, in chronological order. Each list item must be a plain JSON string, never an object such as {"event": "..."}. Preserve separate, consequential beats within an interaction instead of collapsing them into a generic emotional summary. In particular, record meaningful quoted relationship milestones such as a first-time nickname and the other character's acceptance or rejection, as well as the surrounding hug or gesture when both matter. Do not repeat events already present in the before-state recent_events list, do not include interpretations or future plans, and use an empty array if no meaningful new events occurred. The application appends these to the existing history and keeps the most recent twelve entries.
-- Use the supplied scene end guidance only to clarify the intended scene boundary. The actual completed prose is authoritative for what happened.
+- The completed prose is the source of truth for what happened.
 - Do not invent motives, identities, locations, evidence, backstory, or other consequential facts.
 - The application owns scene navigation and workflow flags. NEVER return the keys chapter, scene, status, scene_completed, chapter_completed, or scene_cast in a state patch; those are updated by StoryBuilder after the reviewed patch is applied.
 - Do not rewrite the complete current_state.json.
@@ -1932,7 +1932,8 @@ class StateManager:
             )
 
         completed_text = story_text.strip()
-        end_guidance = (scene_end_guidance or "").strip()
+        # scene_end_guidance remains a compatibility parameter only. The accepted
+        # prose and the before-state are the evidence used for state analysis.
         state_context = build_state_analysis_context(current_state, scene_characters)
         prompt_parts = [
             "COMPACT CURRENT-STATE CONTEXT BEFORE THIS SECTION (THE APPLICATION RETAINS THE FULL STATE):\n",
@@ -1944,24 +1945,12 @@ class StateManager:
             completed_text,
         ])
 
-        if end_guidance:
-            prompt_parts.extend([
-                "\n\nSCENE END GUIDANCE (REFERENCE ONLY):\n",
-                end_guidance,
-                "\nUse this only to identify the intended ending boundary. "
-                "If an EXPECTED END STATE HINT is present, treat it as a candidate summary of the intended ending, "
-                "but verify it against the completed prose. When the prose clearly confirms the hinted ending, use "
-                "the hinted changed locations and immediate situation rather than copying the before-state. "
-                "Do not copy planned wording or invent anything that did not occur in the completed prose."
-            ])
 
         prompt_parts.extend([
             "\n\nENDING-STATE EMPHASIS:\n",
             "The full accepted scene text appears above exactly once. Do not rely on a repeated excerpt; inspect the final actions and paragraph in the original scene. ",
             "Determine the smallest state update needed AFTER this completed section. "
             "Read the entire section, but give special weight to the final actions and final paragraph. "
-            "If the expected ending-state hint agrees with the completed prose, the returned patch should "
-            "reflect that ending rather than the initial state. "
             "The compact current-state context describes what was true BEFORE the section and must not override what "
             "the completed prose establishes at the end. For each character whose final location, physical position, contact, or immediate "
             "situation changed, include the changed value under physical_state and/or location as appropriate. Update current_situation to describe "

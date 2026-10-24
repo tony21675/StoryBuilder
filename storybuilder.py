@@ -5974,7 +5974,6 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         if not self.writer_engine.model_path:
             return
 
-        scene_end_guidance = self._scene_end_guidance(completed_chapter, completed_scene)
         scene_characters = self._state_analysis_character_candidates(
             story_text,
             completed_chapter,
@@ -5994,8 +5993,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
                     model,
                     current_state,
                     story_text,
-                    scene_end_guidance=scene_end_guidance,
-                    scene_characters=scene_characters,
+                                        scene_characters=scene_characters,
                 )
                 error = None
             except Exception as exc:
@@ -6760,7 +6758,6 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
                 )
 
             chapter = int(self.package.current_state.get("chapter", chapter) or chapter)
-            scene_end_guidance = self._scene_end_guidance(chapter, scene)
             model = self._selected_writer_model_for_analysis()
 
             self.manuscript_analyze_button.configure(state="disabled")
@@ -6776,8 +6773,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
                         model,
                         baseline,
                         story_text,
-                        scene_end_guidance=scene_end_guidance,
-                    )
+                                            )
                     candidate = StateManager.merge_patch(
                         baseline,
                         patch,
