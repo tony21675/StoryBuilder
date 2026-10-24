@@ -1,3 +1,30 @@
+# Resumed session checkpoint — October 24, 2026
+
+Tony resumed testing. His local checkout was clean and at `c91d1ed` on `redesign/simplified-writing-workflow`; he pulled the handoff-only update and ran `python3 -m pytest -q`, which reported **363 passed**. He launched StoryBuilder and confirmed that **Scene Contract** and **Writer** are again separate tabs. The Scene Contract button label still truncates to “Prepare Scene...” because its width is too small; this is a minor UI issue and can wait.
+
+## Quick Edit character switching verified locally
+
+Tony re-analyzed accepted Scene 4, opened Quick Edits, saw Daniel selected, switched to Elena, and confirmed both knowledge and objective changed. He switched back to Daniel and confirmed his own values returned. The character-switch fix is working in the local application.
+
+The current model-generated state proposal still incorrectly says Elena, Morgan, and Priya have moved to conduct an internal inspection. Scene 4 ends with Elena beginning to partially pressurize the inspection chamber while Morgan and Priya check external housing mounts. The proposal should **not** be applied unchanged.
+
+## New plain-language state editing tools added remotely
+
+Latest code commit: `915c3db4b166452d5acf2675dcf144ba0bb93b9e` (“Make optional Quick Edit controls safe in tests”). This commit includes UI changes and tests committed earlier in the current sequence:
+- Quick Edits now includes plain-language per-character fields for **current location**, **physical position/current activity**, **posture**, and **movement**, plus existing knowledge and objective fields.
+- These edits update the candidate `location` and `physical_state` data, including the duplicate per-character location in physical state, then refresh the human-readable proposed-change list.
+- The advanced JSON tab now includes **Refresh Changes to Review**, so the summary can be rebuilt after advanced edits.
+- Apply State Update now blocks and warns if the JSON preview differs from the last reviewed snapshot. This prevents applying a stale list without refreshing.
+- Regression tests cover location/physical-state editing, refreshing the review, blocking unreviewed advanced JSON edits, and ensuring each character's plain-text fields remain separate when switching the dropdown.
+
+Both GitHub Actions workflows passed on commit `915c3db4b166452d5acf2675dcf144ba0bb93b9e`:
+- [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/40136729286)
+- [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/40136729327)
+
+**This latest UI commit has NOT been pulled to Tony's laptop yet.** The app is currently open. Do not ask him to edit source or JSON. Before pulling, make sure he closes StoryBuilder safely; there is no generation in progress, but the current Scene 4 state proposal is still un-applied. The accepted Scene 4 prose remains safe. After pulling the latest commit, run `python3 -m pytest -q`, launch the app, and verify the new Quick Edit fields before asking him to change any state. Keep the instructions one step at a time. Do not apply the old proposal.
+
+---
+
 # Session close checkpoint — October 22, 2026 (latest)
 
 **Tony is closing StoryBuilder for tonight. Stop here. Do not ask him to pull, run tests, reopen the app, or continue reviewing state tonight.**
