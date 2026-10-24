@@ -6,9 +6,9 @@ REMOTE="origin"
 usage() {
   echo "Usage: $0 start|finish"
   echo
-  echo "  start   Sync StoryBuilder code before you begin working."
-  echo "          Local app changes are stashed and restored automatically."
-  echo "  finish  Commit and push StoryBuilder code changes."
+  echo "  start   Safely update the current StoryBuilder development branch before launch."
+  echo "          Uncommitted local changes are stashed and restored automatically."
+  echo "  finish  Commit and push StoryBuilder code changes on the current development branch."
   exit 1
 }
 
@@ -23,11 +23,33 @@ if [[ -z "$BRANCH" ]]; then
   exit 1
 fi
 
-if [[ "$BRANCH" != "main" ]]; then
-  echo "ERROR: StoryBuilder uses one permanent branch: main."
-  echo "Current branch is: $BRANCH"
-  echo "Do not sync or create feature branches from this checkout."
-  echo "No branch switch or deletion was attempted, to protect local work."
+# Keep the shell helper aligned with the app's Close & Sync App safeguards.
+# Work only on the existing development branch; never sync or push from main.
+if [[ "$BRANCH" == "main" ]]; then
+  echo "ERROR: StoryBuilder app sync is blocked on main."
+  echo "Use the existing development branch. No branch switch or deletion was attempted."
+  exit 1
+fi
+
+UPSTREAM="$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || true)"
+if [[ "$UPSTREAM" != "$REMOTE/$BRANCH" ]]; then
+  echo "ERROR: Current branch '$BRANCH' must track '$REMOTE/$BRANCH' before syncing."
+  echo "No files were committed, pushed, or switched."
+  exit 1
+fi
+
+if git status 2>&1 | grep -Eiq \
+  'rebase in progress|you are currently rebasing|merge in progress|you are currently merging|cherry-pick currently in progress|you are currently cherry-picking'; then
+  echo "ERROR: An unfinished Git merge, rebase, or cherry-pick is in progress."
+  echo "Resolve it before syncing. No files were committed or pushed."
+  git status --short
+  exit 1
+fi
+
+if [[ -n "$(git diff --name-only --diff-filter=U)" ]]; then
+  echo "ERROR: Unresolved Git conflicts are already present."
+  echo "Resolve them before syncing."
+  git status --short
   exit 1
 fi
 
@@ -51,13 +73,6 @@ restore_stash() {
 
 case "${1:-}" in
   start)
-    if [[ -n "$(git diff --name-only --diff-filter=U)" ]]; then
-      echo "ERROR: Unresolved Git conflicts are already present."
-      echo "Resolve them before starting StoryBuilder."
-      git status --short
-      exit 1
-    fi
-
     STASHED=0
     if [[ -n "$(git status --porcelain)" ]]; then
       echo "Local StoryBuilder changes found."
@@ -75,14 +90,12 @@ case "${1:-}" in
       exit 1
     fi
 
-    echo "Updating $BRANCH..."
-    if ! git pull --rebase "$REMOTE" "$BRANCH"; then
+    echo "Fast-forwarding $BRANCH..."
+    if ! git pull --ff-only "$REMOTE" "$BRANCH"; then
       echo
-      echo "ERROR: StoryBuilder itself could not be updated cleanly."
+      echo "ERROR: StoryBuilder could not be fast-forwarded safely."
+      echo "No rebase or reset was attempted."
       git status --short
-      # Abort the rebase before restoring the user's local stash. Never pop
-      # local work into an unresolved upstream conflict.
-      git rebase --abort >/dev/null 2>&1 || true
       restore_stash || true
       exit 1
     fi
@@ -97,39 +110,36 @@ case "${1:-}" in
     ;;
 
   finish)
-    if [[ -n "$(git diff --name-only --diff-filter=U)" ]]; then
-      echo "ERROR: Unresolved Git conflicts are present."
-      git status --short
-      exit 1
-    fi
-
     echo "Staging local StoryBuilder changes..."
     git add -A
 
     if git diff --cached --quiet; then
       echo "No StoryBuilder file changes to commit."
-      git fetch --prune "$REMOTE"
-      git pull --rebase "$REMOTE" "$BRANCH"
-      git status -sb
-      exit 0
+    else
+      git diff --cached --stat
+      COMMIT_MESSAGE="Sync StoryBuilder changes $(date '+%Y-%m-%d %H:%M:%S')"
+      git commit -m "$COMMIT_MESSAGE"
     fi
 
-    git diff --cached --stat
-
-    COMMIT_MESSAGE="Sync StoryBuilder changes $(date '+%Y-%m-%d %H:%M:%S')"
-    git commit -m "$COMMIT_MESSAGE"
-
     echo "Checking GitHub for changes made elsewhere..."
-    if ! git pull --rebase "$REMOTE" "$BRANCH"; then
+    if ! git fetch --prune "$REMOTE"; then
+      echo "ERROR: Could not fetch GitHub. Any local commit is preserved."
+      exit 1
+    fi
+
+    if ! git pull --ff-only "$REMOTE" "$BRANCH"; then
       echo
-      echo "ERROR: StoryBuilder changes conflict with GitHub."
-      echo "Your local commit is preserved. Resolve the rebase before pushing."
+      echo "ERROR: StoryBuilder could not be fast-forwarded safely."
+      echo "Any local commit is preserved. No push was attempted."
       git status --short
       exit 1
     fi
 
     echo "Pushing StoryBuilder changes to GitHub..."
-    git push "$REMOTE" "$BRANCH"
+    if ! git push "$REMOTE" "$BRANCH"; then
+      echo "ERROR: Push failed. Local changes and commits are preserved."
+      exit 1
+    fi
 
     echo
     echo "DONE: StoryBuilder is synchronized with GitHub."
