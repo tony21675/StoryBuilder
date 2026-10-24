@@ -1,10 +1,12 @@
-#!/bin/sh
-set -e
+#!/usr/bin/env bash
+set -euo pipefail
 
-cd "$(dirname "$0")"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
 
 echo "Synchronizing StoryBuilder with GitHub..."
-./sync.sh start
+# Run the Bash sync helper explicitly and stop here if synchronization is unsafe.
+bash "$SCRIPT_DIR/sync.sh" start
 
 echo "Starting StoryBuilder..."
 # Larger defaults prevent longer scenes from being cut off too early.
@@ -13,4 +15,4 @@ echo "Starting StoryBuilder..."
 export STORYBUILDER_THEME="${STORYBUILDER_THEME:-dark}"
 export STORY_WRITER_CONTEXT="${STORY_WRITER_CONTEXT:-16384}"
 export STORY_WRITER_MAX_TOKENS="${STORY_WRITER_MAX_TOKENS:-4000}"
-exec python3 storybuilder.py
+exec python3 "$SCRIPT_DIR/storybuilder.py"
