@@ -8,7 +8,7 @@ The targeted repair on redesign/simplified-writing-workflow:
 - Continuity extraction requires the last complete JSON object to contain current_situation; it must not fall back to a nested {"event": "..."} object or stale echoed state.
 - Exact new_recent_events entries shaped as {"event": "plain text"} are unwrapped to plain strings. Other malformed entry shapes remain subject to normal validation.
 - The system and retry prompts explicitly require plain JSON strings for recent-event list items.
-- Regression tests cover malformed outer JSON with a valid nested event object, exact event-wrapper normalization, and the actual proposal pipeline.
+- Regression tests cover malformed outer JSON with a valid nested event object, exact event-wrapper normalization, and the actual proposal pipeline. New-event proposal items are converted to plain strings before appending; the saved recent_events ledger intentionally retains its existing {"event": "..."} record shape.
 
 Safety: The rejected Scene 4 state proposal was not applied. Keep it unapplied. The accepted Scene 4 prose remains saved. Do not edit novel files or ask Tony to hand-edit source/JSON.
 

@@ -849,8 +849,8 @@ class StateUpdateValidationTests(unittest.TestCase):
                 if key != "new_recent_events"
             }
             expected_result["recent_events"] = [
-                "Maya settled at the kitchen table.",
-                "Tony offered her chamomile tea.",
+                {"event": "Maya settled at the kitchen table."},
+                {"event": "Tony offered her chamomile tea."},
             ]
             self.assertEqual(result, expected_result)
             self.assertNotIn("new_recent_events", result)
