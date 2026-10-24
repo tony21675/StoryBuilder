@@ -1284,6 +1284,24 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
                 "Daniel": "Monitor the manifold temperature.",
                 "Zoe": "Analyze the communications bursts.",
             },
+            "location": {
+                "Daniel": "near the environmental hub",
+                "Zoe": "at the comms console",
+            },
+            "physical_state": {
+                "Daniel": {
+                    "location": "near the environmental hub",
+                    "position": "checking the tablet",
+                    "posture": "focused",
+                    "movement": "stationary",
+                },
+                "Zoe": {
+                    "location": "at the comms console",
+                    "position": "examining burst timings",
+                    "posture": "analytical",
+                    "movement": "stationary",
+                },
+            },
         }
 
         class FakeCharacterSelector:
@@ -1299,6 +1317,10 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         app.writer_state_objective_quick = FakeText(
             "Track the temperature trend and report changes."
         )
+        app.writer_state_location_quick = FakeText("at the maintenance hatch")
+        app.writer_state_position_quick = FakeText("beginning chamber pressurization")
+        app.writer_state_posture_quick = FakeText("focused")
+        app.writer_state_movement_quick = FakeText("working the controls")
         app._quick_edit_loaded_character = "Daniel"
 
         storybuilder_app.StoryBuilderApp._on_quick_state_character_selected(app)
@@ -1330,7 +1352,184 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             app.writer_state_objective_quick.value,
             "Analyze the communications bursts.",
         )
+        self.assertEqual(app.writer_state_location_quick.value, "at the comms console")
+        self.assertEqual(app.writer_state_position_quick.value, "examining burst timings")
+        self.assertEqual(
+            app._quick_edit_state["location"]["Daniel"],
+            "at the maintenance hatch",
+        )
+        self.assertEqual(
+            app._quick_edit_state["location"]["Zoe"],
+            "at the comms console",
+        )
+        self.assertEqual(
+            app._quick_edit_state["physical_state"]["Daniel"]["position"],
+            "beginning chamber pressurization",
+        )
+        self.assertEqual(
+            app._quick_edit_state["physical_state"]["Zoe"]["position"],
+            "examining burst timings",
+        )
         self.assertEqual(app._quick_edit_loaded_character, "Zoe")
+
+    def test_quick_state_edits_update_location_and_physical_state_in_preview(self):
+        before = {
+            "chapter": 1,
+            "scene": 4,
+            "status": "in_progress",
+            "scene_completed": False,
+            "chapter_completed": False,
+            "current_situation": "The crew is responding to the scrubber anomaly.",
+            "location": {
+                "primary": "Mars research outpost communal mess area",
+                "Daniel": "near the environmental hub",
+            },
+            "physical_state": {
+                "Daniel": {
+                    "location": "near the environmental hub",
+                    "position": "checking the temperature tablet",
+                    "posture": "focused",
+                    "movement": "stationary",
+                }
+            },
+            "character_knowledge": {
+                "Daniel": ["The manifold temperature is rising."]
+            },
+            "active_objectives": {
+                "Daniel": "Monitor the manifold temperature."
+            },
+        }
+        expected = json.loads(json.dumps(before))
+        expected["current_situation"] = "The crew is checking the scrubber housing."
+        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+        app.package = SimpleNamespace(current_state=before)
+        app.pending_state_patch = {
+            "current_situation": expected["current_situation"]
+        }
+        app.writer_state_preview = FakeText(json.dumps(expected))
+        app.writer_state_situation_quick = FakeText(expected["current_situation"])
+
+        class FakeCharacterSelector:
+            def get(self):
+                return "Daniel"
+
+        app.writer_state_character_selector = FakeCharacterSelector()
+        app.writer_state_location_quick = FakeText("at the sealed maintenance hatch")
+        app.writer_state_position_quick = FakeText("beginning partial chamber pressurization")
+        app.writer_state_posture_quick = FakeText("firm and alert")
+        app.writer_state_movement_quick = FakeText("operating the pressurization controls")
+        app.writer_state_knowledge_quick = FakeText(
+            "The manifold temperature is rising."
+        )
+        app.writer_state_objective_quick = FakeText(
+            "Continue monitoring the manifold temperature."
+        )
+        app._quick_edit_state = json.loads(json.dumps(expected))
+        app.writer_state_diff_preview = FakeText()
+        app.writer_status = SimpleLabel()
+        app._update_writer_buttons = lambda: None
+
+        storybuilder_app.StoryBuilderApp._apply_quick_state_edits_to_preview(app)
+
+        preview = json.loads(app.writer_state_preview.get("1.0", "end"))
+        self.assertEqual(
+            preview["location"]["Daniel"],
+            "at the sealed maintenance hatch",
+        )
+        self.assertEqual(
+            preview["physical_state"]["Daniel"]["location"],
+            "at the sealed maintenance hatch",
+        )
+        self.assertEqual(
+            preview["physical_state"]["Daniel"]["position"],
+            "beginning partial chamber pressurization",
+        )
+        self.assertEqual(
+            preview["physical_state"]["Daniel"]["posture"],
+            "firm and alert",
+        )
+        self.assertEqual(
+            preview["physical_state"]["Daniel"]["movement"],
+            "operating the pressurization controls",
+        )
+        self.assertIn("at the sealed maintenance hatch", app.writer_state_diff_preview.value)
+        self.assertEqual(app.package.current_state, before)
+
+    def test_refresh_state_review_from_json_rebuilds_change_list(self):
+        before = {
+            "chapter": 1,
+            "scene": 4,
+            "status": "in_progress",
+            "scene_completed": False,
+            "chapter_completed": False,
+            "current_situation": "The original situation.",
+            "location": {
+                "primary": "Mars research outpost communal mess area",
+                "Daniel": "near the environmental hub",
+            },
+            "physical_state": {
+                "Daniel": {
+                    "location": "near the environmental hub",
+                    "position": "checking the tablet",
+                }
+            },
+        }
+        candidate = json.loads(json.dumps(before))
+        candidate["current_situation"] = "The proposed situation."
+        candidate["location"]["Daniel"] = "at the sealed maintenance hatch"
+        candidate["physical_state"]["Daniel"]["location"] = "at the sealed maintenance hatch"
+        candidate["physical_state"]["Daniel"]["position"] = "beginning partial pressurization"
+        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+        app.package = SimpleNamespace(current_state=before)
+        app.pending_state_patch = {"current_situation": "The proposed situation."}
+        app.writer_state_preview = FakeText(json.dumps(candidate))
+        app.writer_state_diff_preview = FakeText()
+        app.writer_status = SimpleLabel()
+        app._update_writer_buttons = lambda: None
+
+        storybuilder_app.StoryBuilderApp._refresh_state_review_from_json(app)
+
+        self.assertIn("sealed maintenance hatch", app.writer_state_diff_preview.value)
+        self.assertIn("beginning partial pressurization", app.writer_state_diff_preview.value)
+        self.assertEqual(
+            app._writer_state_reviewed_preview,
+            json.dumps(candidate, sort_keys=True, ensure_ascii=False),
+        )
+        self.assertEqual(app.package.current_state, before)
+        self.assertIn("Nothing has been applied", app.writer_status.text)
+
+    def test_apply_state_update_blocks_unreviewed_advanced_json_changes(self):
+        before = {
+            "chapter": 1,
+            "scene": 4,
+            "status": "in_progress",
+            "scene_completed": False,
+            "chapter_completed": False,
+            "current_situation": "The original situation.",
+        }
+        original_preview = json.loads(json.dumps(before))
+        original_preview["current_situation"] = "The proposed situation."
+        edited_preview = json.loads(json.dumps(original_preview))
+        edited_preview["location"] = {
+            "primary": "Mars mess area",
+            "Daniel": "at the maintenance hatch",
+        }
+        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+        app.package = SimpleNamespace(current_state=before)
+        app.pending_state_patch = {"current_situation": "The proposed situation."}
+        app.writer_state_preview = FakeText(json.dumps(edited_preview))
+        app.writer_status = SimpleLabel()
+        app._writer_state_reviewed_preview = json.dumps(
+            original_preview, sort_keys=True, ensure_ascii=False
+        )
+        app._update_writer_buttons = lambda: None
+
+        with patch.object(storybuilder_app.messagebox, "showwarning") as warning:
+            storybuilder_app.StoryBuilderApp._apply_state_update(app)
+
+        warning.assert_called_once()
+        self.assertEqual(app.package.current_state, before)
+        self.assertIn("Refresh Changes to Review", warning.call_args.args[1])
 
     def test_writer_state_analysis_previews_full_reconciled_state_without_applying_it(self):
         before = {
