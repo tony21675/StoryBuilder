@@ -9,6 +9,7 @@ from builder.state_manager import (
     StateManager,
     combine_state_patches,
     extract_json_object,
+    normalize_recent_event_entries,
     reconcile_string_items,
     remove_prior_chapter_opening_markers,
     reviewed_state_preview_to_patch,
@@ -227,6 +228,45 @@ class StateUpdateValidationTests(unittest.TestCase):
         )
 
         self.assertEqual(extract_json_object(output), model_patch)
+
+
+    def test_state_extraction_does_not_accept_nested_object_when_outer_json_is_malformed(self):
+        output = (
+            '{"current_situation": "Echoed before-state"}\n'
+            '{"current_situation": "Broken outer object, "physical_state": '
+            '{"Elena": {"event": "nested event object"}}}'
+        )
+
+        with self.assertRaisesRegex(ValueError, "current_situation"):
+            extract_json_object(output, required_keys={"current_situation"})
+
+    def test_normalizes_exact_event_object_wrappers_to_plain_strings(self):
+        patch = {
+            "current_situation": "Daniel and Elena continue the inspection.",
+            "new_recent_events": [
+                {"event": "Daniel estimated the thermal margin."},
+                {"event": "Elena began checking the access hatch."},
+            ],
+        }
+
+        normalized = normalize_recent_event_entries(patch)
+
+        self.assertEqual(
+            normalized["new_recent_events"],
+            [
+                "Daniel estimated the thermal margin.",
+                "Elena began checking the access hatch.",
+            ],
+        )
+        self.assertEqual(
+            patch["new_recent_events"],
+            [
+                {"event": "Daniel estimated the thermal margin."},
+                {"event": "Elena began checking the access hatch."},
+            ],
+        )
+        malformed = {"new_recent_events": [{"event": "kept with unknown metadata", "source": "extra"}]}
+        self.assertIs(normalize_recent_event_entries(malformed), malformed)
 
     def setUp(self):
         self.state = {
@@ -765,6 +805,10 @@ class StateUpdateValidationTests(unittest.TestCase):
                     "Tony": {"posture": "seated at the kitchen table"},
                     "Maya": {"posture": "seated", "holding": "a mug of chamomile"},
                 },
+                "new_recent_events": [
+                    {"event": "Maya settled at the kitchen table."},
+                    {"event": "Tony offered her chamomile tea."},
+                ],
             }
 
             class FakeProcess:
@@ -799,7 +843,17 @@ class StateUpdateValidationTests(unittest.TestCase):
                     ),
                 )
 
-            self.assertEqual(result, valid_patch)
+            expected_result = {
+                key: value
+                for key, value in valid_patch.items()
+                if key != "new_recent_events"
+            }
+            expected_result["recent_events"] = [
+                "Maya settled at the kitchen table.",
+                "Tony offered her chamomile tea.",
+            ]
+            self.assertEqual(result, expected_result)
+            self.assertNotIn("new_recent_events", result)
             self.assertNotIn("event", result)
             self.assertNotIn("character_knowledge", result)
             self.assertEqual(popen.call_count, 2)
@@ -807,6 +861,7 @@ class StateUpdateValidationTests(unittest.TestCase):
             repair_prompt = repair_args[repair_args.index("--prompt") + 1]
             self.assertIn("Do not return event, events", repair_prompt)
             self.assertIn("current_situation", repair_prompt)
+            self.assertIn("Each new_recent_events item must be a plain JSON string", repair_prompt)
 
     def test_rejects_character_knowledge_lists_inside_location(self):
         patch = {

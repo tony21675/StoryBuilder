@@ -1,3 +1,21 @@
+# Continuity proposal parsing repair: October 24, 2026
+
+## Current defect and fix
+
+Tony ran the refreshed local app after the 366-test pass. The post-scene continuity model returned an invalid state proposal; no changes were applied. The diagnostic showed only a nested {"event": "..."} object even though the response tail contained state fields and new_recent_events entries. This indicates that malformed enclosing JSON can cause the parser to mistake a later nested object for the complete proposal.
+
+The targeted repair on redesign/simplified-writing-workflow:
+- Continuity extraction requires the last complete JSON object to contain current_situation; it must not fall back to a nested {"event": "..."} object or stale echoed state.
+- Exact new_recent_events entries shaped as {"event": "plain text"} are unwrapped to plain strings. Other malformed entry shapes remain subject to normal validation.
+- The system and retry prompts explicitly require plain JSON strings for recent-event list items.
+- Regression tests cover malformed outer JSON with a valid nested event object, exact event-wrapper normalization, and the actual proposal pipeline.
+
+Safety: The rejected Scene 4 state proposal was not applied. Keep it unapplied. The accepted Scene 4 prose remains saved. Do not edit novel files or ask Tony to hand-edit source/JSON.
+
+Before asking Tony to pull: Confirm both GitHub Actions workflows pass on the repair commit. Then give one terminal action at a time: git pull --ff-only origin redesign/simplified-writing-workflow; run python3 -m pytest -q; then launch python3 storybuilder.py and re-test post-scene analysis. The local checkout was clean on redesign/simplified-writing-workflow at a1e5c45 before this remote fix. Keep the app repo and novel repo separate; do not reset work or change branches blindly.
+
+---
+
 # Resumed session checkpoint — October 24, 2026
 
 Tony resumed testing. His local checkout was clean and at `c91d1ed` on `redesign/simplified-writing-workflow`; he pulled the handoff-only update and ran `python3 -m pytest -q`, which reported **363 passed**. He launched StoryBuilder and confirmed that **Scene Contract** and **Writer** are again separate tabs. The Scene Contract button label still truncates to “Prepare Scene...” because its width is too small; this is a minor UI issue and can wait.

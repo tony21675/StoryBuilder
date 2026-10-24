@@ -170,7 +170,7 @@ Rules:
 - The current state is the BEFORE-state baseline only. Never copy a before-state location, clothing detail, or situation into the update when the completed prose clearly changes it.
 - For any character whose location or immediate situation changes during the section, include that changed character under location even if the before-state already listed a different location. The character's location entry and physical_state.<character>.location must describe the same ending area at comparable granularity. When the prose moves someone from one named area to another, update both fields; a relational position such as leaning over another character is not a substitute for the actual location. Never preserve a before-state location that conflicts with the completed prose.
 - Update active_objectives only for characters whose current goal or role is changed or newly established by the accepted prose. Return a partial object with concise replacement text for those characters only; use null for a character whose prior objective is no longer active. If a group has only agreed to help, keep the objective broad and do not invent assignments, leads, investigation steps, or rescue plans. Replace objectives directly contradicted by the scene; use null to remove objectives that are completed, abandoned, or superseded instead of carrying them forward unchanged.
-- Return new_recent_events as an array of concise factual event strings newly established in the completed section, in chronological order. Preserve separate, consequential beats within an interaction instead of collapsing them into a generic emotional summary. In particular, record meaningful quoted relationship milestones such as a first-time nickname and the other character's acceptance or rejection, as well as the surrounding hug or gesture when both matter. Do not repeat events already present in the before-state recent_events list, do not include interpretations or future plans, and use an empty array if no meaningful new events occurred. The application appends these to the existing history and keeps the most recent twelve entries.
+- Return new_recent_events as an array of concise factual event strings newly established in the completed section, in chronological order. Each list item must be a plain JSON string, never an object such as {"event": "..."}. Preserve separate, consequential beats within an interaction instead of collapsing them into a generic emotional summary. In particular, record meaningful quoted relationship milestones such as a first-time nickname and the other character's acceptance or rejection, as well as the surrounding hug or gesture when both matter. Do not repeat events already present in the before-state recent_events list, do not include interpretations or future plans, and use an empty array if no meaningful new events occurred. The application appends these to the existing history and keeps the most recent twelve entries.
 - Use the supplied scene end guidance only to clarify the intended scene boundary. The actual completed prose is authoritative for what happened.
 - Do not invent motives, identities, locations, evidence, backstory, or other consequential facts.
 - The application owns scene navigation and workflow flags. NEVER return the keys chapter, scene, status, scene_completed, chapter_completed, or scene_cast in a state patch; those are updated by StoryBuilder after the reviewed patch is applied.
@@ -219,14 +219,23 @@ def combine_state_patches(
     return result
 
 
-def extract_json_object(text: str) -> dict[str, Any]:
+def extract_json_object(
+    text: str,
+    *,
+    required_keys: set[str] | None = None,
+) -> dict[str, Any]:
     """Extract the last complete JSON object from model-runner output.
 
     Some local CLI versions echo portions of the prompt before the model's
     answer. That prompt can contain a valid JSON before-state, so returning
     the first object can mistakenly validate the baseline instead of the
-    model's proposed partial update. Prefer the complete object ending latest
-    in the output; nested objects end before their containing object.
+    model's proposed partial update. Prefer the complete object ending latest;
+    nested objects end before their containing object.
+
+    For continuity proposals, required_keys ensures a nested object such as
+    {"event": "..."} is never mistaken for the complete state proposal when
+    the enclosing JSON is malformed. A valid state proposal ends after all of
+    its nested objects, so the last complete object must have the required key.
     """
     decoder = json.JSONDecoder()
     candidates: list[tuple[int, dict[str, Any]]] = []
@@ -242,8 +251,21 @@ def extract_json_object(text: str) -> dict[str, Any]:
             candidates.append((index + end, obj))
 
     if candidates:
-        return max(candidates, key=lambda candidate: candidate[0])[1]
+        latest = max(candidates, key=lambda candidate: candidate[0])[1]
+        if required_keys and not required_keys.issubset(latest.keys()):
+            required = ", ".join(sorted(required_keys))
+            raise ValueError(
+                "The continuity manager did not return a complete JSON object "
+                + "containing required field(s): " + required + "."
+            )
+        return latest
 
+    if required_keys:
+        required = ", ".join(sorted(required_keys))
+        raise ValueError(
+            "The continuity manager did not return a complete JSON object "
+            + "containing required field(s): " + required + "."
+        )
     raise ValueError("The continuity manager did not return a JSON object.")
 
 
@@ -400,6 +422,37 @@ def normalize_physical_state_patch(
         result["physical_state"] = physical_patch
 
     return result
+
+def normalize_recent_event_entries(patch: dict[str, Any]) -> dict[str, Any]:
+    """Convert exact {"event": "..."} list items to plain event strings.
+
+    Small local models sometimes wrap recent-event strings in single-key
+    objects despite the schema instructions. Unwrap only that exact shape;
+    leave other malformed entries intact for the validator to reject.
+    """
+    events = patch.get("new_recent_events")
+    if not isinstance(events, list):
+        return patch
+
+    normalized: list[Any] = []
+    changed = False
+    for item in events:
+        if (
+            isinstance(item, dict)
+            and set(item) == {"event"}
+            and isinstance(item.get("event"), str)
+        ):
+            normalized.append(item["event"])
+            changed = True
+        else:
+            normalized.append(item)
+
+    if not changed:
+        return patch
+    result = dict(patch)
+    result["new_recent_events"] = normalized
+    return result
+
 
 def remove_unchanged(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
     """Remove values that are identical to the baseline."""
@@ -1916,7 +1969,7 @@ class StateManager:
             "situation and not what should happen in the next scene. Keep it concise and factual. "
             "Do not copy planning instructions or future events into it. "
             "Always return non-empty current_situation. Return only changed location, physical_state, time_of_day, and active_objectives fields, plus new_clues (use [] if none), resolved_clues, new_unresolved_questions, resolved_questions, and new_recent_events (use [] if none). "
-            "Do not return character_knowledge, active_clues, unresolved_questions directly, recent_events directly, event/event-log fields, scene flags, continuity requirements, or other metadata. For new_clues, include specific sensory/physical/vehicle evidence, preserve witness qualifiers, and never invent an extra scent or split one observation into additional clues. Do not repeat an existing active clue as new. Keep exact first-time nicknames and whether they are accepted or rejected as distinct new_recent_events, not just a generic hug. Include physical_state.clothing when the prose explicitly establishes a continuity-relevant outfit change. "
+            "Each new_recent_events item must be a plain JSON string, not an object with an event key. Do not return character_knowledge, active_clues, unresolved_questions directly, recent_events directly, event/event-log fields, scene flags, continuity requirements, or other metadata. For new_clues, include specific sensory/physical/vehicle evidence, preserve witness qualifiers, and never invent an extra scent or split one observation into additional clues. Do not repeat an existing active clue as new. Keep exact first-time nicknames and whether they are accepted or rejected as distinct new_recent_events, not just a generic hug. Include physical_state.clothing when the prose explicitly establishes a continuity-relevant outfit change. "
             "Use null to remove stale object keys as described by the system rules. Update only objectives changed by the completed prose and keep any group commitment broad when no assignments have been made. The compact context omits full character knowledge and editorial reminders; do not treat omitted facts as false."
         ])
         prompt = "".join(prompt_parts)
@@ -1989,8 +2042,12 @@ class StateManager:
         # known characters; all other unsupported fields remain validation errors.
         parsed_proposal_for_error: dict[str, Any] | None = None
         for attempt in range(2):
+            parsed_proposal_for_error = None
             try:
-                parsed_candidate = extract_json_object(output)
+                parsed_candidate = extract_json_object(
+                    output,
+                    required_keys={"current_situation"},
+                )
                 # Preserve the exact parsed shape before normalizers change it so
                 # a failed proposal can be diagnosed from the error message.
                 parsed_proposal_for_error = json.loads(
@@ -2009,6 +2066,7 @@ class StateManager:
                     candidate,
                     scene_characters=scene_characters,
                 )
+                candidate = normalize_recent_event_entries(candidate)
                 validate_state_proposal(current_state, candidate)
                 patch = candidate
                 break
@@ -2024,7 +2082,10 @@ class StateManager:
                         or "Invalid state update: 'location' must be an object" in error_text
                     ):
                         try:
-                            recovered = extract_json_object(output)
+                            recovered = extract_json_object(
+                                output,
+                                required_keys={"current_situation"},
+                            )
                             # Character knowledge is always handled by the
                             # dedicated knowledge audit, never salvaged here.
                             recovered.pop("character_knowledge", None)
@@ -2054,6 +2115,7 @@ class StateManager:
                             else:
                                 recovered.pop("location", None)
 
+                            recovered = normalize_recent_event_entries(recovered)
                             validate_state_proposal(current_state, recovered)
                             patch = recovered
                             break
@@ -2071,7 +2133,7 @@ class StateManager:
                             ensure_ascii=False,
                         )
                     else:
-                        parsed_detail = "(No complete JSON object could be extracted from the model response.)"
+                        parsed_detail = "(No complete state-proposal JSON object containing current_situation could be extracted from the model response.)"
                     raise ValueError(
                         "The continuity model returned an invalid state update even after one "
                         "automatic correction attempt. No state changes were applied.\n\n"
@@ -2087,7 +2149,7 @@ class StateManager:
                     "rejected by the application's state validator. Correct the same proposal "
                     "using only facts supported by the completed prose. Do not invent new events.\n"
                     + f"VALIDATION ERROR: {exc}\n"
-                    + "SCHEMA REMINDER: return ONLY current_situation, location, physical_state, time_of_day, active_objectives (partial object; use null to delete stale objectives), new_clues, resolved_clues, new_unresolved_questions, resolved_questions, and new_recent_events. Use [] for empty list outputs. Do not return event, events, recent_events, active_clues, unresolved_questions, character_knowledge, or unrelated metadata. JSON null deletes an explicitly stale object key; never use it for information that is merely unmentioned. "
+                    + "SCHEMA REMINDER: return ONLY current_situation, location, physical_state, time_of_day, active_objectives (partial object; use null to delete stale objectives), new_clues, resolved_clues, new_unresolved_questions, resolved_questions, and new_recent_events. Use [] for empty list outputs. Each new_recent_events item must be a plain JSON string, not an object with an event key. Do not return event, events, recent_events, active_clues, unresolved_questions, character_knowledge, or unrelated metadata. JSON null deletes an explicitly stale object key; never use it for information that is merely unmentioned. "
                     "Always include a non-empty current_situation describing what is true at the absolute end of the completed prose, not an earlier action. "
                     "If supplied, location must be an object with plain-text descriptions or null deletion markers; physical_state must be an object. "
                     "Do not turn actions the characters performed into knowledge facts. Return corrected JSON only.\n"
