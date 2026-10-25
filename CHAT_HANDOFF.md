@@ -57,7 +57,7 @@ A future separate app idea: an e-liquid flavor/recipe tracker with separate flav
 
 ## Immediate next steps
 
-1. Freeze code changes for tonight. The duplicate-scene fix is already pushed to `redesign/simplified-writing-workflow` in commit `81d04fe`; latest handoff-only commit is `6bb47c4`.
+1. Freeze code changes for tonight. The duplicate-scene fix is already pushed to `redesign/simplified-writing-workflow` in commit `81d04fe`; both handoff files now record the stopping point.
 2. On the laptop, close StoryBuilder normally if open to allow its usual sync. Verify with `cd ~/Documents/StoryBuilder && git log -1 --oneline`.
 3. Run `cd ~/Documents/StoryBuilder && python3 -m pytest -q`. The old 378-passed laptop result predates the new experiment and is not a verification of the current branch.
 4. If tests pass, reopen StoryBuilder and regenerate the unaccepted Chapter 1, Scene 5 draft. The new code requests one full replacement for a missing-beat retry and only uses it if both follow-up reviews pass; otherwise the existing draft is preserved. It must never append the replacement to the first scene.
