@@ -137,7 +137,10 @@ ENDING_STATE_SYSTEM_PROMPT = """You determine only the actual ending state of a 
 
 Return exactly one JSON object. Allowed keys are current_situation, location, physical_state, and time_of_day. current_situation is required and must be concise, factual, non-empty text.
 
-The input contains the saved state before the scene and only the final few paragraphs of accepted prose. The accepted prose is the evidence. The saved state is a baseline, not proof that old positions stayed the same. The final paragraph is the strongest evidence for what remains true at the end.
+The input contains the saved state before the scene and only the final few paragraphs of accepted prose. The accepted prose is the evidence. The saved state is a baseline, not proof that old positions stayed the same. The final paragraph is the strongest evidence for what remains true at the end. current_situation is a concise carry-forward summary of the whole active story situation, not merely a summary of what receives attention in the final paragraphs.
+
+- Preserve every important unresolved situation or crisis named in the before-state unless the accepted prose clearly resolves it, changes its status, or establishes a materially different condition. A shift in viewpoint, location, or attention to a secondary investigation is not resolution.
+- If two important problems remain open at the end, keep both in current_situation. Summarize the current endpoint of the main crisis alongside any secondary activity, without inventing a connection between them.
 
 - Describe what is true at the absolute end, not what happened earlier, what was planned, or what might happen next.
 - Earlier movement toward a place does not mean the character entered it or started work there. If the final prose says someone remains outside or is checking external equipment, preserve that endpoint.
@@ -159,11 +162,13 @@ Return exactly one JSON object with all five keys:
 Each value must be an array of non-empty strings. Use an empty array when there are no items.
 
 The full accepted scene is the source of truth. The supplied active-clue and unresolved-question lists are the before-state used for deduplication and resolution checks.
-- new_clues: concrete, observable evidence newly established by the prose. Keep witness uncertainty. Do not turn a hypothesis into a fact, invent extra details, or repeat an existing active clue.
-- resolved_clues: exact existing active-clue entries explicitly resolved or disproved by the prose. Omit anything merely not mentioned or discussed speculatively.
+- new_clues: only concrete observations with independent investigative value, such as a newly observed signal characteristic, physical trace, reading, damage, route, or other evidence that can help test explanations or narrow a cause/source. Not every true detail is a clue. Do not turn a character's opinion, prediction, estimate, metaphor, or hypothesis into a concrete finding. A consequential estimate or hypothesis may be recorded as an attributed recent event, preserving who said it and its uncertainty.
+- Do not treat routine gestures/actions, movement to an assigned position, orders, plans, intentions, or ordinary dialogue as clues by themselves. Examples that are not clues alone include adjusting gloves, nodding, agreeing to follow a safety precaution, or directing a check. Record consequential decisions and actions as recent events when they materially advance the scene.
+- Keep genuinely new observable information even when it is not yet verified; preserve the uncertainty in its wording. Do not repeat an existing active clue or split a single observation into several clues.
+- resolved_clues: exact existing active-clue entries explicitly resolved or disproved by the prose. Omit anything merely not mentioned or discussed speculatively. A continuing problem remains active when the scene confirms it is still happening.
 - new_unresolved_questions: concrete factual unknowns made salient by this scene and still unanswered.
 - resolved_questions: exact existing questions answered by the prose.
-- new_recent_events: important factual beats that actually occurred, in chronological order. Include no planned future events, model inferences, or invented actions. Every item is a plain JSON string, never an object with an event key.
+- new_recent_events: important factual beats that actually occurred, in chronological order. Include no planned future events, model inferences, or invented actions. Preserve who made an estimate or proposed a hypothesis rather than stating it as confirmed fact. Skip routine gestures and minor movements unless they materially change the scene. Every item is a plain JSON string, never an object with an event key.
 - Do not produce or alter current_situation, location, physical_state, time_of_day, active_objectives, character_knowledge, active_clues, unresolved_questions, or recent_events. Do not change anyone's position, action, role, or objective.
 - Don't infer a connection between unrelated investigations unless the prose establishes one.
 - Output JSON only, without markdown or explanations.
@@ -1653,6 +1658,7 @@ class StateManager:
         current_state: dict[str, Any],
         story_text: str,
         scene_characters: list[str] | None = None,
+        prompt_trace: Any | None = None,
     ) -> dict[str, Any]:
         """Audit the opening cast plus characters named as possible participants."""
         supplied = scene_characters if isinstance(scene_characters, list) else []
@@ -1668,6 +1674,23 @@ class StateManager:
                 seen_names.add(key)
         if not cast:
             return {}
+
+        def trace_record(method_name: str, **details: Any) -> Any:
+            """Keep optional diagnostics from affecting the knowledge audit."""
+            if prompt_trace is None:
+                return None
+            try:
+                return getattr(prompt_trace, method_name)(**details)
+            except Exception as trace_exc:
+                try:
+                    prompt_trace.record_event(
+                        "trace_capture_error",
+                        method=method_name,
+                        error=str(trace_exc),
+                    )
+                except Exception:
+                    pass
+                return None
 
         existing = current_state.get("character_knowledge", {})
         all_knowledge_before = {}
@@ -1744,27 +1767,121 @@ class StateManager:
             "--single-turn",
         ])
 
-        proc = subprocess.Popen(
-            args,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            env=env,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
+        runtime_options = {
+            "reasoning": "off",
+            "temperature": 0.10,
+            "top_k": 20,
+            "top_p": 0.80,
+            "repeat_last_n": 256,
+            "repeat_penalty": 1.08,
+            "n_predict": 900,
+            "single_turn": True,
+        }
+        trace_record(
+            "record_session",
+            model_path=model,
+            runtime_binary=DEFAULT_LLAMA,
+            system_prompt=KNOWLEDGE_AUDIT_SYSTEM_PROMPT,
+            context_size=8192,
+            max_tokens=900,
+            device=device,
+            runtime_options=runtime_options,
         )
+        call_id = trace_record(
+            "begin_generation",
+            prompt=audit_prompt,
+            sent_prompt=audit_prompt,
+        )
+        started = time.monotonic()
+        proc = None
+        output = ""
         try:
+            proc = subprocess.Popen(
+                args,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                env=env,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+            )
             output, _ = proc.communicate(timeout=600)
         except subprocess.TimeoutExpired as exc:
-            proc.kill()
-            output, _ = proc.communicate()
-            raise RuntimeError("Character knowledge audit timed out.") from exc
-        if proc.returncode not in (0, None):
-            raise RuntimeError(
-                "Character knowledge audit failed.\n" + (output or "")[-2000:]
+            if proc is not None:
+                proc.kill()
+                try:
+                    output, _ = proc.communicate()
+                except Exception:
+                    pass
+            trace_record(
+                "finish_generation",
+                call_id=call_id,
+                response=output or "",
+                status="timeout",
+                duration_seconds=time.monotonic() - started,
+                error=str(exc),
             )
+            trace_record(
+                "record_event",
+                event_type="state_knowledge_audit_error",
+                error="Character knowledge audit timed out.",
+            )
+            raise RuntimeError("Character knowledge audit timed out.") from exc
+        except Exception as exc:
+            trace_record(
+                "finish_generation",
+                call_id=call_id,
+                response=output or "",
+                status="runtime_error",
+                duration_seconds=time.monotonic() - started,
+                error=str(exc),
+            )
+            trace_record(
+                "record_event",
+                event_type="state_knowledge_audit_error",
+                error=str(exc),
+            )
+            raise
 
-        raw = extract_json_object(output)
+        if proc.returncode not in (0, None):
+            failure = "Character knowledge audit failed.\n" + (output or "")[-2000:]
+            trace_record(
+                "finish_generation",
+                call_id=call_id,
+                response=output or "",
+                status="runtime_error",
+                duration_seconds=time.monotonic() - started,
+                error=failure,
+            )
+            trace_record(
+                "record_event",
+                event_type="state_knowledge_audit_error",
+                error=failure,
+            )
+            raise RuntimeError(failure)
+
+        diagnostics_match = re.search(
+            r"\\[ Prompt: .*? \\| Generation: .*? \\]\\s*$",
+            str(output or ""),
+            flags=re.DOTALL,
+        )
+        trace_record(
+            "finish_generation",
+            call_id=call_id,
+            response=output or "",
+            status="completed",
+            cli_diagnostics=diagnostics_match.group(0).strip() if diagnostics_match else None,
+            duration_seconds=time.monotonic() - started,
+        )
+        try:
+            raw = extract_json_object(output)
+        except Exception as exc:
+            trace_record(
+                "record_event",
+                event_type="state_knowledge_audit_parse_error",
+                error=str(exc),
+            )
+            raise
         result: dict[str, Any] = {}
         for name in cast:
             values = raw.get(name)
@@ -1791,6 +1908,12 @@ class StateManager:
                         cleaned_superseded[name] = facts
             if cleaned_superseded:
                 result["_superseded_facts"] = cleaned_superseded
+        trace_record(
+            "record_event",
+            event_type="state_knowledge_audit_result",
+            model_response=raw,
+            normalized_delta=result,
+        )
         return result
 
     @staticmethod
@@ -2422,6 +2545,7 @@ class StateManager:
                 current_state,
                 completed_text,
                 scene_characters=scene_characters,
+                prompt_trace=prompt_trace,
             )
             if knowledge_delta:
                 StateManager._merge_knowledge_delta(
