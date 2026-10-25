@@ -1,20 +1,29 @@
-# Generic event-support guard — October 25, 2026
+# StoryBuilder philosophy and current checkpoint — October 25, 2026
 
-## User's writing principle
+## The product principle comes first
 
-Tony explicitly does not want StoryBuilder to prescribe a step-by-step plot or turn writing into an instruction manual. The novel must remain free to discover its own events, solutions, setbacks, and temporary workarounds. No scene sequence, Mars-specific rule, character name, 24-hour deadline, or repair solution is to be hard-coded into StoryBuilder.
+Tony has explicitly called out a repeated failure pattern: each imperfect State Analysis proposal leads to another filter, exception, and regression test, making StoryBuilder increasingly complicated and turning novel writing into maintenance work. Do not repeat that cycle.
 
-## Latest Scene 4 finding
+**The story is the novel. The state is only a memory aid.** State Analysis is not a transcript of everything that happened and is not supposed to catalogue ordinary life. Zoe's shirt color or breakfast is not worth preserving unless the detail becomes story-relevant. Ordinary gestures, clothing, meals, and minor movements should remain in prose, not be promoted to continuity records without a meaningful reason.
 
-The latest trace is [the private Prompt Trace](https://github.com/tony21675/StoryBuilder-Traces/blob/main/prompt_trace.json). The 24-hour thermal estimate was retained as a recent event, not a new clue, and the original recent-event history survived under the 16-entry limit. The evidence model still proposed unsupported character actions: Morgan moving toward the hub and Daniel agreeing to switch from modeling to an applied inspection. The accepted scene instead has Morgan respond to Elena's instruction and Daniel offer to prepare diagnostic tools from the hub. The accepted prose and saved state remain untouched; the proposal was not applied.
+Preserve what helps the story continue: major unresolved situations, concrete discoveries, consequential decisions/actions, meaningful changes in relationships or character understanding, and important predictions or hypotheses clearly attributed and left uncertain. Do not try to record or classify every sentence. It is acceptable for a suggestion to be imperfect; avoid over-engineering low-risk bookkeeping to chase perfection.
 
-## Generic code safeguard added
+StoryBuilder must not prescribe plot beats or a step-by-step sequence of what characters must do. The writer owns what happens next, including whether Daniel's estimate is right, whether the crew finds a temporary workaround, and whether it buys time. Do not hard-code Mars, character names, the 24-hour estimate, or any repair idea into the app. Keep the story free to surprise the writer.
 
-- Added `filter_unsupported_character_action_events` to `builder/state_manager.py`. It conservatively checks explicit physical-movement/positioning and agreement claims against the accepted prose and the named character, without requiring copied quotes. If the actor cannot be confidently identified, or the event is outside those action categories, the entry is left alone rather than guessed away.
-- Added a regression test ensuring the unsupported Morgan movement, Daniel agreement, and unsupported active repositioning are filtered, while supported movement phrased differently, a short affirmative agreement, and Zoe's supported leaning action are retained.
-- This is a state-ledger continuity safeguard, not an instruction for the writer. It does not prescribe events or outcomes and does not add any plot-specific prompt rules.
+When a failure appears, first ask whether it truly threatens continuity or merely reflects a nonessential detail. Prefer a simpler design or tolerate a harmless imperfection over adding a special-case filter. Do not turn prompts into an IKEA manual. Do not add another guard, workflow, or test for every single model mistake. App changes still require discussion and approval; handoff updates may be made directly.
 
-The code and regression test are on `redesign/simplified-writing-workflow` in commits `072220a` and `68813fa`. The full local test suite has **not yet been run** against this latest code. When StoryBuilder closes and syncs, run `python3 -m pytest -q`. If tests pass, rerun State Analysis on accepted Scene 4 and inspect the proposal. Do not apply any proposal automatically. No novel repository was edited.
+## Current StoryBuilder checkpoint
+
+- Branch: `redesign/simplified-writing-workflow`.
+- Latest confirmed laptop test result: **378 passed**, before the newest experimental character-action support filter was added.
+- The latest branch now includes `filter_unsupported_character_action_events` and a regression test. This new filter has **not been run locally or otherwise verified**. Do not stack further fixes on top of it or assume it is sound. Reassess whether this special-case filter is worth keeping; prefer reverting/simplifying it if it adds complexity disproportionate to its benefit.
+- The broader safeguards already in place preserve unresolved crises, keep explicit projection-only clues out of the clue ledger while retaining an attributed estimate as an event, reduce a narrow class of routine event clutter, and retain up to 16 recent events. Avoid expanding these into a detailed event-classification system.
+- The latest private trace is [StoryBuilder-Traces/prompt_trace.json](https://github.com/tony21675/StoryBuilder-Traces/blob/main/prompt_trace.json). It showed Daniel's 24-hour estimate correctly retained as a recent event, earlier significant history surviving, and some fabricated event claims by the model. The appropriate response is not to police every sentence.
+- The accepted Chapter 1, Scene 4 prose and saved novel state remain untouched. The last state proposal was not applied. No novel repository has been edited.
+
+## Next action
+
+Resume by reviewing the scope and complexity of the experimental character-action filter, not by adding more rules. Do not ask Tony to repeatedly diagnose code internals or search through long files. After deciding on the smallest sensible scope with Tony, run `python3 -m pytest -q`; the most recent full-suite result after adding that filter is not yet known. Then retest State Analysis without applying a proposal unless Tony explicitly chooses to.
 
 ---
 
