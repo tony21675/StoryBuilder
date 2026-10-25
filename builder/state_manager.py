@@ -133,6 +133,23 @@ def is_routine_action_log_knowledge(
     return False
 
 
+MAIN_PLOT_SYSTEM_PROMPT = """You maintain a concise main-plot continuity summary for an ongoing fictional story.
+
+Return exactly one JSON object with exactly one key:
+{"current_situation": "short main-plot summary"}
+
+This summary is a memory aid for the central story, not a transcript, event log, clue ledger, or character database. Read the full accepted scene and use the saved summary as the before-state.
+
+Keep only information that could materially affect the central story going forward: the main unresolved problem or danger, its current status, important stakes or deadlines, meaningful discoveries or decisions, and any temporary workaround that the accepted prose actually establishes as working. Carry forward an unresolved main problem even when the scene focuses on a secondary thread. Preserve significant uncertainty. Attribute estimates and hypotheses to the character who made them; a prediction is not a confirmed outcome.
+
+Leave out routine actions, minor movement, positions, clothing, meals, ordinary dialogue, individual clues, separate character-knowledge notes, and detailed chronology. Mention a secondary thread only when it materially affects the main plot or the saved summary already establishes it as a central strand. Do not invent a connection between separate problems.
+
+Do not invent events, infer technical results, decide whether a prediction is correct, prescribe the next plot beat, or suggest a step-by-step solution. Do not turn intentions or plans into completed actions. The writer decides what happens next.
+
+Keep the summary concise and natural, usually two to four sentences. Include enough for the writer to understand where the central story stands, but omit anything that does not help carry the main plot into the next scene. Output JSON only, without markdown or explanations.
+"""
+
+
 ENDING_STATE_SYSTEM_PROMPT = """You determine only the actual ending state of a completed scene in an ongoing fictional story.
 
 Return exactly one JSON object. Allowed keys are current_situation, location, physical_state, and time_of_day. current_situation is required and must be concise, factual, non-empty text.
@@ -2171,6 +2188,7 @@ class StateManager:
         scene_end_guidance: str | None = None,
         scene_characters: list[str] | None = None,
         prompt_trace: Any | None = None,
+        main_plot_only: bool = False,
     ) -> dict[str, Any]:
         if not story_text.strip():
             raise ValueError("There is no story text to analyze.")
@@ -2204,90 +2222,110 @@ class StateManager:
                         pass
                 return None
 
-        # Scene-end guidance is deliberately ignored. The accepted prose is the
-        # sole evidence source; the state model now has two narrow responsibilities.
+        # Normal Writer State Analysis can be run in a deliberately small
+        # main-plot-only mode. The saved-state recovery tool keeps the legacy
+        # reconstruction path because it has a different job.
         scene_names = scene_characters or current_state.get("scene_cast", [])
-        scene_name_keys = {str(name).casefold() for name in scene_names if str(name).strip()}
-        scene_name_keys.update(
-            str(name).casefold()
-            for name in current_state.get("scene_cast", [])
-            if str(name).strip()
-        )
+        if main_plot_only:
+            ending_context = {
+                field: current_state[field]
+                for field in ("chapter", "scene", "current_situation")
+                if field in current_state
+            }
+            ending_excerpt = completed_text
+            ending_prompt = (
+                "BEFORE MAIN-PLOT SUMMARY:\n"
+                + json.dumps(ending_context, indent=2, ensure_ascii=False)
+                + "\n\nFULL ACCEPTED SCENE:\n"
+                + completed_text
+                + "\n\nUpdate only the concise main-plot summary. The full scene is the evidence; "
+                "the before-summary is a baseline, not a set of details that must all be repeated."
+            )
+            evidence_context = None
+            evidence_prompt = None
+        else:
+            scene_name_keys = {str(name).casefold() for name in scene_names if str(name).strip()}
+            scene_name_keys.update(
+                str(name).casefold()
+                for name in current_state.get("scene_cast", [])
+                if str(name).strip()
+            )
 
-        ending_context: dict[str, Any] = {}
-        for field in (
-            "chapter", "scene", "scene_cast", "current_situation", "time",
-            "time_of_day", "location", "physical_state",
-        ):
-            if field not in current_state:
-                continue
-            value = current_state[field]
-            if field in {"location", "physical_state"} and isinstance(value, dict):
-                ending_context[field] = {
-                    name: item
-                    for name, item in value.items()
-                    if (field == "location" and str(name).casefold() == "primary")
-                    or str(name).casefold() in scene_name_keys
-                }
-            else:
-                ending_context[field] = value
+            ending_context: dict[str, Any] = {}
+            for field in (
+                "chapter", "scene", "scene_cast", "current_situation", "time",
+                "time_of_day", "location", "physical_state",
+            ):
+                if field not in current_state:
+                    continue
+                value = current_state[field]
+                if field in {"location", "physical_state"} and isinstance(value, dict):
+                    ending_context[field] = {
+                        name: item
+                        for name, item in value.items()
+                        if (field == "location" and str(name).casefold() == "primary")
+                        or str(name).casefold() in scene_name_keys
+                    }
+                else:
+                    ending_context[field] = value
 
-        evidence_context = {
-            field: current_state[field]
-            for field in ("chapter", "scene", "scene_cast", "active_clues", "unresolved_questions")
-            if field in current_state
-        }
-        if isinstance(current_state.get("recent_events"), list):
-            evidence_context["recent_events"] = current_state["recent_events"][-8:]
+            evidence_context = {
+                field: current_state[field]
+                for field in ("chapter", "scene", "scene_cast", "active_clues", "unresolved_questions")
+                if field in current_state
+            }
+            if isinstance(current_state.get("recent_events"), list):
+                evidence_context["recent_events"] = current_state["recent_events"][-8:]
 
-        # Use the last few actual prose paragraphs for the ending-state decision.
-        # The whole scene is sent separately to the evidence pass below.
-        paragraphs = [
-            part.strip()
-            for part in re.split(r"\n\s*\n", completed_text)
-            if part.strip()
-        ]
-        if not paragraphs:
-            paragraphs = [completed_text]
-        ending_parts: list[str] = []
-        ending_chars = 0
-        for paragraph in reversed(paragraphs):
-            separator_chars = 2 if ending_parts else 0
-            remaining = 6000 - ending_chars - separator_chars
-            if remaining <= 0:
-                break
-            if len(paragraph) > remaining:
-                ending_parts.insert(0, paragraph[-remaining:])
-                ending_chars = 6000
-                break
-            ending_parts.insert(0, paragraph)
-            ending_chars += len(paragraph) + separator_chars
-            if len(ending_parts) >= 4:
-                break
-        ending_excerpt = "\n\n".join(ending_parts)
+            # The original reconstruction path uses the final paragraphs to
+            # update detailed location/physical state separately from evidence.
+            paragraphs = [
+                part.strip()
+                for part in re.split(r"\n\s*\n", completed_text)
+                if part.strip()
+            ]
+            if not paragraphs:
+                paragraphs = [completed_text]
+            ending_parts: list[str] = []
+            ending_chars = 0
+            for paragraph in reversed(paragraphs):
+                separator_chars = 2 if ending_parts else 0
+                remaining = 6000 - ending_chars - separator_chars
+                if remaining <= 0:
+                    break
+                if len(paragraph) > remaining:
+                    ending_parts.insert(0, paragraph[-remaining:])
+                    ending_chars = 6000
+                    break
+                ending_parts.insert(0, paragraph)
+                ending_chars += len(paragraph) + separator_chars
+                if len(ending_parts) >= 4:
+                    break
+            ending_excerpt = "\n\n".join(ending_parts)
 
-        ending_prompt = (
-            "BEFORE-STATE CONTEXT (only the state before this scene):\n"
-            + json.dumps(ending_context, indent=2, ensure_ascii=False)
-            + "\n\nFINAL PARAGRAPHS OF ACCEPTED SCENE (ending-state evidence):\n"
-            + ending_excerpt
-            + "\n\nReturn only the ending-state fields supported by these final paragraphs. "
-            "Keep unchanged physical details out of the patch. Do not update objectives."
-        )
-        evidence_prompt = (
-            "BEFORE-SCENE EVIDENCE CONTEXT (for deduplication and exact resolution only):\n"
-            + json.dumps(evidence_context, indent=2, ensure_ascii=False)
-            + "\n\nFULL ACCEPTED SCENE (the source of new events and evidence):\n"
-            + completed_text
-            + "\n\nExtract only new evidence/events/questions from the full scene. "
-            "This pass cannot update or override the ending state or objectives."
-        )
+            ending_prompt = (
+                "BEFORE-STATE CONTEXT (only the state before this scene):\n"
+                + json.dumps(ending_context, indent=2, ensure_ascii=False)
+                + "\n\nFINAL PARAGRAPHS OF ACCEPTED SCENE (ending-state evidence):\n"
+                + ending_excerpt
+                + "\n\nReturn only the ending-state fields supported by these final paragraphs. "
+                "Keep unchanged physical details out of the patch. Do not update objectives."
+            )
+            evidence_prompt = (
+                "BEFORE-SCENE EVIDENCE CONTEXT (for deduplication and exact resolution only):\n"
+                + json.dumps(evidence_context, indent=2, ensure_ascii=False)
+                + "\n\nFULL ACCEPTED SCENE (the source of new events and evidence):\n"
+                + completed_text
+                + "\n\nExtract only new evidence/events/questions from the full scene. "
+                "This pass cannot update or override the ending state or objectives."
+            )
 
         trace_record(
             "record_event",
             event_type="state_analysis_input",
             accepted_scene=completed_text,
             scene_characters=scene_names,
+            main_plot_only=main_plot_only,
             ending_state_context=ending_context,
             evidence_context=evidence_context,
             ending_excerpt=ending_excerpt,
@@ -2539,6 +2577,23 @@ class StateManager:
                     )
                     output_text = run_model(correction_prompt, system_prompt, max_tokens)
             raise ValueError(f"The {pass_name} continuity pass could not produce a valid proposal.")
+
+        if main_plot_only:
+            main_plot_patch = run_json_pass(
+                ending_prompt,
+                MAIN_PLOT_SYSTEM_PROMPT,
+                pass_name="main-plot",
+                allowed_fields={"current_situation"},
+                required_fields={"current_situation"},
+                ending_state_pass=True,
+                max_tokens=450,
+            )
+            trace_record(
+                "record_event",
+                event_type="state_analysis_proposal",
+                proposed_patch=main_plot_patch,
+            )
+            return main_plot_patch
 
         ending_patch = run_json_pass(
             ending_prompt,
