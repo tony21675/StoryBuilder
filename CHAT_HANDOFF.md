@@ -15,15 +15,14 @@ When a failure appears, first ask whether it truly threatens continuity or merel
 ## Current StoryBuilder checkpoint
 
 - Branch: `redesign/simplified-writing-workflow`.
-- Latest confirmed laptop test result: **378 passed**, before the newest experimental character-action support filter was added.
-- The latest branch now includes `filter_unsupported_character_action_events` and a regression test. This new filter has **not been run locally or otherwise verified**. Do not stack further fixes on top of it or assume it is sound. Reassess whether this special-case filter is worth keeping; prefer reverting/simplifying it if it adds complexity disproportionate to its benefit.
+- Last full test run on the laptop: **378 passed**. The experimental `filter_unsupported_character_action_events` helper and its special-case regression test have now been removed from the branch. The code and test files are restored to the same versions that were present at the 378-passing baseline. Do not reintroduce this event-policing filter or replace it with another special-case layer.
 - The broader safeguards already in place preserve unresolved crises, keep explicit projection-only clues out of the clue ledger while retaining an attributed estimate as an event, reduce a narrow class of routine event clutter, and retain up to 16 recent events. Avoid expanding these into a detailed event-classification system.
 - The latest private trace is [StoryBuilder-Traces/prompt_trace.json](https://github.com/tony21675/StoryBuilder-Traces/blob/main/prompt_trace.json). It showed Daniel's 24-hour estimate correctly retained as a recent event, earlier significant history surviving, and some fabricated event claims by the model. The appropriate response is not to police every sentence.
 - The accepted Chapter 1, Scene 4 prose and saved novel state remain untouched. The last state proposal was not applied. No novel repository has been edited.
 
 ## Next action
 
-Resume by reviewing the scope and complexity of the experimental character-action filter, not by adding more rules. Do not ask Tony to repeatedly diagnose code internals or search through long files. After deciding on the smallest sensible scope with Tony, run `python3 -m pytest -q`; the most recent full-suite result after adding that filter is not yet known. Then retest State Analysis without applying a proposal unless Tony explicitly chooses to.
+The next action is to let the laptop sync these reversion commits, verify the current branch head, and run `python3 -m pytest -q` once to confirm the restored baseline. Do not add more filters or special cases. If the tests pass, resume ordinary writing/testing; inspect State Analysis proposals for major continuity problems only, and leave accepted prose and unapplied proposals untouched unless Tony explicitly chooses otherwise.
 
 ---
 
