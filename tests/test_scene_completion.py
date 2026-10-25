@@ -302,7 +302,7 @@ class SceneCompletionTests(unittest.TestCase):
         self.assertNotIn(replacement, draft)
         self.assertEqual(len(self.engine.prompts), 1)
         self.assertTrue(any(item["kind"] == "continuity" for item in findings))
-        self.assertIn("no prose was changed automatically", notice)
+        self.assertIn("No prose was changed automatically", notice)
     def test_audit_requires_verbatim_evidence_for_viewpoint_timeline_privacy_and_scope(self):
         prose = (
             "Last night, Chloe saw Tiffany taken. Maya changed in the kitchen. "
