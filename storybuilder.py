@@ -3237,14 +3237,15 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         contract_building = bool(getattr(self, "scene_contract_building", False))
         generating = bool(getattr(self, "writer_generation_in_progress", False))
         focused_revision = bool(self.__dict__.get("focused_revision_in_progress", False))
+        validator_review = bool(self.__dict__.get("validator_review_in_progress", False))
         suggesting_idea = bool(self.__dict__.get("scene_idea_suggestion_in_progress", False))
-        busy = notes_updating or contract_building or generating or focused_revision or suggesting_idea
+        busy = notes_updating or contract_building or generating or focused_revision or validator_review or suggesting_idea
 
         self.writer_start_button.configure(
             state="disabled" if running or busy else "normal"
         )
         self.writer_stop_button.configure(
-            state="normal" if running and not notes_updating and not contract_building and not focused_revision else "disabled"
+            state="normal" if running and not notes_updating and not contract_building and not focused_revision and not validator_review else "disabled"
         )
         self.writer_write_button.configure(
             state="normal" if running and self.package and not has_pending and not busy else "disabled"
@@ -3769,8 +3770,12 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
                 "Wait for the current scene contract to finish before generating prose.",
             )
             return
-        if getattr(self, "writer_generation_in_progress", False) or self.__dict__.get("focused_revision_in_progress", False):
-            messagebox.showwarning("Writer", "A Writer task is already running.")
+        if (
+            getattr(self, "writer_generation_in_progress", False)
+            or self.__dict__.get("focused_revision_in_progress", False)
+            or self.__dict__.get("validator_review_in_progress", False)
+        ):
+            messagebox.showwarning("Writer", "A Writer or validator-review task is already running.")
             return
         if self._has_pending_generated_scene() and not replacing_draft:
             messagebox.showinfo(
@@ -4204,7 +4209,11 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
     def _regenerate_generated_scene(self):
         if not self._has_pending_generated_scene():
             return
-        if getattr(self, "writer_generation_in_progress", False) or self.__dict__.get("focused_revision_in_progress", False):
+        if (
+            getattr(self, "writer_generation_in_progress", False)
+            or self.__dict__.get("focused_revision_in_progress", False)
+            or self.__dict__.get("validator_review_in_progress", False)
+        ):
             return
         if not self._ask_yes_no(
             "Regenerate Scene",
@@ -4217,7 +4226,11 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
     def _apply_focused_scene_change(self):
         if self.package is None or not self._has_pending_generated_scene():
             return
-        if getattr(self, "writer_generation_in_progress", False) or self.__dict__.get("focused_revision_in_progress", False):
+        if (
+            getattr(self, "writer_generation_in_progress", False)
+            or self.__dict__.get("focused_revision_in_progress", False)
+            or self.__dict__.get("validator_review_in_progress", False)
+        ):
             return
 
         editor = self.writer_output_text
@@ -8044,10 +8057,14 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         """Confirm that temporary, unaccepted Writer text may be discarded."""
         if self.package is None:
             return True
-        if getattr(self, "writer_generation_in_progress", False) or self.__dict__.get("focused_revision_in_progress", False):
+        if (
+            getattr(self, "writer_generation_in_progress", False)
+            or self.__dict__.get("focused_revision_in_progress", False)
+            or self.__dict__.get("validator_review_in_progress", False)
+        ):
             messagebox.showwarning(
                 "Writer",
-                "A Writer task is still running. Let it finish before changing scenes or closing StoryBuilder.",
+                "A Writer or validator-review task is still running. Finish the review before changing scenes or closing StoryBuilder.",
             )
             return False
         if self.__dict__.get("scene_planner_request_in_progress", False):
