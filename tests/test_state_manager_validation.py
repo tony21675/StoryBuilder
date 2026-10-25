@@ -1003,9 +1003,11 @@ class StateUpdateValidationTests(unittest.TestCase):
             self.assertEqual(popen.call_count, 3)
             repair_args = popen.call_args_list[1].args[0]
             repair_prompt = repair_args[repair_args.index("--prompt") + 1]
-            self.assertIn("Do not return event, events", repair_prompt)
+            self.assertIn("Allowed keys: current_situation, location, physical_state, time_of_day", repair_prompt)
             self.assertIn("current_situation", repair_prompt)
-            self.assertIn("Each new_recent_events item must be a plain JSON string", repair_prompt)
+            evidence_args = popen.call_args_list[2].args[0]
+            evidence_repair_or_prompt = evidence_args[evidence_args.index("--prompt") + 1]
+            self.assertIn("FULL ACCEPTED SCENE", evidence_repair_or_prompt)
 
     def test_rejects_character_knowledge_lists_inside_location(self):
         patch = {
@@ -1191,7 +1193,8 @@ class StateUpdateValidationTests(unittest.TestCase):
             second_args = popen.call_args_list[1].args[0]
             repair_prompt = second_args[second_args.index("--prompt") + 1]
             self.assertIn("AUTOMATIC CORRECTION REQUIRED", repair_prompt)
-            self.assertIn("SCHEMA REMINDER", repair_prompt)
+            self.assertIn("Allowed keys:", repair_prompt)
+            self.assertIn("current_situation", repair_prompt)
 
     def test_drops_malformed_location_values_after_retry_and_preserves_baseline(self):
         with tempfile.TemporaryDirectory() as tmp:
