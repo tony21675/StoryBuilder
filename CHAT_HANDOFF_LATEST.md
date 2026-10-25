@@ -1,3 +1,27 @@
+# Structural continuity analysis split — October 24, 2026
+
+## Repair implemented and CI verified
+
+Tony approved one final structural attempt after the launcher was fixed and he confirmed StoryBuilder opened normally. His Scene 4 retest still proposed an internal scrubber inspection, unsupported character movements, and broad objective changes. He did not apply it.
+
+On `redesign/simplified-writing-workflow`, `StateManager.propose` now uses two isolated model passes instead of asking one long prompt to handle every continuity task:
+
+1. **Ending-state pass:** Receives the before-state's immediate situation, time, locations, and physical state, plus only the last four accepted-prose paragraphs (capped at 6,000 characters). Its allowed output is limited to `current_situation`, `location`, `physical_state`, and `time_of_day`. It cannot change objectives.
+2. **Whole-scene evidence pass:** Receives the full accepted prose plus the existing clue/question/event history for deduplication. It can return only `new_clues`, `resolved_clues`, `new_unresolved_questions`, `resolved_questions`, and `new_recent_events`. Any situation, location, physical-state, or objective fields it might emit are discarded before the proposal is assembled.
+3. Existing objective values remain unchanged by automated state analysis, so a scene summary cannot casually rewrite everyone's goal or invent a new relationship between the communications anomaly and life-support crisis.
+
+Both passes have smaller, role-specific system prompts, independent JSON validation, and one correction attempt. The old scene-end guidance stays excluded.
+
+Regression coverage now uses the Mars hatch sequence and deliberately has the evidence pass claim the crew already entered the scrubber housing. The test verifies this contradiction cannot overwrite the ending-state pass, verifies the ending prompt omits an earlier plan paragraph, and confirms the full scene is still available to event/evidence extraction.
+
+Latest tested commit: `e93db10a8592cebb5f2b2982527f98b294c2a036`. GitHub Actions both passed:
+- [Python tests: 371 passed, 53 subtests passed](https://github.com/tony21675/StoryBuilder/actions/runs/40146507680)
+- [StoryBuilder compile and unit tests](https://github.com/tony21675/StoryBuilder/actions/runs/40146507657)
+
+No novel files were changed. The accepted Scene 4 prose is still safe and the rejected state proposal remains unapplied. The user's laptop is still on the earlier shell-sync repair until he explicitly pulls this final structural fix; do not ask him to pull before this handoff update is committed. After this handoff commit, ask him to pull with `git pull --ff-only origin redesign/simplified-writing-workflow`, then run `python3 -m pytest -q`, then reopen/test the app. Give one terminal action at a time. The critical live test is to re-analyze accepted Scene 4, inspect the proposal, and do not apply unless it reflects partial pressurization at the sealed hatch, external mount checks by Morgan/Priya, Daniel monitoring the temperature trend, and an independent communications investigation by Ryan/Zoe. If the real local model still makes unsupported ending-state changes, report that honestly rather than layering on more prompt checklists.
+
+---
+
 # Latest continuity test result — October 24, 2026
 
 ## App launch and continuity retest
