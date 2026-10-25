@@ -68,3 +68,7 @@ Commit `684caf2` introduced the unified plain-English state review and the seque
 ## State proposal correction safety and CI follow-up
 
 State-focused corrections may replace a complete text-valued proposed field when necessary, or target one unique passage within it. They never touch another field, accepted prose, or saved current state. The first CI run found stale Notebook selections and a prompt assertion mismatch; a follow-up repair is on the same development branch. Do not treat this feature as ready until both CI workflows pass.
+
+## State review test correction
+
+The current state review implementation is on `redesign/simplified-writing-workflow`. The last CI run passed 394 tests and 53 subtests except one newly added ambiguity test whose fixture accidentally differed by letter case. The fixture is corrected to contain two identical targets. Await both CI workflow results before declaring ready.

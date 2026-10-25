@@ -86,7 +86,7 @@ class StateProposalReviewTests(unittest.TestCase):
         from builder.state_review import apply_state_text_replacement
 
         with self.assertRaisesRegex(ValueError, "appears more than once"):
-            apply_state_text_replacement("Unknown. Still unknown.", "unknown", "uncertain")
+            apply_state_text_replacement("Unknown. Unknown.", "Unknown", "uncertain")
 
     def test_path_accessor_rejects_overwriting_non_text_state_structures(self):
         with self.assertRaisesRegex(ValueError, "existing text field"):

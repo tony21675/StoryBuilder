@@ -89,3 +89,7 @@ The first CI run for the unified state review found stale Notebook selection cal
 ## October 25, 2026: state-text correction safety
 
 State-focused corrections are limited to one string-valued leaf in the temporary proposed patch; unlike scene prose edits, they may replace that entire field if necessary. The saved state remains untouched until author approval. The first CI run found stale Notebook references and a prompt assertion mismatch; a follow-up fix is being verified.
+
+## October 25, 2026: state review CI test fixture correction
+
+The state proposal review suite reached 394 passing tests and 53 passing subtests, with one new ambiguity test failing because the sample target was case-different rather than duplicated. The fixture now uses two identical passages; re-check both GitHub workflows before pulling.
