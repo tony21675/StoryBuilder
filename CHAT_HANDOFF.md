@@ -30,12 +30,14 @@ The regular Writer **Analyze Accepted Scene** path now passes `main_plot_only=Tr
 
 The previous verified laptop baseline was **378 passed in 0.79s**, before this experiment. GitHub check-runs `test` and `Compile and unit tests` both passed on code commit `e46834e`. The laptop has not yet run the new mode's test suite. Run the local tests after sync before using it in the app.
 
-## Writer duplicate-scene bug: approved fix pending implementation
+## Writer recovery and validation redesign
 
-- Trace root cause: the completion reviewer said the decision point was missing even though the first draft ended with Elena's repair-versus-diagnostics question. Recovery told the model to continue, but it wrote a second complete scene. StoryBuilder appended both and did not re-run the planned-beat validator on the combined result.
-- Tony approved a generic safeguard: keep one scene only, never both. The code fetched from the current branch still contains the old continuation-and-append path. The fix has **not** been implemented, committed, or tested yet; don't rely on older or inaccurate handoff wording that says otherwise.
-- Resume with a complete-scene replacement, not a continuation. Use the replacement only if the scene-contract validator and continuity/scope audit both pass; otherwise preserve the original. Add regression tests for successful replacement and for preserving the original when the replacement fails. No novel-specific rules.
-- Scene 5 remains unaccepted. No accepted manuscript or novel state was changed.
+- Code commit `81d04fe` changed missing-beat recovery from continuation-plus-append to a complete-scene replacement. There is no append path. The full suite passed **380 tests on the laptop before the current validation-policy changes**.
+- The October 25, 2026 Scene 5 Prompt Trace showed the initial prose explicitly included Daniel's worsening critical-window prediction, but the semantic validator reported it missing. A full replacement then included Daniel's prediction and Elena's question about which path to pursue. The replacement validator first returned malformed checklist JSON; its correction then incorrectly claimed the decision point was missing. The separate continuity/scope audit marked all five categories clear. StoryBuilder preserved the initial draft rather than using the rejected replacement.
+- Phase 1 implementation: when the continuity/scope audit is clear, missing-beat-only findings are advisory. Preserve the generated draft, show the reported concern, and do not trigger an automatic full-scene rewrite solely because coverage validation says an event is missing. Evidence-backed continuity conflicts can still trigger one bounded complete-scene replacement; use it only if both required follow-up checks pass, otherwise preserve the original.
+- The semantic validator prompts now distinguish a decision point from a final decision: presenting alternatives and making clear a choice is due satisfies a decision-point endpoint unless the author explicitly requires a final choice.
+- Phase 2 is still planned: a separate source-backed science reviewer for consequential real-world technical claims. It has not been implemented.
+- Chapter 1, Scene 5 remains unaccepted. Do not apply the old proposed ending-state update. The failed validation attempt did not advance the saved scene state.
 
 ## The Long Way Home
 
@@ -55,12 +57,12 @@ The previous verified laptop baseline was **378 passed in 0.79s**, before this e
 
 A future separate app idea: an e-liquid flavor/recipe tracker with separate flavor profiles for Tony and his wife, conceptually similar to StoryBuilder. Do not mix that project into current StoryBuilder work.
 
-## Immediate next steps / freeze
+## Immediate next steps
 
-1. Freeze for tonight. The duplicate-scene fix has been approved but is not implemented yet; the branch still contains the old append path.
-2. Next session, implement a full-scene replacement recovery path and regression tests. Keep the original if the replacement fails validation; never concatenate two versions.
-3. Push the code and verify GitHub checks. Then sync on the laptop and run `cd ~/Documents/StoryBuilder && python3 -m pytest -q`.
-4. Regenerate Chapter 1, Scene 5 only after the fix is verified. Do not accept the current duplicate draft or apply its old ending-state proposal.
-5. Leave the main-plot-only State Analysis experiment unchanged; avoid adding more minor-detail filters.
+1. Sync the current `redesign/simplified-writing-workflow` branch on the laptop and run `cd ~/Documents/StoryBuilder && python3 -m pytest -q`. The 380-passed result predates the current changes and is not verification of this implementation.
+2. If local tests pass, reopen StoryBuilder and review the preserved, unaccepted Scene 5 draft. Do not accept it or apply the old state proposal until it has been reviewed. A later trial should confirm that a coverage-only warning no longer triggers a replacement rewrite.
+3. Keep the duplicate-scene safeguard. Never join two complete scene drafts. Preserve accepted prose and saved state unless Tony explicitly chooses otherwise.
+4. After the Phase 1 behavior is verified, design and test the separate source-backed science reviewer. Do not mix real-world science rules into novel-specific canon or add a large fixed rule list.
 
-**Freeze checkpoint:** only handoff files were updated tonight. No app code or novel prose was changed.
+**Milestone note:** Phase 1 code and regression-test changes are being prepared on the existing redesign branch. The handoff is updated here; do not claim the new tests passed until they are run.
+
