@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 import traceback
 from pathlib import Path
 from typing import Any
@@ -274,31 +275,227 @@ def _clean_findings(review, field):
     raw = review.get(field, []) if isinstance(review, dict) else []
     return [str(x).strip() for x in raw if str(x).strip()] if isinstance(raw, list) else []
 
+def _make_review_finding(kind: str, message: str, *, can_suggest: bool = True) -> dict[str, Any]:
+    """Normalize a validator/audit observation into an author-review item."""
+    text = str(message or "").strip()
+    if not text:
+        text = "The automated review returned a concern without a usable explanation."
+    titles = {
+        "continuity": "Possible continuity or scope conflict",
+        "validator": "Possible prose or intent issue",
+        "coverage": "Possible omission",
+        "uncertain": "Review could not verify this point",
+        "unavailable": "Automated review did not complete",
+        "manual": "Manual review needed",
+        "runtime": "Writer session needs attention",
+    }
+    requests = {
+        "continuity": (
+            "Review this possible continuity/scope conflict against the author context. "
+            "If it is a genuine problem, make the smallest local change that resolves it. "
+            "Do not rewrite the scene, add unsupported facts, or force a plot outcome."
+        ),
+        "validator": (
+            "Review this possible issue raised by the scene validator. If it is genuine, "
+            "make the smallest local correction needed. Preserve the rest of the prose, "
+            "voice, pacing, and author intent. Do not rewrite the scene or invent facts."
+        ),
+        "coverage": (
+            "The validator thinks this planned event may be missing. Check whether the draft "
+            "already satisfies the intent in another way. If a local addition or change is "
+            "truly needed, make the smallest focused edit that addresses it. Do not rewrite "
+            "the scene, force an outcome, or invent facts."
+        ),
+        "uncertain": "",
+        "unavailable": "",
+        "manual": "",
+        "runtime": "",
+    }
+    return {
+        "kind": str(kind or "validator"),
+        "title": titles.get(kind, "Possible issue to review"),
+        "message": text,
+        "can_suggest": bool(can_suggest),
+        "edit_request": (
+            requests.get(kind, "Make only the smallest safe local edit needed to address this concern.")
+            + ("\nConcern to review: " + text if requests.get(kind) else "")
+        ).strip(),
+    }
 
-def _build_regeneration_prompt(initial_prompt, issues):
-    findings = "\n".join(f"- {x}" for x in issues[:10])
-    return (
-        str(initial_prompt or "").strip()
-        + "\n\nONE BOUNDED FULL-SCENE RETRY:\nAn independent review found these material conflicts, with direct evidence:\n"
-        + findings
-        + "\nWrite the entire scene anew from the original author intent and starting state. Correct "
-        "the conflicts rather than explaining them or appending to the prior version. Do not carry "
-        "forward a claim merely because the previous attempt stated it. Preserve valid context, keep "
-        "event chronology and character knowledge accurate, honor the hard stop, and do not introduce "
-        "replacement clues or consequential actions. Output only complete scene prose."
+
+def _normalize_finding_key(message: str) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", str(message or "").casefold()).strip()
+
+
+def review_findings_match(left: dict[str, Any], right: dict[str, Any]) -> bool:
+    """Conservatively match repeated findings after a local edit/re-review."""
+    left_text = _normalize_finding_key(str(left.get("message", "")))
+    right_text = _normalize_finding_key(str(right.get("message", "")))
+    if not left_text or not right_text:
+        return False
+    if left_text == right_text:
+        return True
+    stop_words = {"the", "and", "that", "this", "with", "from", "into", "for", "but", "was", "were", "may", "possible", "issue", "concern"}
+    left_words = {word for word in left_text.split() if word not in stop_words and len(word) > 2}
+    right_words = {word for word in right_text.split() if word not in stop_words and len(word) > 2}
+    if min(len(left_words), len(right_words)) < 4:
+        return False
+    overlap = len(left_words & right_words) / min(len(left_words), len(right_words))
+    return overlap >= 0.75
+
+
+def collect_review_findings(
+    review: dict[str, Any] | None,
+    audit: dict[str, Any] | None,
+    *,
+    validator_error: str | None = None,
+    audit_error: str | None = None,
+) -> list[dict[str, Any]]:
+    """Combine validator and audit observations into a deduplicated author-review queue."""
+    findings: list[dict[str, Any]] = []
+
+    def add(kind: str, message: str, *, can_suggest: bool = True) -> None:
+        finding = _make_review_finding(kind, message, can_suggest=can_suggest)
+        if not any(review_findings_match(finding, existing) for existing in findings):
+            findings.append(finding)
+
+    audit_status = _integrity_status(audit) if audit is not None else "uncertain"
+    if audit is not None:
+        if audit_status == "conflict":
+            issues = _clean_findings(audit, "issues")
+            for issue in issues:
+                add("continuity", issue)
+            if not issues:
+                add("uncertain", "The continuity/scope auditor reported a conflict but supplied no verifiable finding.", can_suggest=False)
+        elif audit_status == "uncertain":
+            details = _clean_findings(audit, "details")
+            for detail in details:
+                add("uncertain", detail, can_suggest=False)
+            if not details:
+                add("uncertain", "The continuity/scope audit could not verify all required categories.", can_suggest=False)
+
+    if review is not None:
+        for issue in _clean_findings(review, "violations"):
+            add("validator", issue)
+        for omission in _clean_findings(review, "missed_beats"):
+            add("coverage", omission)
+        if review.get("pass") is not True and not _clean_findings(review, "violations") and not _clean_findings(review, "missed_beats"):
+            note = str(review.get("notes", "") or "").strip()
+            add("validator", note or "The scene validator did not confirm the planned endpoint.", can_suggest=bool(note))
+
+    if validator_error:
+        add("unavailable", validator_error.splitlines()[0], can_suggest=False)
+    if audit_error:
+        add("unavailable", audit_error.splitlines()[0], can_suggest=False)
+
+    return findings
+
+
+def review_scene_draft(
+    *,
+    engine: Any,
+    model_path: str | Path,
+    writer_system_prompt: str,
+    scene_context: str,
+    contract: dict[str, Any],
+    current_state: dict[str, Any],
+    author_guidance: str = "",
+    historical_context: str = "",
+) -> tuple[list[dict[str, Any]], str]:
+    """Review an existing draft and return actionable findings; never rewrite prose."""
+    if not str((contract or {}).get("author_idea", "") or "").strip():
+        finding = _make_review_finding(
+            "manual",
+            "No saved author Scene Idea was present, so automated coverage and continuity review did not run.",
+            can_suggest=False,
+        )
+        _restore_writer_context(engine, model_path, writer_system_prompt)
+        return [finding], "AUTOMATED REVIEW: a manual review is needed because no saved Scene Idea was available."
+
+    review = None
+    audit = None
+    validator_error = None
+    audit_error = None
+    try:
+        review = SceneContract.validate_with_engine(
+            engine=engine,
+            contract=contract,
+            current_state=current_state,
+            prose=str(scene_context and "" or "") + "",
+            author_guidance=author_guidance,
+            model_path=model_path,
+        )
+    except Exception as exc:
+        validator_error = _exception_diagnostic("Scene completion check failed", exc)
+
+    # The draft is supplied separately below; keeping this helper explicit makes
+    # post-edit rechecks use the exact current editor contents.
+    prose = str(contract.get("_review_prose", "") or "")
+    if not prose.strip():
+        prose = str(getattr(engine, "_validator_review_prose", "") or "")
+    if not prose.strip():
+        # The caller sets this transiently immediately around this helper. This
+        # fallback protects tests/callers that supply an empty draft explicitly.
+        prose = ""
+
+    if review is not None:
+        pass
+
+    try:
+        audit = _run_scene_integrity_audit(
+            engine=engine,
+            model_path=model_path,
+            writer_system_prompt=writer_system_prompt,
+            scene_context=scene_context,
+            current_state=current_state,
+            author_guidance=author_guidance,
+            prose=prose,
+            historical_context=historical_context,
+        )
+    except Exception as exc:
+        audit_error = _exception_diagnostic("Continuity/scope audit failed", exc)
+
+    findings = collect_review_findings(
+        review,
+        audit,
+        validator_error=validator_error,
+        audit_error=audit_error,
     )
+    restored = _restore_writer_context(engine, model_path, writer_system_prompt)
+    if not restored:
+        findings.append(_make_review_finding(
+            "runtime",
+            "Writer could not restore its normal context after review. Restart Writer before the next model task.",
+            can_suggest=False,
+        ))
+
+    if findings:
+        note = (
+            f"AUTOMATED REVIEW: {len(findings)} possible finding(s) need your review. "
+            "No prose was changed automatically; review each finding and choose whether to apply a focused fix, dismiss it, or skip it."
+        )
+    else:
+        note = (
+            "AUTOMATED REVIEW: scene-contract validation and the continuity/scope audit reported no issues. "
+            "This is a screening result, not a guarantee; review facts, uncertainty, and author boundaries before accepting."
+        )
+    if validator_error:
+        note += " The validator did not complete."
+    if audit_error:
+        note += " The continuity/scope audit did not complete."
+    return findings, note
 
 
 def generate_scene_with_completion_check(
     *, engine: Any, model_path: str | Path, writer_system_prompt: str,
     initial_prompt: str, scene_context: str, contract: dict[str, Any],
     current_state: dict[str, Any], author_guidance: str = "",
-    historical_context: str = "", on_draft_delta=None,
+    historical_context: str = "", on_draft_delta=None, on_review_findings=None,
 ) -> tuple[str, str]:
-    """Check coverage plus evidence-backed continuity; perform at most one safe recovery.
+    """Generate a complete scene once, then return review findings for author decisions.
 
-    Optional on_draft_delta receives the initial prose as it streams from the model.
-    Review/recovery calls remain non-streaming because they can replace the full draft.
+    The validators no longer trigger an automatic full-scene retry. They identify
+    concerns; a separate UI flow proposes focused edits that the author must approve.
     """
     if callable(on_draft_delta):
         draft = str(engine.generate(initial_prompt, on_delta=on_draft_delta) or "").strip()
@@ -308,155 +505,26 @@ def generate_scene_with_completion_check(
         return draft, (
             "AUTOMATED REVIEW SKIPPED: no draft prose was returned, so the completion and continuity checks did not run."
         )
-    if not str((contract or {}).get("author_idea", "") or "").strip():
-        return draft, (
-            "AUTOMATED REVIEW SKIPPED: no saved author Scene Idea was present in the runtime contract, "
-            "so the completion and continuity checks did not run. Review this draft manually and save "
-            "the Scene Idea before generating another scene."
-        )
 
+    # review_scene_draft consumes the exact current draft. Store it only for the
+    # duration of this call so the reviewer doesn't need to reconstruct it.
+    setattr(engine, "_validator_review_prose", draft)
     try:
-        review = SceneContract.validate_with_engine(
-            engine=engine, contract=contract, current_state=current_state,
-            prose=draft, author_guidance=author_guidance, model_path=model_path,
-        )
-    except Exception as exc:
-        restored = _restore_writer_context(engine, model_path, writer_system_prompt)
-        note = _exception_diagnostic("Scene completion check failed", exc)
-        note += "\n\nThe original draft was preserved."
-        if not restored:
-            note += "\nRestart Writer before the next scene."
-        return draft, note
-
-    try:
-        audit = _run_scene_integrity_audit(
-            engine=engine, model_path=model_path, writer_system_prompt=writer_system_prompt,
-            scene_context=scene_context, current_state=current_state,
-            author_guidance=author_guidance, prose=draft,
+        findings, notice = review_scene_draft(
+            engine=engine,
+            model_path=model_path,
+            writer_system_prompt=writer_system_prompt,
+            scene_context=scene_context,
+            contract=contract,
+            current_state=current_state,
+            author_guidance=author_guidance,
             historical_context=historical_context,
         )
-    except Exception as exc:
-        _restore_writer_context(engine, model_path, writer_system_prompt)
-        return draft, (
-            _exception_diagnostic("Continuity/scope audit failed", exc)
-            + "\n\nThe original draft was preserved."
-        )
-
-    audit_status = _integrity_status(audit)
-    validator_issues = _clean_findings(review, "violations")
-    audit_issues = _clean_findings(audit, "issues")
-
-    # Ambiguity in any required audit category is a hard stop: don't retry based
-    # on guesses, and don't let the looser semantic validator overrule uncertainty.
-    if audit_status == "uncertain":
-        _restore_writer_context(engine, model_path, writer_system_prompt)
-        detail = "; ".join(_clean_findings(audit, "details")[:2])
-        if detail:
-            detail = " Details: " + detail[:360]
-        return draft, (
-            "The continuity/scope audit could not verify every required category. "
-            "The original draft was preserved for review rather than regenerated." + detail
-        )
-
-    # Only evidence-backed integrity conflicts authorize one whole-scene retry.
-    if audit_status == "conflict":
-        if not audit_issues:
-            _restore_writer_context(engine, model_path, writer_system_prompt)
-            return draft, (
-                "The audit reported a conflict without verified findings. The original draft was preserved."
-            )
-        issues = audit_issues + [
-            x for x in validator_issues if x.casefold() not in {v.casefold() for v in audit_issues}
-        ]
+    finally:
         try:
-            limit = SceneContract.max_attempts(contract)
-        except (TypeError, ValueError):
-            limit = 3
-        if limit < 2:
-            _restore_writer_context(engine, model_path, writer_system_prompt)
-            return draft, (
-                "A verified continuity/scope conflict was found, but the scene's retry limit prevents "
-                "a full retry. Original draft preserved."
-            )
-        if not _restore_writer_context(engine, model_path, writer_system_prompt):
-            return draft, (
-                "A verified continuity/scope conflict was found, but Writer could not be restored. "
-                "Original draft preserved."
-            )
-        try:
-            revised = str(engine.generate(_build_regeneration_prompt(initial_prompt, issues)) or "").strip()
-            if not revised:
-                _restore_writer_context(engine, model_path, writer_system_prompt)
-                return draft, "The full-scene retry returned no prose. Original draft preserved."
-            revised_review = SceneContract.validate_with_engine(
-                engine=engine, contract=contract, current_state=current_state,
-                prose=revised, author_guidance=author_guidance, model_path=model_path,
-            )
-            revised_audit = _run_scene_integrity_audit(
-                engine=engine, model_path=model_path, writer_system_prompt=writer_system_prompt,
-                scene_context=scene_context, current_state=current_state,
-                author_guidance=author_guidance, prose=revised,
-                historical_context=historical_context,
-            )
-        except Exception as exc:
-            _restore_writer_context(engine, model_path, writer_system_prompt)
-            return draft, (
-                _exception_diagnostic("The full-scene retry could not be verified", exc)
-                + "\n\nOriginal draft preserved."
-            )
-        if (
-            revised_review.get("pass") is True
-            and not _clean_findings(revised_review, "missed_beats")
-            and not _clean_findings(revised_review, "violations")
-            and _integrity_status(revised_audit) == "clear"
-        ):
-            return revised, (
-                "StoryBuilder found an evidence-backed continuity/scope conflict and regenerated the whole "
-                "scene once. The revised draft passed follow-up checks; review it before accepting."
-            )
-        _restore_writer_context(engine, model_path, writer_system_prompt)
-        return draft, "The full-scene retry did not pass every follow-up check. Original draft preserved for review."
-
-    # A disagreement between the two reviewers is also ambiguous. In particular,
-    # don't rewrite a scene merely because the semantic validator alleges a
-    # violation the evidence-backed continuity audit could not substantiate.
-    if validator_issues:
-        _restore_writer_context(engine, model_path, writer_system_prompt)
-        detail = "; ".join(validator_issues[:3])
-        if len(detail) > 320:
-            detail = detail[:317].rstrip() + "..."
-        return draft, (
-            "The semantic completion review flagged a possible violation, but the evidence-backed audit "
-            "did not substantiate it. The original draft was preserved for review."
-            + (f" Reported concern(s): {detail}" if detail else "")
-        )
-
-    # Coverage-only findings are warnings when the evidence-backed continuity/scope
-    # audit is clear. Do not send a complete scene through an automatic rewrite based
-    # solely on a model's disputed judgement that a planned beat is missing.
-    missed = _clean_findings(review, "missed_beats")
-    if missed:
-        _restore_writer_context(engine, model_path, writer_system_prompt)
-        detail = "; ".join(missed[:3])
-        if len(detail) > 320:
-            detail = detail[:317].rstrip() + "..."
-        return draft, (
-            "The scene-coverage review flagged possible omission(s), but the continuity/scope audit "
-            "found no verified conflict. Coverage findings are advisory; the original draft was "
-            "preserved for author review."
-            + (f" Reported concern(s): {detail}" if detail else "")
-        )
-
-    if review.get("pass") is True:
-        if _restore_writer_context(engine, model_path, writer_system_prompt):
-            return draft, (
-                "AUTOMATED REVIEW: scene-contract validation and the continuity/scope audit reported no issues. "
-                "This is a screening result, not a guarantee; review facts, uncertainty, and author boundaries before accepting."
-            )
-        return draft, (
-            "AUTOMATED REVIEW: no issues were reported, but Writer could not be restored. "
-            "Restart Writer before the next scene."
-        )
-
-    _restore_writer_context(engine, model_path, writer_system_prompt)
-    return draft, "The planned endpoint was not confirmed. Original draft preserved for review."
+            delattr(engine, "_validator_review_prose")
+        except Exception:
+            pass
+    if callable(on_review_findings):
+        on_review_findings(findings)
+    return draft, notice
