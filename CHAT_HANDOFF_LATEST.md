@@ -78,3 +78,7 @@ The current state review implementation is on `redesign/simplified-writing-workf
 The unified single-screen, plain-English proposed-state workflow is implemented on `redesign/simplified-writing-workflow`. The three state tabs and visible JSON controls are removed. The state proposal is reviewed one finding at a time using the same focused correction, dismiss and skip controls as scene validation. A focused correction changes only the temporary proposed state value; the accepted scene and saved state remain untouched until the author explicitly applies the update.
 
 Verified on commit `a3d61564d794e0c9f11431d2b77b12d190fdfbfd`: GitHub Python tests passed **395 tests and 53 subtests**; the compile-and-unit-test workflow passed. A follow-up wording cleanup is being made after that run. This remains remote CI only, and the live application has not yet been tested with the new state-review popup. Do not pull to the user's machines until the next CI check passes and the user says ready.
+
+## Plain-English state review test expectations
+
+The single-screen state review intentionally removes user-facing references to a raw JSON editor and advanced JSON tab. Regression tests for stale proposal buffers now expect a plain-English instruction to re-analyze the accepted scene; quick-edit status tests check that corrections remain proposals until Apply State Update. Latest source commit `1ee1b79` had two test failures caused by old wording assertions, not code behavior. Updated tests are being re-run before pull readiness.

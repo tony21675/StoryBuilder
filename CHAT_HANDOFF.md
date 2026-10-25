@@ -97,3 +97,7 @@ The state proposal review suite reached 394 passing tests and 53 passing subtest
 ## October 25, 2026: proposed-state review implementation and CI result
 
 The user approved removing the separate Changes to Review, Quick Edits (No JSON), and Full State JSON (Advanced) tabs and replacing them with one plain-English state-review area and the sequential validator popup. Remote CI passed on `a3d61564d794e0c9f11431d2b77b12d190fdfbfd`: 395 Python tests, 53 subtests, and the compile/unit-test workflow. A final plain-language cleanup removes stale messages referring to the deleted JSON tab and renames the quick-edit action. It must be rechecked by CI. The user's local desktop/laptop have not pulled this work and should not pull until the user says ready. No novel prose or saved state was changed by this code work.
+
+## October 25, 2026: update tests for the plain-English state UI
+
+A final wording-only cleanup removed stale JSON-tab instructions. Two legacy tests were updated to verify the new plain-English warning/status plus unchanged saved state rather than old tab names. Verify the resulting two workflows before treating the branch as ready; no novel data changed.

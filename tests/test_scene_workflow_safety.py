@@ -1371,7 +1371,9 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             "Monitor communications independently.",
         )
         self.assertEqual(app.package.current_state, before)
-        self.assertIn("preview only", app.writer_status.text.casefold())
+        self.assertIn("proposed changes", app.writer_status.text.casefold())
+        self.assertIn("apply state update", app.writer_status.text.casefold())
+        self.assertNotIn("json", app.writer_status.text.casefold())
 
     def test_quick_state_character_switch_preserves_each_characters_own_data(self):
         app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
@@ -1629,7 +1631,9 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
 
         warning.assert_called_once()
         self.assertEqual(app.package.current_state, before)
-        self.assertIn("Refresh Changes to Review", warning.call_args.args[1])
+        self.assertIn("Nothing has been applied", warning.call_args.args[1])
+        self.assertIn("Analyze the accepted scene again", warning.call_args.args[1])
+        self.assertNotIn("JSON", warning.call_args.args[1])
 
     def test_writer_state_analysis_previews_full_reconciled_state_without_applying_it(self):
         before = {
