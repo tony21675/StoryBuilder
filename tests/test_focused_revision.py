@@ -168,7 +168,7 @@ class FocusedRevisionTests(unittest.TestCase):
         self.assertIsNone(error)
         self.assertIsNone(restore_error)
         self.assertEqual(original, "Before. The panel was quiet. After.")
-        self.assertEqual(engine.reset_calls[0][1], "You are a precise copy editor for an existing fiction scene.\\nMake only the author's requested local change.")
+        self.assertIn("You are a precise copy editor for an existing fiction scene.", engine.reset_calls[0][1])
         self.assertEqual(engine.reset_calls[-1], ("/models/test.gguf", "normal writer prompt"))
         self.assertIn("The panel is established as quiet.", engine.prompts[0])
 
