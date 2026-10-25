@@ -61,24 +61,10 @@ Wait for Tony's other question and do not pull yet. When he says he is ready:
 
 **The story is the novel. The state is only a memory aid.** Keep State Analysis to the main plot, stakes, meaningful discoveries/decisions, and unresolved danger. Don't build a rule for every model mistake, prescribe plot outcomes, or hard-code novel-specific facts into StoryBuilder. Preserve accepted prose, and never apply a proposed state change without explicit approval.
 
-## State review CI repair note
+## State proposal review implementation checkpoint, October 25, 2026
 
-Commit `684caf2` introduced the unified plain-English state review and the sequential state proposal audit. The first CI run found three stale attempts to select the removed Notebook tabs and one new prompt assertion mismatch. The follow-up commit removes those obsolete tab selections; validator-unavailable results remain advisory in the status text rather than pretending an audit finding was produced. Re-run both Python test workflows before treating this change as ready to pull.
+The author approved one plain-English state-review screen, replacing the three previous state tabs. The unified pane shows a human-readable summary and plain-language correction fields. No JSON editor or Copy JSON button is exposed. The same sequential review popup is reused for state findings, with focused correction, dismiss false alarm, and skip for later. Corrections edit only the temporary proposed state text and trigger re-review. The accepted scene and saved state remain unchanged until the author explicitly clicks Apply State Update.
 
-## State proposal correction safety and CI follow-up
+The state proposal audit compares the generated main-plot summary with the before-state, accepted scene, and author guidance. Findings are advisory. Audit errors show a plain-language warning rather than pretending an audit result exists. A state text correction may replace a whole single proposed text field or one unique passage inside it; it cannot edit another field. The old full-state JSON remains only as an unshown internal buffer for existing validation/merge plumbing.
 
-State-focused corrections may replace a complete text-valued proposed field when necessary, or target one unique passage within it. They never touch another field, accepted prose, or saved current state. The first CI run found stale Notebook selections and a prompt assertion mismatch; a follow-up repair is on the same development branch. Do not treat this feature as ready until both CI workflows pass.
-
-## State review test correction
-
-The current state review implementation is on `redesign/simplified-writing-workflow`. The last CI run passed 394 tests and 53 subtests except one newly added ambiguity test whose fixture accidentally differed by letter case. The fixture is corrected to contain two identical targets. Await both CI workflow results before declaring ready.
-
-## State review CI verification, October 25, 2026
-
-The unified single-screen, plain-English proposed-state workflow is implemented on `redesign/simplified-writing-workflow`. The three state tabs and visible JSON controls are removed. The state proposal is reviewed one finding at a time using the same focused correction, dismiss and skip controls as scene validation. A focused correction changes only the temporary proposed state value; the accepted scene and saved state remain untouched until the author explicitly applies the update.
-
-Verified on commit `a3d61564d794e0c9f11431d2b77b12d190fdfbfd`: GitHub Python tests passed **395 tests and 53 subtests**; the compile-and-unit-test workflow passed. A follow-up wording cleanup is being made after that run. This remains remote CI only, and the live application has not yet been tested with the new state-review popup. Do not pull to the user's machines until the next CI check passes and the user says ready.
-
-## Plain-English state review test expectations
-
-The single-screen state review intentionally removes user-facing references to a raw JSON editor and advanced JSON tab. Regression tests for stale proposal buffers now expect a plain-English instruction to re-analyze the accepted scene; quick-edit status tests check that corrections remain proposals until Apply State Update. Latest source commit `1ee1b79` had two test failures caused by old wording assertions, not code behavior. Updated tests are being re-run before pull readiness.
+**Verification:** GitHub Actions passed on code/test commit `d7b0b6ae92fe8117cab889c7dcf5ee976546701d` (395 Python tests and 53 subtests passed; compile-and-unit-test workflow succeeded). The final implementation/UI and test expectation fixes are on `redesign/simplified-writing-workflow`; current remote head is expected to be a handoff-only commit after this checkpoint update. The desktop/laptop have not pulled these changes, and the new state-review UI has not yet been tried in the live app. Do not pull until the user says ready. No novel package, accepted prose, or saved story state was changed.

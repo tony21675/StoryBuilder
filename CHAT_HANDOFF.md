@@ -82,22 +82,10 @@ A future separate app idea: an e-liquid flavor/recipe tracker with separate flav
 
 **Milestone note:** The author-controlled validator review workflow and regression tests are committed on the existing redesign branch. GitHub Actions passed on code/test commit `24cb281` (388 pytest tests and 53 subtests; 388 unittest tests plus compile checks). The handoff-only update will advance the remote branch again, but the code is the same tested code. No changes have been pulled to the laptop, no app has been run locally, and no novel files, accepted prose, or saved story state have been modified.
 
-## October 25, 2026: state review validation follow-up
+## October 25, 2026: proposed-state review implemented and verified
 
-The first CI run for the unified state review found stale Notebook selection calls and a prompt assertion. These are being removed/fixed in a follow-up commit. Do not pull to a local machine or treat this as ready until both GitHub test workflows pass.
+The author approved removing the separate “Changes to Review”, “Quick Edits (No JSON)”, and “Full State JSON (Advanced)” tabs. The Writer's state area now presents one plain-English change summary and correction fields. Proposed state concerns use the same sequential, author-controlled review popup as scene validation: focused correction, dismiss false alarm, or skip for later. A focused correction changes only the temporary proposed text field and reruns the audit. No correction is written to the saved current state until the author explicitly clicks Apply State Update. The visible flow does not require reading or editing JSON.
 
-## October 25, 2026: state-text correction safety
+The current normal Writer State Analysis deliberately asks for a concise main-plot summary. The new state audit reviews that generated summary against the before-state, accepted scene, and author guidance. Other values the author edits through the plain-language correction fields remain part of the unified proposal and are checked by the existing state-shape validation before application. Audit failures are reported plainly and leave the proposal for author judgment.
 
-State-focused corrections are limited to one string-valued leaf in the temporary proposed patch; unlike scene prose edits, they may replace that entire field if necessary. The saved state remains untouched until author approval. The first CI run found stale Notebook references and a prompt assertion mismatch; a follow-up fix is being verified.
-
-## October 25, 2026: state review CI test fixture correction
-
-The state proposal review suite reached 394 passing tests and 53 passing subtests, with one new ambiguity test failing because the sample target was case-different rather than duplicated. The fixture now uses two identical passages; re-check both GitHub workflows before pulling.
-
-## October 25, 2026: proposed-state review implementation and CI result
-
-The user approved removing the separate Changes to Review, Quick Edits (No JSON), and Full State JSON (Advanced) tabs and replacing them with one plain-English state-review area and the sequential validator popup. Remote CI passed on `a3d61564d794e0c9f11431d2b77b12d190fdfbfd`: 395 Python tests, 53 subtests, and the compile/unit-test workflow. A final plain-language cleanup removes stale messages referring to the deleted JSON tab and renames the quick-edit action. It must be rechecked by CI. The user's local desktop/laptop have not pulled this work and should not pull until the user says ready. No novel prose or saved state was changed by this code work.
-
-## October 25, 2026: update tests for the plain-English state UI
-
-A final wording-only cleanup removed stale JSON-tab instructions. Two legacy tests were updated to verify the new plain-English warning/status plus unchanged saved state rather than old tab names. Verify the resulting two workflows before treating the branch as ready; no novel data changed.
+**GitHub verification:** on code/test commit `d7b0b6ae92fe8117cab889c7dcf5ee976546701d`, Python tests passed **395 tests and 53 subtests**, and the compile-and-unit-test workflow succeeded. The changes are on the existing `redesign/simplified-writing-workflow` branch only. The local desktop and laptop have not pulled them; wait for the author's explicit go-ahead. The live state-review popup still needs a real in-app check. No novel prose or saved state was changed by this work.
