@@ -128,6 +128,8 @@ class SceneCompletionTests(unittest.TestCase):
         self.assertEqual(len(findings), 1)
         self.assertEqual(findings[0]["kind"], "coverage")
         self.assertIn("Group begins discussing broad roles.", findings[0]["message"])
+    @patch("builder.scene_completion._run_scene_integrity_audit", return_value=CONFLICT_AUDIT)
+    @patch("builder.scene_completion.SceneContract.validate_with_engine")
     def test_semantic_and_audit_conflicts_are_returned_for_author_review(self, validate, _audit):
         validate.return_value = {
             "pass": False,
@@ -147,6 +149,8 @@ class SceneCompletionTests(unittest.TestCase):
         self.assertEqual(len(self.engine.prompts), 1)
         self.assertTrue(findings)
         self.assertTrue(any(item["kind"] == "continuity" for item in findings))
+    @patch("builder.scene_completion._run_scene_integrity_audit", return_value=EYEWITNESS_CONFLICT_AUDIT)
+    @patch("builder.scene_completion.SceneContract.validate_with_engine")
     def test_independent_integrity_conflict_becomes_review_finding_without_retry(self, validate, _audit):
         validate.return_value = {"pass": True, "missed_beats": [], "violations": []}
         original = "Draft with a possible unsupported eyewitness claim."
@@ -162,6 +166,8 @@ class SceneCompletionTests(unittest.TestCase):
         self.assertEqual(len(self.engine.prompts), 1)
         self.assertTrue(any(item["kind"] == "continuity" for item in findings))
         self.assertTrue(any("eyewitness" in item["message"].casefold() for item in findings))
+    @patch("builder.scene_completion._run_scene_integrity_audit", return_value=UNCERTAIN_AUDIT)
+    @patch("builder.scene_completion.SceneContract.validate_with_engine")
     def test_uncertain_audit_becomes_review_finding_not_an_automatic_rejection(self, validate, _audit):
         validate.return_value = {"pass": False, "missed_beats": [], "violations": ["Possible timeline conflict."]}
         findings = []
@@ -175,6 +181,8 @@ class SceneCompletionTests(unittest.TestCase):
         self.assertEqual(len(self.engine.prompts), 1)
         self.assertTrue(any(item["kind"] == "uncertain" for item in findings))
         self.assertTrue(any(item["kind"] == "validator" for item in findings))
+    @patch("builder.scene_completion._run_scene_integrity_audit", side_effect=RuntimeError("auditor unavailable"))
+    @patch("builder.scene_completion.SceneContract.validate_with_engine")
     def test_integrity_audit_failure_preserves_original_draft(self, validate, _audit):
         validate.return_value = {"pass": True, "missed_beats": [], "violations": []}
         draft, notice = generate_scene_with_completion_check(
@@ -186,6 +194,7 @@ class SceneCompletionTests(unittest.TestCase):
         self.assertIn("audit failed", notice)
         self.assertEqual(len(self.engine.prompts), 1)
 
+    @patch("builder.scene_completion.SceneContract.validate_with_engine")
     @patch("builder.scene_completion.SceneContract.validate_with_engine")
     def test_validator_failure_preserves_original_draft(self, validate):
         validate.side_effect = RuntimeError("validator unavailable")
@@ -247,6 +256,8 @@ class SceneCompletionTests(unittest.TestCase):
         self.assertIn("possible finding", notice)
         self.assertEqual(len(self.engine.prompts), 1)
         self.assertTrue(any(item["kind"] == "continuity" for item in findings))
+    @patch("builder.scene_completion._run_scene_integrity_audit", return_value=CONFLICT_AUDIT)
+    @patch("builder.scene_completion.SceneContract.validate_with_engine")
     def test_verified_conflict_never_generates_automatic_full_scene_replacement(self, validate, _audit):
         validate.return_value = {"pass": True, "missed_beats": [], "violations": []}
         original = "Safe draft awaiting author review."
