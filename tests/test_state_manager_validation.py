@@ -317,6 +317,7 @@ class StateUpdateValidationTests(unittest.TestCase):
         candidates = [
             "A technician moved toward the console while adjusting their gloves.",
             "A crew member expressed intent to stay clear of the vent until authorized.",
+            "A technician estimated the failure window at twenty-four hours if the current rate holds.",
             "The supervisor initiated partial pressurization at the sealed hatch.",
             "A technician measured a rapid rise in component temperature.",
             "An engineer expressed intent to run the test, then initiated the test.",
@@ -325,6 +326,7 @@ class StateUpdateValidationTests(unittest.TestCase):
         self.assertEqual(
             filter_low_value_recent_events(candidates),
             [
+                "A technician estimated the failure window at twenty-four hours if the current rate holds.",
                 "The supervisor initiated partial pressurization at the sealed hatch.",
                 "A technician measured a rapid rise in component temperature.",
                 "An engineer expressed intent to run the test, then initiated the test.",
