@@ -19,7 +19,7 @@ These are generic bookkeeping safeguards. No Mars setting, character names, 24-h
 
 ## Verification and next action
 
-The regression tests are committed, but the full suite has not yet been run against this latest remote branch head. On the laptop, after confirming the working tree is clean, pull redesign/simplified-writing-workflow with fast-forward only, then run python3 -m pytest -q. If the suite passes, re-analyze accepted Scene 4 and inspect the proposal without applying it until reviewed. Update this handoff after that test milestone.
+The first laptop full-suite run reported 377 passed and one failure: an existing test still expected the previous 12-event retention limit. The implementation change is intentional, so `tests/test_state_analysis_transitions.py` was updated to test the new 16-event limit (commit f61c76a). The latest full suite has not yet been rerun. On the laptop, pull redesign/simplified-writing-workflow with fast-forward only, then run `python3 -m pytest -q`. If it passes, re-analyze accepted Scene 4 and inspect the proposal without applying it until reviewed. Update this handoff after that test milestone.
 
 
 ---
