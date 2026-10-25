@@ -108,18 +108,26 @@ class SceneCompletionTests(unittest.TestCase):
 
     @patch("builder.scene_completion._run_scene_integrity_audit", side_effect=[PASS_AUDIT, PASS_AUDIT])
     @patch("builder.scene_completion.SceneContract.validate_with_engine")
-    def test_missing_planned_events_get_one_append_only_continuation(self, validate, _audit):
-        validate.return_value = {"pass": False, "missed_beats": ["Group begins discussing broad roles."], "violations": []}
-        self.engine.responses = ["Opening and disclosure.", "The group reacts and begins sketching roles."]
+    def test_missing_planned_events_use_one_full_scene_replacement_not_an_append(self, validate, _audit):
+        validate.side_effect = [
+            {"pass": False, "missed_beats": ["Group begins discussing broad roles."], "violations": []},
+            {"pass": True, "missed_beats": [], "violations": []},
+        ]
+        first_draft = "Opening and disclosure."
+        replacement_draft = "Complete replacement scene, including the group's decision point."
+        self.engine.responses = [first_draft, replacement_draft]
         draft, notice = generate_scene_with_completion_check(
             engine=self.engine, model_path=self.model, writer_system_prompt=self.system_prompt,
             initial_prompt="write", scene_context=self.scene_context, contract=self.contract,
             current_state=self.state,
         )
-        self.assertEqual(draft, "Opening and disclosure.\n\nThe group reacts and begins sketching roles.")
-        self.assertIn("one continuation", notice)
+        self.assertEqual(draft, replacement_draft)
+        self.assertNotIn(first_draft, draft)
+        self.assertIn("regenerated the whole scene", notice)
         self.assertEqual(len(self.engine.prompts), 2)
-        self.assertIn("do not rewrite", self.engine.prompts[1].casefold())
+        self.assertIn("complete replacement scene", self.engine.prompts[1].casefold())
+        self.assertIn("not a continuation", self.engine.prompts[1].casefold())
+        self.assertNotIn("CONTINUE THE EXISTING SCENE", self.engine.prompts[1])
 
     @patch("builder.scene_completion._run_scene_integrity_audit", side_effect=[CONFLICT_AUDIT, PASS_AUDIT])
     @patch("builder.scene_completion.SceneContract.validate_with_engine")
@@ -200,6 +208,7 @@ class SceneCompletionTests(unittest.TestCase):
             "This is a screening result, not a guarantee.",
             "StoryBuilder found an evidence-backed continuity/scope conflict and regenerated the whole scene once. "
             "The revised draft passed follow-up checks; review it before accepting.",
+            "StoryBuilder regenerated the whole scene to address planned events that appeared missing. The replacement draft passed follow-up checks; review it before accepting.",
             "StoryBuilder added one continuation for missing planned events. Original prose was preserved.",
         )
         for notice in notices:
@@ -232,22 +241,28 @@ class SceneCompletionTests(unittest.TestCase):
             current_state=self.state,
         )
         self.assertEqual(draft, "Draft scene.")
-        self.assertIn("retry limit disables continuation", notice)
+        self.assertIn("retry limit prevents a full-scene retry", notice)
         self.assertEqual(len(self.engine.prompts), 1)
 
     @patch("builder.scene_completion._run_scene_integrity_audit", side_effect=[
         PASS_AUDIT, CONFLICT_AUDIT
     ])
     @patch("builder.scene_completion.SceneContract.validate_with_engine")
-    def test_unverified_continuation_is_not_appended(self, validate, _audit):
-        validate.return_value = {"pass": False, "missed_beats": ["Private effort forms."], "violations": []}
-        self.engine.responses = ["Safe but incomplete draft.", "Continuation with a new clue."]
+    def test_unverified_full_scene_replacement_preserves_original_without_appending(self, validate, _audit):
+        validate.side_effect = [
+            {"pass": False, "missed_beats": ["Private effort forms."], "violations": []},
+            {"pass": True, "missed_beats": [], "violations": []},
+        ]
+        original = "Safe but incomplete draft."
+        replacement = "Different complete scene containing an unverified new clue."
+        self.engine.responses = [original, replacement]
         draft, notice = generate_scene_with_completion_check(
             engine=self.engine, model_path=self.model, writer_system_prompt=self.system_prompt,
             initial_prompt="write", scene_context=self.scene_context, contract=self.contract,
             current_state=self.state,
         )
-        self.assertEqual(draft, "Safe but incomplete draft.")
+        self.assertEqual(draft, original)
+        self.assertNotIn(replacement, draft)
         self.assertIn("Original draft preserved", notice)
         self.assertEqual(len(self.engine.prompts), 2)
 

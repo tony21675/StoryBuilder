@@ -43,6 +43,7 @@ _SUCCESSFUL_COMPLETION_NOTICE_PREFIXES = (
     "AUTOMATED REVIEW: scene-contract validation and the continuity/scope audit reported no issues.",
     "StoryBuilder found an evidence-backed continuity/scope conflict and regenerated the whole scene once. "
     "The revised draft passed follow-up checks;",
+    "StoryBuilder regenerated the whole scene to address planned events that appeared missing.",
     "StoryBuilder added one continuation for missing planned events.",
 )
 
@@ -274,18 +275,18 @@ def _clean_findings(review, field):
     return [str(x).strip() for x in raw if str(x).strip()] if isinstance(raw, list) else []
 
 
-def _build_continuation_prompt(scene_context, existing_draft, missing_beats):
+def _build_missing_beats_regeneration_prompt(initial_prompt, missing_beats):
     missing = "\n".join(f"- {beat}" for beat in missing_beats)
     return (
-        "CONTINUE THE EXISTING SCENE. DO NOT REWRITE IT.\n\n"
-        "AUTHOR INTENT AND SUPPORTING CONTEXT:\n" + str(scene_context or "").strip()
-        + "\n\nSEMANTIC REVIEW: These author-intended events appear missing:\n" + missing
-        + "\n\nSCENE ALREADY WRITTEN (preserve verbatim; do not repeat or revise):\n"
-        + str(existing_draft or "").strip()
-        + "\n\nContinue directly after the final sentence, writing only new prose. Carry the scene "
-        "naturally through its remaining phases to the stated hard stop. Do not jump beyond the "
-        "endpoint, invent clues/events, or turn the list into a checklist. Do not force any item "
-        "that conflicts with established facts or author intent."
+        str(initial_prompt or "").strip()
+        + "\n\nONE BOUNDED FULL-SCENE RETRY FOR POSSIBLY MISSING PLANNED EVENTS:\n"
+        + "The first draft may have omitted or underplayed these author-intended events:\n"
+        + missing
+        + "\n\nWrite one complete replacement scene from the original author intent and starting state. "
+        "This is a replacement for the first draft, not a continuation. Never append a second telling "
+        "of the scene to the original. Include the listed event or events naturally when they fit the "
+        "established story and author boundaries. Preserve valid continuity, do not invent clues or "
+        "consequential past actions, honor the hard stop, and output only the complete scene prose."
     )
 
 
@@ -312,7 +313,7 @@ def generate_scene_with_completion_check(
     """Check coverage plus evidence-backed continuity; perform at most one safe recovery.
 
     Optional on_draft_delta receives the initial prose as it streams from the model.
-    Review/recovery calls remain non-streaming because they can replace or extend it.
+    Review/recovery calls remain non-streaming because they can replace the full draft.
     """
     if callable(on_draft_delta):
         draft = str(engine.generate(initial_prompt, on_delta=on_draft_delta) or "").strip()
@@ -463,35 +464,48 @@ def generate_scene_with_completion_check(
         limit = 3
     if limit < 2:
         _restore_writer_context(engine, model_path, writer_system_prompt)
-        return draft, "Planned events are missing, but the retry limit disables continuation. Original draft preserved."
+        return draft, "Planned events are missing, but the retry limit prevents a full-scene retry. Original draft preserved."
     if not _restore_writer_context(engine, model_path, writer_system_prompt):
         return draft, "Planned events are missing, but Writer could not be restored. Original draft preserved."
     try:
-        continuation = str(engine.generate(_build_continuation_prompt(scene_context, draft, missed[:8])) or "").strip()
+        replacement = str(
+            engine.generate(_build_missing_beats_regeneration_prompt(initial_prompt, missed[:8])) or ""
+        ).strip()
     except Exception as exc:
         _restore_writer_context(engine, model_path, writer_system_prompt)
         return draft, (
-            _exception_diagnostic("Continuation failed", exc)
+            _exception_diagnostic("Full-scene retry for missing planned events failed", exc)
             + "\n\nOriginal draft preserved."
         )
-    if not continuation:
+    if not replacement:
         _restore_writer_context(engine, model_path, writer_system_prompt)
-        return draft, "No continuation was returned. Original draft preserved."
-    combined = draft.rstrip() + "\n\n" + continuation.lstrip()
+        return draft, "The full-scene retry returned no prose. Original draft preserved."
     try:
-        combined_audit = _run_scene_integrity_audit(
+        replacement_review = SceneContract.validate_with_engine(
+            engine=engine, contract=contract, current_state=current_state,
+            prose=replacement, author_guidance=author_guidance, model_path=model_path,
+        )
+        replacement_audit = _run_scene_integrity_audit(
             engine=engine, model_path=model_path, writer_system_prompt=writer_system_prompt,
             scene_context=scene_context, current_state=current_state,
-            author_guidance=author_guidance, prose=combined,
+            author_guidance=author_guidance, prose=replacement,
             historical_context=historical_context,
         )
     except Exception as exc:
         _restore_writer_context(engine, model_path, writer_system_prompt)
         return draft, (
-            _exception_diagnostic("The continuation could not be audited", exc)
+            _exception_diagnostic("The full-scene retry could not be verified", exc)
             + "\n\nOriginal draft preserved."
         )
-    if _integrity_status(combined_audit) != "clear":
-        _restore_writer_context(engine, model_path, writer_system_prompt)
-        return draft, "The continuation's continuity/scope checks were not fully clear. Original draft preserved."
-    return combined, "StoryBuilder added one continuation for missing planned events. Original prose was preserved; review the complete scene before accepting."
+    if (
+        replacement_review.get("pass") is True
+        and not _clean_findings(replacement_review, "missed_beats")
+        and not _clean_findings(replacement_review, "violations")
+        and _integrity_status(replacement_audit) == "clear"
+    ):
+        return replacement, (
+            "StoryBuilder regenerated the whole scene to address planned events that appeared missing. "
+            "The replacement draft passed follow-up checks; review it before accepting."
+        )
+    _restore_writer_context(engine, model_path, writer_system_prompt)
+    return draft, "The full-scene retry did not pass every follow-up check. Original draft preserved for review."
