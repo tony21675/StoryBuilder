@@ -42,9 +42,9 @@ The previous verified laptop baseline was **378 passed in 0.79s**, before this e
 - Canonical local package: `~/Documents/MyNovel/The-Long-Way-Home`.
 - GitHub: `tony21675/The-Long-Way-Home`.
 - Premise: six-person Mars research outpost crew, all under 30, four women/two men, single/unmarried. Their life-support crisis is accidental, with no sabotage and no one to blame. Goal: survive until rescue from Earth or repair.
-- Chapter 1, Scene 4 accepted prose remains unchanged; its last proposed state update was not applied.
+- Chapter 1, Scene 4 accepted prose remains unchanged; its last proposed state update was not applied. Chapter 1, Scene 5 was generated but is **not accepted** because the old automatic continuation path joined two complete tellings. The manuscript and saved scene state have not been advanced by accepting it. After syncing and testing the fix, regenerate Scene 5 and check for a single complete draft; do not accept the existing duplicate.
 - Main plot at this point: primary oxygen scrubber manifold temperature continues to rise while emergency ventilation/reserve blower maintain acceptable pressure. Daniel estimates thermal runaway could become critical in about 24 hours if the current rate holds; that is a conditional prediction, not a verified countdown. The silicate-like trace remains unverified and establishes no contamination, entry route, or cause. Elena has ended monitoring-only work and is heading toward a scrubber-housing inspection with Morgan and Priya. Daniel remains at the hub to monitor temperature and offered to prepare diagnostic tools. Ryan and Zoe are separately examining patterned communications bursts; no connection to life support is established.
-- Latest previous private trace: [StoryBuilder-Traces/prompt_trace.json](https://github.com/tony21675/StoryBuilder-Traces/blob/main/prompt_trace.json). It showed that the three-pass analysis took nearly five minutes and its evidence pass generated a few inaccurate events. The new test is to avoid those individual event, clue, position, and knowledge proposals entirely during normal State Analysis.
+- Latest private trace: [StoryBuilder-Traces/prompt_trace.json](https://github.com/tony21675/StoryBuilder-Traces/blob/main/prompt_trace.json). It showed the older three-pass State Analysis generated some inaccurate event details, motivating main-plot-only mode. It also proved the Scene 5 duplicate was caused by automatic recovery: the first Writer call produced a complete scene ending with Elena's repair-versus-diagnostics question; the validator still flagged that decision point as missing, then a continuation call wrote another full version. The old code appended both drafts. Code commit `81d04fe` replaces that append behavior with a full-scene replacement that must pass both follow-up checks, otherwise the first draft remains. GitHub `test` and `Compile and unit tests` passed for that fix.
 - Next: after sync and tests, re-analyze accepted Scene 4. If the output is one sensible main-plot summary, review and approve it using the plain-English change view. Do not use Advanced JSON unless an actual correction requires it.
 
 ## Other novel context
@@ -57,7 +57,10 @@ A future separate app idea: an e-liquid flavor/recipe tracker with separate flav
 
 ## Immediate next steps
 
-1. Close StoryBuilder normally if open, allowing auto-sync.
-2. Verify the branch head, then run `cd ~/Documents/StoryBuilder && python3 -m pytest -q`.
-3. If passing, open StoryBuilder and analyze accepted Scene 4. Only the main-plot summary should be proposed in regular Writer State Analysis.
-4. Don't add more State Analysis rules for ordinary details. If the main summary remains unreliable, stop and reassess the overall approach instead of starting another filter cycle.
+1. Freeze code changes for tonight. The duplicate-scene fix is already pushed to `redesign/simplified-writing-workflow` in commit `81d04fe`; latest handoff-only commit is `6bb47c4`.
+2. On the laptop, close StoryBuilder normally if open to allow its usual sync. Verify with `cd ~/Documents/StoryBuilder && git log -1 --oneline`.
+3. Run `cd ~/Documents/StoryBuilder && python3 -m pytest -q`. The old 378-passed laptop result predates the new experiment and is not a verification of the current branch.
+4. If tests pass, reopen StoryBuilder and regenerate the unaccepted Chapter 1, Scene 5 draft. The new code requests one full replacement for a missing-beat retry and only uses it if both follow-up reviews pass; otherwise the existing draft is preserved. It must never append the replacement to the first scene.
+5. Review one complete Scene 5 draft before accepting it. Do not apply the old ending-state proposal. The main-plot-only State Analysis experiment remains the current direction; do not add more filters for minor details.
+
+**Freeze checkpoint:** no more app or novel changes tonight. Only handoff updates are being made.
