@@ -610,6 +610,203 @@ def filter_low_value_recent_events(candidates: Any) -> list[str]:
     return result
 
 
+_RECENT_EVENT_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+|\n+")
+_MOVEMENT_EVENT_CLAIM_RE = re.compile(
+    r"\b(?P<verb>moved|walked|headed|stepped|approached|followed|entered|exited|"
+    r"left|crossed|proceeded|returned|went|came|positioned|placed|leaned|climbed|"
+    r"ran|rushed|advanced|reached)\b",
+    re.IGNORECASE,
+)
+_MOVEMENT_EVENT_SUPPORT_RE = re.compile(
+    r"\b(?:moved|moving|move|walked|walking|walk|headed|heading|head|stepped|"
+    r"stepping|step|approached|approaching|approach|followed|following|follow|"
+    r"entered|entering|enter|exited|exiting|exit|left|leaving|crossed|crossing|"
+    r"cross|proceeded|proceeding|proceed|returned|returning|return|went|came|"
+    r"coming|leaned|leaning|climbed|climbing|ran|running|rushed|rushing|"
+    r"advanced|advancing|reached|reaching)\b",
+    re.IGNORECASE,
+)
+_ACTIVE_POSITION_SUPPORT_RE = re.compile(
+    r"\b(?:positioned|placed)\s+(?:herself|himself|themselves|themself)\b|"
+    r"\btook\s+(?:her|his|their)\s+(?:place|position)\b",
+    re.IGNORECASE,
+)
+_AGREEMENT_EVENT_CLAIM_RE = re.compile(
+    r"\b(?:agreed|accepted|consented|assented|committed|decided|approved|endorsed)\b",
+    re.IGNORECASE,
+)
+_AGREEMENT_EVENT_SUPPORT_RE = re.compile(
+    r"\b(?:agreed|accepted|consented|assented|committed|decided|approved|endorsed)\b",
+    re.IGNORECASE,
+)
+_AFFIRMATIVE_RESPONSE_RE = re.compile(
+    r"^\s*[\"'“‘(\[]?\s*(?:yes|yeah|yep|right|sure|okay|ok|fine|absolutely|"
+    r"understood|will\s+do|sounds\s+good)\b",
+    re.IGNORECASE,
+)
+
+
+def filter_unsupported_character_action_events(
+    candidates: Any,
+    completed_text: str,
+    character_names: list[str] | None = None,
+) -> list[str]:
+    """Drop clear movement/agreement claims not supported for the named actor.
+
+    This is a conservative continuity guard, not a plot planner or general
+    prose validator. It does not require an event to quote the scene verbatim.
+    It checks only explicit physical-movement/positioning and agreement claims;
+    other event types pass through to avoid guessing about narrative meaning.
+    If the event's actor cannot be identified confidently, keep the event.
+    """
+    if not isinstance(candidates, list):
+        return []
+
+    names = [
+        str(name).strip()
+        for name in (character_names or [])
+        if str(name).strip()
+    ]
+    first_counts: dict[str, int] = {}
+    last_counts: dict[str, int] = {}
+    for name in names:
+        parts = name.split()
+        first_counts[parts[0].casefold()] = first_counts.get(parts[0].casefold(), 0) + 1
+        last_counts[parts[-1].casefold()] = last_counts.get(parts[-1].casefold(), 0) + 1
+
+    aliases_by_name: dict[str, list[str]] = {}
+    for name in names:
+        parts = name.split()
+        aliases = [name]
+        if len(parts) > 1 and first_counts[parts[0].casefold()] == 1:
+            aliases.append(parts[0])
+        if len(parts) > 1 and last_counts[parts[-1].casefold()] == 1:
+            aliases.append(parts[-1])
+        aliases_by_name[name] = list(dict.fromkeys(aliases))
+
+    alias_patterns = {
+        name: [re.compile(r"\b" + re.escape(alias) + r"\b", re.IGNORECASE) for alias in aliases]
+        for name, aliases in aliases_by_name.items()
+    }
+    sentences = [
+        item.strip()
+        for item in _RECENT_EVENT_SENTENCE_SPLIT_RE.split(str(completed_text or ""))
+        if item.strip()
+    ]
+
+    def actor_occurrences(text: str) -> list[tuple[int, int, str]]:
+        found: list[tuple[int, int, str]] = []
+        for canonical_name, patterns in alias_patterns.items():
+            positions = [
+                match.span()
+                for pattern in patterns
+                for match in pattern.finditer(text)
+            ]
+            if positions:
+                start, end = max(positions, key=lambda span: span[1])
+                found.append((start, end, canonical_name))
+        return sorted(found, key=lambda item: item[1])
+
+    def actors_before_claim(event: str, claim_start: int) -> list[str]:
+        prefix = event[:claim_start]
+        occurrences = actor_occurrences(prefix)
+        if not occurrences:
+            return []
+        latest_end = occurrences[-1][1]
+        # The immediately coordinated names in "Morgan and Priya moved..." are
+        # both subjects. Names earlier in a clause ("Elena asked Morgan to move")
+        # are not accidentally treated as the actor of the movement.
+        subjects = [occurrences[-1][2]]
+        for start, end, name in reversed(occurrences[:-1]):
+            gap = prefix[end:latest_end]
+            if re.fullmatch(r"[\s,&]+", gap or "") and latest_end - end <= 40:
+                subjects.append(name)
+                latest_end = end
+            else:
+                break
+        return list(dict.fromkeys(subjects))
+
+    def sentence_mentions(sentence: str, actor: str) -> bool:
+        return any(pattern.search(sentence) for pattern in alias_patterns.get(actor, []))
+
+    def supports_movement(actor: str, claim_verb: str) -> bool:
+        for index, sentence in enumerate(sentences):
+            if not sentence_mentions(sentence, actor):
+                continue
+            if claim_verb.casefold() in {"positioned", "placed"}:
+                if _ACTIVE_POSITION_SUPPORT_RE.search(sentence):
+                    return True
+                continue
+            if _MOVEMENT_EVENT_SUPPORT_RE.search(sentence):
+                return True
+            # A movement may be narrated with a pronoun in the next sentence
+            # after the character is named. Allow that simple adjacent reference.
+            if index + 1 < len(sentences):
+                following = sentences[index + 1]
+                if (
+                    re.match(r"^\s*(?:she|he|they)\b", following, re.IGNORECASE)
+                    and _MOVEMENT_EVENT_SUPPORT_RE.search(following)
+                ):
+                    return True
+        return False
+
+    def supports_agreement(actor: str) -> bool:
+        for index, sentence in enumerate(sentences):
+            if not sentence_mentions(sentence, actor):
+                continue
+            if _AGREEMENT_EVENT_SUPPORT_RE.search(sentence):
+                return True
+            # Short affirmative replies can be evidence of agreement even when
+            # the speaker's name appears in the immediately preceding sentence.
+            if index + 1 < len(sentences):
+                following = sentences[index + 1]
+                other_named_actor = any(
+                    sentence_mentions(following, other)
+                    for other in alias_patterns
+                    if other != actor
+                )
+                if not other_named_actor and _AFFIRMATIVE_RESPONSE_RE.search(following):
+                    return True
+        return False
+
+    accepted: list[str] = []
+    for candidate in candidates:
+        if not isinstance(candidate, str) or not candidate.strip():
+            continue
+        event = candidate.strip()
+        supported = True
+
+        for claim in _MOVEMENT_EVENT_CLAIM_RE.finditer(event):
+            # Do not treat abstract "shifted focus" as physical movement.
+            tail = event[claim.end():claim.end() + 70]
+            if claim.group("verb").casefold() == "shifted" and not re.search(
+                r"\b(?:toward|towards|to|into|outside|inside|near|beside|behind|"
+                r"from|away|across|over|through)\b",
+                tail,
+                re.IGNORECASE,
+            ):
+                continue
+            actors = actors_before_claim(event, claim.start())
+            if actors and not all(
+                supports_movement(actor, claim.group("verb"))
+                for actor in actors
+            ):
+                supported = False
+                break
+
+        if supported:
+            for claim in _AGREEMENT_EVENT_CLAIM_RE.finditer(event):
+                actors = actors_before_claim(event, claim.start())
+                if actors and not all(supports_agreement(actor) for actor in actors):
+                    supported = False
+                    break
+
+        if supported:
+            accepted.append(event)
+
+    return accepted
+
+
 def append_recent_events(
     existing_events: Any,
     new_events: list[str],
@@ -2568,6 +2765,11 @@ class StateManager:
         # to preview/apply. Preserve previous history and append only new events.
         new_recent_events = filter_low_value_recent_events(
             patch.pop("new_recent_events", [])
+        )
+        new_recent_events = filter_unsupported_character_action_events(
+            new_recent_events,
+            completed_text,
+            [str(name) for name in scene_names if str(name).strip()],
         )
         new_clues = filter_non_observational_clues(patch.pop("new_clues", []))
         resolved_clues = patch.pop("resolved_clues", [])
