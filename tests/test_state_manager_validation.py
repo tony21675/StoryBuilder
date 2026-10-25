@@ -19,6 +19,31 @@ from builder.state_manager import (
 
 
 class StateUpdateValidationTests(unittest.TestCase):
+    def test_state_analysis_prompts_preserve_open_crises_and_filter_routine_clues(self):
+        ending_prompt = state_manager_module.ENDING_STATE_SYSTEM_PROMPT
+        evidence_prompt = state_manager_module.SCENE_EVIDENCE_SYSTEM_PROMPT
+
+        self.assertIn(
+            "Preserve every important unresolved situation or crisis named in the before-state",
+            ending_prompt,
+        )
+        self.assertIn(
+            "attention to a secondary investigation is not resolution",
+            ending_prompt,
+        )
+        self.assertIn(
+            "Not every true detail is a clue.",
+            evidence_prompt,
+        )
+        self.assertIn(
+            "Do not treat routine gestures/actions, movement to an assigned position, orders, plans, intentions, or ordinary dialogue as clues by themselves.",
+            evidence_prompt,
+        )
+        self.assertIn(
+            "A consequential estimate or hypothesis may be recorded as an attributed recent event",
+            evidence_prompt,
+        )
+
     def test_explicit_null_patch_removes_stale_nested_state(self):
         base = {
             "current_situation": "Tony and Maya are in the kitchen.",
