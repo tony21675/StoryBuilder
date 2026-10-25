@@ -524,7 +524,7 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         app._show_copyable_error.assert_not_called()
         app._update_writer_buttons.assert_called_once()
 
-    @patch("storybuilder_app.messagebox.showinfo")
+    @patch.object(storybuilder_app.messagebox, "showinfo")
     def test_accept_handler_waits_until_validator_review_is_finished(self, showinfo):
         app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
         app.validator_review_in_progress = True
