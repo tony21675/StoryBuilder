@@ -212,7 +212,7 @@ Rules:
 - The current state is the BEFORE-state baseline only. Never copy a before-state location, clothing detail, or situation into the update when the completed prose clearly changes it.
 - For any character whose location or immediate situation changes during the section, include that changed character under location even if the before-state already listed a different location. The character's location entry and physical_state.<character>.location must describe the same ending area at comparable granularity. When the prose moves someone from one named area to another, update both fields; a relational position such as leaning over another character is not a substitute for the actual location. Never preserve a before-state location that conflicts with the completed prose.
 - Update active_objectives only for characters whose current goal or role is changed or newly established by the accepted prose. Return a partial object with concise replacement text for those characters only; use null for a character whose prior objective is no longer active. If a group has only agreed to help, keep the objective broad and do not invent assignments, leads, investigation steps, or rescue plans. Replace objectives directly contradicted by the scene; use null to remove objectives that are completed, abandoned, or superseded instead of carrying them forward unchanged.
-- Return new_recent_events as an array of concise factual event strings newly established in the completed section, in chronological order. Each list item must be a plain JSON string, never an object such as {"event": "..."}. Preserve separate, consequential beats within an interaction instead of collapsing them into a generic emotional summary. In particular, record meaningful quoted relationship milestones such as a first-time nickname and the other character's acceptance or rejection, as well as the surrounding hug or gesture when both matter. Do not repeat events already present in the before-state recent_events list, do not include interpretations or future plans, and use an empty array if no meaningful new events occurred. The application appends these to the existing history and keeps the most recent twelve entries.
+- Return new_recent_events as an array of concise factual event strings newly established in the completed section, in chronological order. Each list item must be a plain JSON string, never an object such as {"event": "..."}. Preserve separate, consequential beats within an interaction instead of collapsing them into a generic emotional summary. In particular, record meaningful quoted relationship milestones such as a first-time nickname and the other character's acceptance or rejection, as well as the surrounding hug or gesture when both matter. Do not repeat events already present in the before-state recent_events list, do not include interpretations or future plans, and use an empty array if no meaningful new events occurred. The application appends these to the existing history and keeps the most recent sixteen entries.
 - The completed prose is the source of truth for what happened.
 - Do not invent motives, identities, locations, evidence, backstory, or other consequential facts.
 - The application owns scene navigation and workflow flags. NEVER return the keys chapter, scene, status, scene_completed, chapter_completed, or scene_cast in a state patch; those are updated by StoryBuilder after the reviewed patch is applied.
@@ -518,11 +518,103 @@ def remove_unchanged(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, A
 
 
 
+def filter_non_observational_clues(candidates: Any) -> list[str]:
+    """Reject clue candidates whose stated basis is only a projection or estimate.
+
+    A projection may be consequential and worth recording as an attributed event,
+    but it is not itself a concrete observation. This guard deliberately targets
+    explicit estimate/projection wording rather than filtering uncertain evidence
+    or hypotheses from the novel's investigative record wholesale.
+    """
+    if not isinstance(candidates, list):
+        return []
+
+    estimate_only_patterns = (
+        re.compile(
+            r"\\b(?:based on|according to|per)\\s+"
+            r"(?:(?:the|a|an)\\s+)?(?:[\\w'-]+\\s+){0,3}"
+            r"(?:projection|estimate|prediction|forecast|hypothesis)\\b",
+            re.IGNORECASE,
+        ),
+        re.compile(
+            r"^\\s*(?:[\\w'-]+\\s+){0,3}"
+            r"(?:projected|estimated|predicted|forecasted|hypothesized|speculated)\\b",
+            re.IGNORECASE,
+        ),
+    )
+    result: list[str] = []
+    for candidate in candidates:
+        if not isinstance(candidate, str) or not candidate.strip():
+            continue
+        value = candidate.strip()
+        if any(pattern.search(value) for pattern in estimate_only_patterns):
+            continue
+        result.append(value)
+    return result
+
+
+_UNACTED_INTENTION_EVENT_RE = re.compile(
+    r"\\b(?:expressed|stated|voiced|indicated)\\s+(?:an?\\s+)?"
+    r"(?:intent|intention|desire|plan)\\s+to\\b",
+    re.IGNORECASE,
+)
+_INTENTION_FOLLOW_THROUGH_RE = re.compile(
+    r"\\b(?:then|and later|afterward|after that)\\b.{0,120}\\b"
+    r"(?:acted|began|started|initiated|performed|opened|closed|entered|left|"
+    r"activated|checked|inspected|reported|observed|found|discovered|measured|"
+    r"confirmed|tested|moved|completed)\\b",
+    re.IGNORECASE,
+)
+_ROUTINE_MOVEMENT_GESTURE_RE = re.compile(
+    r"^\\s*[\\w'-]+(?:\\s+[\\w'-]+){0,2}\\s+"
+    r"(?:moved|walked|stepped|headed|shifted)\\b[^.!?]{0,100}?"
+    r"\\b(?:while|as)\\s+(?:adjusting|straightening|pulling at)\\s+"
+    r"(?:her|his|their|the)?\\s*"
+    r"(?:gloves|sleeves|cuffs|collar|clothing)\\b[^.!?]*[.!?]?\\s*$",
+    re.IGNORECASE,
+)
+_MATERIAL_EVENT_VERB_RE = re.compile(
+    r"\\b(?:noticed|observed|found|discovered|reported|warned|measured|"
+    r"confirmed|tested|identified|damaged|injured|activated|initiated|"
+    r"opened|closed|entered|left|completed|failed|stopped|revealed)\\b",
+    re.IGNORECASE,
+)
+
+
+def filter_low_value_recent_events(candidates: Any) -> list[str]:
+    """Drop standalone routine gestures and unacted intentions from event deltas.
+
+    Consequential decisions, actions, findings, and events that describe follow-
+    through are retained. This is intentionally a narrow guard, not a general
+    attempt to judge or rewrite the prose.
+    """
+    if not isinstance(candidates, list):
+        return []
+
+    result: list[str] = []
+    for candidate in candidates:
+        if not isinstance(candidate, str) or not candidate.strip():
+            continue
+        value = candidate.strip()
+        if (
+            _UNACTED_INTENTION_EVENT_RE.search(value)
+            and not _INTENTION_FOLLOW_THROUGH_RE.search(value)
+        ):
+            continue
+        if (
+            _ROUTINE_MOVEMENT_GESTURE_RE.search(value)
+            and not _MATERIAL_EVENT_VERB_RE.search(value)
+        ):
+            continue
+        result.append(value)
+    return result
+
+
 def append_recent_events(
     existing_events: Any,
     new_events: list[str],
     *,
-    limit: int = 12,
+    limit: int = 16,
 ) -> list[Any]:
     """Append new scene events without rewriting prior history or keeping duplicates."""
     existing = list(existing_events) if isinstance(existing_events, list) else []
@@ -2474,8 +2566,8 @@ class StateManager:
 
         # Consume the transient event-addition field before exposing the patch
         # to preview/apply. Preserve previous history and append only new events.
-        new_recent_events = patch.pop("new_recent_events", [])
-        new_clues = patch.pop("new_clues", [])
+        new_recent_events = filter_low_value_recent_events(\n            patch.pop("new_recent_events", [])\n        )
+        new_clues = filter_non_observational_clues(patch.pop("new_clues", []))
         resolved_clues = patch.pop("resolved_clues", [])
         new_questions = patch.pop("new_unresolved_questions", [])
         resolved_questions = patch.pop("resolved_questions", [])
