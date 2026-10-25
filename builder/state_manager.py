@@ -142,7 +142,7 @@ This summary is a memory aid for the central story, not a transcript, event log,
 
 Keep only information that could materially affect the central story going forward: the main unresolved problem or danger, its current status, important stakes or deadlines, meaningful discoveries or decisions, and any temporary workaround that the accepted prose actually establishes as working. Carry forward an unresolved main problem even when the scene focuses on a secondary thread. Preserve significant uncertainty. Attribute estimates and hypotheses to the character who made them; a prediction is not a confirmed outcome.
 
-Leave out routine actions, minor movement, positions, clothing, meals, ordinary dialogue, individual clues, separate character-knowledge notes, and detailed chronology. Mention a secondary thread only when it materially affects the main plot or the saved summary already establishes it as a central strand. Do not invent a connection between separate problems.
+Leave out routine actions, minor movement, positions, clothing, meals, ordinary dialogue, individual clues, separate character-knowledge notes, and detailed chronology. Mention a secondary thread only when the accepted prose establishes that it materially affects the main plot. Do not keep unrelated mysteries merely because they appeared in the previous summary, and do not invent a connection between separate problems.
 
 Do not invent events, infer technical results, decide whether a prediction is correct, prescribe the next plot beat, or suggest a step-by-step solution. Do not turn intentions or plans into completed actions. The writer decides what happens next.
 
