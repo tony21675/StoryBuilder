@@ -4184,7 +4184,13 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
                 "AUTOMATED REVIEW ERROR: no completion-check result was returned. "
                 "The original draft was preserved. Regenerate the scene before accepting."
             )
-        if not completion_notice_is_success(completion_notice):
+        findings = [dict(item) for item in (review_findings or []) if isinstance(item, dict)]
+        self.generated_scene_review_context = review_context if isinstance(review_context, dict) else None
+        # Findings are handled one at a time below. Acceptance remains disabled
+        # while that interactive queue is open, then becomes the author's choice.
+        if findings:
+            self.writer_scene_accept_block_reason = ""
+        elif not completion_notice_is_success(completion_notice):
             self.writer_scene_accept_block_reason = completion_notice
         else:
             self.writer_scene_accept_block_reason = ""
@@ -4210,7 +4216,9 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             # Keep the status area readable even when the diagnostic includes a traceback.
             status_text += "\n\n" + str(completion_notice).splitlines()[0]
         self.writer_status.configure(text=status_text)
-        if completion_notice and not completion_notice_is_success(completion_notice):
+        if findings:
+            self._start_validator_review(findings, completion_notice, review_context)
+        elif completion_notice and not completion_notice_is_success(completion_notice):
             self._show_copyable_error(
                 "Scene Completion Check",
                 str(completion_notice),
@@ -4221,6 +4229,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
                 ),
                 copy_label="Copy Full Check Report",
             )
+
     def _regenerate_generated_scene(self):
         if not self._has_pending_generated_scene():
             return
