@@ -132,6 +132,42 @@ def is_routine_action_log_knowledge(
     return False
 
 
+ENDING_STATE_SYSTEM_PROMPT = """You determine only the actual ending state of a completed scene in an ongoing fictional story.
+
+Return exactly one JSON object. Allowed keys are current_situation, location, physical_state, and time_of_day. current_situation is required and must be concise, factual, non-empty text.
+
+The input contains the saved state before the scene and only the final few paragraphs of accepted prose. The accepted prose is the evidence. The saved state is a baseline, not proof that old positions stayed the same. The final paragraph is the strongest evidence for what remains true at the end.
+
+- Describe what is true at the absolute end, not what happened earlier, what was planned, or what might happen next.
+- Earlier movement toward a place does not mean the character entered it or started work there. If the final prose says someone remains outside or is checking external equipment, preserve that endpoint.
+- Change a location or physical-state field only when the ending excerpt explicitly establishes a different value. Do not infer walking, sitting, standing, closing devices, posture, interaction, or activity from mood, role, or narrative implication alone.
+- If the final excerpt does not establish a change to a character's physical state or location, omit that character from the patch. Do not invent a more descriptive replacement for an unchanged value.
+- Keep location and physical_state.<character>.location consistent when both change. Do not add physical_state.location if the prose does not establish a location change.
+- Do not change active_objectives. This pass is not an objective audit.
+- Preserve uncertainty and do not invent causes, readings, diagnoses, events, or technical findings.
+- Do not output clues, questions, event logs, character knowledge, objectives, or any other keys. Do not echo the entire existing state.
+- Use null only to remove an explicitly obsolete physical-state subfield. Never use null merely because the final excerpt doesn't mention something.
+- Output JSON only, without markdown or explanations.
+"""
+
+SCENE_EVIDENCE_SYSTEM_PROMPT = """You extract only concrete new evidence and events from a completed scene in an ongoing fictional story.
+
+Return exactly one JSON object with all five keys:
+{"new_clues": [], "resolved_clues": [], "new_unresolved_questions": [], "resolved_questions": [], "new_recent_events": []}
+
+Each value must be an array of non-empty strings. Use an empty array when there are no items.
+
+The full accepted scene is the source of truth. The supplied active-clue and unresolved-question lists are the before-state used for deduplication and resolution checks.
+- new_clues: concrete, observable evidence newly established by the prose. Keep witness uncertainty. Do not turn a hypothesis into a fact, invent extra details, or repeat an existing active clue.
+- resolved_clues: exact existing active-clue entries explicitly resolved or disproved by the prose. Omit anything merely not mentioned or discussed speculatively.
+- new_unresolved_questions: concrete factual unknowns made salient by this scene and still unanswered.
+- resolved_questions: exact existing questions answered by the prose.
+- new_recent_events: important factual beats that actually occurred, in chronological order. Include no planned future events, model inferences, or invented actions. Every item is a plain JSON string, never an object with an event key.
+- Do not produce or alter current_situation, location, physical_state, time_of_day, active_objectives, character_knowledge, active_clues, unresolved_questions, or recent_events. Do not change anyone's position, action, role, or objective.
+- Don't infer a connection between unrelated investigations unless the prose establishes one.
+- Output JSON only, without markdown or explanations.
+"""
+
 STATE_SYSTEM_PROMPT = """You are the continuity manager for an ongoing fictional story.
 
 Return ONLY one valid JSON object containing a PARTIAL UPDATE to the current story state.
@@ -1932,42 +1968,92 @@ class StateManager:
             )
 
         completed_text = story_text.strip()
-        # scene_end_guidance remains a compatibility parameter only. The accepted
-        # prose and the before-state are the evidence used for state analysis.
-        state_context = build_state_analysis_context(current_state, scene_characters)
-        prompt_parts = [
-            "COMPACT CURRENT-STATE CONTEXT BEFORE THIS SECTION (THE APPLICATION RETAINS THE FULL STATE):\n",
-            json.dumps(state_context, indent=2, ensure_ascii=False),
+        # Scene-end guidance is deliberately ignored. The accepted prose is the
+        # sole evidence source; the state model now has two narrow responsibilities.
+        scene_names = scene_characters or current_state.get("scene_cast", [])
+        scene_name_keys = {str(name).casefold() for name in scene_names if str(name).strip()}
+        scene_name_keys.update(
+            str(name).casefold()
+            for name in current_state.get("scene_cast", [])
+            if str(name).strip()
+        )
+
+        ending_context: dict[str, Any] = {}
+        for field in (
+            "chapter", "scene", "scene_cast", "current_situation", "time",
+            "time_of_day", "location", "physical_state",
+        ):
+            if field not in current_state:
+                continue
+            value = current_state[field]
+            if field in {"location", "physical_state"} and isinstance(value, dict):
+                ending_context[field] = {
+                    name: item
+                    for name, item in value.items()
+                    if (field == "location" and str(name).casefold() == "primary")
+                    or str(name).casefold() in scene_name_keys
+                }
+            else:
+                ending_context[field] = value
+
+        evidence_context = {
+            field: current_state[field]
+            for field in ("chapter", "scene", "scene_cast", "active_clues", "unresolved_questions")
+            if field in current_state
+        }
+        if isinstance(current_state.get("recent_events"), list):
+            evidence_context["recent_events"] = current_state["recent_events"][-8:]
+
+        # Use the last few actual prose paragraphs for the ending-state decision.
+        # The whole scene is sent separately to the evidence pass below.
+        paragraphs = [
+            part.strip()
+            for part in re.split(r"\\n\\s*\\n", completed_text)
+            if part.strip()
         ]
+        if not paragraphs:
+            paragraphs = [completed_text]
+        ending_parts: list[str] = []
+        ending_chars = 0
+        for paragraph in reversed(paragraphs):
+            separator_chars = 2 if ending_parts else 0
+            remaining = 6000 - ending_chars - separator_chars
+            if remaining <= 0:
+                break
+            if len(paragraph) > remaining:
+                ending_parts.insert(0, paragraph[-remaining:])
+                ending_chars = 6000
+                break
+            ending_parts.insert(0, paragraph)
+            ending_chars += len(paragraph) + separator_chars
+            if len(ending_parts) >= 4:
+                break
+        ending_excerpt = "\\n\\n".join(ending_parts)
 
-        prompt_parts.extend([
-            "\n\nCOMPLETED STORY SECTION:\n",
-            completed_text,
-        ])
+        ending_prompt = (
+            "BEFORE-STATE CONTEXT (only the state before this scene):\\n"
+            + json.dumps(ending_context, indent=2, ensure_ascii=False)
+            + "\\n\\nFINAL PARAGRAPHS OF ACCEPTED SCENE (ending-state evidence):\\n"
+            + ending_excerpt
+            + "\\n\\nReturn only the ending-state fields supported by these final paragraphs. "
+            "Keep unchanged physical details out of the patch. Do not update objectives."
+        )
+        evidence_prompt = (
+            "BEFORE-SCENE EVIDENCE CONTEXT (for deduplication and exact resolution only):\\n"
+            + json.dumps(evidence_context, indent=2, ensure_ascii=False)
+            + "\\n\\nFULL ACCEPTED SCENE (the source of new events and evidence):\\n"
+            + completed_text
+            + "\\n\\nExtract only new evidence/events/questions from the full scene. "
+            "This pass cannot update or override the ending state or objectives."
+        )
 
-
-        prompt_parts.extend([
-            "\n\nENDING-STATE EMPHASIS:\n",
-            "The full accepted scene text appears above exactly once. Do not rely on a repeated excerpt; inspect the final actions and paragraph in the original scene. ",
-            "Determine the smallest state update needed AFTER this completed section. "
-            "Read the entire section, but give special weight to the final actions and final paragraph. "
-            "The compact current-state context describes what was true BEFORE the section and must not override what "
-            "the completed prose establishes at the end. For each character whose final location, physical position, contact, or immediate "
-            "situation changed, include the changed value under physical_state and/or location as appropriate. Update current_situation to describe "
-            "the actual immediate situation at the absolute end of the completed section, not the starting "
-            "situation and not what should happen in the next scene. Keep it concise and factual. "
-            "Do not copy planning instructions or future events into it. "
-            "Always return non-empty current_situation. Return only changed location, physical_state, time_of_day, and active_objectives fields, plus new_clues (use [] if none), resolved_clues, new_unresolved_questions, resolved_questions, and new_recent_events (use [] if none). "
-            "Each new_recent_events item must be a plain JSON string, not an object with an event key. Do not return character_knowledge, active_clues, unresolved_questions directly, recent_events directly, event/event-log fields, scene flags, continuity requirements, or other metadata. For new_clues, include specific sensory/physical/vehicle evidence, preserve witness qualifiers, and never invent an extra scent or split one observation into additional clues. Do not repeat an existing active clue as new. Keep exact first-time nicknames and whether they are accepted or rejected as distinct new_recent_events, not just a generic hug. Include physical_state.clothing when the prose explicitly establishes a continuity-relevant outfit change. "
-            "Use null to remove stale object keys as described by the system rules. Update only objectives changed by the completed prose and keep any group commitment broad when no assignments have been made. The compact context omits full character knowledge and editorial reminders; do not treat omitted facts as false."
-        ])
-        prompt = "".join(prompt_parts)
-
-        def run_model(prompt_text: str) -> str:
+        def run_model(
+            prompt_text: str,
+            system_prompt: str,
+            max_tokens: int,
+        ) -> str:
             env = os.environ.copy()
-            env["LD_LIBRARY_PATH"] = str(
-                DEFAULT_LLAMA.parent
-            ) + (
+            env["LD_LIBRARY_PATH"] = str(DEFAULT_LLAMA.parent) + (
                 ":" + env["LD_LIBRARY_PATH"]
                 if env.get("LD_LIBRARY_PATH")
                 else ""
@@ -1991,8 +2077,8 @@ class StateManager:
                 "--top-p", "0.80",
                 "--repeat-last-n", "256",
                 "--repeat-penalty", "1.08",
-                "--n-predict", "1000",
-                "--system-prompt", STATE_SYSTEM_PROMPT,
+                "--n-predict", str(max_tokens),
+                "--system-prompt", system_prompt,
                 "--prompt", prompt_text,
                 "--color", "off",
                 "--no-display-prompt",
@@ -2018,140 +2104,144 @@ class StateManager:
 
             if proc.returncode not in (0, None):
                 raise RuntimeError(
-                    "Continuity analysis failed.\n"
+                    "Continuity analysis failed.\\n"
                     + (output or "")[-3000:]
                 )
             return output or ""
 
-        output = run_model(prompt)
-        patch = None
+        ending_fields = {"current_situation", "location", "physical_state", "time_of_day"}
+        evidence_fields = {
+            "new_clues", "resolved_clues",
+            "new_unresolved_questions", "resolved_questions", "new_recent_events",
+        }
+        evidence_required = set(evidence_fields)
 
-        # Local models occasionally misnest a character's ending physical state
-        # at the proposal's top level. Normalize only recognizable objects for
-        # known characters; all other unsupported fields remain validation errors.
-        parsed_proposal_for_error: dict[str, Any] | None = None
-        for attempt in range(2):
-            parsed_proposal_for_error = None
-            try:
-                parsed_candidate = extract_json_object(
-                    output,
-                    required_keys={"current_situation"},
-                )
-                # Preserve the exact parsed shape before normalizers change it so
-                # a failed proposal can be diagnosed from the error message.
-                parsed_proposal_for_error = json.loads(
-                    json.dumps(parsed_candidate, ensure_ascii=False)
-                )
-                candidate = dict(parsed_candidate)
-                # Knowledge is produced by a dedicated audit below. Never let
-                # the general state model turn scene actions into "knowledge"
-                # or replace cumulative facts with an event log.
-                candidate.pop("character_knowledge", None)
-                if "location" in candidate and not isinstance(candidate["location"], dict):
-                    raise ValueError("Invalid state update: 'location' must be an object.")
+        def parse_pass(
+            output_text: str,
+            *,
+            pass_name: str,
+            allowed_fields: set[str],
+            required_fields: set[str],
+            ending_state_pass: bool,
+        ) -> dict[str, Any]:
+            candidate = extract_json_object(output_text, required_keys=required_fields)
+            # Strictly whitelist each pass. If a model ignores its role and emits
+            # cross-pass fields, those fields can never override the other result.
+            candidate = {
+                key: value
+                for key, value in candidate.items()
+                if key in allowed_fields
+            }
+            if ending_state_pass:
                 candidate = normalize_location_patch(current_state, candidate)
                 candidate = normalize_physical_state_patch(
                     current_state,
                     candidate,
                     scene_characters=scene_characters,
                 )
-                candidate = normalize_recent_event_entries(candidate)
-                validate_state_proposal(current_state, candidate)
-                patch = candidate
-                break
-            except (TypeError, ValueError) as exc:
-                if attempt == 1:
-                    # If the model repeats the location-shape mistake after the
-                    # correction prompt, discard only malformed location values.
-                    # This preserves the baseline location instead of guessing,
-                    # while allowing independently valid state changes to be reviewed.
-                    error_text = str(exc)
+                try:
+                    validate_state_proposal(current_state, candidate)
+                except (TypeError, ValueError) as exc:
+                    # A malformed location must not discard a usable situation or
+                    # physical-state proposal. Keep only text/null location entries.
                     if (
-                        "Invalid state update at 'location." in error_text
-                        or "Invalid state update: 'location' must be an object" in error_text
+                        "Invalid state update at 'location." in str(exc)
+                        or "'location' must be an object" in str(exc)
                     ):
-                        try:
-                            recovered = extract_json_object(
-                                output,
-                                required_keys={"current_situation"},
-                            )
-                            # Character knowledge is always handled by the
-                            # dedicated knowledge audit, never salvaged here.
-                            recovered.pop("character_knowledge", None)
-                            # Normalize legacy top-level location keys FIRST.
-                            # Otherwise a malformed top-level character value can be
-                            # moved under location after that field was cleaned.
-                            recovered = normalize_location_patch(
-                                current_state,
-                                recovered,
-                            )
-                            recovered = normalize_physical_state_patch(
-                                current_state,
-                                recovered,
-                                scene_characters=scene_characters,
-                            )
-                            raw_location = recovered.get("location")
-                            if isinstance(raw_location, dict):
-                                clean_location = {
-                                    name: value
-                                    for name, value in raw_location.items()
-                                    if isinstance(value, str) or value is None
-                                }
-                                if clean_location:
-                                    recovered["location"] = clean_location
-                                else:
-                                    recovered.pop("location", None)
+                        raw_location = candidate.get("location")
+                        if isinstance(raw_location, dict):
+                            clean_location = {
+                                key: value
+                                for key, value in raw_location.items()
+                                if isinstance(value, str) or value is None
+                            }
+                            if clean_location:
+                                candidate["location"] = clean_location
                             else:
-                                recovered.pop("location", None)
-
-                            recovered = normalize_recent_event_entries(recovered)
-                            validate_state_proposal(current_state, recovered)
-                            patch = recovered
-                            break
-                        except (TypeError, ValueError):
-                            # Do not salvage if any other part of the proposal
-                            # remains malformed. The ordinary error below retains
-                            # the full validator detail for diagnosis.
-                            pass
-
-                    excerpt = (output or "")[-1200:]
-                    if parsed_proposal_for_error is not None:
-                        parsed_detail = json.dumps(
-                            parsed_proposal_for_error,
-                            indent=2,
-                            ensure_ascii=False,
-                        )
+                                candidate.pop("location", None)
+                        else:
+                            candidate.pop("location", None)
+                        validate_state_proposal(current_state, candidate)
                     else:
-                        parsed_detail = "(No complete state-proposal JSON object containing current_situation could be extracted from the model response.)"
-                    raise ValueError(
-                        "The continuity model returned an invalid state update even after one "
-                        "automatic correction attempt. No state changes were applied.\n\n"
-                        f"Validation detail: {exc}\n\n"
-                        "Parsed proposal before normalization (exact JSON shape):\n"
-                        f"{parsed_detail}\n\n"
-                        f"Last model response excerpt (last 1200 characters):\n{excerpt}"
-                    ) from exc
+                        raise
+                return candidate
 
-                repair_prompt = (
-                    prompt
-                    + "\n\nAUTOMATIC CORRECTION REQUIRED: your previous JSON proposal was "
-                    "rejected by the application's state validator. Correct the same proposal "
-                    "using only facts supported by the completed prose. Do not invent new events.\n"
-                    + f"VALIDATION ERROR: {exc}\n"
-                    + "SCHEMA REMINDER: return ONLY current_situation, location, physical_state, time_of_day, active_objectives (partial object; use null to delete stale objectives), new_clues, resolved_clues, new_unresolved_questions, resolved_questions, and new_recent_events. Use [] for empty list outputs. Each new_recent_events item must be a plain JSON string, not an object with an event key. Do not return event, events, recent_events, active_clues, unresolved_questions, character_knowledge, or unrelated metadata. JSON null deletes an explicitly stale object key; never use it for information that is merely unmentioned. "
-                    "Always include a non-empty current_situation describing what is true at the absolute end of the completed prose, not an earlier action. "
-                    "If supplied, location must be an object with plain-text descriptions or null deletion markers; physical_state must be an object. "
-                    "Do not turn actions the characters performed into knowledge facts. Return corrected JSON only.\n"
-                    + "PREVIOUS INVALID RESPONSE TO CORRECT:\n"
-                    + (output or "")[-3000:]
-                )
-                output = run_model(repair_prompt)
+            candidate = normalize_recent_event_entries(candidate)
+            baseline_situation = str(current_state.get("current_situation", "") or "").strip()
+            validation_patch = {
+                "current_situation": baseline_situation or "The existing situation is unchanged."
+            }
+            validation_patch.update(candidate)
+            validate_state_proposal(current_state, validation_patch)
+            return candidate
 
-        if patch is None:
-            raise ValueError(
-                "The continuity model could not produce a valid state update. "
-                "No state changes were applied."
-            )
+        def run_json_pass(
+            prompt_text: str,
+            system_prompt: str,
+            *,
+            pass_name: str,
+            allowed_fields: set[str],
+            required_fields: set[str],
+            ending_state_pass: bool,
+            max_tokens: int,
+        ) -> dict[str, Any]:
+            output_text = run_model(prompt_text, system_prompt, max_tokens)
+            for attempt in range(2):
+                try:
+                    return parse_pass(
+                        output_text,
+                        pass_name=pass_name,
+                        allowed_fields=allowed_fields,
+                        required_fields=required_fields,
+                        ending_state_pass=ending_state_pass,
+                    )
+                except (TypeError, ValueError) as exc:
+                    if attempt == 1:
+                        excerpt = (output_text or "")[-1800:]
+                        raise ValueError(
+                            f"The {pass_name} continuity pass returned an invalid proposal "
+                            f"after one correction attempt. No state changes were applied.\\n\\n"
+                            f"Validation detail: {exc}\\n\\n"
+                            f"Last model response excerpt (last 1800 characters):\\n{excerpt}"
+                        ) from exc
+                    correction_prompt = (
+                        prompt_text
+                        + "\\n\\nAUTOMATIC CORRECTION REQUIRED: return one valid JSON object "
+                        "for this pass only. Correct the schema issue using only evidence in "
+                        "the supplied prose. Do not add unrelated keys or invent events.\\n"
+                        + f"VALIDATION ERROR: {exc}\\n"
+                        + "Allowed keys: "
+                        + ", ".join(sorted(allowed_fields))
+                        + ". Return JSON only."
+                        + "\\nPREVIOUS INVALID RESPONSE:\\n"
+                        + (output_text or "")[-2500:]
+                    )
+                    output_text = run_model(correction_prompt, system_prompt, max_tokens)
+            raise ValueError(f"The {pass_name} continuity pass could not produce a valid proposal.")
+
+        ending_patch = run_json_pass(
+            ending_prompt,
+            ENDING_STATE_SYSTEM_PROMPT,
+            pass_name="ending-state",
+            allowed_fields=ending_fields,
+            required_fields={"current_situation"},
+            ending_state_pass=True,
+            max_tokens=700,
+        )
+        evidence_patch = run_json_pass(
+            evidence_prompt,
+            SCENE_EVIDENCE_SYSTEM_PROMPT,
+            pass_name="scene-evidence",
+            allowed_fields=evidence_fields,
+            required_fields=evidence_required,
+            ending_state_pass=False,
+            max_tokens=1100,
+        )
+
+        # Only the end-state pass owns situation/location/physical state. The
+        # evidence pass contributes only event, clue, and question deltas.
+        patch = dict(ending_patch)
+        patch.update(evidence_patch)
 
         # Consume the transient event-addition field before exposing the patch
         # to preview/apply. Preserve previous history and append only new events.
