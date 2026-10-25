@@ -1303,7 +1303,7 @@ class StateUpdateValidationTests(unittest.TestCase):
             merged = StateManager.merge_patch(current_state, result)
             self.assertEqual(merged["location"], current_state["location"])
 
-    def test_state_analysis_trace_records_full_scene_and_both_raw_model_passes(self):
+    def test_state_analysis_trace_records_full_scene_and_all_three_raw_model_passes(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             model = root / "writer.gguf"
@@ -1343,6 +1343,9 @@ class StateUpdateValidationTests(unittest.TestCase):
                 "resolved_questions": [],
                 "new_recent_events": [],
             })
+            knowledge_response = json.dumps({
+                "Zoe": ["The communications bursts show a recurring rhythm, but their cause remains unknown."]
+            })
 
             class FakeProcess:
                 returncode = 0
@@ -1370,10 +1373,13 @@ class StateUpdateValidationTests(unittest.TestCase):
                 patch.object(
                     state_manager_module.subprocess,
                     "Popen",
-                    side_effect=[FakeProcess(ending_response), FakeProcess(evidence_response)],
+                    side_effect=[
+                        FakeProcess(ending_response),
+                        FakeProcess(evidence_response),
+                        FakeProcess(knowledge_response),
+                    ],
                 ),
                 patch.object(StateManager, "_detect_accelerator", return_value=None),
-                patch.object(StateManager, "_propose_knowledge_delta", return_value={}),
             ):
                 result = StateManager.propose(
                     model,
@@ -1388,11 +1394,27 @@ class StateUpdateValidationTests(unittest.TestCase):
             self.assertIn("current_situation", result)
             self.assertEqual(
                 [call["response"] for call in payload["generation_calls"]],
-                [ending_response, evidence_response],
+                [ending_response, evidence_response, knowledge_response],
             )
             self.assertEqual(
                 [session["role"] for session in payload["sessions"]],
-                ["state_ending_analysis", "state_evidence_analysis"],
+                [
+                    "state_ending_analysis",
+                    "state_evidence_analysis",
+                    "state_knowledge_audit",
+                ],
+            )
+            knowledge_call = payload["generation_calls"][2]
+            self.assertEqual(knowledge_call["response"], knowledge_response)
+            self.assertIn(
+                "COMPLETED STORY SECTION",
+                knowledge_call["input_before_runtime_normalization"],
+            )
+            self.assertTrue(
+                any(
+                    event["event"] == "state_knowledge_audit_result"
+                    for event in payload["workflow_events"]
+                )
             )
             input_event = next(
                 event for event in payload["workflow_events"]
