@@ -98,6 +98,28 @@ class PromptTraceTests(unittest.TestCase):
                 ],
             )
 
+    def test_main_plot_summary_has_its_own_trace_role(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            prompt = (
+                "You maintain a concise main-plot continuity summary for an ongoing fictional story.\n\n"
+                "Return only current_situation."
+            )
+            trace = PromptTrace(
+                chapter=1,
+                scene=4,
+                model_path="writer.gguf",
+                current_state={},
+                reference_files=[],
+                contract={},
+                scene_direction="",
+                author_guidance="",
+                system_prompt=prompt,
+                path=Path(tmp) / "prompt_trace.json",
+            )
+
+            stored = trace.data["system_prompts"][trace.primary_system_prompt_id]
+            self.assertEqual(stored["role"], "state_main_plot_summary")
+
     def test_trace_keeps_exact_original_and_sent_prompts_and_runtime_response(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "prompt_trace.json"
