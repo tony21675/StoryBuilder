@@ -1,5 +1,9 @@
 # StoryBuilder handoff — October 25, 2026
 
+## October 25, 2026: proposed state review
+
+The author approved a unified, plain-English review of proposed state changes using the sequential scene-validator workflow. Remove the separate “Changes to Review”, “Quick Edits (No JSON)”, and “Full State JSON (Advanced)” tabs and replace them with one state-review surface containing the change summary and plain-English correction controls. The author should not need to read or edit JSON. The validator's findings must be reviewed one at a time; a focused correction changes only the temporary proposal and triggers a recheck. Dismissed false alarms and skipped concerns remain author-controlled. The saved state changes only after the author explicitly applies the final reviewed update. No manuscript/state package is modified as part of this code change.
+
 ## Non-negotiable writing philosophy
 
 **The story is the novel. The state is only a memory aid.** State Analysis should track the main plot only: the central unresolved problem/danger, the stakes and important deadlines, meaningful discoveries/decisions, and changes that materially affect what happens next. It is not an event transcript or a character database. Routine gestures, clothing, meals, minor movements, and ordinary dialogue should stay in the prose unless they become consequential.

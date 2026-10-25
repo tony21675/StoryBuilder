@@ -78,6 +78,11 @@ from builder.state_manager import (
 )
 from builder.scene_contract import SceneContract, extract_authored_scene_sections, extract_scene_header_metadata
 from builder.scene_idea_suggestion import generate_scene_idea_suggestion
+from builder.state_review import (
+    get_state_patch_value,
+    set_state_patch_value,
+    review_state_proposal,
+)
 from builder.focused_revision import (
     apply_focused_replacement,
     propose_focused_replacement,
@@ -1545,47 +1550,50 @@ class StoryBuilderApp(tk.Tk):
         proposed_state_header.pack(fill="x", pady=(10, 0))
         ttk.Label(
             proposed_state_header,
-            text="Proposed Changes (Review Before Apply)",
+            text="Proposed State Changes",
             font=("", 11, "bold"),
         ).pack(side="left")
-
-        self.writer_copy_state_button = ttk.Button(
-            proposed_state_header,
-            text="Copy Full JSON",
-            command=self._copy_proposed_state,
-        )
-        self.writer_copy_state_button.pack(side="right")
 
         ttk.Label(
             content_frame,
             text=(
-                "The first tab shows only what this scene changes. Fields not listed are preserved. "
-                "Use Quick Edits (No JSON) for ordinary corrections, or Full State JSON (Advanced) "
-                "for specialized edits. Nothing is saved until you click Apply State Update; "
-                "scene navigation remains app-controlled."
+                "Review the changes in plain English below. The optional correction fields are on this same screen. "
+                "The validator may raise concerns one at a time; dismiss false alarms, skip concerns, or apply a focused correction. "
+                "Nothing is saved until you click Apply State Update. You do not need to read or edit JSON."
             ),
             wraplength=900,
             justify="left",
         ).pack(anchor="w", pady=(4, 0))
 
-        self.writer_state_review_notebook = ttk.Notebook(content_frame)
-        self.writer_state_review_notebook.pack(fill="both", expand=True, pady=(4, 0))
+        # One unified review surface replaces the old Changes / Quick Edits / JSON tabs.
+        self.writer_state_review_notebook = None
+        self.writer_state_json_tab = None
+        self.writer_state_diff_tab = ttk.Frame(content_frame)
+        self.writer_state_diff_tab.pack(fill="both", expand=True, pady=(4, 0))
+        self.writer_state_quick_tab = self.writer_state_diff_tab
 
-        self.writer_state_diff_tab = ttk.Frame(self.writer_state_review_notebook)
-        self.writer_state_quick_tab = ttk.Frame(self.writer_state_review_notebook)
-        self.writer_state_json_tab = ttk.Frame(self.writer_state_review_notebook)
-        self.writer_state_review_notebook.add(
-            self.writer_state_diff_tab, text="Changes to Review"
+        diff_frame = ttk.Frame(self.writer_state_diff_tab)
+        diff_frame.pack(fill="x", expand=False, pady=(0, 8))
+        diff_scrollbar = ttk.Scrollbar(diff_frame, orient="vertical")
+        self.writer_state_diff_preview = tk.Text(
+            diff_frame,
+            height=8,
+            wrap="word",
+            yscrollcommand=diff_scrollbar.set,
+            state="disabled",
         )
-        self.writer_state_review_notebook.add(
-            self.writer_state_quick_tab, text="Quick Edits (No JSON)"
-        )
-        self.writer_state_review_notebook.add(
-            self.writer_state_json_tab, text="Full State JSON (Advanced)"
-        )
+        diff_scrollbar.configure(command=self.writer_state_diff_preview.yview)
+        self.writer_state_diff_preview.pack(side="left", fill="x", expand=True)
+        diff_scrollbar.pack(side="right", fill="y")
 
         ttk.Label(
-            self.writer_state_quick_tab,
+            self.writer_state_diff_tab,
+            text="Optional plain-English corrections",
+            font=("", 10, "bold"),
+        ).pack(anchor="w", pady=(0, 4))
+
+        ttk.Label(
+            self.writer_state_diff_tab,
             text=(
                 "Make ordinary corrections here without editing JSON. Edit the ending situation, "
                 "then choose a character to review their location, physical state, knowledge, and objective. "
@@ -1596,16 +1604,16 @@ class StoryBuilderApp(tk.Tk):
         ).pack(anchor="w", padx=10, pady=(10, 6))
 
         ttk.Label(
-            self.writer_state_quick_tab,
+            self.writer_state_diff_tab,
             text="Ending situation for the next scene",
             font=("", 10, "bold"),
         ).pack(anchor="w", padx=10)
         self.writer_state_situation_quick = tk.Text(
-            self.writer_state_quick_tab, height=4, wrap="word", undo=True
+            self.writer_state_diff_tab, height=4, wrap="word", undo=True
         )
         self.writer_state_situation_quick.pack(fill="x", padx=10, pady=(3, 8))
 
-        quick_character_row = ttk.Frame(self.writer_state_quick_tab)
+        quick_character_row = ttk.Frame(self.writer_state_diff_tab)
         quick_character_row.pack(fill="x", padx=10, pady=(0, 6))
         ttk.Label(quick_character_row, text="Character").pack(side="left")
         self.writer_state_character_selector = ttk.Combobox(
@@ -1617,111 +1625,74 @@ class StoryBuilderApp(tk.Tk):
         )
 
         ttk.Label(
-            self.writer_state_quick_tab,
+            self.writer_state_diff_tab,
             text="Character's current location",
             font=("", 10, "bold"),
         ).pack(anchor="w", padx=10)
         self.writer_state_location_quick = tk.Text(
-            self.writer_state_quick_tab, height=2, wrap="word", undo=True
+            self.writer_state_diff_tab, height=2, wrap="word", undo=True
         )
         self.writer_state_location_quick.pack(fill="x", padx=10, pady=(3, 5))
 
         ttk.Label(
-            self.writer_state_quick_tab,
+            self.writer_state_diff_tab,
             text="Physical position / current activity",
             font=("", 10, "bold"),
         ).pack(anchor="w", padx=10)
         self.writer_state_position_quick = tk.Text(
-            self.writer_state_quick_tab, height=2, wrap="word", undo=True
+            self.writer_state_diff_tab, height=2, wrap="word", undo=True
         )
         self.writer_state_position_quick.pack(fill="x", padx=10, pady=(3, 5))
 
         ttk.Label(
-            self.writer_state_quick_tab,
+            self.writer_state_diff_tab,
             text="Posture (optional)",
             font=("", 10, "bold"),
         ).pack(anchor="w", padx=10)
         self.writer_state_posture_quick = tk.Text(
-            self.writer_state_quick_tab, height=1, wrap="word", undo=True
+            self.writer_state_diff_tab, height=1, wrap="word", undo=True
         )
         self.writer_state_posture_quick.pack(fill="x", padx=10, pady=(3, 5))
 
         ttk.Label(
-            self.writer_state_quick_tab,
+            self.writer_state_diff_tab,
             text="Movement (for example, walking or stationary)",
             font=("", 10, "bold"),
         ).pack(anchor="w", padx=10)
         self.writer_state_movement_quick = tk.Text(
-            self.writer_state_quick_tab, height=1, wrap="word", undo=True
+            self.writer_state_diff_tab, height=1, wrap="word", undo=True
         )
         self.writer_state_movement_quick.pack(fill="x", padx=10, pady=(3, 5))
 
         ttk.Label(
-            self.writer_state_quick_tab,
+            self.writer_state_diff_tab,
             text="What this character knows (one fact per line)",
             font=("", 10, "bold"),
         ).pack(anchor="w", padx=10)
         self.writer_state_knowledge_quick = tk.Text(
-            self.writer_state_quick_tab, height=5, wrap="word", undo=True
+            self.writer_state_diff_tab, height=5, wrap="word", undo=True
         )
         self.writer_state_knowledge_quick.pack(fill="x", padx=10, pady=(3, 8))
 
         ttk.Label(
-            self.writer_state_quick_tab,
+            self.writer_state_diff_tab,
             text="This character's current objective (leave blank to remove it)",
             font=("", 10, "bold"),
         ).pack(anchor="w", padx=10)
         self.writer_state_objective_quick = tk.Text(
-            self.writer_state_quick_tab, height=3, wrap="word", undo=True
+            self.writer_state_diff_tab, height=3, wrap="word", undo=True
         )
         self.writer_state_objective_quick.pack(fill="x", padx=10, pady=(3, 6))
 
         ttk.Button(
-            self.writer_state_quick_tab,
+            self.writer_state_diff_tab,
             text="Use Quick Edits in Preview",
             command=self._apply_quick_state_edits_to_preview,
         ).pack(anchor="e", padx=10, pady=(0, 10))
 
-        diff_frame = ttk.Frame(self.writer_state_diff_tab)
-        diff_frame.pack(fill="both", expand=True)
-        diff_scrollbar = ttk.Scrollbar(diff_frame, orient="vertical")
-        self.writer_state_diff_preview = tk.Text(
-            diff_frame,
-            height=16,
-            wrap="word",
-            yscrollcommand=diff_scrollbar.set,
-            state="disabled",
-        )
-        diff_scrollbar.configure(command=self.writer_state_diff_preview.yview)
-        self.writer_state_diff_preview.pack(side="left", fill="both", expand=True)
-        diff_scrollbar.pack(side="right", fill="y")
 
-        json_toolbar = ttk.Frame(self.writer_state_json_tab)
-        json_toolbar.pack(fill="x", padx=8, pady=(6, 0))
-        ttk.Label(
-            json_toolbar,
-            text="After advanced edits, refresh the review before applying.",
-        ).pack(side="left")
-        ttk.Button(
-            json_toolbar,
-            text="Refresh Changes to Review",
-            command=self._refresh_state_review_from_json,
-        ).pack(side="right")
-
-        json_frame = ttk.Frame(self.writer_state_json_tab)
-        json_frame.pack(fill="both", expand=True)
-        json_scrollbar = ttk.Scrollbar(json_frame, orient="vertical")
-        self.writer_state_preview = tk.Text(
-            json_frame,
-            height=18,
-            wrap="none",
-            undo=True,
-            yscrollcommand=json_scrollbar.set,
-        )
-        json_scrollbar.configure(command=self.writer_state_preview.yview)
-        self.writer_state_preview.pack(side="left", fill="both", expand=True)
-        json_scrollbar.pack(side="right", fill="y")
-
+        # Internal serialization only. It is deliberately not packed or displayed.
+        self.writer_state_preview = tk.Text(content_frame, height=1, width=1)
         self._refresh_writer_models()
         self._update_writer_buttons()
 
@@ -4257,6 +4228,173 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         )
         self._show_next_validator_finding()
 
+    def _start_state_validator_review(self, findings, review_context):
+        """Open the sequential review for proposed state wording, without applying it."""
+        self.validator_review_state = {
+            "mode": "state",
+            "queue": [dict(item) for item in findings if isinstance(item, dict)],
+            "skipped": [],
+            "dismissed": [],
+            "applied": [],
+            "context": review_context if isinstance(review_context, dict) else {},
+            "notice": "Proposed state review",
+            "reviewed_count": 0,
+            "current": None,
+            "working_patch": dict(self.pending_state_patch or {}),
+        }
+        self.validator_review_in_progress = True
+        self._update_writer_buttons()
+        if hasattr(self, "writer_apply_state_button"):
+            self.writer_apply_state_button.configure(state="disabled")
+        if hasattr(self, "writer_analyze_button"):
+            self.writer_analyze_button.configure(state="disabled")
+        self.writer_status.configure(
+            text=(
+                f"Reviewing {len(findings)} proposed state concern(s) one at a time. "
+                "The saved state is unchanged until you approve Apply State Update."
+            )
+        )
+        self._show_next_validator_finding()
+
+    def _finish_state_validator_review(self):
+        state = getattr(self, "validator_review_state", None)
+        if not isinstance(state, dict) or state.get("mode") != "state":
+            return
+        candidate_patch = dict(state.get("working_patch") or {})
+        try:
+            if self.package is None:
+                raise ValueError("No novel package is open.")
+            StateManager.validate_patch(self.package.current_state, candidate_patch)
+        except (TypeError, ValueError) as exc:
+            self._show_copyable_error(
+                "Proposed State Correction",
+                "The corrected proposal failed a safety check. The original proposal remains available and nothing was saved.\n\n"
+                + str(exc),
+            )
+            candidate_patch = dict(self.pending_state_patch or {})
+
+        applied = len(state.get("applied", []))
+        dismissed = len(state.get("dismissed", []))
+        skipped = len(state.get("skipped", []))
+        self.last_validator_review_skipped = list(state.get("skipped", []))
+        self.pending_state_patch = candidate_patch
+        self.validator_review_in_progress = False
+        self.validator_review_state = None
+        self._close_validator_review_dialog()
+
+        if self.package is not None and isinstance(self.pending_state_patch, dict):
+            reconstructed_state = StateManager.merge_patch(
+                self.package.current_state,
+                self.pending_state_patch,
+            )
+            self.writer_state_preview.delete("1.0", "end")
+            self.writer_state_preview.insert(
+                "1.0", json.dumps(reconstructed_state, indent=2, ensure_ascii=False)
+            )
+            self._writer_state_reviewed_preview = json.dumps(
+                reconstructed_state, sort_keys=True, ensure_ascii=False
+            )
+            self.writer_state_diff_preview.configure(state="normal")
+            self.writer_state_diff_preview.delete("1.0", "end")
+            self.writer_state_diff_preview.insert(
+                "1.0",
+                build_state_change_summary(self.package.current_state, reconstructed_state),
+            )
+            self.writer_state_diff_preview.configure(state="disabled")
+            if "writer_state_situation_quick" in self.__dict__:
+                self._refresh_quick_state_editor(reconstructed_state)
+
+        self._update_writer_buttons()
+        summary = (
+            f"State review finished: {applied} focused correction(s) applied to the proposal, "
+            f"{dismissed} concern(s) dismissed, {skipped} skipped. Nothing has been saved."
+        )
+        if skipped:
+            summary += " Skipped concerns remain unresolved; inspect the plain-English changes before applying."
+        summary += " Apply State Update only when the proposed state is correct."
+        self.writer_status.configure(text=summary)
+
+    def _recheck_state_validator_review_after_fix(self):
+        """Re-run the state audit after an author-approved wording correction."""
+        state = getattr(self, "validator_review_state", None)
+        dialog_state = getattr(self, "validator_review_dialog_state", None)
+        if not isinstance(state, dict) or state.get("mode") != "state":
+            return
+        context = state.get("context") or {}
+        working_patch = dict(state.get("working_patch") or {})
+        original_dismissed = list(state.get("dismissed", []))
+        original_skipped = list(state.get("skipped", []))
+        dialog_state_to_keep = dialog_state
+
+        if isinstance(dialog_state_to_keep, dict):
+            for key in ("apply_button", "dismiss_button", "skip_button", "retry_button"):
+                try:
+                    dialog_state_to_keep[key].configure(state="disabled")
+                except Exception:
+                    pass
+            dialog_state_to_keep["status"].configure(
+                text="Focused correction applied to the proposal. Rechecking it now; saved state is unchanged."
+            )
+        self.writer_status.configure(text="Rechecking the proposed state after your approved correction...")
+
+        def work():
+            findings = []
+            try:
+                findings, _warning = review_state_proposal(
+                    engine=self.writer_engine,
+                    model_path=context.get("model_path") or self.writer_engine.model_path,
+                    original_system_prompt=str(context.get("writer_system_prompt") or ""),
+                    current_state=context.get("current_state") or {},
+                    proposed_patch=working_patch,
+                    accepted_scene=str(context.get("accepted_scene") or ""),
+                    author_guidance=str(context.get("author_guidance") or ""),
+                    scene_idea=str(context.get("scene_context") or ""),
+                    prompt_trace=None,
+                )
+            except Exception as exc:
+                findings = [{
+                    "kind": "unavailable",
+                    "field": "current_situation",
+                    "title": "State review could not be repeated",
+                    "message": "The correction remains only in the proposal. The check could not finish: "
+                        + str(exc).splitlines()[0],
+                    "edit_request": "",
+                    "can_suggest": False,
+                }]
+            try:
+                self.after(
+                    0,
+                    lambda: self._finish_state_validator_review_recheck(
+                        findings, original_dismissed, original_skipped, dialog_state_to_keep
+                    ),
+                )
+            except tk.TclError:
+                pass
+
+        self.writer_thread = threading.Thread(target=work, daemon=True)
+        self.writer_thread.start()
+
+    def _finish_state_validator_review_recheck(
+        self, findings, original_dismissed, original_skipped, dialog_state,
+    ):
+        state = getattr(self, "validator_review_state", None)
+        if not isinstance(state, dict) or state.get("mode") != "state":
+            self._close_validator_review_dialog()
+            return
+        new_items = [dict(item) for item in (findings or []) if isinstance(item, dict)]
+        still_skipped = [
+            item for item in new_items
+            if any(review_findings_match(item, old) for old in original_skipped)
+        ]
+        self.validator_review_state["skipped"] = still_skipped
+        self.validator_review_state["queue"] = [
+            item for item in new_items
+            if not any(review_findings_match(item, old) for old in original_dismissed)
+            and not any(review_findings_match(item, old) for old in still_skipped)
+        ]
+        self._close_validator_review_dialog()
+        self._show_next_validator_finding()
+
     def _validator_review_supporting_context(self):
         """Supply a compact, read-only slice of canon to the local edit suggester."""
         review_state = getattr(self, "validator_review_state", None) or {}
@@ -4335,12 +4473,19 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
 
         finding = queue_items.pop(0)
         state["current"] = finding
-        source = self._writer_editor_prose()
+        state_mode = state.get("mode") == "state"
+        finding_field = str(finding.get("field") or "current_situation") if state_mode else ""
+        if state_mode:
+            source = get_state_patch_value(state.get("working_patch") or {}, finding_field)
+            if not isinstance(source, str):
+                source = ""
+        else:
+            source = self._writer_editor_prose()
         state["source_at_open"] = source
         state["current_patch"] = None
 
         window = tk.Toplevel(self)
-        window.title("Review Scene Finding")
+        window.title("Review Proposed State Change" if state_mode else "Review Scene Finding")
         window.transient(self)
         window.geometry("780x690")
         window.minsize(640, 520)
@@ -4364,7 +4509,11 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         concern.insert("1.0", str(finding.get("message", "")))
         concern.configure(state="disabled")
 
-        ttk.Label(outer, text="What should change? (You can edit these instructions)").pack(anchor="w")
+        ttk.Label(
+            outer,
+            text=("What should change in this proposed state value? (You can edit these instructions)"
+                  if state_mode else "What should change? (You can edit these instructions)")
+        ).pack(anchor="w")
         request_box = tk.Text(outer, height=3, wrap="word", undo=True, exportselection=False)
         request_box.pack(fill="x", pady=(3, 7))
         request = str(finding.get("edit_request", "") or "").strip()
@@ -4375,12 +4524,22 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             )
         request_box.insert("1.0", request)
 
-        ttk.Label(outer, text="Exact passage the model proposes to replace").pack(anchor="w")
+        ttk.Label(
+            outer,
+            text=("Proposed state value / passage to correct" if state_mode
+                  else "Exact passage the model proposes to replace")
+        ).pack(anchor="w")
         target_box = tk.Text(outer, height=3, wrap="word", exportselection=False)
         target_box.pack(fill="x", pady=(3, 7))
+        if state_mode and source:
+            target_box.insert("1.0", source)
         target_box.configure(state="disabled")
 
-        ttk.Label(outer, text="Proposed replacement (editable before applying)").pack(anchor="w")
+        ttk.Label(
+            outer,
+            text=("Corrected proposed state text (editable before applying)" if state_mode
+                  else "Proposed replacement (editable before applying)")
+        ).pack(anchor="w")
         replacement_box = tk.Text(
             outer, height=7, wrap="word", undo=True, exportselection=False
         )
@@ -4574,6 +4733,33 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         if not isinstance(patch, dict):
             dialog_state["status"].configure(text="No safe local suggestion is available. Generate one before applying a fix.")
             return
+        if state.get("mode") == "state":
+            field = str(dialog_state["finding"].get("field") or "current_situation")
+            working_patch = state.get("working_patch")
+            current_value = get_state_patch_value(working_patch or {}, field)
+            if not isinstance(current_value, str) or current_value != dialog_state.get("source"):
+                dialog_state["status"].configure(
+                    text="The proposed state value changed while this finding was open. No correction was applied."
+                )
+                dialog_state["apply_button"].configure(state="disabled")
+                return
+            replacement = dialog_state["replacement_box"].get("1.0", "end-1c")
+            response = json.dumps(
+                {"target_text": patch.get("target_text", ""), "replacement_text": replacement},
+                ensure_ascii=False,
+            )
+            try:
+                revised_value = apply_focused_replacement(current_value, response)
+                set_state_patch_value(working_patch, field, revised_value)
+                StateManager.validate_patch(self.package.current_state, working_patch)
+            except (TypeError, ValueError) as exc:
+                dialog_state["status"].configure(text="No state correction was applied. " + str(exc))
+                return
+            state.setdefault("applied", []).append(state.get("current") or {})
+            state["current"] = None
+            self._update_writer_buttons()
+            self._recheck_state_validator_review_after_fix()
+            return
         current = self._writer_editor_prose()
         if current != dialog_state.get("source"):
             dialog_state["status"].configure(
@@ -4739,6 +4925,9 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
 
     def _finish_validator_review(self):
         state = getattr(self, "validator_review_state", None)
+        if isinstance(state, dict) and state.get("mode") == "state":
+            self._finish_state_validator_review()
+            return
         if not isinstance(state, dict):
             self.validator_review_in_progress = False
             self._update_writer_buttons()
@@ -6601,6 +6790,22 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             completed_scene,
         )
         model = self.writer_engine.model_path
+        writer_system_prompt = str(getattr(self.writer_engine, "system_prompt", "") or "")
+        author_guidance = self._author_writing_guidance()
+        scene_idea_text = str(
+            contract.get("author_idea", contract.get("scene_idea", contract.get("direction", "")))
+            if isinstance(contract, dict) else contract or ""
+        )
+        state_review_context = {
+            "model_path": model,
+            "writer_system_prompt": writer_system_prompt,
+            "current_state": current_state,
+            "accepted_scene": story_text,
+            "author_guidance": author_guidance,
+            "scene_context": scene_idea_text,
+            "contract": {"author_idea": scene_idea_text},
+            "historical_context": "",
+        }
 
         self.state_analysis_in_progress = True
         self.writer_reload_scene_button.configure(state="disabled")
@@ -6641,6 +6846,8 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             patch = None
             error = None
             trace_result = None
+            review_findings = []
+            state_review_warning = None
             try:
                 patch = StateManager.propose(
                     model,
@@ -6650,6 +6857,17 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
                     prompt_trace=prompt_trace,
                     main_plot_only=True,
                 )
+                review_findings, state_review_warning = review_state_proposal(
+                    engine=self.writer_engine,
+                    model_path=model,
+                    original_system_prompt=writer_system_prompt,
+                    current_state=current_state,
+                    proposed_patch=patch or {},
+                    accepted_scene=story_text,
+                    author_guidance=author_guidance,
+                    scene_idea=scene_idea_text,
+                    prompt_trace=prompt_trace,
+                )
             except Exception as exc:
                 error = str(exc)
             finally:
@@ -6658,6 +6876,8 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
                         prompt_trace.record_event(
                             "state_analysis_finished",
                             proposed_patch=patch,
+                            state_review_findings=review_findings,
+                            state_review_warning=state_review_warning,
                             error=error,
                         )
                     except Exception:
@@ -6686,7 +6906,9 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
 
             self.after(
                 0,
-                lambda: self._finish_state_analysis(patch, error, trace_result),
+                lambda: self._finish_state_analysis(
+                    patch, error, trace_result, review_findings, state_review_context, state_review_warning
+                ),
             )
 
         self.writer_thread = threading.Thread(
@@ -6696,7 +6918,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         self.writer_thread.start()
 
 
-    def _finish_state_analysis(self, patch, error, trace_result=None):
+    def _finish_state_analysis(self, patch, error, trace_result=None, review_findings=None, review_context=None, state_review_warning=None):
         self.state_analysis_in_progress = False
         if trace_result is not None:
             self.active_prompt_trace = None
@@ -6766,7 +6988,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             self.writer_state_diff_preview.delete("1.0", "end")
             self.writer_state_diff_preview.insert("1.0", state_diff)
             self.writer_state_diff_preview.configure(state="disabled")
-        if "writer_state_review_notebook" in self.__dict__ and "writer_state_diff_tab" in self.__dict__:
+        if getattr(self, "writer_state_review_notebook", None) is not None and getattr(self, "writer_state_diff_tab", None) is not None:
             self.writer_state_review_notebook.select(self.writer_state_diff_tab)
         self.writer_state_preview.delete("1.0", "end")
         self.writer_state_preview.insert(
@@ -6785,6 +7007,19 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             )
         )
         self._update_writer_buttons()
+        findings = [dict(item) for item in (review_findings or []) if isinstance(item, dict)]
+        if findings:
+            self._start_state_validator_review(findings, review_context or {})
+        elif state_review_warning:
+            self.writer_status.configure(
+                text=(
+                    "State proposal ready for plain-English review, but the validator reported: "
+                    + str(state_review_warning).splitlines()[0]
+                    + " Nothing has been saved."
+                )
+            )
+
+
 
     def _refresh_quick_state_editor(self, state):
         """Populate plain-text correction fields from a proposed ending state."""
@@ -7012,7 +7247,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         self.writer_state_diff_preview.configure(state="disabled")
         self.writer_status.configure(
             text=(
-                "Quick edits are in the preview only. Review Changes to Review, then click "
+                "Quick edits are in the preview only. Review the plain-English summary above, then click "
                 "Apply State Update to save them and prepare the next scene."
             )
         )
@@ -7069,7 +7304,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         )
         if "writer_state_situation_quick" in self.__dict__:
             self._refresh_quick_state_editor(candidate_state)
-        if "writer_state_review_notebook" in self.__dict__ and "writer_state_diff_tab" in self.__dict__:
+        if getattr(self, "writer_state_review_notebook", None) is not None and getattr(self, "writer_state_diff_tab", None) is not None:
             self.writer_state_review_notebook.select(self.writer_state_diff_tab)
         self.writer_status.configure(
             text=(
@@ -7136,7 +7371,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             self._show_copyable_error(
                 "State Update",
                 "The reviewed ending-state preview is invalid, so no state changes were made. "
-                "Correct the JSON and click Apply State Update again.\n\n" + str(exc),
+                "Correct the proposed value using the plain-English fields, then try again. You do not need to edit JSON.\n\n" + str(exc),
             )
             self._update_writer_buttons()
             return

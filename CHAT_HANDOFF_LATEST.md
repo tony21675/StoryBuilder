@@ -1,5 +1,11 @@
 # StoryBuilder current checkpoint — October 25, 2026
 
+## Proposed state review design (October 25, 2026)
+
+The author approved extending the sequential, author-controlled scene validator pattern to proposed state changes and removing the three separate state-review tabs. The intended UI is one unified, plain-English state-review surface: human-readable change summary plus the existing no-JSON correction fields. Do not expose the raw JSON editor or a Copy Full JSON action. JSON can remain internal implementation detail.
+
+The proposed state is reviewed one concern at a time using the familiar modal controls: generate a focused wording suggestion, apply it only to the proposal, dismiss a false alarm, or skip for later. After an approved correction, the proposal is rechecked. Accepted prose and saved current state remain unchanged until the author explicitly clicks Apply State Update. A review failure must remain advisory rather than silently rewriting state.
+
 For full project history and novel context, see [CHAT_HANDOFF.md](CHAT_HANDOFF.md). This checkpoint supersedes stale statements in prior handoffs about automatic full-scene replacement/recovery and the Scene 5 acceptance gate.
 
 ## Current branch and hardware
