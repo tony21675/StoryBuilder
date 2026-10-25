@@ -4926,6 +4926,13 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         )
 
     def _reject_generated_scene(self):
+        if self.__dict__.get("validator_review_in_progress", False):
+            messagebox.showinfo(
+                "Validator Review",
+                "Finish or dismiss the current finding before rejecting the draft.",
+                parent=self,
+            )
+            return
         if not self.generated_scene.strip():
             return
 
@@ -4937,6 +4944,8 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
 
         accepted = str(self.__dict__.get("accepted_scene", "") or "").strip()
         self.generated_scene = accepted
+        self.generated_scene_review_context = None
+        self.last_validator_review_skipped = []
         self.focused_revision_history = []
         if self.__dict__.get("writer_revision_request_entry") is not None:
             self.writer_revision_request_entry.delete("1.0", "end")
@@ -4955,6 +4964,13 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             ),
         )
     def _accept_generated_scene(self):
+        if self.__dict__.get("validator_review_in_progress", False):
+            messagebox.showinfo(
+                "Validator Review",
+                "Finish reviewing the current findings before accepting this scene.",
+                parent=self,
+            )
+            return
         block_reason = str(
             self.__dict__.get("writer_scene_accept_block_reason", "") or ""
         ).strip()
@@ -5034,6 +5050,10 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             )
             self.accepted_scene = prose
             self.accepted_scene_context = (chapter, scene)
+            self.generated_scene_review_context = None
+            self.validator_review_state = None
+            self.validator_review_in_progress = False
+            self.last_validator_review_skipped = []
             self.focused_revision_history = []
             self.generated_scene_context = (chapter, scene)
             self.pending_state_patch = None
