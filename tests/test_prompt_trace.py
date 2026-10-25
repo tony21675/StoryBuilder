@@ -80,9 +80,22 @@ class PromptTraceTests(unittest.TestCase):
                 device=None,
                 runtime_options={},
             )
+            trace.record_session(
+                model_path="writer.gguf",
+                runtime_binary="llama-cli",
+                system_prompt="You are a delta auditor for character knowledge in an ongoing fictional novel.",
+                context_size=8192,
+                max_tokens=900,
+                device=None,
+                runtime_options={},
+            )
             self.assertEqual(
                 [item["role"] for item in trace.data["sessions"]],
-                ["state_ending_analysis", "state_evidence_analysis"],
+                [
+                    "state_ending_analysis",
+                    "state_evidence_analysis",
+                    "state_knowledge_audit",
+                ],
             )
 
     def test_trace_keeps_exact_original_and_sent_prompts_and_runtime_response(self):
