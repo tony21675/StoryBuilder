@@ -431,18 +431,17 @@ Preserve all established character roles and knowledge boundaries; do not invent
     def test_validator_treats_required_beats_as_narrative_goals(self):
         prompt = scene_contract.VALIDATOR_SYSTEM_PROMPT
         self.assertIn("Judge meaning, not keywords", prompt)
-        self.assertIn("A check is met only when its main action and defining details are present", prompt)
-        self.assertIn("Do not accept a superficially similar substitute for a specifically requested action or object", prompt)
-        self.assertIn("preserve the author's defining details", prompt)
+        self.assertIn("A check is met when its main action and defining details occur", prompt)
+        self.assertIn("do not substitute a different action, object, person, order, or outcome", prompt)
+        self.assertIn("Different wording is fine", prompt)
         self.assertIn('"checks": [{"requirement": "", "status": "met", "evidence": ""}]', prompt)
-        self.assertIn("Evidence is optional diagnostic text from COMPLETED SCENE only", prompt)
-        self.assertIn("COMPLETED SCENE only", prompt)
-        self.assertIn("never quote the idea, instructions, contract", prompt)
-        self.assertIn("Preserve established relationship facts", prompt)
-        self.assertIn("a different action, object, person, order, or outcome is not", prompt)
-        self.assertIn("Create a SHORT EVENT-LEVEL checklist, usually 4–8 checks total", prompt)
-        self.assertIn("Group related details from the same event", prompt)
-        self.assertIn("Ignore incidental details unless the idea makes them defining", prompt)
+        self.assertIn("Evidence is optional and never controls status", prompt)
+        self.assertIn("Never quote the idea, instructions, contract, or state.", prompt)
+        self.assertIn("established relationship facts", prompt)
+        self.assertIn("for a specific request.", prompt)
+        self.assertIn("Create a short event-level checklist, usually 4–8 meaningful events.", prompt)
+        self.assertIn("Group related details; avoid micro-checks", prompt)
+        self.assertIn("Ignore incidental details unless defining, continuity-critical, or an explicit boundary/preference.", prompt)
         self.assertLess(len(prompt), 1500)
 
     def test_validator_checks_whole_scene_before_calling_a_beat_missing(self):
@@ -1299,7 +1298,7 @@ Preserve all established character roles and knowledge boundaries; do not invent
         self.assertIn(author_guidance, captured["prompt"])
         self.assertIn("source locations", captured["prompt"])
         self.assertIn("explicit requests, preferences, boundaries, or needs", captured["prompt"])
-        self.assertIn("Check acknowledged requests/preferences against later actions", scene_contract.VALIDATOR_SYSTEM_PROMPT)
+        self.assertIn("acknowledged requests/preferences", scene_contract.VALIDATOR_SYSTEM_PROMPT)
 
     def test_max_attempts_is_safe_and_configurable(self):
         self.assertEqual(scene_contract.SceneContract.max_attempts({}), 3)
