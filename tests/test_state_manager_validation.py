@@ -1335,7 +1335,7 @@ class StateUpdateValidationTests(unittest.TestCase):
                     "remain outside checking the mounts, Daniel monitors temperature, and Ryan and "
                     "Zoe independently examine communications."
                 )
-            }) + "\\n[ Prompt: 10 tokens | Generation: 4 tokens ]\\n\\nExiting...\\n"
+            }) + "\n[ Prompt: 10 tokens | Generation: 4 tokens ]\n\nExiting...\n"
             evidence_response = json.dumps({
                 "new_clues": [],
                 "resolved_clues": [],
