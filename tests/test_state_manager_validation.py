@@ -13,6 +13,7 @@ from builder.state_manager import (
     extract_json_object,
     filter_low_value_recent_events,
     filter_non_observational_clues,
+    filter_unsupported_character_action_events,
     normalize_recent_event_entries,
     reconcile_string_items,
     remove_prior_chapter_opening_markers,
@@ -330,6 +331,37 @@ class StateUpdateValidationTests(unittest.TestCase):
                 "The supervisor initiated partial pressurization at the sealed hatch.",
                 "A technician measured a rapid rise in component temperature.",
                 "An engineer expressed intent to run the test, then initiated the test.",
+            ],
+        )
+
+    def test_filters_unsupported_character_movement_and_agreement_claims(self):
+        accepted_scene = (
+            "Morgan straightened immediately. “Right. Internal checks.”\n\n"
+            "Priya nodded, already moving to fall slightly behind Elena.\n\n"
+            "Daniel began closing his tablet, though he lingered near the hub. "
+            "“I can prep the diagnostic tools here if you want a feed through,” he offered, "
+            "indicating the environmental hub.\n\n"
+            "Zoe leaned over Ryan’s shoulder, tracing the recurring pattern on the screen."
+        )
+        candidates = [
+            "Morgan moved toward the hub to assist Elena with the inspection.",
+            "Daniel agreed to shift focus from theoretical modeling to applied inspection.",
+            "Priya positioned herself near the console.",
+            "Priya followed Elena toward the hatch.",
+            "Morgan agreed to conduct the internal checks.",
+            "Zoe leaned over Ryan’s shoulder to inspect the console.",
+        ]
+
+        self.assertEqual(
+            filter_unsupported_character_action_events(
+                candidates,
+                accepted_scene,
+                ["Daniel Okafor", "Elena Vasquez", "Morgan Reed", "Priya Shah", "Ryan Mercer", "Zoe Bennett"],
+            ),
+            [
+                "Priya followed Elena toward the hatch.",
+                "Morgan agreed to conduct the internal checks.",
+                "Zoe leaned over Ryan’s shoulder to inspect the console.",
             ],
         )
 
