@@ -1485,6 +1485,81 @@ class StateUpdateValidationTests(unittest.TestCase):
                 any(event["event"] == "state_analysis_proposal" for event in payload["workflow_events"])
             )
 
+    def test_main_plot_only_analysis_uses_one_call_and_returns_only_main_situation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            model = root / "writer.gguf"
+            llama = root / "llama-cli"
+            model.touch()
+            llama.touch()
+
+            current_state = {
+                "chapter": 1,
+                "scene": 4,
+                "scene_cast": ["Daniel", "Elena", "Morgan", "Priya", "Ryan", "Zoe"],
+                "current_situation": (
+                    "Life support is unstable, and the scrubber temperature continues to rise."
+                ),
+                "active_clues": ["A trace remains unverified."],
+                "recent_events": [{"event": "The warning light turned amber."}],
+                "character_knowledge": {"Zoe": ["The communications bursts repeat."]},
+                "location": {"primary": "Habitat mess area"},
+                "physical_state": {"Zoe": {"position": "beside Ryan"}},
+            }
+            original_state = json.loads(json.dumps(current_state))
+            accepted_scene = (
+                "Daniel estimates the current trend could become critical within a day if it holds. "
+                "Elena directs the crew to investigate the equipment. Ryan and Zoe continue studying "
+                "a separate communications pattern. Zoe adjusts her collar before looking back at the screen."
+            )
+            main_summary = (
+                "The scrubber temperature continues rising while backup systems keep pressure stable. "
+                "Daniel estimates the current trend could become critical within a day if it holds, "
+                "but the cause remains unresolved and the crew has begun investigating the equipment."
+            )
+            response = json.dumps({"current_situation": main_summary})
+
+            class FakeProcess:
+                returncode = 0
+
+                def __init__(self, output):
+                    self.output = output
+
+                def communicate(self, timeout=None):
+                    return self.output, None
+
+            with (
+                patch.object(state_manager_module, "DEFAULT_LLAMA", llama),
+                patch.object(
+                    state_manager_module.subprocess,
+                    "Popen",
+                    return_value=FakeProcess(response),
+                ) as popen,
+                patch.object(StateManager, "_detect_accelerator", return_value=None),
+                patch.object(StateManager, "_propose_knowledge_delta", return_value={}) as knowledge_audit,
+            ):
+                result = StateManager.propose(
+                    model,
+                    current_state,
+                    accepted_scene,
+                    scene_characters=current_state["scene_cast"],
+                    main_plot_only=True,
+                )
+
+            self.assertEqual(result, {"current_situation": main_summary})
+            self.assertEqual(popen.call_count, 1)
+            knowledge_audit.assert_not_called()
+            self.assertEqual(current_state, original_state)
+
+            args = popen.call_args.args[0]
+            system_prompt = args[args.index("--system-prompt") + 1]
+            user_prompt = args[args.index("--prompt") + 1]
+            self.assertEqual(system_prompt, state_manager_module.MAIN_PLOT_SYSTEM_PROMPT)
+            self.assertIn("main-plot continuity summary", system_prompt)
+            self.assertIn("Do not invent events", system_prompt)
+            self.assertIn(accepted_scene, user_prompt)
+            self.assertNotIn("Zoe's shirt", system_prompt)
+
     def test_planned_end_state_hint_does_not_override_state_from_completed_prose(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
