@@ -46,7 +46,9 @@ from builder.scene_planner import (
 )
 from builder.validator import validate_package
 from builder.writer_engine import WriterEngine
-from builder.prompt_trace import PromptTrace, default_prompt_trace_path
+from builder.prompt_trace import (
+    PromptTrace, default_prompt_trace_path, load_prompt_trace_enabled, save_prompt_trace_enabled,
+)
 from builder.prompt_trace_sync import upload_prompt_trace
 from builder.manuscript import ManuscriptManager
 from builder.continuity_context import (
@@ -66,6 +68,7 @@ from builder.scene_flow import review_chapter_flow
 from builder.novel_sync import NovelSyncError, sync_novel_repository
 from builder.app_sync import StoryBuilderSyncError, sync_storybuilder_repository
 from builder.state_manager import (
+    ENDING_STATE_SYSTEM_PROMPT,
     StateManager,
     build_state_change_summary,
     combine_state_patches,
@@ -172,7 +175,7 @@ class StoryBuilderApp(tk.Tk):
         self._spellcheck_poll_job = None
         self.writer_engine = WriterEngine()
         self.writer_engine.prompt_trace = None
-        self.prompt_trace_armed = False
+        self.prompt_trace_enabled = load_prompt_trace_enabled()
         self.active_prompt_trace = None
         self.writer_thread = None
         self.writer_notes_update_in_progress = False
@@ -1412,13 +1415,17 @@ class StoryBuilderApp(tk.Tk):
         trace_row.pack(fill="x", pady=(0, 8))
         self.writer_trace_button = ttk.Button(
             trace_row,
-            text="Trace Next Scene (Off)",
+            text="Prompt Trace (On)",
             command=self._toggle_prompt_trace,
         )
         self.writer_trace_button.pack(side="left")
         self.writer_trace_status = ttk.Label(
             trace_row,
-            text="Off. No prompts are being recorded.",
+            text=(
+                "On. Writer generations and State Analysis are captured. The latest trace "
+                "overwrites the previous local file and private GitHub trace. Traces contain "
+                "story text and prompts."
+            ) if self.prompt_trace_enabled else "Off. No prompts are being recorded.",
             wraplength=720,
             justify="left",
         )
@@ -3147,23 +3154,40 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         )
 
     def _toggle_prompt_trace(self):
-        """Arm or cancel a one-scene prompt trace; tracing is otherwise off."""
-        if getattr(self, "writer_generation_in_progress", False) or self.__dict__.get("focused_revision_in_progress", False):
+        """Persistently enable or disable one-operation diagnostic trace capture."""
+        if (
+            getattr(self, "writer_generation_in_progress", False)
+            or self.__dict__.get("focused_revision_in_progress", False)
+            or self.__dict__.get("state_analysis_in_progress", False)
+        ):
             return
-        self.prompt_trace_armed = not bool(getattr(self, "prompt_trace_armed", False))
-        if self.prompt_trace_armed:
-            self.writer_trace_button.configure(text="Trace Next Scene (Armed)")
+        enabled = not bool(getattr(self, "prompt_trace_enabled", False))
+        try:
+            save_prompt_trace_enabled(enabled)
+        except OSError as exc:
+            current = bool(getattr(self, "prompt_trace_enabled", False))
+            self.writer_trace_button.configure(
+                text="Prompt Trace (On)" if current else "Prompt Trace (Off)"
+            )
+            self.writer_trace_status.configure(
+                text=f"Could not save the trace setting, so it remains {'On' if current else 'Off'}: {exc}"
+            )
+            return
+
+        self.prompt_trace_enabled = enabled
+        if enabled:
+            self.writer_trace_button.configure(text="Prompt Trace (On)")
             self.writer_trace_status.configure(
                 text=(
-                    "Armed for the next scene only. One local JSON trace will be saved "
-                    "and synced to the private GitHub trace repository, replacing the "
-                    "previous trace on its branch."
+                    "On. Each Writer generation and State Analysis is captured. The latest trace "
+                    "overwrites the previous local file and private GitHub trace. Captures include "
+                    "story text and prompts."
                 )
             )
         else:
-            self.writer_trace_button.configure(text="Trace Next Scene (Off)")
+            self.writer_trace_button.configure(text="Prompt Trace (Off)")
             self.writer_trace_status.configure(
-                text="Off. No prompts are being recorded."
+                text="Off. No new prompts or State Analysis responses are being recorded."
             )
 
     def _has_pending_generated_scene(self):
@@ -3249,8 +3273,8 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             )
         if self.__dict__.get("writer_trace_button") is not None:
             self.writer_trace_button.configure(
-                state="disabled" if generating or focused_revision or contract_building or notes_updating or suggesting_idea else "normal",
-                text="Trace Next Scene (Armed)" if getattr(self, "prompt_trace_armed", False) else "Trace Next Scene (Off)",
+                state="disabled" if generating or focused_revision or contract_building or notes_updating or suggesting_idea or bool(self.__dict__.get("state_analysis_in_progress", False)) else "normal",
+                text="Prompt Trace (On)" if getattr(self, "prompt_trace_enabled", False) else "Prompt Trace (Off)",
             )
         analysis_in_progress = bool(self.__dict__.get("state_analysis_in_progress", False))
         if self.__dict__.get("writer_reload_scene_button") is not None:
@@ -3886,7 +3910,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         )
 
         prompt_trace = None
-        if getattr(self, "prompt_trace_armed", False):
+        if getattr(self, "prompt_trace_enabled", False):
             prompt_trace = PromptTrace(
                 chapter=chapter,
                 scene=scene,
@@ -3898,7 +3922,6 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
                 author_guidance=author_guidance,
                 system_prompt=system_prompt,
             )
-            self.prompt_trace_armed = False
             self.active_prompt_trace = prompt_trace
             self.writer_engine.prompt_trace = prompt_trace
             prompt_trace.record_event(
@@ -3907,11 +3930,11 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
                 scene=scene,
                 max_attempts=1,
             )
-            self.writer_trace_button.configure(text="Trace Next Scene (Off)", state="disabled")
+            self.writer_trace_button.configure(text="Prompt Trace (On)", state="disabled")
             self.writer_trace_status.configure(
                 text=(
-                    "Capturing this scene only. The local trace will be overwritten and "
-                    "synced to the private GitHub trace repository when finished."
+                    "Capturing this Writer run. The latest trace will overwrite the previous file and "
+                    "sync to the private GitHub trace repository when finished. Tracing stays on."
                 )
             )
 
@@ -4047,7 +4070,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             self.active_prompt_trace = None
             if self.__dict__.get("writer_trace_button") is not None:
                 self.writer_trace_button.configure(
-                    text="Trace Next Scene (Armed)" if getattr(self, "prompt_trace_armed", False) else "Trace Next Scene (Off)"
+                    text="Prompt Trace (On)" if getattr(self, "prompt_trace_enabled", False) else "Prompt Trace (Off)"
                 )
             if self.__dict__.get("writer_trace_status") is not None:
                 upload = trace_result.get("upload") or {}
@@ -5986,23 +6009,85 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         self.writer_analyze_button.configure(state="disabled")
         self.writer_apply_state_button.configure(state="disabled")
         self.writer_status.configure(text="Analyzing accepted scene...")
+        prompt_trace = None
+        if self.__dict__.get("prompt_trace_enabled", False):
+            try:
+                prompt_trace = PromptTrace(
+                    chapter=completed_chapter,
+                    scene=completed_scene,
+                    model_path=model,
+                    current_state=current_state,
+                    reference_files=[],
+                    contract=contract,
+                    scene_direction="",
+                    author_guidance="",
+                    system_prompt=ENDING_STATE_SYSTEM_PROMPT,
+                )
+                prompt_trace.record_event(
+                    "state_analysis_started",
+                    accepted_scene=story_text,
+                    scene_characters=scene_characters,
+                )
+                self.active_prompt_trace = prompt_trace
+                self.writer_trace_status.configure(
+                    text="Capturing State Analysis. This trace will replace the previous trace and sync to private GitHub."
+                )
+            except Exception as trace_exc:
+                prompt_trace = None
+                if self.__dict__.get("writer_trace_status") is not None:
+                    self.writer_trace_status.configure(
+                        text=f"State Analysis tracing could not start; analysis will continue without tracing: {trace_exc}"
+                    )
 
         def work():
+            patch = None
+            error = None
+            trace_result = None
             try:
                 patch = StateManager.propose(
                     model,
                     current_state,
                     story_text,
-                                        scene_characters=scene_characters,
+                    scene_characters=scene_characters,
+                    prompt_trace=prompt_trace,
                 )
-                error = None
             except Exception as exc:
-                patch = None
                 error = str(exc)
+            finally:
+                if prompt_trace is not None:
+                    try:
+                        prompt_trace.record_event(
+                            "state_analysis_finished",
+                            proposed_patch=patch,
+                            error=error,
+                        )
+                    except Exception:
+                        pass
+                    try:
+                        trace_path = prompt_trace.finish(
+                            status="error" if error else "completed",
+                            error=error,
+                        )
+                    except Exception as exc:
+                        trace_path = None
+                        trace_error = str(exc)
+                    else:
+                        trace_error = prompt_trace.save_error
+                    upload_result = None
+                    if trace_path is not None and not trace_error:
+                        try:
+                            upload_result = upload_prompt_trace(trace_path)
+                        except Exception as exc:
+                            upload_result = {"ok": False, "error": str(exc)}
+                    trace_result = {
+                        "path": str(trace_path) if trace_path is not None else None,
+                        "error": trace_error,
+                        "upload": upload_result,
+                    }
 
             self.after(
                 0,
-                lambda: self._finish_state_analysis(patch, error),
+                lambda: self._finish_state_analysis(patch, error, trace_result),
             )
 
         self.writer_thread = threading.Thread(
@@ -6012,8 +6097,37 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         self.writer_thread.start()
 
 
-    def _finish_state_analysis(self, patch, error):
+    def _finish_state_analysis        self.writer_thread = threading.Thread(
+            target=work,
+            daemon=True,
+        )
+        self.writer_thread.start()
+
+
+    def _finish_state_analysis(self, patch, error, trace_result=None):
         self.state_analysis_in_progress = False
+        if trace_result is not None:
+            self.active_prompt_trace = None
+            upload = trace_result.get("upload") or {}
+            if trace_result.get("path") and upload.get("ok"):
+                self.writer_trace_status.configure(
+                    text=(
+                        f"State Analysis trace synced to private GitHub: {upload.get('url')}. "
+                        "The next capture overwrites it."
+                    )
+                )
+            elif trace_result.get("path"):
+                self.writer_trace_status.configure(
+                    text=(
+                        f"State Analysis trace saved locally at {trace_result['path']}; "
+                        f"private GitHub sync failed: {upload.get('error') or 'sync did not run'}"
+                    )
+                )
+            else:
+                self.writer_trace_status.configure(
+                    text="State Analysis trace could not be saved: "
+                    + str(trace_result.get("error") or "unknown file error")
+                )
         if error:
             self.pending_state_patch = None
             if hasattr(self, "writer_state_preview"):

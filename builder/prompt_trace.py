@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 import time
@@ -15,6 +16,54 @@ def default_prompt_trace_path() -> Path:
 
 def _timestamp() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def default_prompt_trace_enabled_path() -> Path:
+    """Return the local, non-repository preference path for trace capture."""
+    config_home = os.environ.get("XDG_CONFIG_HOME", "").strip()
+    root = Path(config_home).expanduser() if config_home else Path.home() / ".config"
+    return root / "storybuilder" / "prompt_trace_enabled.json"
+
+
+def load_prompt_trace_enabled(path: str | Path | None = None) -> bool:
+    """Load the persistent trace switch; new installs default to enabled.
+
+    A malformed existing setting fails closed so a damaged preference does not
+    unexpectedly resume capturing unpublished story text.
+    """
+    target = Path(path).expanduser() if path is not None else default_prompt_trace_enabled_path()
+    try:
+        raw = target.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return True
+    except OSError:
+        return False
+    try:
+        payload = json.loads(raw)
+    except (TypeError, ValueError):
+        return False
+    enabled = payload.get("enabled") if isinstance(payload, dict) else None
+    return enabled if isinstance(enabled, bool) else False
+
+
+def save_prompt_trace_enabled(enabled: bool, path: str | Path | None = None) -> Path:
+    """Persist the user's explicit On/Off choice outside the story repositories."""
+    target = Path(path).expanduser() if path is not None else default_prompt_trace_enabled_path()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    temporary = target.with_name(target.name + ".tmp")
+    try:
+        temporary.write_text(
+            json.dumps({"enabled": bool(enabled)}, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+        temporary.replace(target)
+    except OSError:
+        try:
+            temporary.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise
+    return target
 
 
 def _json_copy(value: Any) -> Any:
@@ -86,13 +135,20 @@ class PromptTrace:
             "validation_warning": None,
             "trace_save_error": None,
         }
-        self._store_system_prompt(self.primary_system_prompt, "scene_writer")
+        self._store_system_prompt(
+            self.primary_system_prompt,
+            self._classify_system_prompt(self.primary_system_prompt, True),
+        )
 
     @staticmethod
     def _classify_system_prompt(prompt: str, is_primary: bool) -> str:
+        first_line = prompt.strip().splitlines()[0] if prompt.strip() else ""
+        if first_line.startswith("You determine only the actual ending state"):
+            return "state_ending_analysis"
+        if first_line.startswith("You extract only concrete new evidence and events"):
+            return "state_evidence_analysis"
         if is_primary:
             return "scene_writer"
-        first_line = prompt.strip().splitlines()[0] if prompt.strip() else ""
         if first_line.startswith("Review original idea/state"):
             return "scene_validator"
         if first_line.startswith("Create a compact, gentle guide"):

@@ -4,6 +4,7 @@ import json
 import os
 import re
 import subprocess
+import time
 from pathlib import Path
 from typing import Any
 
@@ -1954,6 +1955,7 @@ class StateManager:
         story_text: str,
         scene_end_guidance: str | None = None,
         scene_characters: list[str] | None = None,
+        prompt_trace: Any | None = None,
     ) -> dict[str, Any]:
         if not story_text.strip():
             raise ValueError("There is no story text to analyze.")
@@ -1968,6 +1970,25 @@ class StateManager:
             )
 
         completed_text = story_text.strip()
+
+        def trace_record(method_name: str, **details: Any) -> Any:
+            """Record optional diagnostics without allowing trace failures to affect analysis."""
+            if prompt_trace is None:
+                return None
+            try:
+                return getattr(prompt_trace, method_name)(**details)
+            except Exception as trace_exc:
+                if method_name != "record_event":
+                    try:
+                        prompt_trace.record_event(
+                            "trace_capture_error",
+                            method=method_name,
+                            error=str(trace_exc),
+                        )
+                    except Exception:
+                        pass
+                return None
+
         # Scene-end guidance is deliberately ignored. The accepted prose is the
         # sole evidence source; the state model now has two narrow responsibilities.
         scene_names = scene_characters or current_state.get("scene_cast", [])
@@ -2047,6 +2068,18 @@ class StateManager:
             "This pass cannot update or override the ending state or objectives."
         )
 
+        trace_record(
+            "record_event",
+            event_type="state_analysis_input",
+            accepted_scene=completed_text,
+            scene_characters=scene_names,
+            ending_state_context=ending_context,
+            evidence_context=evidence_context,
+            ending_excerpt=ending_excerpt,
+            ending_prompt=ending_prompt,
+            evidence_prompt=evidence_prompt,
+        )
+
         def run_model(
             prompt_text: str,
             system_prompt: str,
@@ -2069,6 +2102,16 @@ class StateManager:
             else:
                 args.extend(["-ngl", "0", "--device", "none"])
 
+            runtime_options = {
+                "reasoning": "off",
+                "temperature": 0.10,
+                "top_k": 20,
+                "top_p": 0.80,
+                "repeat_last_n": 256,
+                "repeat_penalty": 1.08,
+                "n_predict": int(max_tokens),
+                "single_turn": True,
+            }
             args.extend([
                 "-c", "8192",
                 "--reasoning", "off",
@@ -2086,27 +2129,90 @@ class StateManager:
                 "--single-turn",
             ])
 
-            proc = subprocess.Popen(
-                args,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                env=env,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
+            trace_record(
+                "record_session",
+                model_path=model,
+                runtime_binary=DEFAULT_LLAMA,
+                system_prompt=system_prompt,
+                context_size=8192,
+                max_tokens=max_tokens,
+                device=device,
+                runtime_options=runtime_options,
             )
+            call_id = trace_record(
+                "begin_generation",
+                prompt=prompt_text,
+                sent_prompt=prompt_text,
+            )
+            started = time.monotonic()
+            proc = None
+            output = ""
             try:
+                proc = subprocess.Popen(
+                    args,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    env=env,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                )
                 output, _ = proc.communicate(timeout=600)
             except subprocess.TimeoutExpired as exc:
-                proc.kill()
-                output, _ = proc.communicate()
+                if proc is not None:
+                    proc.kill()
+                    try:
+                        output, _ = proc.communicate()
+                    except Exception:
+                        pass
+                trace_record(
+                    "finish_generation",
+                    call_id=call_id,
+                    response=output or "",
+                    status="timeout",
+                    error=str(exc),
+                    duration_seconds=time.monotonic() - started,
+                )
                 raise TimeoutError("Continuity analysis timed out.") from exc
+            except Exception as exc:
+                trace_record(
+                    "finish_generation",
+                    call_id=call_id,
+                    response=output or "",
+                    status="runtime_error",
+                    error=str(exc),
+                    duration_seconds=time.monotonic() - started,
+                )
+                raise
 
             if proc.returncode not in (0, None):
+                detail = (output or "")[-3000:]
+                trace_record(
+                    "finish_generation",
+                    call_id=call_id,
+                    response=output or "",
+                    status="runtime_error",
+                    error="Continuity analysis failed. " + detail,
+                    duration_seconds=time.monotonic() - started,
+                )
                 raise RuntimeError(
                     "Continuity analysis failed.\n"
-                    + (output or "")[-3000:]
+                    + detail
                 )
+
+            diagnostics_match = re.search(
+                r"\[ Prompt: .*? \| Generation: .*? \]\s*$",
+                str(output or ""),
+                flags=re.DOTALL,
+            )
+            trace_record(
+                "finish_generation",
+                call_id=call_id,
+                response=output or "",
+                status="completed",
+                cli_diagnostics=diagnostics_match.group(0).strip() if diagnostics_match else None,
+                duration_seconds=time.monotonic() - started,
+            )
             return output or ""
 
         ending_fields = {"current_situation", "location", "physical_state", "time_of_day"}
@@ -2349,4 +2455,9 @@ class StateManager:
         # prose: a planned event may have been omitted, changed, or not actually
         # occurred in the scene that the author accepted.
         StateManager.validate_patch(current_state, patch)
+        trace_record(
+            "record_event",
+            event_type="state_analysis_proposal",
+            proposed_patch=patch,
+        )
         return patch

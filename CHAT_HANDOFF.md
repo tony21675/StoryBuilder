@@ -1,3 +1,19 @@
+# Persistent prompt tracing for State Analysis — October 24, 2026
+
+## Current remote change under test
+
+Tony authorized changing the existing Prompt Trace from one-shot capture to a persistent On/Off setting. The intended behavior is:
+- Trace is on by default on a new install and the choice persists locally across restarts until changed in the Writer tab.
+- While on, each Writer generation and each regular **Analyze Accepted Scene** run saves the latest trace to the same local file, `~/.local/share/storybuilder/prompt_trace.json`, then attempts the existing private `StoryBuilder-Traces` GitHub upload.
+- The private trace repository keeps only the newest trace reachable on its branch; the next capture overwrites the previous trace. This is not a secure-erasure guarantee for previously copied/unreachable objects.
+- State Analysis capture includes the accepted scene, before-state, both analysis prompts, both raw model outputs, runtime details, and the assembled proposed patch/error. It does not apply any state changes.
+- Off is saved locally in `~/.config/storybuilder/prompt_trace_enabled.json` (or `$XDG_CONFIG_HOME/storybuilder/prompt_trace_enabled.json`) so turning tracing off persists after restart. A missing setting defaults to On; a malformed setting fails closed to Off.
+- The trace contains unpublished story text and internal prompts. Upload still relies on the existing uploader confirming the destination repository is private. If upload fails, the local trace remains and the UI should display the error.
+
+Current code path: `redesign/simplified-writing-workflow`. Do not touch or accept any novel text or apply the rejected Scene 4 state proposal. After the code commit, pull on the laptop only when Tony is ready, run `python3 -m pytest -q`, open StoryBuilder, and use **Analyze Accepted Scene** once. Inspect the state-analysis trace in the private GitHub trace repository; no additional prompt change should be made until the raw exchanges have been examined.
+
+---
+
 # Latest resumed-session note — October 24, 2026
 
 Read `CHAT_HANDOFF_LATEST.md` first for the full current checkpoint.

@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import builder.state_manager as state_manager_module
+from builder.prompt_trace import PromptTrace
 from builder.state_manager import (
     StateManager,
     combine_state_patches,
@@ -1276,6 +1277,110 @@ class StateUpdateValidationTests(unittest.TestCase):
             self.assertIn("physical_state", result)
             merged = StateManager.merge_patch(current_state, result)
             self.assertEqual(merged["location"], current_state["location"])
+
+    def test_state_analysis_trace_records_full_scene_and_both_raw_model_passes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            model = root / "writer.gguf"
+            llama = root / "llama-cli"
+            model.touch()
+            llama.touch()
+            trace_path = root / "prompt_trace.json"
+            current_state = {
+                "chapter": 1,
+                "scene": 4,
+                "scene_cast": ["Elena", "Morgan", "Priya", "Daniel", "Ryan", "Zoe"],
+                "current_situation": "The scrubber temperature is rising.",
+                "location": {"primary": "Environmental hub"},
+                "physical_state": {},
+                "active_clues": [],
+                "unresolved_questions": [],
+                "recent_events": [],
+                "character_knowledge": {},
+            }
+            accepted_scene = (
+                "Earlier, Elena prepared the sealed hatch.\n\n"
+                "Elena began partially pressurizing the inspection chamber.\n\n"
+                "Morgan and Priya remained outside checking the housing mounts. Daniel watched the "
+                "temperature trend while Ryan and Zoe independently examined communications bursts."
+            )
+            ending_response = json.dumps({
+                "current_situation": (
+                    "Elena has begun partial pressurization at the sealed hatch; Morgan and Priya "
+                    "remain outside checking the mounts, Daniel monitors temperature, and Ryan and "
+                    "Zoe independently examine communications."
+                )
+            })
+            evidence_response = json.dumps({
+                "new_clues": [],
+                "resolved_clues": [],
+                "new_unresolved_questions": [],
+                "resolved_questions": [],
+                "new_recent_events": [],
+            })
+
+            class FakeProcess:
+                returncode = 0
+
+                def __init__(self, output):
+                    self.output = output
+
+                def communicate(self, timeout=None):
+                    return self.output, None
+
+            trace = PromptTrace(
+                chapter=1,
+                scene=4,
+                model_path=model,
+                current_state=current_state,
+                reference_files=[],
+                contract={},
+                scene_direction="",
+                author_guidance="",
+                system_prompt=state_manager_module.ENDING_STATE_SYSTEM_PROMPT,
+                path=trace_path,
+            )
+            with (
+                patch.object(state_manager_module, "DEFAULT_LLAMA", llama),
+                patch.object(
+                    state_manager_module.subprocess,
+                    "Popen",
+                    side_effect=[FakeProcess(ending_response), FakeProcess(evidence_response)],
+                ),
+                patch.object(StateManager, "_detect_accelerator", return_value=None),
+                patch.object(StateManager, "_propose_knowledge_delta", return_value={}),
+            ):
+                result = StateManager.propose(
+                    model,
+                    current_state,
+                    accepted_scene,
+                    scene_characters=current_state["scene_cast"],
+                    prompt_trace=trace,
+                )
+
+            trace.finish(status="completed")
+            payload = json.loads(trace_path.read_text(encoding="utf-8"))
+            self.assertIn("current_situation", result)
+            self.assertEqual(
+                [call["response"] for call in payload["generation_calls"]],
+                [ending_response, evidence_response],
+            )
+            self.assertEqual(
+                [session["role"] for session in payload["sessions"]],
+                ["state_ending_analysis", "state_evidence_analysis"],
+            )
+            input_event = next(
+                event for event in payload["workflow_events"]
+                if event["event"] == "state_analysis_input"
+            )
+            self.assertEqual(input_event["details"]["accepted_scene"], accepted_scene)
+            self.assertIn(
+                accepted_scene,
+                payload["generation_calls"][1]["input_before_runtime_normalization"],
+            )
+            self.assertTrue(
+                any(event["event"] == "state_analysis_proposal" for event in payload["workflow_events"])
+            )
 
     def test_planned_end_state_hint_does_not_override_state_from_completed_prose(self):
         with tempfile.TemporaryDirectory() as tmp:

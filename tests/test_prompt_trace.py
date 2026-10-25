@@ -8,7 +8,9 @@ from pathlib import Path
 from urllib.error import HTTPError
 from unittest.mock import patch
 
-from builder.prompt_trace import PromptTrace, default_prompt_trace_path
+from builder.prompt_trace import (
+    PromptTrace, default_prompt_trace_path, load_prompt_trace_enabled, save_prompt_trace_enabled,
+)
 from builder.prompt_trace_sync import upload_prompt_trace
 
 
@@ -33,6 +35,55 @@ class PromptTraceTests(unittest.TestCase):
         self.assertEqual(path.parent.name, "storybuilder")
         self.assertIn(".local", path.parts)
         self.assertNotIn("Documents", path.parts)
+
+    def test_trace_setting_defaults_on_and_persists_user_choice(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "settings" / "prompt_trace_enabled.json"
+            self.assertTrue(load_prompt_trace_enabled(path), "A first run defaults tracing on.")
+            save_prompt_trace_enabled(False, path)
+            self.assertFalse(load_prompt_trace_enabled(path), "Off survives an application restart.")
+            save_prompt_trace_enabled(True, path)
+            self.assertTrue(load_prompt_trace_enabled(path), "On survives an application restart.")
+            path.write_text("{broken", encoding="utf-8")
+            self.assertFalse(load_prompt_trace_enabled(path), "A corrupted setting fails closed.")
+
+    def test_state_analysis_prompts_are_classified_separately(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            ending = "You determine only the actual ending state of a completed scene."
+            trace = PromptTrace(
+                chapter=1,
+                scene=4,
+                model_path="writer.gguf",
+                current_state={},
+                reference_files=[],
+                contract={},
+                scene_direction="",
+                author_guidance="",
+                system_prompt=ending,
+                path=Path(tmp) / "prompt_trace.json",
+            )
+            trace.record_session(
+                model_path="writer.gguf",
+                runtime_binary="llama-cli",
+                system_prompt=ending,
+                context_size=8192,
+                max_tokens=700,
+                device=None,
+                runtime_options={},
+            )
+            trace.record_session(
+                model_path="writer.gguf",
+                runtime_binary="llama-cli",
+                system_prompt="You extract only concrete new evidence and events from a completed scene.",
+                context_size=8192,
+                max_tokens=1100,
+                device=None,
+                runtime_options={},
+            )
+            self.assertEqual(
+                [item["role"] for item in trace.data["sessions"]],
+                ["state_ending_analysis", "state_evidence_analysis"],
+            )
 
     def test_trace_keeps_exact_original_and_sent_prompts_and_runtime_response(self):
         with tempfile.TemporaryDirectory() as tmp:
