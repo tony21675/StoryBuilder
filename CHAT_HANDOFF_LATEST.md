@@ -1,25 +1,22 @@
-# State Analysis trace diagnosis and targeted safeguards — October 24, 2026
+# Generic event-support guard — October 25, 2026
 
-## Trace findings from Chapter 1, Scene 4
+## User's writing principle
 
-The latest private trace is [here](https://github.com/tony21675/StoryBuilder-Traces/blob/main/prompt_trace.json). It completed successfully with all three passes: state_ending_analysis, state_evidence_analysis, and state_knowledge_audit. The knowledge audit returned no new facts for the selected characters. The accepted prose and saved novel state were not changed; the proposal remains unapplied.
+Tony explicitly does not want StoryBuilder to prescribe a step-by-step plot or turn writing into an instruction manual. The novel must remain free to discover its own events, solutions, setbacks, and temporary workarounds. No scene sequence, Mars-specific rule, character name, 24-hour deadline, or repair solution is to be hard-coded into StoryBuilder.
 
-- The ending-state pass now preserves unresolved major crises when the scene's focus shifts.
-- The evidence pass still promoted a projection to a clue and included a routine gesture and an unacted intention as recent events, despite its prompt rules.
-- Appending the nine proposed events to six existing entries would have pushed three older events out of the rolling recent-event list. Existing clue history remained intact.
+## Latest Scene 4 finding
 
-## Generic StoryBuilder safeguards added on redesign/simplified-writing-workflow
+The latest trace is [the private Prompt Trace](https://github.com/tony21675/StoryBuilder-Traces/blob/main/prompt_trace.json). The 24-hour thermal estimate was retained as a recent event, not a new clue, and the original recent-event history survived under the 16-entry limit. The evidence model still proposed unsupported character actions: Morgan moving toward the hub and Daniel agreeing to switch from modeling to an applied inspection. The accepted scene instead has Morgan respond to Elena's instruction and Daniel offer to prepare diagnostic tools from the hub. The accepted prose and saved state remain untouched; the proposal was not applied.
 
-- Added filter_non_observational_clues to reject clue candidates explicitly based on a projection, estimate, forecast, prediction, or hypothesis. This does not remove the estimate from event history. Regression tests retain a conditional estimate as a recent event while blocking it from becoming a clue.
-- Added filter_low_value_recent_events to remove clearly unacted intentions and a narrow pattern of routine movement paired with clothing adjustment. Meaningful actions, measurements, and estimate events remain eligible.
-- Increased recent-event retention from 12 to 16 entries, while retaining deduplication.
-- Added three regression tests for projection-only clues, routine/unacted event filtering, and event-history retention.
+## Generic code safeguard added
 
-These are generic bookkeeping safeguards. No Mars setting, character names, 24-hour deadline, proposed workaround, or plot event has been hard-coded into StoryBuilder. No novel repository was edited, no scene prose was changed, and no proposed state update was applied.
+- Added `filter_unsupported_character_action_events` to `builder/state_manager.py`. It conservatively checks explicit physical-movement/positioning and agreement claims against the accepted prose and the named character, without requiring copied quotes. If the actor cannot be confidently identified, or the event is outside those action categories, the entry is left alone rather than guessed away.
+- Added a regression test ensuring the unsupported Morgan movement, Daniel agreement, and unsupported active repositioning are filtered, while supported movement phrased differently, a short affirmative agreement, and Zoe's supported leaning action are retained.
+- This is a state-ledger continuity safeguard, not an instruction for the writer. It does not prescribe events or outcomes and does not add any plot-specific prompt rules.
 
-## Verification and next action
+The code and regression test are on `redesign/simplified-writing-workflow` in commits `072220a` and `68813fa`. The full local test suite has **not yet been run** against this latest code. When StoryBuilder closes and syncs, run `python3 -m pytest -q`. If tests pass, rerun State Analysis on accepted Scene 4 and inspect the proposal. Do not apply any proposal automatically. No novel repository was edited.
 
-The first laptop full-suite run reported 377 passed and one failure: an existing test still expected the previous 12-event retention limit. The implementation change is intentional, so `tests/test_state_analysis_transitions.py` was updated to test the new 16-event limit (commit f61c76a). The latest full suite has not yet been rerun. On the laptop, pull redesign/simplified-writing-workflow with fast-forward only, then run `python3 -m pytest -q`. If it passes, re-analyze accepted Scene 4 and inspect the proposal without applying it until reviewed. Update this handoff after that test milestone.
+---
 
 
 ---
