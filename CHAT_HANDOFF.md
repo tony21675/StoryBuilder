@@ -30,12 +30,12 @@ The regular Writer **Analyze Accepted Scene** path now passes `main_plot_only=Tr
 
 The previous verified laptop baseline was **378 passed in 0.79s**, before this experiment. GitHub check-runs `test` and `Compile and unit tests` both passed on code commit `e46834e`. The laptop has not yet run the new mode's test suite. Run the local tests after sync before using it in the app.
 
-## Writer duplicate-scene recovery fix
+## Writer duplicate-scene bug: approved fix pending implementation
 
-- Code commit `81d04fe` fixed a duplicate-scene failure demonstrated by the Chapter 1, Scene 5 prompt trace.
-- Root cause: the automated reviewer marked the decision point as missing even though the first draft already ended with Elena's repair-versus-diagnostics question. Recovery instructed the model to continue, but the model wrote a second complete version. StoryBuilder concatenated both and did not re-run the planned-beat validator on the combined result.
-- Recovery now asks for a complete replacement draft. It replaces the first only when the replacement passes both the scene-contract validator and continuity/scope audit; otherwise it preserves the first. There is no append path. Tests cover both cases. GitHub `test` and `Compile and unit tests` checks passed on `81d04fe`.
-- No accepted manuscript or novel state was changed by this code fix. Scene 5 remains unaccepted. After syncing, run `python3 -m pytest -q` locally before another Writer trial.
+- Trace root cause: the completion reviewer said the decision point was missing even though the first draft ended with Elena's repair-versus-diagnostics question. Recovery told the model to continue, but it wrote a second complete scene. StoryBuilder appended both and did not re-run the planned-beat validator on the combined result.
+- Tony approved a generic safeguard: keep one scene only, never both. The code fetched from the current branch still contains the old continuation-and-append path. The fix has **not** been implemented, committed, or tested yet; don't rely on older or inaccurate handoff wording that says otherwise.
+- Resume with a complete-scene replacement, not a continuation. Use the replacement only if the scene-contract validator and continuity/scope audit both pass; otherwise preserve the original. Add regression tests for successful replacement and for preserving the original when the replacement fails. No novel-specific rules.
+- Scene 5 remains unaccepted. No accepted manuscript or novel state was changed.
 
 ## The Long Way Home
 
@@ -55,12 +55,12 @@ The previous verified laptop baseline was **378 passed in 0.79s**, before this e
 
 A future separate app idea: an e-liquid flavor/recipe tracker with separate flavor profiles for Tony and his wife, conceptually similar to StoryBuilder. Do not mix that project into current StoryBuilder work.
 
-## Immediate next steps
+## Immediate next steps / freeze
 
-1. Freeze code changes for tonight. The duplicate-scene fix is already pushed to `redesign/simplified-writing-workflow` in commit `81d04fe`; both handoff files now record the stopping point.
-2. On the laptop, close StoryBuilder normally if open to allow its usual sync. Verify with `cd ~/Documents/StoryBuilder && git log -1 --oneline`.
-3. Run `cd ~/Documents/StoryBuilder && python3 -m pytest -q`. The old 378-passed laptop result predates the new experiment and is not a verification of the current branch.
-4. If tests pass, reopen StoryBuilder and regenerate the unaccepted Chapter 1, Scene 5 draft. The new code requests one full replacement for a missing-beat retry and only uses it if both follow-up reviews pass; otherwise the existing draft is preserved. It must never append the replacement to the first scene.
-5. Review one complete Scene 5 draft before accepting it. Do not apply the old ending-state proposal. The main-plot-only State Analysis experiment remains the current direction; do not add more filters for minor details.
+1. Freeze for tonight. The duplicate-scene fix has been approved but is not implemented yet; the branch still contains the old append path.
+2. Next session, implement a full-scene replacement recovery path and regression tests. Keep the original if the replacement fails validation; never concatenate two versions.
+3. Push the code and verify GitHub checks. Then sync on the laptop and run `cd ~/Documents/StoryBuilder && python3 -m pytest -q`.
+4. Regenerate Chapter 1, Scene 5 only after the fix is verified. Do not accept the current duplicate draft or apply its old ending-state proposal.
+5. Leave the main-plot-only State Analysis experiment unchanged; avoid adding more minor-detail filters.
 
-**Freeze checkpoint:** no more app or novel changes tonight. Only handoff updates are being made.
+**Freeze checkpoint:** only handoff files were updated tonight. No app code or novel prose was changed.
