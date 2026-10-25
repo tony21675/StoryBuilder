@@ -7,6 +7,8 @@ from builder.scene_completion import (
     SHARED_CONTINUITY_RULES,
     _audit_prompt,
     _run_scene_integrity_audit,
+    collect_review_findings,
+    review_findings_match,
     completion_notice_is_success,
     generate_scene_with_completion_check,
 )
@@ -77,6 +79,32 @@ class SceneCompletionTests(unittest.TestCase):
             author_guidance=guidance,
             prose=prose,
         )
+
+    def test_review_findings_combine_audit_and_coverage_without_duplicate_items(self):
+        review = {
+            "pass": False,
+            "missed_beats": ["The decision point should be more explicit."],
+            "violations": ["Timeline conflict."],
+        }
+        audit = {
+            "pass": False,
+            "status": "conflict",
+            "issues": ["Timeline conflict."],
+            "details": ["timeline_and_event_order: conflict - time mismatch"],
+        }
+        findings = collect_review_findings(review, audit)
+        self.assertEqual(len(findings), 2)
+        self.assertEqual(findings[0]["kind"], "continuity")
+        self.assertEqual(findings[0]["message"], "Timeline conflict.")
+        self.assertEqual(findings[1]["kind"], "coverage")
+        self.assertTrue(findings[1]["can_suggest"])
+
+    def test_review_findings_match_deduplicates_same_concern_after_recheck(self):
+        left = {"message": "The character's location conflicts with the starting state."}
+        same = {"message": "Character location conflicts with the starting state."}
+        different = {"message": "Temperature estimate is only a hypothesis."}
+        self.assertTrue(review_findings_match(left, same))
+        self.assertFalse(review_findings_match(left, different))
 
     def test_initial_scene_generation_forwards_streamed_text_callback(self):
         self.engine.responses = ["A scene arriving in pieces."]
