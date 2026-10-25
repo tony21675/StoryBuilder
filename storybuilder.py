@@ -69,6 +69,7 @@ from builder.novel_sync import NovelSyncError, sync_novel_repository
 from builder.app_sync import StoryBuilderSyncError, sync_storybuilder_repository
 from builder.state_manager import (
     ENDING_STATE_SYSTEM_PROMPT,
+    MAIN_PLOT_SYSTEM_PROMPT,
     StateManager,
     build_state_change_summary,
     combine_state_patches,
@@ -6021,7 +6022,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
                     contract=contract,
                     scene_direction="",
                     author_guidance="",
-                    system_prompt=ENDING_STATE_SYSTEM_PROMPT,
+                    system_prompt=MAIN_PLOT_SYSTEM_PROMPT,
                 )
                 prompt_trace.record_event(
                     "state_analysis_started",
@@ -6050,6 +6051,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
                     story_text,
                     scene_characters=scene_characters,
                     prompt_trace=prompt_trace,
+                    main_plot_only=True,
                 )
             except Exception as exc:
                 error = str(exc)
