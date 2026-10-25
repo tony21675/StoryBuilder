@@ -18,7 +18,13 @@ The regular Writer **Analyze Accepted Scene** path now calls State Analysis in m
 - The separate saved-state recovery workflow still uses its detailed reconstruction path.
 - Prompt Trace labels the regular pass `state_main_plot_summary`.
 
-New regression tests cover the one-call output and its Prompt Trace role. GitHub's `test` and `Compile and unit tests` checks both passed on code commit `e46834e`. The last confirmed laptop baseline was **378 passed** before this experiment; the new mode still needs its local suite run after sync.
+New regression tests cover the one-call output and its Prompt Trace role. GitHub's `test` and `Compile and unit tests` checks both passed on code commit `e46834e`. The laptop's last confirmed baseline was **378 passed** before the main-plot experiment. GitHub's full tests and compile checks also passed for the duplicate-scene safeguard commit `81d04fe`; the current local branch still needs `python3 -m pytest -q` after sync.
+
+## Writer duplicate-scene safeguard
+
+Latest code fix: commit `81d04fe` (GitHub unit tests and compile checks passed). The Scene 5 trace showed the completion reviewer falsely flagged a decision point as missing; the recovery call then generated a second complete scene, and the app joined it to the first draft. Regular planned-beat recovery now requests a complete replacement scene, never a continuation. The replacement is used only if both follow-up reviews pass; otherwise the first draft is preserved. The code no longer concatenates a retry onto the original. Regression tests cover successful replacement and failure-preserving-the-original.
+
+No novel prose was accepted or edited by this fix. Scene 5's current unaccepted draft remains a draft; do not accept it because of this code change. After the app syncs to the new code, run `python3 -m pytest -q` locally and retry the scene only when ready.
 
 ## Current novel: The Long Way Home
 

@@ -30,6 +30,13 @@ The regular Writer **Analyze Accepted Scene** path now passes `main_plot_only=Tr
 
 The previous verified laptop baseline was **378 passed in 0.79s**, before this experiment. GitHub check-runs `test` and `Compile and unit tests` both passed on code commit `e46834e`. The laptop has not yet run the new mode's test suite. Run the local tests after sync before using it in the app.
 
+## Writer duplicate-scene recovery fix
+
+- Code commit `81d04fe` fixed a duplicate-scene failure demonstrated by the Chapter 1, Scene 5 prompt trace.
+- Root cause: the automated reviewer marked the decision point as missing even though the first draft already ended with Elena's repair-versus-diagnostics question. Recovery instructed the model to continue, but the model wrote a second complete version. StoryBuilder concatenated both and did not re-run the planned-beat validator on the combined result.
+- Recovery now asks for a complete replacement draft. It replaces the first only when the replacement passes both the scene-contract validator and continuity/scope audit; otherwise it preserves the first. There is no append path. Tests cover both cases. GitHub `test` and `Compile and unit tests` checks passed on `81d04fe`.
+- No accepted manuscript or novel state was changed by this code fix. Scene 5 remains unaccepted. After syncing, run `python3 -m pytest -q` locally before another Writer trial.
+
 ## The Long Way Home
 
 - Canonical local package: `~/Documents/MyNovel/The-Long-Way-Home`.
