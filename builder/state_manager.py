@@ -531,14 +531,14 @@ def filter_non_observational_clues(candidates: Any) -> list[str]:
 
     estimate_only_patterns = (
         re.compile(
-            r"\\b(?:based on|according to|per)\\s+"
-            r"(?:(?:the|a|an)\\s+)?(?:[\\w'-]+\\s+){0,3}"
-            r"(?:projection|estimate|prediction|forecast|hypothesis)\\b",
+            r"\b(?:based on|according to|per)\s+"
+            r"(?:(?:the|a|an)\s+)?(?:[\w'-]+\s+){0,3}"
+            r"(?:projection|estimate|prediction|forecast|hypothesis)\b",
             re.IGNORECASE,
         ),
         re.compile(
-            r"^\\s*(?:[\\w'-]+\\s+){0,3}"
-            r"(?:projected|estimated|predicted|forecasted|hypothesized|speculated)\\b",
+            r"^\s*(?:[\w'-]+\s+){0,3}"
+            r"(?:projected|estimated|predicted|forecasted|hypothesized|speculated)\b",
             re.IGNORECASE,
         ),
     )
@@ -554,29 +554,29 @@ def filter_non_observational_clues(candidates: Any) -> list[str]:
 
 
 _UNACTED_INTENTION_EVENT_RE = re.compile(
-    r"\\b(?:expressed|stated|voiced|indicated)\\s+(?:an?\\s+)?"
-    r"(?:intent|intention|desire|plan)\\s+to\\b",
+    r"\b(?:expressed|stated|voiced|indicated)\s+(?:an?\s+)?"
+    r"(?:intent|intention|desire|plan)\s+to\b",
     re.IGNORECASE,
 )
 _INTENTION_FOLLOW_THROUGH_RE = re.compile(
-    r"\\b(?:then|and later|afterward|after that)\\b.{0,120}\\b"
+    r"\b(?:then|and later|afterward|after that)\b.{0,120}\b"
     r"(?:acted|began|started|initiated|performed|opened|closed|entered|left|"
     r"activated|checked|inspected|reported|observed|found|discovered|measured|"
-    r"confirmed|tested|moved|completed)\\b",
+    r"confirmed|tested|moved|completed)\b",
     re.IGNORECASE,
 )
 _ROUTINE_MOVEMENT_GESTURE_RE = re.compile(
-    r"^\\s*[\\w'-]+(?:\\s+[\\w'-]+){0,2}\\s+"
-    r"(?:moved|walked|stepped|headed|shifted)\\b[^.!?]{0,100}?"
-    r"\\b(?:while|as)\\s+(?:adjusting|straightening|pulling at)\\s+"
-    r"(?:her|his|their|the)?\\s*"
-    r"(?:gloves|sleeves|cuffs|collar|clothing)\\b[^.!?]*[.!?]?\\s*$",
+    r"^\s*[\w'-]+(?:\s+[\w'-]+){0,2}\s+"
+    r"(?:moved|walked|stepped|headed|shifted)\b[^.!?]{0,100}?"
+    r"\b(?:while|as)\s+(?:adjusting|straightening|pulling at)\s+"
+    r"(?:her|his|their|the)?\s*"
+    r"(?:gloves|sleeves|cuffs|collar|clothing)\b[^.!?]*[.!?]?\s*$",
     re.IGNORECASE,
 )
 _MATERIAL_EVENT_VERB_RE = re.compile(
-    r"\\b(?:noticed|observed|found|discovered|reported|warned|measured|"
+    r"\b(?:noticed|observed|found|discovered|reported|warned|measured|"
     r"confirmed|tested|identified|damaged|injured|activated|initiated|"
-    r"opened|closed|entered|left|completed|failed|stopped|revealed)\\b",
+    r"opened|closed|entered|left|completed|failed|stopped|revealed)\b",
     re.IGNORECASE,
 )
 
@@ -2566,7 +2566,9 @@ class StateManager:
 
         # Consume the transient event-addition field before exposing the patch
         # to preview/apply. Preserve previous history and append only new events.
-        new_recent_events = filter_low_value_recent_events(\n            patch.pop("new_recent_events", [])\n        )
+        new_recent_events = filter_low_value_recent_events(
+            patch.pop("new_recent_events", [])
+        )
         new_clues = filter_non_observational_clues(patch.pop("new_clues", []))
         resolved_clues = patch.pop("resolved_clues", [])
         new_questions = patch.pop("new_unresolved_questions", [])
