@@ -26,7 +26,9 @@ Judge meaning, not keywords; paraphrases count. Evidence is optional and never c
 Create a short event-level checklist, usually 4–8 meaningful events. Group related details; avoid micro-checks for clauses, adjectives, people, objects, or small actions. Separate independently missable events. Ignore incidental details unless defining, continuity-critical, or an explicit boundary/preference.
 A check is met when its main action and defining details occur. Different wording is fine, but do not substitute a different action, object, person, order, or outcome for a specific request. Check opening continuity, character knowledge, acknowledged requests/preferences, and established relationship facts.
 If an endpoint asks characters to face a decision, presenting the alternatives and making clear a choice is due satisfies it. Do not require a final choice unless the author explicitly asks for one. List material omissions once; if a check is missing, pass must be false.
-"""SEMANTIC_RECHECK_SYSTEM_PROMPT = """Independently reassess only the supplied checklist items against the completed scene. Return JSON only:
+"""
+
+SEMANTIC_RECHECK_SYSTEM_PROMPT = """Independently reassess only the supplied checklist items against the completed scene. Return JSON only:
 {"pass": true, "missed_beats": [], "violations": [], "checks": [{"requirement": "", "status": "met", "evidence": ""}], "notes": ""}
 
 The first validator marked these items missing, but that may be a false negative. Judge meaning, not keyword overlap. Synonyms, paraphrases, indirect but clear descriptions, and equivalent actions count. Judge intended meaning across the entire scene. Evidence is optional diagnostic information and never controls status. A quote is not required to mark an event met or missing. Use "missing" only when the event genuinely is omitted or materially different. Preserve specified identity, named people, objects, defining details, order, requests, and outcomes. Do not infer an event that did not occur or create extra requirements. Repeat each supplied requirement unchanged. Assess only the listed items and the completed scene.
