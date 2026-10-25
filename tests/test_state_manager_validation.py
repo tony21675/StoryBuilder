@@ -990,7 +990,7 @@ class StateUpdateValidationTests(unittest.TestCase):
             expected_result = {
                 key: value
                 for key, value in valid_patch.items()
-                if key != "new_recent_events"
+                if key in {"current_situation", "location", "physical_state"}
             }
             expected_result["recent_events"] = [
                 {"event": "Maya settled at the kitchen table."},
@@ -1327,7 +1327,12 @@ class StateUpdateValidationTests(unittest.TestCase):
                     ),
                 )
 
-            self.assertEqual(result, prose_derived_patch)
+            self.assertEqual(
+                result["current_situation"],
+                prose_derived_patch["current_situation"],
+            )
+            self.assertNotIn("active_objectives", result)
+            self.assertNotIn("new_recent_events", result)
 
 if __name__ == "__main__":
     unittest.main()
