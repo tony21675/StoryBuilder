@@ -2008,7 +2008,7 @@ class StateManager:
         # The whole scene is sent separately to the evidence pass below.
         paragraphs = [
             part.strip()
-            for part in re.split(r"\n\\s*\n", completed_text)
+            for part in re.split(r"\n\s*\n", completed_text)
             if part.strip()
         ]
         if not paragraphs:
