@@ -18,28 +18,33 @@ The regular Writer **Analyze Accepted Scene** path now calls State Analysis in m
 - The separate saved-state recovery workflow still uses its detailed reconstruction path.
 - Prompt Trace labels the regular pass `state_main_plot_summary`.
 
-New regression tests cover the one-call output and its Prompt Trace role. GitHub's `test` and `Compile and unit tests` checks both passed on code commit `e46834e`. The laptop's last confirmed baseline was **378 passed** before the main-plot experiment. GitHub's full tests and compile checks also passed for the duplicate-scene safeguard commit `81d04fe`; the current local branch still needs `python3 -m pytest -q` after sync.
+New regression tests cover the one-call output and its Prompt Trace role. GitHub's `test` and `Compile and unit tests` checks passed on code commit `e46834e`. The laptop's last confirmed baseline was **378 passed** before the main-plot experiment. GitHub's full tests and compile checks also passed for the duplicate-scene safeguard commit `81d04fe`; local tests must still be run after sync.
 
 ## Writer duplicate-scene safeguard
 
-Latest code fix: commit `81d04fe` (GitHub unit tests and compile checks passed). The Scene 5 trace showed the completion reviewer falsely flagged a decision point as missing; the recovery call then generated a second complete scene, and the app joined it to the first draft. Regular planned-beat recovery now requests a complete replacement scene, never a continuation. The replacement is used only if both follow-up reviews pass; otherwise the first draft is preserved. The code no longer concatenates a retry onto the original. Regression tests cover successful replacement and failure-preserving-the-original.
+Code fix: commit `81d04fe`; the following handoff-only commit is `37dcc59`. The Scene 5 trace showed the completion reviewer falsely flagged a decision point as missing; the recovery call then generated a second complete scene, and the app joined it to the first draft. The original Writer call produced 5,690 characters and ended with Elena's repair-versus-diagnostics question. The continuation call produced 5,693 characters and began a fresh version. The combined result had 11,385 characters. This was automatic recovery, not a second scene-writing action by Tony.
 
-No novel prose was accepted or edited by this fix. Scene 5's current unaccepted draft remains a draft; do not accept it because of this code change. After the app syncs to the new code, run `python3 -m pytest -q` locally and retry the scene only when ready.
+Regular planned-beat recovery now asks for a **complete replacement scene**, not a continuation. The replacement is used only if both follow-up reviews pass; otherwise the first draft is preserved. The code no longer concatenates a retry onto the original. Regression tests cover successful replacement and failure-preserving-the-original. GitHub `test` and `Compile and unit tests` passed for `81d04fe`.
+
+No novel prose was accepted or edited by this fix. Chapter 1, Scene 5 remains unaccepted and the current Writer draft contains the duplicate. Do not accept it. After local sync and tests, regenerate Scene 5 using the updated code; it should show one complete scene or preserve the existing draft if the replacement fails review.
 
 ## Current novel: The Long Way Home
 
 Path: `~/Documents/MyNovel/The-Long-Way-Home`; repo: `tony21675/The-Long-Way-Home`.
 
-Chapter 1, Scene 4 accepted prose is unchanged and its last proposed state update remains unapplied. Central situation: the primary oxygen scrubber manifold temperature is rising while emergency ventilation/reserve blower maintain pressure. Daniel estimates thermal runaway could become critical in about 24 hours if the current rate holds; this is a prediction, not a confirmed deadline. The silicate-like trace remains unverified and does not establish contamination or cause. Elena has ended monitoring-only work and is heading toward an inspection at the scrubber housing with Morgan and Priya; Daniel remains at the hub to monitor trends and offered to prepare diagnostic tools. Ryan and Zoe are independently investigating patterned communications bursts; no connection to life support is established.
+Chapter 1, Scene 4 accepted prose is unchanged and its last proposed state update remains unapplied. Chapter 1, Scene 5 has been generated but is **not accepted** because the old recovery path joined two tellings of the scene. No scene was accepted and the saved scene pointer has not advanced because of this draft.
 
-The latest previous private trace is [prompt_trace.json](https://github.com/tony21675/StoryBuilder-Traces/blob/main/prompt_trace.json). It showed the three-pass version running successfully, but the evidence pass invented or distorted a few events. The new experiment avoids those separate event/knowledge/position updates in regular State Analysis rather than adding more event filters.
+Central situation at the start of Scene 5: the primary oxygen scrubber manifold temperature is rising while emergency ventilation/reserve blower maintain pressure. Daniel estimates thermal runaway could become critical in about 24 hours if the current rate holds; this is a prediction, not a confirmed deadline. The silicate-like trace remains unverified and does not establish contamination or cause. Elena has ended monitoring-only work and is heading toward an inspection at the scrubber housing with Morgan and Priya; Daniel remains at the hub to monitor trends and offered to prepare diagnostic tools. Ryan and Zoe are independently investigating patterned communications bursts; no connection to life support is established.
+
+The latest private trace is [prompt_trace.json](https://github.com/tony21675/StoryBuilder-Traces/blob/main/prompt_trace.json). It demonstrated both the noisy old State Analysis path and the exact duplicate-scene recovery failure. The main-plot-only State Analysis experiment avoids proposing separate event/knowledge/position updates in the regular workflow.
 
 ## Next action
 
-1. Let StoryBuilder close and auto-sync, then verify the updated branch head on the laptop.
-2. Run `python3 -m pytest -q` once. The laptop's last confirmed result before this experiment was 378 passed in 0.79s.
-3. If the tests pass, open StoryBuilder and Analyze Accepted Scene for Chapter 1, Scene 4. Review the single plain-English main-plot change; don't use Advanced JSON and don't apply it until Tony chooses.
-4. If it works, proceed with the novel. Do not start another State Analysis code-fix cycle for minor details.
+1. Freeze code changes for tonight. The duplicate-scene fix is pushed to `redesign/simplified-writing-workflow`; no more code changes are needed now.
+2. On the laptop, close StoryBuilder normally if open so its usual sync can run. Verify with `cd ~/Documents/StoryBuilder && git log -1 --oneline`; the branch should include `81d04fe` and the latest handoff-only commit.
+3. Run `cd ~/Documents/StoryBuilder && python3 -m pytest -q`. The last confirmed laptop baseline was 378 passed before the main-plot experiment, so it is not a test result for the current code.
+4. If tests pass, reopen StoryBuilder and use **Regenerate Scene** on the unaccepted Chapter 1, Scene 5 draft. Check that it displays one complete scene, not two. Updated recovery uses one verified replacement or preserves the prior draft; it never joins both versions.
+5. Do not accept Scene 5 until Tony reviews the prose. Do not apply the old Scene 5 state proposal. Keep the main-plot-only State Analysis experiment as-is and avoid another filter/rule cycle tonight.
 
 ## Standing collaboration rules
 
