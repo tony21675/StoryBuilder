@@ -28,7 +28,7 @@ The regular Writer **Analyze Accepted Scene** path now passes `main_plot_only=Tr
 - Prompt Trace classifies this as `state_main_plot_summary`.
 - Added regression tests assert that main-plot mode makes one model call, returns only `current_situation`, skips the knowledge audit, leaves the source state unchanged, and uses its dedicated trace role.
 
-The previous verified laptop baseline was **378 passed in 0.79s**, before this experiment. GitHub check-runs `test` and `Compile and unit tests` were pending on commit `e46834e` when this handoff was written. The laptop has not yet run the new mode's test suite. Run the local tests before using it in the app.
+The previous verified laptop baseline was **378 passed in 0.79s**, before this experiment. GitHub check-runs `test` and `Compile and unit tests` both passed on code commit `e46834e`. The laptop has not yet run the new mode's test suite. Run the local tests after sync before using it in the app.
 
 ## The Long Way Home
 
