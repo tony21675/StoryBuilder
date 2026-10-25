@@ -479,6 +479,61 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         app._show_copyable_error.assert_not_called()
         app._update_writer_buttons.assert_called_once()
 
+    def test_advisory_validator_findings_open_review_without_blocking_acceptance(self):
+        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+        draft = "A complete scene with a possible coverage concern."
+        notice = (
+            "AUTOMATED REVIEW: 1 possible finding(s) need your review. "
+            "No prose was changed automatically."
+        )
+        finding = {
+            "kind": "coverage",
+            "title": "Possible omission",
+            "message": "The decision point may be missing.",
+            "can_suggest": True,
+            "edit_request": "Suggest a minimal local fix.",
+        }
+        context = {
+            "model_path": Path("/tmp/writer.gguf"),
+            "writer_system_prompt": "writer prompt",
+            "contract": {"author_idea": "A scene ends with a decision point."},
+            "current_state": {"chapter": 2, "scene": 4},
+        }
+        app.package = SimpleNamespace(current_state={"chapter": 2, "scene": 4})
+        app.generated_scene = ""
+        app.accepted_scene = ""
+        app.writer_generation_context = (2, 4)
+        app.writer_generation_start_state = {"chapter": 2, "scene": 4}
+        app.writer_generation_in_progress = True
+        app.writer_output_text = FakeText()
+        app.writer_status = FakeButton()
+        app.writer_revision_request_entry = FakeText()
+        app._show_copyable_error = Mock()
+        app._update_writer_buttons = Mock()
+        app._start_validator_review = Mock()
+
+        storybuilder_app.StoryBuilderApp._finish_generated_scene(
+            app, draft, None, None, notice, [finding], context
+        )
+
+        self.assertEqual(app.generated_scene, draft)
+        self.assertEqual(app.writer_output_text.value, draft)
+        self.assertEqual(app.writer_scene_accept_block_reason, "")
+        self.assertEqual(app.generated_scene_review_context, context)
+        app._start_validator_review.assert_called_once_with([finding], notice, context)
+        app._show_copyable_error.assert_not_called()
+        app._update_writer_buttons.assert_called_once()
+
+    @patch("storybuilder_app.messagebox.showinfo")
+    def test_accept_handler_waits_until_validator_review_is_finished(self, showinfo):
+        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+        app.validator_review_in_progress = True
+        app.writer_scene_accept_block_reason = ""
+        storybuilder_app.StoryBuilderApp._accept_generated_scene(app)
+        showinfo.assert_called_once()
+        self.assertIn("Finish reviewing", showinfo.call_args.args[1])
+        self.assertNotIn("package", app.__dict__)
+
     def test_accept_handler_refuses_draft_after_completion_check_failure(self):
         app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
         app.writer_scene_accept_block_reason = (
