@@ -3989,6 +3989,8 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             trace_result = None
             error = None
             completion_notice = ""
+            review_findings = []
+            review_context = None
             try:
                 if model is None:
                     raise RuntimeError("The Writer model is not available.")
@@ -4010,6 +4012,16 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
                         "(gender and recorded pronouns):\n"
                         + json.dumps(identity_reference, indent=2, ensure_ascii=False)
                     )
+                historical_context = archive_prompt.strip() if archive_kept else ""
+                review_context = {
+                    "model_path": model,
+                    "writer_system_prompt": system_prompt,
+                    "scene_context": audit_scene_context,
+                    "contract": json.loads(json.dumps(contract, ensure_ascii=False)),
+                    "current_state": json.loads(json.dumps(current_state, ensure_ascii=False)),
+                    "author_guidance": author_guidance,
+                    "historical_context": historical_context,
+                }
                 answer, completion_notice = generate_scene_with_completion_check(
                     engine=self.writer_engine,
                     model_path=model,
@@ -4019,8 +4031,9 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
                     contract=contract,
                     current_state=current_state,
                     author_guidance=author_guidance,
-                    historical_context=archive_prompt.strip() if archive_kept else "",
+                    historical_context=historical_context,
                     on_draft_delta=on_scene_delta,
+                    on_review_findings=lambda items: review_findings.extend(items),
                 )
                 if prompt_trace is not None:
                     prompt_trace.record_event(
@@ -4059,7 +4072,8 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             self.after(
                 0,
                 lambda: self._finish_generated_scene(
-                    answer, error, trace_result, completion_notice
+                    answer, error, trace_result, completion_notice,
+                    review_findings, review_context,
                 ),
             )
 
@@ -4078,7 +4092,8 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         output.see("end")
 
     def _finish_generated_scene(
-        self, answer, error, trace_result=None, completion_notice=""
+        self, answer, error, trace_result=None, completion_notice="",
+        review_findings=None, review_context=None,
     ):
         target = getattr(self, "writer_generation_context", None)
         if trace_result is not None:
