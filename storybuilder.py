@@ -86,6 +86,8 @@ from builder.focused_revision import (
 from builder.scene_completion import (
     completion_notice_is_success,
     generate_scene_with_completion_check,
+    review_findings_match,
+    review_scene_draft,
 )
 from builder.story_interview import (
     CHARACTER_QUESTIONS,
@@ -4229,6 +4231,523 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
                 ),
                 copy_label="Copy Full Check Report",
             )
+
+
+    def _start_validator_review(self, findings, notice="", review_context=None):
+        """Present validator findings sequentially without rewriting the scene automatically."""
+        items = [dict(item) for item in (findings or []) if isinstance(item, dict)]
+        self.validator_review_state = {
+            "queue": items,
+            "skipped": [],
+            "dismissed": [],
+            "applied": [],
+            "context": review_context if isinstance(review_context, dict) else None,
+            "notice": str(notice or ""),
+            "reviewed_count": 0,
+            "current": None,
+        }
+        self.validator_review_in_progress = True
+        self.writer_scene_accept_block_reason = ""
+        self._update_writer_buttons()
+        self.writer_status.configure(
+            text=(
+                f"Scene generated. Reviewing {len(items)} validator finding(s) one at a time. "
+                "The draft remains unaccepted and will not change unless you apply a fix."
+            )
+        )
+        self._show_next_validator_finding()
+
+    def _validator_review_supporting_context(self):
+        """Supply a compact, read-only slice of canon to the local edit suggester."""
+        review_state = getattr(self, "validator_review_state", None) or {}
+        context = review_state.get("context") or {}
+        contract = context.get("contract") or {}
+        state = context.get("current_state") or {}
+        relevant_keys = (
+            "current_situation", "location", "time_of_day", "physical_state",
+            "character_knowledge", "unresolved_questions", "scene_cast",
+            "continuity_requirements",
+        )
+        relevant_state = {
+            key: state[key] for key in relevant_keys if key in state
+        }
+        parts = []
+        idea = str(contract.get("author_idea", "") or "").strip()
+        if idea:
+            parts.append("AUTHOR'S ORIGINAL SCENE IDEA:\n" + idea[:5000])
+        if relevant_state:
+            parts.append(
+                "RELEVANT STARTING STATE (read-only):\n"
+                + json.dumps(relevant_state, ensure_ascii=False, indent=2)[:6000]
+            )
+        guidance = str(context.get("author_guidance", "") or "").strip()
+        if guidance:
+            parts.append("STABLE AUTHOR GUIDANCE (read-only):\n" + guidance[:4000])
+        return "\n\n".join(parts)[:12000]
+
+    @staticmethod
+    def _set_review_text(widget, value, *, readonly=False):
+        widget.configure(state="normal")
+        widget.delete("1.0", "end")
+        if value:
+            widget.insert("1.0", str(value))
+        if readonly:
+            widget.configure(state="disabled")
+
+    def _show_next_validator_finding(self):
+        state = getattr(self, "validator_review_state", None)
+        if not isinstance(state, dict):
+            self._finish_validator_review()
+            return
+
+        queue_items = state.get("queue", [])
+        if not queue_items:
+            skipped = list(state.get("skipped", []))
+            if skipped:
+                revisit = messagebox.askyesno(
+                    "Skipped Validator Findings",
+                    (
+                        f"You skipped {len(skipped)} finding(s).\n\n"
+                        "Choose Yes to review those findings now. Choose No to finish the review "
+                        "with those concerns left unresolved and available for your author judgment."
+                    ),
+                    parent=self,
+                )
+                if revisit:
+                    state["queue"] = skipped
+                    state["skipped"] = []
+                    self._show_next_validator_finding()
+                    return
+            self._finish_validator_review()
+            return
+
+        finding = queue_items.pop(0)
+        state["current"] = finding
+        source = self._writer_editor_prose()
+        state["source_at_open"] = source
+        state["current_patch"] = None
+
+        window = tk.Toplevel(self)
+        window.title("Review Scene Finding")
+        window.transient(self)
+        window.geometry("780x690")
+        window.minsize(640, 520)
+        window.protocol("WM_DELETE_WINDOW", self._skip_validator_review_finding)
+        outer = ttk.Frame(window, padding=12)
+        outer.pack(fill="both", expand=True)
+
+        reviewed = len(state.get("applied", [])) + len(state.get("dismissed", [])) + len(state.get("skipped", []))
+        ttk.Label(
+            outer,
+            text=f"Finding {reviewed + 1}  ·  {len(queue_items) + 1} currently queued",
+            font=("", 11, "bold"),
+        ).pack(anchor="w")
+        ttk.Label(
+            outer,
+            text=str(finding.get("title", "Possible issue to review")),
+            font=("", 12, "bold"),
+        ).pack(anchor="w", pady=(4, 2))
+        concern = tk.Text(outer, height=4, wrap="word", exportselection=False)
+        concern.pack(fill="x", pady=(0, 7))
+        concern.insert("1.0", str(finding.get("message", "")))
+        concern.configure(state="disabled")
+
+        ttk.Label(outer, text="What should change? (You can edit these instructions)").pack(anchor="w")
+        request_box = tk.Text(outer, height=3, wrap="word", undo=True, exportselection=False)
+        request_box.pack(fill="x", pady=(3, 7))
+        request = str(finding.get("edit_request", "") or "").strip()
+        if not request:
+            request = (
+                "Suggest the smallest safe local fix for this concern. Do not invent story facts "
+                "or rewrite the surrounding scene."
+            )
+        request_box.insert("1.0", request)
+
+        ttk.Label(outer, text="Exact passage the model proposes to replace").pack(anchor="w")
+        target_box = tk.Text(outer, height=3, wrap="word", exportselection=False)
+        target_box.pack(fill="x", pady=(3, 7))
+        target_box.configure(state="disabled")
+
+        ttk.Label(outer, text="Proposed replacement (editable before applying)").pack(anchor="w")
+        replacement_box = tk.Text(
+            outer, height=7, wrap="word", undo=True, exportselection=False
+        )
+        replacement_box.pack(fill="both", expand=True, pady=(3, 7))
+
+        status = ttk.Label(outer, text="Preparing a focused suggestion..." if finding.get("can_suggest", True) else "No automatic suggestion was prepared for this unverified finding. You may request one, dismiss it, or skip it.", wraplength=730, justify="left")
+        status.pack(anchor="w", pady=(0, 7))
+
+        button_row = ttk.Frame(outer)
+        button_row.pack(fill="x")
+        apply_button = ttk.Button(
+            button_row, text="Apply Fix",
+            command=self._apply_validator_review_fix, state="disabled",
+        )
+        apply_button.pack(side="left")
+        dismiss_button = ttk.Button(
+            button_row, text="Dismiss: false alarm",
+            command=self._dismiss_validator_review_finding,
+        )
+        dismiss_button.pack(side="left", padx=(6, 0))
+        skip_button = ttk.Button(
+            button_row, text="Skip for later",
+            command=self._skip_validator_review_finding,
+        )
+        skip_button.pack(side="left", padx=(6, 0))
+        retry_button = ttk.Button(
+            button_row, text="Generate suggestion",
+            command=self._regenerate_validator_review_suggestion,
+        )
+        retry_button.pack(side="right")
+
+        self.validator_review_dialog = window
+        self.validator_review_dialog_state = {
+            "window": window,
+            "finding": finding,
+            "source": source,
+            "request_box": request_box,
+            "target_box": target_box,
+            "replacement_box": replacement_box,
+            "status": status,
+            "apply_button": apply_button,
+            "dismiss_button": dismiss_button,
+            "skip_button": skip_button,
+            "retry_button": retry_button,
+            "suggesting": False,
+            "patch": None,
+        }
+        window.grab_set()
+        window.focus_set()
+        if finding.get("can_suggest", True):
+            self._request_validator_review_suggestion()
+        else:
+            apply_button.configure(state="disabled")
+            status.configure(
+                text="This finding could not be verified reliably. Requesting a suggestion is optional; review it carefully before applying."
+            )
+
+    def _request_validator_review_suggestion(self):
+        dialog_state = getattr(self, "validator_review_dialog_state", None)
+        state = getattr(self, "validator_review_state", None)
+        if not isinstance(dialog_state, dict) or not isinstance(state, dict):
+            return
+        if dialog_state.get("suggesting"):
+            return
+        request = dialog_state["request_box"].get("1.0", "end-1c").strip()
+        finding = dialog_state["finding"]
+        request = (
+            request
+            + "\n\nValidator finding to assess: "
+            + str(finding.get("message", "") or "")
+            + "\nThe prose may already satisfy this concern. Make only a minimal local edit if one is warranted."
+        ).strip()
+        if not request:
+            dialog_state["status"].configure(text="Describe the intended correction before requesting a suggestion.")
+            return
+
+        engine = self.writer_engine
+        context = state.get("context") or {}
+        model = context.get("model_path") or getattr(engine, "model_path", None)
+        original_system_prompt = str(
+            context.get("writer_system_prompt")
+            or getattr(engine, "system_prompt", "")
+            or ""
+        )
+        source = dialog_state["source"]
+        supporting_context = self._validator_review_supporting_context()
+        dialog_state["suggesting"] = True
+        dialog_state["status"].configure(text="Preparing a focused suggestion. No prose has been changed.")
+        for key in ("apply_button", "dismiss_button", "skip_button", "retry_button"):
+            dialog_state[key].configure(state="disabled")
+
+        def work():
+            patch = None
+            error = None
+            restore_error = None
+            if model is None:
+                error = "The Writer model path is not available."
+            else:
+                patch, error, restore_error = propose_focused_replacement(
+                    engine=engine,
+                    model_path=model,
+                    original_system_prompt=original_system_prompt,
+                    original=source,
+                    request=request,
+                    supporting_context=supporting_context,
+                    max_attempts=2,
+                )
+            try:
+                self.after(
+                    0,
+                    lambda: self._finish_validator_review_suggestion(
+                        dialog_state, patch, error, restore_error
+                    ),
+                )
+            except tk.TclError:
+                pass
+
+        self.writer_thread = threading.Thread(target=work, daemon=True)
+        self.writer_thread.start()
+
+    def _finish_validator_review_suggestion(self, dialog_state, patch, error, restore_error=None):
+        if self.validator_review_dialog_state is not dialog_state:
+            return
+        dialog_state["suggesting"] = False
+        dialog_state["patch"] = patch
+        state_label = dialog_state["status"]
+        if patch:
+            self._set_review_text(
+                dialog_state["target_box"], patch.get("target_text", ""), readonly=True
+            )
+            self._set_review_text(
+                dialog_state["replacement_box"], patch.get("replacement_text", "")
+            )
+            dialog_state["apply_button"].configure(state="normal")
+            state_label.configure(
+                text="Suggested local change ready. Edit the replacement if needed, then Apply Fix. Nothing changes until you approve it."
+            )
+        else:
+            self._set_review_text(dialog_state["target_box"], "", readonly=True)
+            dialog_state["apply_button"].configure(state="disabled")
+            state_label.configure(
+                text=(
+                    "No safe local suggestion could be prepared. You may edit the instructions and try again, "
+                    "dismiss the finding, or skip it. "
+                    + str(error or "No usable replacement was returned.")
+                )
+            )
+        if restore_error:
+            state_label.configure(
+                text=state_label.cget("text")
+                + " Writer context restoration warning: "
+                + str(restore_error)
+            )
+        for key in ("dismiss_button", "skip_button", "retry_button"):
+            dialog_state[key].configure(state="normal")
+        dialog_state["retry_button"].configure(
+            text="Try another suggestion" if patch else "Generate suggestion"
+        )
+
+    def _regenerate_validator_review_suggestion(self):
+        dialog_state = getattr(self, "validator_review_dialog_state", None)
+        if not isinstance(dialog_state, dict) or dialog_state.get("suggesting"):
+            return
+        self._set_review_text(dialog_state["target_box"], "", readonly=True)
+        self._set_review_text(dialog_state["replacement_box"], "")
+        dialog_state["patch"] = None
+        dialog_state["apply_button"].configure(state="disabled")
+        self._request_validator_review_suggestion()
+
+    def _close_validator_review_dialog(self):
+        dialog_state = getattr(self, "validator_review_dialog_state", None)
+        window = dialog_state.get("window") if isinstance(dialog_state, dict) else None
+        if window is not None:
+            try:
+                window.grab_release()
+            except tk.TclError:
+                pass
+            try:
+                window.destroy()
+            except tk.TclError:
+                pass
+        self.validator_review_dialog = None
+        self.validator_review_dialog_state = None
+
+    def _apply_validator_review_fix(self):
+        dialog_state = getattr(self, "validator_review_dialog_state", None)
+        state = getattr(self, "validator_review_state", None)
+        if not isinstance(dialog_state, dict) or not isinstance(state, dict):
+            return
+        patch = dialog_state.get("patch")
+        if not isinstance(patch, dict):
+            dialog_state["status"].configure(text="No safe local suggestion is available. Generate one before applying a fix.")
+            return
+        current = self._writer_editor_prose()
+        if current != dialog_state.get("source"):
+            dialog_state["status"].configure(
+                text="The draft changed while this finding was open. The proposed edit was not applied; regenerate the suggestion against the current text."
+            )
+            dialog_state["apply_button"].configure(state="disabled")
+            return
+        replacement = dialog_state["replacement_box"].get("1.0", "end-1c")
+        response = json.dumps(
+            {
+                "target_text": patch.get("target_text", ""),
+                "replacement_text": replacement,
+            },
+            ensure_ascii=False,
+        )
+        try:
+            revised = apply_focused_replacement(current, response)
+        except ValueError as exc:
+            dialog_state["status"].configure(text="No change was applied. " + str(exc))
+            return
+        history = getattr(self, "focused_revision_history", None)
+        if not isinstance(history, list):
+            history = []
+            self.focused_revision_history = history
+        history.append(current)
+        self.generated_scene = revised
+        self.writer_output_text.delete("1.0", "end")
+        self.writer_output_text.insert("1.0", revised)
+        state.setdefault("applied", []).append(state.get("current") or {})
+        state["current"] = None
+        self._update_writer_buttons()
+
+        context = state.get("context")
+        if isinstance(context, dict):
+            dialog_state["status"].configure(
+                text="Focused fix applied. Rechecking the revised scene and remaining findings..."
+            )
+            for key in ("apply_button", "dismiss_button", "skip_button", "retry_button"):
+                dialog_state[key].configure(state="disabled")
+            self.writer_status.configure(text="Rechecking the scene after your approved local change...")
+            self._recheck_validator_review_after_fix(revised)
+        else:
+            self._close_validator_review_dialog()
+            self._show_next_validator_finding()
+
+    def _dismiss_validator_review_finding(self):
+        state = getattr(self, "validator_review_state", None)
+        if not isinstance(state, dict):
+            return
+        finding = state.get("current")
+        if finding:
+            state.setdefault("dismissed", []).append(finding)
+            state["current"] = None
+        self._close_validator_review_dialog()
+        self._show_next_validator_finding()
+
+    def _skip_validator_review_finding(self):
+        dialog_state = getattr(self, "validator_review_dialog_state", None)
+        if isinstance(dialog_state, dict) and dialog_state.get("suggesting"):
+            return
+        state = getattr(self, "validator_review_state", None)
+        if not isinstance(state, dict):
+            return
+        finding = state.get("current")
+        if finding:
+            state.setdefault("skipped", []).append(finding)
+            state["current"] = None
+        self._close_validator_review_dialog()
+        self._show_next_validator_finding()
+
+    def _recheck_validator_review_after_fix(self, revised):
+        state = getattr(self, "validator_review_state", None)
+        dialog_state = getattr(self, "validator_review_dialog_state", None)
+        if not isinstance(state, dict):
+            self._close_validator_review_dialog()
+            self._finish_validator_review()
+            return
+        context = state.get("context") or {}
+        engine = self.writer_engine
+        original_dismissed = list(state.get("dismissed", []))
+        original_skipped = list(state.get("skipped", []))
+
+        def work():
+            findings = []
+            notice = ""
+            error = None
+            try:
+                findings, notice = review_scene_draft(
+                    engine=engine,
+                    model_path=context["model_path"],
+                    writer_system_prompt=context["writer_system_prompt"],
+                    prose=revised,
+                    scene_context=context["scene_context"],
+                    contract=context["contract"],
+                    current_state=context["current_state"],
+                    author_guidance=context.get("author_guidance", ""),
+                    historical_context=context.get("historical_context", ""),
+                )
+            except Exception as exc:
+                error = str(exc)
+            try:
+                self.after(
+                    0,
+                    lambda: self._finish_validator_review_recheck(
+                        revised, findings, notice, error,
+                        original_dismissed, original_skipped, dialog_state,
+                    ),
+                )
+            except tk.TclError:
+                pass
+
+        self.writer_thread = threading.Thread(target=work, daemon=True)
+        self.writer_thread.start()
+
+    def _finish_validator_review_recheck(
+        self, revised, findings, notice, error,
+        original_dismissed, original_skipped, dialog_state,
+    ):
+        state = getattr(self, "validator_review_state", None)
+        if not isinstance(state, dict):
+            self._close_validator_review_dialog()
+            self._finish_validator_review()
+            return
+        if self._writer_editor_prose() != revised:
+            state["queue"] = [
+                {
+                    "kind": "unavailable",
+                    "title": "Draft changed during recheck",
+                    "message": "The visible draft changed during the post-edit review. No text was overwritten; review the current draft manually.",
+                    "can_suggest": False,
+                    "edit_request": "",
+                }
+            ] + list(state.get("queue", []))
+        elif error:
+            state["queue"] = [
+                {
+                    "kind": "unavailable",
+                    "title": "Post-edit review could not complete",
+                    "message": "The updated draft could not be fully rechecked: " + str(error).splitlines()[0],
+                    "can_suggest": False,
+                    "edit_request": "",
+                }
+            ] + list(state.get("queue", []))
+        else:
+            new_items = [dict(item) for item in (findings or []) if isinstance(item, dict)]
+            still_skipped = [
+                item for item in new_items
+                if any(review_findings_match(item, old) for old in original_skipped)
+            ]
+            dismissed_matches = [
+                item for item in new_items
+                if any(review_findings_match(item, old) for old in original_dismissed)
+            ]
+            self.validator_review_state["skipped"] = still_skipped
+            self.validator_review_state["queue"] = [
+                item for item in new_items
+                if not any(review_findings_match(item, old) for old in original_dismissed)
+                and not any(review_findings_match(item, old) for old in still_skipped)
+            ]
+            self.validator_review_state["last_recheck_notice"] = notice
+        self._close_validator_review_dialog()
+        self._show_next_validator_finding()
+
+    def _finish_validator_review(self):
+        state = getattr(self, "validator_review_state", None)
+        if not isinstance(state, dict):
+            self.validator_review_in_progress = False
+            self._update_writer_buttons()
+            return
+        applied = len(state.get("applied", []))
+        dismissed = len(state.get("dismissed", []))
+        skipped = len(state.get("skipped", []))
+        self.last_validator_review_skipped = list(state.get("skipped", []))
+        self.validator_review_in_progress = False
+        self.writer_scene_accept_block_reason = ""
+        self.validator_review_state = None
+        self._close_validator_review_dialog()
+        self._update_writer_buttons()
+        summary = (
+            f"Validator review finished: {applied} focused fix(es) applied, "
+            f"{dismissed} finding(s) dismissed, {skipped} skipped. "
+            "Review the scene and accept it only when you are satisfied."
+        )
+        if skipped:
+            summary += " Skipped findings remain unresolved; acceptance is still your decision."
+        self.writer_status.configure(text=summary)
 
     def _regenerate_generated_scene(self):
         if not self._has_pending_generated_scene():
