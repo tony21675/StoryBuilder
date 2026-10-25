@@ -17,6 +17,7 @@ def build_focused_revision_prompt(
     scene: str,
     request: str,
     *,
+    supporting_context: str = "",
     correction: str | None = None,
     previous_response: str | None = None,
 ) -> str:
@@ -32,6 +33,11 @@ def build_focused_revision_prompt(
         "AUTHOR'S REQUEST:",
         request,
         "",
+        *(
+            ["READ-ONLY AUTHOR CONTEXT (use only to ground the local edit):", str(supporting_context).strip(), ""]
+            if str(supporting_context or "").strip()
+            else []
+        ),
         "CURRENT DRAFT. This is the complete draft to edit. Return a short local edit only:",
         "<CURRENT_DRAFT>",
         scene,
@@ -161,6 +167,7 @@ def propose_focused_replacement(
     original_system_prompt: str,
     original: str,
     request: str,
+    supporting_context: str = "",
     max_attempts: int = 2,
 ) -> tuple[dict[str, str] | None, str | None, str | None]:
     """Ask the model for a focused patch, returning it for author approval.
@@ -186,6 +193,7 @@ def propose_focused_replacement(
                 build_focused_revision_prompt(
                     original,
                     request,
+                    supporting_context=supporting_context,
                     correction=correction,
                 )
             )
