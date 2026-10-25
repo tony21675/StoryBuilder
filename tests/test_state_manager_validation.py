@@ -798,12 +798,16 @@ class StateUpdateValidationTests(unittest.TestCase):
                 "unresolved_questions": [],
             }
             accepted_scene = (
-                "Elena reached the sealed maintenance hatch and began the sequence to "
-                "partially pressurize the inspection chamber. Morgan and Priya stayed "
-                "outside, checking the external housing mounts for visible stress or "
-                "unusual heat. Daniel continued watching the manifold temperature trend "
-                "from the environmental hub. Ryan and Zoe compared the patterned "
-                "communications bursts with the power diagnostics, finding no correlation yet."
+                "Earlier, Elena told Morgan and Priya to prepare for an internal "
+                "scrubber-housing inspection.\\n\\n"
+                "They moved toward the sealed main junction hatch but did not open it.\\n\\n"
+                "The inspection chamber was still sealed as Elena reached the access controls.\\n\\n"
+                "Elena began the sequence to partially pressurize the inspection chamber.\\n\\n"
+                "Morgan and Priya stayed outside, checking the external housing mounts for "
+                "visible stress or unusual heat. Daniel continued watching the manifold "
+                "temperature trend from the environmental hub. Ryan and Zoe continued "
+                "examining the communications bursts independently, with no established "
+                "connection to life support."
             )
             conflicting_guidance = (
                 "EXPECTED END STATE HINT: Elena, Morgan, and Priya have entered the "
@@ -812,9 +816,15 @@ class StateUpdateValidationTests(unittest.TestCase):
             model_patch = {
                 "current_situation": (
                     "Elena has begun partial pressurization at the sealed maintenance hatch. "
-                    "Morgan and Priya continue checking external housing mounts; Daniel "
-                    "monitors the manifold trend, while Ryan and Zoe analyze communications."
-                )
+                    "Morgan and Priya remain outside checking external housing mounts; Daniel "
+                    "monitors the manifold trend, while Ryan and Zoe independently investigate "
+                    "communications."
+                ),
+                "new_clues": [],
+                "resolved_clues": [],
+                "new_unresolved_questions": [],
+                "resolved_questions": [],
+                "new_recent_events": [],
             }
 
             class FakeProcess:
@@ -845,13 +855,18 @@ class StateUpdateValidationTests(unittest.TestCase):
                 )
 
             self.assertEqual(result["current_situation"], model_patch["current_situation"])
-            self.assertEqual(popen.call_count, 1)
-            args = popen.call_args.args[0]
-            prompt = args[args.index("--prompt") + 1]
-            self.assertIn(accepted_scene, prompt)
-            self.assertNotIn(conflicting_guidance, prompt)
-            self.assertNotIn("SCENE END GUIDANCE", prompt)
-            self.assertNotIn("EXPECTED END STATE HINT", prompt)
+            self.assertEqual(popen.call_count, 2)
+            ending_args = popen.call_args_list[0].args[0]
+            ending_prompt = ending_args[ending_args.index("--prompt") + 1]
+            evidence_args = popen.call_args_list[1].args[0]
+            evidence_prompt = evidence_args[evidence_args.index("--prompt") + 1]
+            self.assertIn("FINAL PARAGRAPHS OF ACCEPTED SCENE", ending_prompt)
+            self.assertNotIn("Earlier, Elena told Morgan and Priya", ending_prompt)
+            self.assertIn("Morgan and Priya stayed outside", ending_prompt)
+            self.assertIn(accepted_scene, evidence_prompt)
+            self.assertNotIn(conflicting_guidance, ending_prompt + evidence_prompt)
+            self.assertNotIn("SCENE END GUIDANCE", ending_prompt + evidence_prompt)
+            self.assertNotIn("EXPECTED END STATE HINT", ending_prompt + evidence_prompt)
 
 
     def test_retries_event_log_and_knowledge_pollution_then_returns_ending_state(self):
@@ -901,9 +916,13 @@ class StateUpdateValidationTests(unittest.TestCase):
                     "Tony": {"posture": "seated at the kitchen table"},
                     "Maya": {"posture": "seated", "holding": "a mug of chamomile"},
                 },
+                "new_clues": [],
+                "resolved_clues": [],
+                "new_unresolved_questions": [],
+                "resolved_questions": [],
                 "new_recent_events": [
-                    {"event": "Maya settled at the kitchen table."},
-                    {"event": "Tony offered her chamomile tea."},
+                    "Maya settled at the kitchen table.",
+                    "Tony offered her chamomile tea.",
                 ],
             }
 
@@ -923,6 +942,7 @@ class StateUpdateValidationTests(unittest.TestCase):
                     "Popen",
                     side_effect=[
                         FakeProcess(invalid_output),
+                        FakeProcess(json.dumps(valid_patch)),
                         FakeProcess(json.dumps(valid_patch)),
                     ],
                 ) as popen,
@@ -952,7 +972,7 @@ class StateUpdateValidationTests(unittest.TestCase):
             self.assertNotIn("new_recent_events", result)
             self.assertNotIn("event", result)
             self.assertNotIn("character_knowledge", result)
-            self.assertEqual(popen.call_count, 2)
+            self.assertEqual(popen.call_count, 3)
             repair_args = popen.call_args_list[1].args[0]
             repair_prompt = repair_args[repair_args.index("--prompt") + 1]
             self.assertIn("Do not return event, events", repair_prompt)
@@ -1094,6 +1114,11 @@ class StateUpdateValidationTests(unittest.TestCase):
                 "current_situation": (
                     "Maya has begun telling Tony what she witnessed, but remains shaken."
                 ),
+                "new_clues": [],
+                "resolved_clues": [],
+                "new_unresolved_questions": [],
+                "resolved_questions": [],
+                "new_recent_events": [],
             }
             valid_output = json.dumps(corrected_patch)
 
@@ -1114,6 +1139,7 @@ class StateUpdateValidationTests(unittest.TestCase):
                     side_effect=[
                         FakeProcess(invalid_output),
                         FakeProcess(valid_output),
+                        FakeProcess(valid_output),
                     ],
                 ) as popen,
                 patch.object(StateManager, "_detect_accelerator", return_value=None),
@@ -1133,7 +1159,7 @@ class StateUpdateValidationTests(unittest.TestCase):
                     )
                 },
             )
-            self.assertEqual(popen.call_count, 2)
+            self.assertEqual(popen.call_count, 3)
             second_args = popen.call_args_list[1].args[0]
             repair_prompt = second_args[second_args.index("--prompt") + 1]
             self.assertIn("AUTOMATIC CORRECTION REQUIRED", repair_prompt)
@@ -1181,6 +1207,11 @@ class StateUpdateValidationTests(unittest.TestCase):
                 "current_situation": (
                     "Maya has begun describing the abduction but remains shaken."
                 ),
+                "new_clues": [],
+                "resolved_clues": [],
+                "new_unresolved_questions": [],
+                "resolved_questions": [],
+                "new_recent_events": [],
             })
 
             class FakeProcess:
@@ -1233,7 +1264,12 @@ class StateUpdateValidationTests(unittest.TestCase):
             prose_derived_patch = {
                 "current_situation": (
                     "Maya has told Tony that Tiffany is gone, but has not explained the abduction."
-                )
+                ),
+                "new_clues": [],
+                "resolved_clues": [],
+                "new_unresolved_questions": [],
+                "resolved_questions": [],
+                "new_recent_events": [],
             }
             planned_hint = {
                 "current_situation": (
