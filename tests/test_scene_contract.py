@@ -247,6 +247,17 @@ Preserve all established character roles and knowledge boundaries; do not invent
         self.assertLess(len(scene_contract.VALIDATOR_SYSTEM_PROMPT), 1500)
 
 
+    def test_validator_prompts_distinguish_decision_point_from_final_choice(self):
+        self.assertIn("presenting the alternatives", scene_contract.VALIDATOR_SYSTEM_PROMPT)
+        self.assertIn(
+            "Do not require a final choice unless the author explicitly asks for one.",
+            scene_contract.VALIDATOR_SYSTEM_PROMPT,
+        )
+        self.assertIn(
+            "require an actual selection only when the author explicitly requests one",
+            scene_contract.SEMANTIC_RECHECK_SYSTEM_PROMPT,
+        )
+
     def test_validator_string_false_is_treated_as_false(self):
         prose = "A valid creative scene."
         validator_result = {
