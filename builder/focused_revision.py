@@ -120,6 +120,98 @@ def apply_focused_replacement(original: str, response: str) -> str:
     return revised
 
 
+def extract_focused_replacement(original: str, response: str) -> dict[str, str]:
+    """Parse and validate a model-proposed local edit without applying it."""
+    raw = str(response or "").strip()
+    if raw.startswith("```"):
+        raw = re.sub(r"^```(?:json)?\s*", "", raw, count=1, flags=re.IGNORECASE)
+        raw = re.sub(r"\s*```$", "", raw, count=1)
+    start = raw.find("{")
+    end = raw.rfind("}")
+    if start < 0 or end < start:
+        raise ValueError("The model did not return a JSON edit.")
+    try:
+        patch = json.loads(raw[start:end + 1])
+    except json.JSONDecodeError as exc:
+        raise ValueError("The model returned malformed JSON for the focused edit.") from exc
+    if not isinstance(patch, dict):
+        raise ValueError("The focused edit must be a JSON object.")
+    target = patch.get("target_text")
+    replacement = patch.get("replacement_text")
+    if not isinstance(target, str) or not target.strip():
+        raise ValueError("The focused edit did not include a usable target_text.")
+    if not isinstance(replacement, str):
+        raise ValueError("The focused edit did not include a string replacement_text.")
+
+    # Reuse the focused-edit safety checks without modifying the source draft.
+    apply_focused_replacement(
+        original,
+        json.dumps(
+            {"target_text": target, "replacement_text": replacement},
+            ensure_ascii=False,
+        ),
+    )
+    return {"target_text": target, "replacement_text": replacement}
+
+
+def propose_focused_replacement(
+    *,
+    engine,
+    model_path,
+    original_system_prompt: str,
+    original: str,
+    request: str,
+    max_attempts: int = 2,
+) -> tuple[dict[str, str] | None, str | None, str | None]:
+    """Ask the model for a focused patch, returning it for author approval.
+
+    The source prose is never modified here. The caller may show the proposed
+    target/replacement in an editable review window and apply it only on approval.
+    Returns (patch, error_message, context_restore_error).
+    """
+    patch = None
+    error = None
+    restore_error = None
+    correction = None
+    last_error = None
+    attempts = max(1, int(max_attempts))
+    try:
+        if not str(original or "").strip():
+            raise ValueError("There is no scene draft to revise.")
+        if not str(request or "").strip():
+            raise ValueError("A review concern is required to propose a focused fix.")
+        for _attempt in range(attempts):
+            engine.reset_context(model_path, FOCUSED_REVISION_SYSTEM_PROMPT)
+            response = engine.generate(
+                build_focused_revision_prompt(
+                    original,
+                    request,
+                    correction=correction,
+                )
+            )
+            try:
+                patch = extract_focused_replacement(original, response)
+                last_error = None
+                break
+            except ValueError as exc:
+                last_error = str(exc)
+                correction = last_error
+        if patch is None:
+            error = (
+                "The model could not prepare a safe local fix after "
+                f"{attempts} attempts. "
+                + str(last_error or "No usable replacement was returned.")
+            )
+    except Exception as exc:
+        error = str(exc)
+    finally:
+        try:
+            engine.reset_context(model_path, original_system_prompt)
+        except Exception as exc:
+            restore_error = str(exc)
+    return patch, error, restore_error
+
+
 FOCUSED_SELECTION_SYSTEM_PROMPT = """You are a precise copy editor for a selected passage from an existing fiction scene.
 Make only the author's requested change to the selected passage. Return exactly one JSON object with one string field: "replacement_text".
 Do not return the original passage, a target_text field, a patch, or the whole scene. The application will replace only the author's selected source span and preserve every character outside it.
