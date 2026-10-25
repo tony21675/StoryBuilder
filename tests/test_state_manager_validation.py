@@ -8,8 +8,11 @@ import builder.state_manager as state_manager_module
 from builder.prompt_trace import PromptTrace
 from builder.state_manager import (
     StateManager,
+    append_recent_events,
     combine_state_patches,
     extract_json_object,
+    filter_low_value_recent_events,
+    filter_non_observational_clues,
     normalize_recent_event_entries,
     reconcile_string_items,
     remove_prior_chapter_opening_markers,
@@ -293,6 +296,53 @@ class StateUpdateValidationTests(unittest.TestCase):
         )
         malformed = {"new_recent_events": [{"event": "kept with unknown metadata", "source": "extra"}]}
         self.assertIs(normalize_recent_event_entries(malformed), malformed)
+
+    def test_filters_projection_only_clues_but_keeps_uncertain_observations(self):
+        candidates = [
+            "The rate of rise is exponential based on a crew member's projection.",
+            "A sensor measured a six-degree temperature rise over ten minutes.",
+            "An unverified trace contains markers consistent with mineral particles.",
+            "A technician estimated the failure window at twenty-four hours.",
+        ]
+
+        self.assertEqual(
+            filter_non_observational_clues(candidates),
+            [
+                "A sensor measured a six-degree temperature rise over ten minutes.",
+                "An unverified trace contains markers consistent with mineral particles.",
+            ],
+        )
+
+    def test_filters_routine_gestures_and_unacted_intentions_from_events(self):
+        candidates = [
+            "A technician moved toward the console while adjusting their gloves.",
+            "A crew member expressed intent to stay clear of the vent until authorized.",
+            "The supervisor initiated partial pressurization at the sealed hatch.",
+            "A technician measured a rapid rise in component temperature.",
+            "An engineer expressed intent to run the test, then initiated the test.",
+        ]
+
+        self.assertEqual(
+            filter_low_value_recent_events(candidates),
+            [
+                "The supervisor initiated partial pressurization at the sealed hatch.",
+                "A technician measured a rapid rise in component temperature.",
+                "An engineer expressed intent to run the test, then initiated the test.",
+            ],
+        )
+
+    def test_recent_event_retention_preserves_earlier_events_when_new_scene_is_busy(self):
+        existing = [{"event": f"Earlier consequential event {index}"} for index in range(1, 7)]
+        new_events = [f"New consequential event {index}" for index in range(1, 10)]
+
+        retained = append_recent_events(existing, new_events)
+
+        self.assertEqual(len(retained), 15)
+        self.assertEqual(retained[:6], existing)
+        self.assertEqual(
+            retained[6:],
+            [{"event": event} for event in new_events],
+        )
 
     def setUp(self):
         self.state = {
