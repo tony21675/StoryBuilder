@@ -6,6 +6,8 @@ from builder.focused_revision import (
     apply_selected_replacement,
     build_focused_revision_prompt,
     build_selected_revision_prompt,
+    extract_focused_replacement,
+    propose_focused_replacement,
     revise_selected_passage,
 )
 
@@ -109,6 +111,66 @@ class FocusedRevisionTests(unittest.TestCase):
     def test_prompt_requires_a_request(self):
         with self.assertRaisesRegex(ValueError, "specific change"):
             build_focused_revision_prompt("A scene.", " ")
+
+    def test_extract_focused_replacement_validates_target_without_changing_draft(self):
+        original = "Opening. One sentence to fix. Ending."
+        response = json.dumps({
+            "target_text": "One sentence to fix.",
+            "replacement_text": "One sentence corrected.",
+        })
+        patch = extract_focused_replacement(original, response)
+        self.assertEqual(patch, {
+            "target_text": "One sentence to fix.",
+            "replacement_text": "One sentence corrected.",
+        })
+        self.assertEqual(original, "Opening. One sentence to fix. Ending.")
+
+    def test_extract_focused_replacement_rejects_unsafe_patch(self):
+        original = "First. Second."
+        response = json.dumps({
+            "target_text": "Not in the draft.",
+            "replacement_text": "Changed.",
+        })
+        with self.assertRaisesRegex(ValueError, "does not appear"):
+            extract_focused_replacement(original, response)
+
+    def test_review_suggestion_returns_patch_for_author_approval_and_restores_writer(self):
+        class FakeEngine:
+            def __init__(self):
+                self.responses = [json.dumps({
+                    "target_text": "The panel was quiet.",
+                    "replacement_text": "The panel stayed quiet.",
+                })]
+                self.reset_calls = []
+                self.prompts = []
+
+            def reset_context(self, model_path, system_prompt):
+                self.reset_calls.append((model_path, system_prompt))
+
+            def generate(self, prompt):
+                self.prompts.append(prompt)
+                return self.responses.pop(0)
+
+        engine = FakeEngine()
+        original = "Before. The panel was quiet. After."
+        patch, error, restore_error = propose_focused_replacement(
+            engine=engine,
+            model_path="/models/test.gguf",
+            original_system_prompt="normal writer prompt",
+            original=original,
+            request="Check this possible continuity issue.",
+            supporting_context="The panel is established as quiet.",
+        )
+        self.assertEqual(patch, {
+            "target_text": "The panel was quiet.",
+            "replacement_text": "The panel stayed quiet.",
+        })
+        self.assertIsNone(error)
+        self.assertIsNone(restore_error)
+        self.assertEqual(original, "Before. The panel was quiet. After.")
+        self.assertEqual(engine.reset_calls[0][1], "You are a precise copy editor for an existing fiction scene.\\nMake only the author's requested local change.")
+        self.assertEqual(engine.reset_calls[-1], ("/models/test.gguf", "normal writer prompt"))
+        self.assertIn("The panel is established as quiet.", engine.prompts[0])
 
 
 class SelectedPassageRevisionTests(unittest.TestCase):
