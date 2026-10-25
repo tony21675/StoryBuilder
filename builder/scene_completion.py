@@ -396,6 +396,7 @@ def review_scene_draft(
     engine: Any,
     model_path: str | Path,
     writer_system_prompt: str,
+    prose: str,
     scene_context: str,
     contract: dict[str, Any],
     current_state: dict[str, Any],
@@ -421,25 +422,12 @@ def review_scene_draft(
             engine=engine,
             contract=contract,
             current_state=current_state,
-            prose=str(scene_context and "" or "") + "",
+            prose=prose,
             author_guidance=author_guidance,
             model_path=model_path,
         )
     except Exception as exc:
         validator_error = _exception_diagnostic("Scene completion check failed", exc)
-
-    # The draft is supplied separately below; keeping this helper explicit makes
-    # post-edit rechecks use the exact current editor contents.
-    prose = str(contract.get("_review_prose", "") or "")
-    if not prose.strip():
-        prose = str(getattr(engine, "_validator_review_prose", "") or "")
-    if not prose.strip():
-        # The caller sets this transiently immediately around this helper. This
-        # fallback protects tests/callers that supply an empty draft explicitly.
-        prose = ""
-
-    if review is not None:
-        pass
 
     try:
         audit = _run_scene_integrity_audit(
@@ -506,25 +494,17 @@ def generate_scene_with_completion_check(
             "AUTOMATED REVIEW SKIPPED: no draft prose was returned, so the completion and continuity checks did not run."
         )
 
-    # review_scene_draft consumes the exact current draft. Store it only for the
-    # duration of this call so the reviewer doesn't need to reconstruct it.
-    setattr(engine, "_validator_review_prose", draft)
-    try:
-        findings, notice = review_scene_draft(
-            engine=engine,
-            model_path=model_path,
-            writer_system_prompt=writer_system_prompt,
-            scene_context=scene_context,
-            contract=contract,
-            current_state=current_state,
-            author_guidance=author_guidance,
-            historical_context=historical_context,
-        )
-    finally:
-        try:
-            delattr(engine, "_validator_review_prose")
-        except Exception:
-            pass
+    findings, notice = review_scene_draft(
+        engine=engine,
+        model_path=model_path,
+        writer_system_prompt=writer_system_prompt,
+        prose=draft,
+        scene_context=scene_context,
+        contract=contract,
+        current_state=current_state,
+        author_guidance=author_guidance,
+        historical_context=historical_context,
+    )
     if callable(on_review_findings):
         on_review_findings(findings)
     return draft, notice
