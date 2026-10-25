@@ -15,14 +15,14 @@ When a failure appears, first ask whether it truly threatens continuity or merel
 ## Current StoryBuilder checkpoint
 
 - Branch: `redesign/simplified-writing-workflow`.
-- Last full test run on the laptop: **378 passed**. The experimental `filter_unsupported_character_action_events` helper and its special-case regression test have now been removed from the branch. The code and test files are restored to the same versions that were present at the 378-passing baseline. Do not reintroduce this event-policing filter or replace it with another special-case layer.
+- Verified on the laptop after pulling the reversion: `python3 -m pytest -q` → **378 passed in 0.79s**. The experimental `filter_unsupported_character_action_events` helper and its special-case regression test have been removed. The simple baseline is confirmed green. Do not reintroduce this event-policing filter or replace it with another special-case layer. Stop adding State Analysis filters for now and return to writing/testing the story.
 - The broader safeguards already in place preserve unresolved crises, keep explicit projection-only clues out of the clue ledger while retaining an attributed estimate as an event, reduce a narrow class of routine event clutter, and retain up to 16 recent events. Avoid expanding these into a detailed event-classification system.
 - The latest private trace is [StoryBuilder-Traces/prompt_trace.json](https://github.com/tony21675/StoryBuilder-Traces/blob/main/prompt_trace.json). It showed Daniel's 24-hour estimate correctly retained as a recent event, earlier significant history surviving, and some fabricated event claims by the model. The appropriate response is not to police every sentence.
 - The accepted Chapter 1, Scene 4 prose and saved novel state remain untouched. The last state proposal was not applied. No novel repository has been edited.
 
 ## Next action
 
-The next action is to let the laptop sync these reversion commits, verify the current branch head, and run `python3 -m pytest -q` once to confirm the restored baseline. Do not add more filters or special cases. If the tests pass, resume ordinary writing/testing; inspect State Analysis proposals for major continuity problems only, and leave accepted prose and unapplied proposals untouched unless Tony explicitly chooses otherwise.
+The restored baseline has been synced and verified: **378 passed in 0.79s**. No further State Analysis code changes are planned right now. Resume ordinary writing/testing of *The Long Way Home*. Inspect any proposal only for major continuity issues; do not apply a proposal without Tony's explicit choice, and do not turn minor details into another engineering project.
 
 ---
 
