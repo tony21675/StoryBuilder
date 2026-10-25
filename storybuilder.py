@@ -6183,8 +6183,8 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             self._refresh_quick_state_editor(reconstructed_state)
         self.writer_status.configure(
             text=(
-                "Full ending-state preview ready. Nothing has been applied; "
-                "review the JSON before choosing Apply State Update."
+                "Main-plot summary ready. Nothing has been applied; "
+                "review the plain-English change summary before choosing Apply State Update."
             )
         )
         self._update_writer_buttons()
