@@ -143,6 +143,8 @@ class PromptTrace:
     @staticmethod
     def _classify_system_prompt(prompt: str, is_primary: bool) -> str:
         first_line = prompt.strip().splitlines()[0] if prompt.strip() else ""
+        if first_line.startswith("You maintain a concise main-plot continuity summary"):
+            return "state_main_plot_summary"
         if first_line.startswith("You determine only the actual ending state"):
             return "state_ending_analysis"
         if first_line.startswith("You extract only concrete new evidence and events"):
