@@ -1335,7 +1335,7 @@ class StateUpdateValidationTests(unittest.TestCase):
                     "remain outside checking the mounts, Daniel monitors temperature, and Ryan and "
                     "Zoe independently examine communications."
                 )
-            })
+            }) + "\\n[ Prompt: 10 tokens | Generation: 4 tokens ]\\n\\nExiting...\\n"
             evidence_response = json.dumps({
                 "new_clues": [],
                 "resolved_clues": [],
@@ -1395,6 +1395,10 @@ class StateUpdateValidationTests(unittest.TestCase):
             self.assertEqual(
                 [call["response"] for call in payload["generation_calls"]],
                 [ending_response, evidence_response, knowledge_response],
+            )
+            self.assertIn(
+                "Prompt: 10 tokens",
+                payload["generation_calls"][0]["cli_diagnostics"],
             )
             self.assertEqual(
                 [session["role"] for session in payload["sessions"]],
