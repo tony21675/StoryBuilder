@@ -799,10 +799,10 @@ class StateUpdateValidationTests(unittest.TestCase):
             }
             accepted_scene = (
                 "Earlier, Elena told Morgan and Priya to prepare for an internal "
-                "scrubber-housing inspection.\\n\\n"
-                "They moved toward the sealed main junction hatch but did not open it.\\n\\n"
-                "The inspection chamber was still sealed as Elena reached the access controls.\\n\\n"
-                "Elena began the sequence to partially pressurize the inspection chamber.\\n\\n"
+                "scrubber-housing inspection.\n\n"
+                "They moved toward the sealed main junction hatch but did not open it.\n\n"
+                "The inspection chamber was still sealed as Elena reached the access controls.\n\n"
+                "Elena began the sequence to partially pressurize the inspection chamber.\n\n"
                 "Morgan and Priya stayed outside, checking the external housing mounts for "
                 "visible stress or unusual heat. Daniel continued watching the manifold "
                 "temperature trend from the environmental hub. Ryan and Zoe continued "
@@ -820,6 +820,21 @@ class StateUpdateValidationTests(unittest.TestCase):
                     "monitors the manifold trend, while Ryan and Zoe independently investigate "
                     "communications."
                 ),
+                "location": {
+                    "Elena Vasquez": "at the sealed maintenance hatch, beginning partial pressurization",
+                    "Morgan Reed": "outside checking the external housing mounts",
+                    "Priya Shah": "outside checking the external housing mounts",
+                },
+            }
+            evidence_patch = {
+                "current_situation": "The crew has entered the scrubber housing for internal inspection.",
+                "location": {
+                    "Elena Vasquez": "inside the scrubber housing",
+                    "Morgan Reed": "inside the scrubber housing",
+                    "Priya Shah": "inside the scrubber housing",
+                },
+                "physical_state": {"Daniel Okafor": {"activity": "closing diagnostic tablet"}},
+                "active_objectives": {"Zoe Bennett": "Connect communications bursts to life support."},
                 "new_clues": [],
                 "resolved_clues": [],
                 "new_unresolved_questions": [],
@@ -830,12 +845,22 @@ class StateUpdateValidationTests(unittest.TestCase):
             class FakeProcess:
                 returncode = 0
 
+                def __init__(self, output):
+                    self.output = output
+
                 def communicate(self, timeout=None):
-                    return json.dumps(model_patch), None
+                    return self.output, None
 
             with (
                 patch.object(state_manager_module, "DEFAULT_LLAMA", llama),
-                patch.object(state_manager_module.subprocess, "Popen", return_value=FakeProcess()) as popen,
+                patch.object(
+                    state_manager_module.subprocess,
+                    "Popen",
+                    side_effect=[
+                        FakeProcess(json.dumps(model_patch)),
+                        FakeProcess(json.dumps(evidence_patch)),
+                    ],
+                ) as popen,
                 patch.object(StateManager, "_detect_accelerator", return_value=None),
                 patch.object(StateManager, "_propose_knowledge_delta", return_value={}),
             ):
@@ -855,6 +880,9 @@ class StateUpdateValidationTests(unittest.TestCase):
                 )
 
             self.assertEqual(result["current_situation"], model_patch["current_situation"])
+            self.assertEqual(result["location"], model_patch["location"])
+            self.assertNotIn("active_objectives", result)
+            self.assertNotEqual(result["current_situation"], evidence_patch["current_situation"])
             self.assertEqual(popen.call_count, 2)
             ending_args = popen.call_args_list[0].args[0]
             ending_prompt = ending_args[ending_args.index("--prompt") + 1]
