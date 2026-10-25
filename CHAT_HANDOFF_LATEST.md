@@ -20,13 +20,13 @@ The regular Writer **Analyze Accepted Scene** path now calls State Analysis in m
 
 New regression tests cover the one-call output and its Prompt Trace role. GitHub's `test` and `Compile and unit tests` checks passed on code commit `e46834e`. The laptop's last confirmed baseline was **378 passed** before the main-plot experiment. GitHub's full tests and compile checks also passed for the duplicate-scene safeguard commit `81d04fe`; local tests must still be run after sync.
 
-## Writer duplicate-scene safeguard
+## Writer duplicate-scene bug: fix approved, implementation pending
 
-Code fix: commit `81d04fe`; the following handoff-only commit is `37dcc59`. The Scene 5 trace showed the completion reviewer falsely flagged a decision point as missing; the recovery call then generated a second complete scene, and the app joined it to the first draft. The original Writer call produced 5,690 characters and ended with Elena's repair-versus-diagnostics question. The continuation call produced 5,693 characters and began a fresh version. The combined result had 11,385 characters. This was automatic recovery, not a second scene-writing action by Tony.
+The Scene 5 trace showed the completion reviewer falsely flagged a decision point as missing; recovery then generated a second complete scene and the app appended it to the first. The first Writer call produced 5,690 characters and ended with Elena's repair-versus-diagnostics question. The recovery call produced 5,693 characters and began a fresh version. The combined result was 11,385 characters. This was automatic recovery, not a second writing action by Tony.
 
-Regular planned-beat recovery now asks for a **complete replacement scene**, not a continuation. The replacement is used only if both follow-up reviews pass; otherwise the first draft is preserved. The code no longer concatenates a retry onto the original. Regression tests cover successful replacement and failure-preserving-the-original. GitHub `test` and `Compile and unit tests` passed for `81d04fe`.
+Tony explicitly approved a generic fix: **never show both tellings of a scene**. Recovery may keep the original or replace it with a complete new draft, but must never append a second full scene. The existing `builder/scene_completion.py` source on the branch still has the old append behavior, so do not claim the fix is implemented or tested yet. At the stopping point, code/test edits have not been committed or pushed. Proposed direction: use a full-scene replacement when the planned-beat reviewer flags missing beats; accept that replacement only if follow-up validation and continuity/scope checks pass; otherwise preserve the original draft. Add regression tests for both outcomes. Do not add novel-specific rules.
 
-No novel prose was accepted or edited by this fix. Chapter 1, Scene 5 remains unaccepted and the current Writer draft contains the duplicate. Do not accept it. After local sync and tests, regenerate Scene 5 using the updated code; it should show one complete scene or preserve the existing draft if the replacement fails review.
+No novel prose was accepted or edited. Chapter 1, Scene 5 remains unaccepted and the current Writer draft contains the duplicate. Do not accept it. Resume by implementing and testing the generic recovery fix, then push to the existing redesign branch.
 
 ## Current novel: The Long Way Home
 
@@ -38,13 +38,12 @@ Central situation at the start of Scene 5: the primary oxygen scrubber manifold 
 
 The latest private trace is [prompt_trace.json](https://github.com/tony21675/StoryBuilder-Traces/blob/main/prompt_trace.json). It demonstrated both the noisy old State Analysis path and the exact duplicate-scene recovery failure. The main-plot-only State Analysis experiment avoids proposing separate event/knowledge/position updates in the regular workflow.
 
-## Next action
+## Next action / freeze
 
-1. Freeze code changes for tonight. The duplicate-scene fix is pushed to `redesign/simplified-writing-workflow`; no more code changes are needed now.
-2. On the laptop, close StoryBuilder normally if open so its usual sync can run. Verify with `cd ~/Documents/StoryBuilder && git log -1 --oneline`; the branch should include `81d04fe` and the latest handoff-only commit.
-3. Run `cd ~/Documents/StoryBuilder && python3 -m pytest -q`. The last confirmed laptop baseline was 378 passed before the main-plot experiment, so it is not a test result for the current code.
-4. If tests pass, reopen StoryBuilder and use **Regenerate Scene** on the unaccepted Chapter 1, Scene 5 draft. Check that it displays one complete scene, not two. Updated recovery uses one verified replacement or preserves the prior draft; it never joins both versions.
-5. Do not accept Scene 5 until Tony reviews the prose. Do not apply the old Scene 5 state proposal. Keep the main-plot-only State Analysis experiment as-is and avoid another filter/rule cycle tonight.
+1. **Freeze for tonight.** No code change has been made in this session. The duplicate-scene fix is approved but still needs implementation.
+2. Resume by editing `builder/scene_completion.py` and `tests/test_scene_completion.py` on `redesign/simplified-writing-workflow`. Do not use an append/concatenate fallback. The replacement must pass both follow-up checks; if not, keep the first draft.
+3. Push the code and regression tests, then verify GitHub checks. Only after that, close StoryBuilder normally on the laptop to sync, run `cd ~/Documents/StoryBuilder && python3 -m pytest -q`, and regenerate the unaccepted Scene 5 draft.
+4. Do not accept Scene 5 or apply its old state proposal. Keep the main-plot-only State Analysis experiment as-is.
 
 ## Standing collaboration rules
 
