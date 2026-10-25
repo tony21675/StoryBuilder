@@ -1,4 +1,4 @@
-"""Bounded semantic completion and evidence-backed continuity recovery for scenes."""
+"""Generate scene prose once and collect author-reviewed validator findings."""
 from __future__ import annotations
 
 import json
