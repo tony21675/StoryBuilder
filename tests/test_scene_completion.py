@@ -106,28 +106,27 @@ class SceneCompletionTests(unittest.TestCase):
         self.assertEqual(len(self.engine.prompts), 1)
         self.assertEqual(self.engine.reset_calls, [(self.model, self.system_prompt)])
 
-    @patch("builder.scene_completion._run_scene_integrity_audit", side_effect=[PASS_AUDIT, PASS_AUDIT])
+    @patch("builder.scene_completion._run_scene_integrity_audit", return_value=PASS_AUDIT)
     @patch("builder.scene_completion.SceneContract.validate_with_engine")
-    def test_missing_planned_events_use_one_full_scene_replacement_not_an_append(self, validate, _audit):
-        validate.side_effect = [
-            {"pass": False, "missed_beats": ["Group begins discussing broad roles."], "violations": []},
-            {"pass": True, "missed_beats": [], "violations": []},
-        ]
-        first_draft = "Opening and disclosure."
-        replacement_draft = "Complete replacement scene, including the group's decision point."
-        self.engine.responses = [first_draft, replacement_draft]
+    def test_coverage_only_missing_beat_is_advisory_and_preserves_draft(self, validate, _audit):
+        validate.return_value = {
+            "pass": False,
+            "missed_beats": ["Group begins discussing broad roles."],
+            "violations": [],
+        }
+        original = "Opening and disclosure."
+        self.engine.responses = [original, "This response must never be requested."]
         draft, notice = generate_scene_with_completion_check(
             engine=self.engine, model_path=self.model, writer_system_prompt=self.system_prompt,
             initial_prompt="write", scene_context=self.scene_context, contract=self.contract,
             current_state=self.state,
         )
-        self.assertEqual(draft, replacement_draft)
-        self.assertNotIn(first_draft, draft)
-        self.assertIn("regenerated the whole scene", notice)
-        self.assertEqual(len(self.engine.prompts), 2)
-        self.assertIn("complete replacement scene", self.engine.prompts[1].casefold())
-        self.assertIn("not a continuation", self.engine.prompts[1].casefold())
-        self.assertNotIn("CONTINUE THE EXISTING SCENE", self.engine.prompts[1])
+        self.assertEqual(draft, original)
+        self.assertIn("coverage", notice.casefold())
+        self.assertIn("advisory", notice.casefold())
+        self.assertIn("preserved for author review", notice.casefold())
+        self.assertEqual(len(self.engine.prompts), 1)
+        _audit.assert_called_once()
 
     @patch("builder.scene_completion._run_scene_integrity_audit", side_effect=[CONFLICT_AUDIT, PASS_AUDIT])
     @patch("builder.scene_completion.SceneContract.validate_with_engine")
@@ -208,12 +207,16 @@ class SceneCompletionTests(unittest.TestCase):
             "This is a screening result, not a guarantee.",
             "StoryBuilder found an evidence-backed continuity/scope conflict and regenerated the whole scene once. "
             "The revised draft passed follow-up checks; review it before accepting.",
-            "StoryBuilder regenerated the whole scene to address planned events that appeared missing. The replacement draft passed follow-up checks; review it before accepting.",
             "StoryBuilder added one continuation for missing planned events. Original prose was preserved.",
         )
         for notice in notices:
             with self.subTest(notice=notice):
                 self.assertTrue(completion_notice_is_success(notice))
+        self.assertFalse(completion_notice_is_success(
+            "The scene-coverage review flagged possible omission(s), but the continuity/scope audit "
+            "found no verified conflict. Coverage findings are advisory; the original draft was "
+            "preserved for author review."
+        ))
         self.assertFalse(completion_notice_is_success("AUTOMATED REVIEW SKIPPED: no saved Scene Idea."))
         self.assertFalse(completion_notice_is_success("Scene completion check failed (RuntimeError): model down."))
 
@@ -230,10 +233,10 @@ class SceneCompletionTests(unittest.TestCase):
         validate.assert_not_called()
         _audit.assert_not_called()
 
-    @patch("builder.scene_completion._run_scene_integrity_audit", return_value=PASS_AUDIT)
+    @patch("builder.scene_completion._run_scene_integrity_audit", return_value=CONFLICT_AUDIT)
     @patch("builder.scene_completion.SceneContract.validate_with_engine")
-    def test_retry_limit_one_disables_automatic_continuation(self, validate, _audit):
-        validate.return_value = {"pass": False, "missed_beats": ["Private effort forms."], "violations": []}
+    def test_retry_limit_one_disables_evidence_backed_conflict_retry(self, validate, _audit):
+        validate.return_value = {"pass": True, "missed_beats": [], "violations": []}
         self.contract["max_attempts"] = 1
         draft, notice = generate_scene_with_completion_check(
             engine=self.engine, model_path=self.model, writer_system_prompt=self.system_prompt,
@@ -241,11 +244,11 @@ class SceneCompletionTests(unittest.TestCase):
             current_state=self.state,
         )
         self.assertEqual(draft, "Draft scene.")
-        self.assertIn("retry limit prevents a full-scene retry", notice)
+        self.assertIn("retry limit prevents a full retry", notice)
         self.assertEqual(len(self.engine.prompts), 1)
 
     @patch("builder.scene_completion._run_scene_integrity_audit", side_effect=[
-        PASS_AUDIT, CONFLICT_AUDIT
+        CONFLICT_AUDIT, CONFLICT_AUDIT
     ])
     @patch("builder.scene_completion.SceneContract.validate_with_engine")
     def test_unverified_full_scene_replacement_preserves_original_without_appending(self, validate, _audit):
