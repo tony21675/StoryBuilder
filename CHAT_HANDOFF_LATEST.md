@@ -1,47 +1,56 @@
 # StoryBuilder current checkpoint — October 25, 2026
 
-This file was refreshed after the Scene 5 in-app trial. For the full project context, use **[CHAT_HANDOFF.md](CHAT_HANDOFF.md)**. The older copy of this checkpoint had stale statements about the duplicate-scene fix and must not be used as current status.
+For full project history and novel context, see [CHAT_HANDOFF.md](CHAT_HANDOFF.md). This checkpoint supersedes stale statements in prior handoffs about automatic full-scene replacement/recovery and the Scene 5 acceptance gate.
 
-## Current verified status
+## Current branch and hardware
 
 - Repo: `tony21675/StoryBuilder`; local path: `~/Documents/StoryBuilder`.
-- Current branch: `redesign/simplified-writing-workflow`. Do not create or delete branches casually. The eventual goal remains a deliberate merge into `main`.
-- Laptop shown in terminal prompt: **Surface Laptop 3**. `LONG_TERM_GOALS.md` documents an **8 GB RAM laptop** running Gemma 4 E4B GGUF via llama.cpp for StoryBuilder writing. Do not recommend a 14B model without checking memory feasibility; do not ask the user to repeat the specs before looking in project notes. Dedicated GPU/VRAM details are not verified in this handoff.
-- Always use `python3`, one terminal command at a time. Handoff-only edits do not require permission; app or novel changes do.
-- Full local suite passed: **381 passed in 0.61s**, on October 25, 2026, after the validation-policy and test assertion updates.
-- No app-code change was made after that test run. The latest in-app trial exposed a separate acceptance-gate defect.
+- Branch: `redesign/simplified-writing-workflow`. The intended eventual end state is one StoryBuilder branch, `main`, after deliberate review/merge. Do not create/delete branches casually.
+- Laptop: Surface Laptop 3. `LONG_TERM_GOALS.md` records **8 GB RAM** and local Gemma 4 E4B GGUF through llama.cpp. No dedicated GPU/VRAM details are verified here. Do not recommend a 14B reviewer without assessing memory fit or asking the user to repeat known specs.
+- Always use `python3` on the laptop, one terminal command at a time. Handoff-only edits do not require permission; discuss code/novel changes first.
+- **The local laptop has not pulled these new changes.** Tony explicitly said to hold before pulling because he has another question. Do not give terminal pull/sync instructions until he says he is ready.
 
-## Scene 5 trial result
+## Validator redesign now on GitHub
 
-The unaccepted Chapter 1 Scene 5 draft for *The Long Way Home* was generated. The completion check returned:
+The user proposed, and approved, replacing automatic pass/fail recovery with a sequential, author-controlled review queue:
 
-> The scene-coverage review flagged possible omission(s), but the continuity/scope audit found no verified conflict. Coverage findings are advisory; the original draft was preserved for author review.
+1. Generate the complete scene once. Semantic and continuity validators produce findings, not automatic scene rewrites.
+2. Open a popup showing one finding at a time. It displays the concern, the exact passage targeted for replacement, editable correction instructions, and an editable local replacement suggestion.
+3. The author chooses **Apply Fix**, **Dismiss: false alarm**, or **Skip for later**. Model suggestions are never applied automatically.
+4. Applying a fix replaces only the exact target text, after safety validation, and records the earlier draft for Undo. Whole-scene and over-broad replacements remain rejected.
+5. After an applied fix, the current draft is checked again. Resolved findings should drop out; dismissed findings stay dismissed; remaining skipped items can be revisited or left for author judgment.
+6. The acceptance gate remains disabled only while the review queue is actively open. When review finishes, acceptance is the author's decision, including when a concern was dismissed or left unresolved.
 
-This is partly the intended behavior: the draft was preserved and no full replacement / duplicate scene was generated. However, the UI blocked acceptance and only allowed the focused change prompt.
+Relevant implementation:
+- `builder/scene_completion.py`: `review_scene_draft`, `collect_review_findings`, `review_findings_match`; generation now produces prose once and returns review findings rather than regenerating a full scene.
+- `builder/focused_revision.py`: validation and suggestion helper for local replacement patches. It does not mutate the draft.
+- `storybuilder.py`: sequential popup and queue controls; uses editable request/replacement fields, exact target checking, re-review after approved edit, and accept/reject guards while review is active.
+- Tests cover no automatic full-scene retries, finding queue deduplication, local patch safety, the advisory acceptance gate, and active-review safeguards.
 
-### Root cause located, not yet fixed
+## Verified tests
 
-- `completion_notice_is_success()` in `builder/scene_completion.py` does not classify the advisory notice as a completed review outcome.
-- `_finish_generated_scene()` in `storybuilder.py` therefore sets `writer_scene_accept_block_reason` and presents a blocking error dialog.
-- This is an **app acceptance-gate bug**, separate from the local model's false-positive coverage finding.
-- The proposed code change was discussed but the user did **not** approve it yet. Ask before changing code. Suggested narrow direction: allow acceptance when the continuity/scope audit is clear and only coverage findings are advisory; retain the visible warning; keep verified conflicts and uncertain audits blocked. Add regression tests for both advisory and blocking cases.
+GitHub Actions passed on code/test commit `24cb281`:
+- Pytest: **388 passed, 53 subtests passed in 1.76s**.
+- Compile-and-unittest workflow: **388 unittest tests passed**, and compileall succeeded.
 
-## Model/review finding
+These are remote CI results only. No fresh test run has been done on Tony's laptop for the review-queue changes. A subsequent handoff-only commit updates `CHAT_HANDOFF.md`; it does not alter tested code.
 
-The coverage reviewer claimed the final decision point was missing even though Elena's final line explicitly says, “We need to decide what moves first.” The scene presents the alternatives and makes clear a choice is due; it need not make the final decision yet. This is a reviewer/model judgment limitation, not evidence the prose lacks a decision point. Do not force a final repair-versus-software choice just to satisfy the validator.
+## The Long Way Home
 
-## Science/continuity note from the supplied prose
+- Canonical local novel: `~/Documents/MyNovel/The-Long-Way-Home`; GitHub `tony21675/The-Long-Way-Home`.
+- Premise: six-person Mars research outpost, all under 30, four women/two men, all single. Life-support crisis is accidental, no sabotage and no one to blame. Survival until Earth rescue or repair is the goal.
+- Chapter 1, Scene 4 accepted prose remains unchanged; its proposed state update was not applied.
+- Scene 5 remains **unaccepted**. Do not apply the old proposed ending-state update. No recent validator-code change modified the novel, its manuscript, or saved scene state.
+- Science/continuity concern from the draft: Daniel's graph reports a rising temperature and conditional predicted deadline; Morgan feels vibration at the housing; Zoe hypothesizes an internal telemetry loop. The crew has not independently verified whether the temperature reading reflects real heating or a sensor/software reporting problem. Keep both possibilities unresolved until the story investigates them on-page.
+- The earlier Scene 5 validator incorrectly claimed the explicit decision point (“We need to decide what moves first”) was missing. Do not force the crew to make a final decision just to satisfy the validator.
 
-Daniel's graph reports rising temperature and a conditional model-predicted deadline. Morgan feels vibration at the housing. Zoe hypothesizes a self-generated telemetry loop. The crew has not yet independently verified whether the temperature reflects a real physical fault or a sensor/software reporting error. Keep the competing explanations unresolved until the story naturally investigates them. No rewrite was authorized tonight.
+## Next step after Tony's question
 
-## Next session
+Wait for Tony's other question and do not pull yet. When he says he is ready:
+1. Sync the existing branch on the laptop and run `python3 -m pytest -q`.
+2. Open StoryBuilder and test a fresh scene in the new sequential validator popup. Verify local-only edits, dismiss/skip, refreshed findings after a fix, one complete scene, and author-controlled acceptance.
+3. Only after that in-app trial, revisit whether a separate source-backed science reviewer or stronger local reviewer model is needed. Fit any model recommendation to the documented 8 GB RAM limit.
 
-1. Start with the acceptance-gate defect. The user is frustrated and said to resume tomorrow. Do not make code changes until they approve.
-2. Keep the advisory warning visible but non-blocking only when the continuity/scope audit is clear. Uncertain audits and verified conflicts must retain safeguards.
-3. Run `python3 -m pytest -q`, then verify the acceptance path in the app before declaring the behavior fixed.
-4. Preserve Scene 5 as unaccepted until the user decides. Do not apply the old proposed ending-state update. Saved novel state has not advanced.
-5. Before discussing a larger reviewer model, use the documented 8 GB RAM constraint to evaluate viable sizes/options. Fix the app gate first; don't imply a bigger model can repair app logic.
+## Standing writing principle
 
-## Writing and project principles
-
-**The story is the novel. The state is only a memory aid.** Keep State Analysis focused on the central unresolved danger, stakes, meaningful discoveries/decisions, and changes affecting what happens next. Avoid transcript-like state and special-case rules for every model mistake. Do not prescribe plot outcomes or hard-code novel-specific facts in StoryBuilder. Preserve accepted prose and never apply a proposed state without explicit user approval.
+**The story is the novel. The state is only a memory aid.** Keep State Analysis to the main plot, stakes, meaningful discoveries/decisions, and unresolved danger. Don't build a rule for every model mistake, prescribe plot outcomes, or hard-code novel-specific facts into StoryBuilder. Preserve accepted prose, and never apply a proposed state change without explicit approval.
