@@ -108,7 +108,7 @@ class SceneCompletionTests(unittest.TestCase):
 
     @patch("builder.scene_completion._run_scene_integrity_audit", return_value=PASS_AUDIT)
     @patch("builder.scene_completion.SceneContract.validate_with_engine")
-    def test_coverage_only_missing_beat_is_advisory_and_preserves_draft(self, validate, _audit):
+    def test_coverage_only_missing_beat_is_returned_as_one_review_finding(self, validate, _audit):
         validate.return_value = {
             "pass": False,
             "missed_beats": ["Group begins discussing broad roles."],
@@ -116,66 +116,65 @@ class SceneCompletionTests(unittest.TestCase):
         }
         original = "Opening and disclosure."
         self.engine.responses = [original, "This response must never be requested."]
+        findings = []
         draft, notice = generate_scene_with_completion_check(
             engine=self.engine, model_path=self.model, writer_system_prompt=self.system_prompt,
             initial_prompt="write", scene_context=self.scene_context, contract=self.contract,
-            current_state=self.state,
+            current_state=self.state, on_review_findings=findings.extend,
         )
         self.assertEqual(draft, original)
-        self.assertIn("coverage", notice.casefold())
-        self.assertIn("advisory", notice.casefold())
-        self.assertIn("preserved for author review", notice.casefold())
+        self.assertIn("finding", notice.casefold())
         self.assertEqual(len(self.engine.prompts), 1)
-        _audit.assert_called_once()
-
-    @patch("builder.scene_completion._run_scene_integrity_audit", side_effect=[CONFLICT_AUDIT, PASS_AUDIT])
-    @patch("builder.scene_completion.SceneContract.validate_with_engine")
-    def test_semantic_violation_triggers_one_full_retry(self, validate, _audit):
-        validate.side_effect = [
-            {"pass": False, "missed_beats": [], "violations": ["Timeline conflict."]},
-            {"pass": True, "missed_beats": [], "violations": []},
-        ]
-        self.engine.responses = ["Bad draft with wrong time.", "Corrected complete scene."]
+        self.assertEqual(len(findings), 1)
+        self.assertEqual(findings[0]["kind"], "coverage")
+        self.assertIn("Group begins discussing broad roles.", findings[0]["message"])
+    def test_semantic_and_audit_conflicts_are_returned_for_author_review(self, validate, _audit):
+        validate.return_value = {
+            "pass": False,
+            "missed_beats": [],
+            "violations": ["Timeline conflict."],
+        }
+        original = "Bad draft with wrong time."
+        self.engine.responses = [original, "A full-scene replacement must not be generated."]
+        findings = []
         draft, notice = generate_scene_with_completion_check(
             engine=self.engine, model_path=self.model, writer_system_prompt=self.system_prompt,
             initial_prompt="write", scene_context=self.scene_context, contract=self.contract,
-            current_state=self.state,
+            current_state=self.state, on_review_findings=findings.extend,
         )
-        self.assertEqual(draft, "Corrected complete scene.")
-        self.assertIn("regenerated the whole scene once", notice)
-        self.assertEqual(len(self.engine.prompts), 2)
-        self.assertIn("Timeline conflict", self.engine.prompts[1])
-
-    @patch("builder.scene_completion._run_scene_integrity_audit", side_effect=[EYEWITNESS_CONFLICT_AUDIT, PASS_AUDIT])
-    @patch("builder.scene_completion.SceneContract.validate_with_engine")
-    def test_independent_integrity_issue_triggers_full_retry_and_recheck(self, validate, _audit):
+        self.assertEqual(draft, original)
+        self.assertIn("possible finding", notice)
+        self.assertEqual(len(self.engine.prompts), 1)
+        self.assertTrue(findings)
+        self.assertTrue(any(item["kind"] == "continuity" for item in findings))
+    def test_independent_integrity_conflict_becomes_review_finding_without_retry(self, validate, _audit):
         validate.return_value = {"pass": True, "missed_beats": [], "violations": []}
-        self.engine.responses = ["Unsupported eyewitness claim.", "Corrected complete scene."]
+        original = "Draft with a possible unsupported eyewitness claim."
+        self.engine.responses = [original, "A full-scene replacement must not be generated."]
+        findings = []
         draft, notice = generate_scene_with_completion_check(
             engine=self.engine, model_path=self.model, writer_system_prompt=self.system_prompt,
             initial_prompt="write", scene_context=self.scene_context, contract=self.contract,
-            current_state=self.state,
+            current_state=self.state, on_review_findings=findings.extend,
         )
-        self.assertEqual(draft, "Corrected complete scene.")
-        self.assertIn("passed follow-up checks", notice)
-        self.assertEqual(len(self.engine.prompts), 2)
-        self.assertIn("eyewitness", self.engine.prompts[1].casefold())
-
-    @patch("builder.scene_completion._run_scene_integrity_audit", return_value=UNCERTAIN_AUDIT)
-    @patch("builder.scene_completion.SceneContract.validate_with_engine")
-    def test_uncertain_audit_preserves_original_even_when_validator_flags_violation(self, validate, _audit):
+        self.assertEqual(draft, original)
+        self.assertIn("possible finding", notice)
+        self.assertEqual(len(self.engine.prompts), 1)
+        self.assertTrue(any(item["kind"] == "continuity" for item in findings))
+        self.assertTrue(any("eyewitness" in item["message"].casefold() for item in findings))
+    def test_uncertain_audit_becomes_review_finding_not_an_automatic_rejection(self, validate, _audit):
         validate.return_value = {"pass": False, "missed_beats": [], "violations": ["Possible timeline conflict."]}
+        findings = []
         draft, notice = generate_scene_with_completion_check(
             engine=self.engine, model_path=self.model, writer_system_prompt=self.system_prompt,
             initial_prompt="write", scene_context=self.scene_context, contract=self.contract,
-            current_state=self.state,
+            current_state=self.state, on_review_findings=findings.extend,
         )
         self.assertEqual(draft, "Draft scene.")
-        self.assertIn("could not verify every required category", notice)
+        self.assertIn("possible finding", notice)
         self.assertEqual(len(self.engine.prompts), 1)
-
-    @patch("builder.scene_completion._run_scene_integrity_audit", side_effect=RuntimeError("auditor unavailable"))
-    @patch("builder.scene_completion.SceneContract.validate_with_engine")
+        self.assertTrue(any(item["kind"] == "uncertain" for item in findings))
+        self.assertTrue(any(item["kind"] == "validator" for item in findings))
     def test_integrity_audit_failure_preserves_original_draft(self, validate, _audit):
         validate.return_value = {"pass": True, "missed_beats": [], "violations": []}
         draft, notice = generate_scene_with_completion_check(
@@ -235,40 +234,35 @@ class SceneCompletionTests(unittest.TestCase):
 
     @patch("builder.scene_completion._run_scene_integrity_audit", return_value=CONFLICT_AUDIT)
     @patch("builder.scene_completion.SceneContract.validate_with_engine")
-    def test_retry_limit_one_disables_evidence_backed_conflict_retry(self, validate, _audit):
+    def test_verified_conflict_is_presented_even_when_old_retry_limit_is_one(self, validate, _audit):
         validate.return_value = {"pass": True, "missed_beats": [], "violations": []}
         self.contract["max_attempts"] = 1
+        findings = []
         draft, notice = generate_scene_with_completion_check(
             engine=self.engine, model_path=self.model, writer_system_prompt=self.system_prompt,
             initial_prompt="write", scene_context=self.scene_context, contract=self.contract,
-            current_state=self.state,
+            current_state=self.state, on_review_findings=findings.extend,
         )
         self.assertEqual(draft, "Draft scene.")
-        self.assertIn("retry limit prevents a full retry", notice)
+        self.assertIn("possible finding", notice)
         self.assertEqual(len(self.engine.prompts), 1)
-
-    @patch("builder.scene_completion._run_scene_integrity_audit", side_effect=[
-        CONFLICT_AUDIT, CONFLICT_AUDIT
-    ])
-    @patch("builder.scene_completion.SceneContract.validate_with_engine")
-    def test_unverified_full_scene_replacement_preserves_original_without_appending(self, validate, _audit):
-        validate.side_effect = [
-            {"pass": False, "missed_beats": ["Private effort forms."], "violations": []},
-            {"pass": True, "missed_beats": [], "violations": []},
-        ]
-        original = "Safe but incomplete draft."
-        replacement = "Different complete scene containing an unverified new clue."
+        self.assertTrue(any(item["kind"] == "continuity" for item in findings))
+    def test_verified_conflict_never_generates_automatic_full_scene_replacement(self, validate, _audit):
+        validate.return_value = {"pass": True, "missed_beats": [], "violations": []}
+        original = "Safe draft awaiting author review."
+        replacement = "Different complete scene containing a new clue."
         self.engine.responses = [original, replacement]
+        findings = []
         draft, notice = generate_scene_with_completion_check(
             engine=self.engine, model_path=self.model, writer_system_prompt=self.system_prompt,
             initial_prompt="write", scene_context=self.scene_context, contract=self.contract,
-            current_state=self.state,
+            current_state=self.state, on_review_findings=findings.extend,
         )
         self.assertEqual(draft, original)
         self.assertNotIn(replacement, draft)
-        self.assertIn("Original draft preserved", notice)
-        self.assertEqual(len(self.engine.prompts), 2)
-
+        self.assertEqual(len(self.engine.prompts), 1)
+        self.assertTrue(any(item["kind"] == "continuity" for item in findings))
+        self.assertIn("no prose was changed automatically", notice)
     def test_audit_requires_verbatim_evidence_for_viewpoint_timeline_privacy_and_scope(self):
         prose = (
             "Last night, Chloe saw Tiffany taken. Maya changed in the kitchen. "
