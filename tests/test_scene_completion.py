@@ -89,7 +89,7 @@ class SceneCompletionTests(unittest.TestCase):
         )
         self.assertEqual(draft, "A scene arriving in pieces.")
         self.assertEqual("".join(pieces), draft)
-        self.assertIn("AUTOMATED REVIEW SKIPPED", notice)
+        self.assertIn("manual review is needed", notice)
 
     @patch("builder.scene_completion._run_scene_integrity_audit", return_value=PASS_AUDIT)
     @patch("builder.scene_completion.SceneContract.validate_with_engine")
@@ -191,22 +191,23 @@ class SceneCompletionTests(unittest.TestCase):
             current_state=self.state,
         )
         self.assertEqual(draft, "Draft scene.")
-        self.assertIn("audit failed", notice)
+        self.assertIn("audit did not complete", notice)
         self.assertEqual(len(self.engine.prompts), 1)
 
+    @patch("builder.scene_completion._run_scene_integrity_audit", return_value=PASS_AUDIT)
     @patch("builder.scene_completion.SceneContract.validate_with_engine")
-    @patch("builder.scene_completion.SceneContract.validate_with_engine")
-    def test_validator_failure_preserves_original_draft(self, validate):
+    def test_validator_failure_is_queued_for_author_review(self, validate, _audit):
         validate.side_effect = RuntimeError("validator unavailable")
+        findings = []
         draft, notice = generate_scene_with_completion_check(
             engine=self.engine, model_path=self.model, writer_system_prompt=self.system_prompt,
             initial_prompt="write", scene_context=self.scene_context, contract=self.contract,
-            current_state=self.state,
+            current_state=self.state, on_review_findings=findings.extend,
         )
         self.assertEqual(draft, "Draft scene.")
-        self.assertIn("completion check failed", notice)
-        self.assertIn("validator unavailable", notice)
-        self.assertIn("Diagnostic traceback:", notice)
+        self.assertIn("validator did not complete", notice)
+        self.assertTrue(any("validator unavailable" in item["message"] for item in findings))
+        self.assertEqual(len(self.engine.prompts), 1)
         self.assertEqual(self.engine.reset_calls, [(self.model, self.system_prompt)])
 
     def test_successful_completion_notices_are_recognized_as_passes(self):
@@ -237,7 +238,7 @@ class SceneCompletionTests(unittest.TestCase):
             current_state=self.state,
         )
         self.assertEqual(draft, "Draft scene.")
-        self.assertIn("AUTOMATED REVIEW SKIPPED", notice)
+        self.assertIn("manual review is needed", notice)
         validate.assert_not_called()
         _audit.assert_not_called()
 
