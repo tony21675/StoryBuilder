@@ -4272,9 +4272,21 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             key: state[key] for key in relevant_keys if key in state
         }
         parts = []
+        scene_context = str(context.get("scene_context", "") or "").strip()
+        if scene_context:
+            parts.append(
+                "AUTHOR'S SCENE DIRECTION AND CHARACTER REFERENCE (read-only):\n"
+                + scene_context[:6000]
+            )
         idea = str(contract.get("author_idea", "") or "").strip()
         if idea:
             parts.append("AUTHOR'S ORIGINAL SCENE IDEA:\n" + idea[:5000])
+        historical = str(context.get("historical_context", "") or "").strip()
+        if historical:
+            parts.append(
+                "RELEVANT ACCEPTED MANUSCRIPT CONTEXT (read-only):\n"
+                + historical[:4000]
+            )
         if relevant_state:
             parts.append(
                 "RELEVANT STARTING STATE (read-only):\n"
