@@ -2008,7 +2008,7 @@ class StateManager:
         # The whole scene is sent separately to the evidence pass below.
         paragraphs = [
             part.strip()
-            for part in re.split(r"\\n\\s*\\n", completed_text)
+            for part in re.split(r"\n\\s*\n", completed_text)
             if part.strip()
         ]
         if not paragraphs:
@@ -2028,22 +2028,22 @@ class StateManager:
             ending_chars += len(paragraph) + separator_chars
             if len(ending_parts) >= 4:
                 break
-        ending_excerpt = "\\n\\n".join(ending_parts)
+        ending_excerpt = "\n\n".join(ending_parts)
 
         ending_prompt = (
-            "BEFORE-STATE CONTEXT (only the state before this scene):\\n"
+            "BEFORE-STATE CONTEXT (only the state before this scene):\n"
             + json.dumps(ending_context, indent=2, ensure_ascii=False)
-            + "\\n\\nFINAL PARAGRAPHS OF ACCEPTED SCENE (ending-state evidence):\\n"
+            + "\n\nFINAL PARAGRAPHS OF ACCEPTED SCENE (ending-state evidence):\n"
             + ending_excerpt
-            + "\\n\\nReturn only the ending-state fields supported by these final paragraphs. "
+            + "\n\nReturn only the ending-state fields supported by these final paragraphs. "
             "Keep unchanged physical details out of the patch. Do not update objectives."
         )
         evidence_prompt = (
-            "BEFORE-SCENE EVIDENCE CONTEXT (for deduplication and exact resolution only):\\n"
+            "BEFORE-SCENE EVIDENCE CONTEXT (for deduplication and exact resolution only):\n"
             + json.dumps(evidence_context, indent=2, ensure_ascii=False)
-            + "\\n\\nFULL ACCEPTED SCENE (the source of new events and evidence):\\n"
+            + "\n\nFULL ACCEPTED SCENE (the source of new events and evidence):\n"
             + completed_text
-            + "\\n\\nExtract only new evidence/events/questions from the full scene. "
+            + "\n\nExtract only new evidence/events/questions from the full scene. "
             "This pass cannot update or override the ending state or objectives."
         )
 
@@ -2104,7 +2104,7 @@ class StateManager:
 
             if proc.returncode not in (0, None):
                 raise RuntimeError(
-                    "Continuity analysis failed.\\n"
+                    "Continuity analysis failed.\n"
                     + (output or "")[-3000:]
                 )
             return output or ""
@@ -2200,20 +2200,20 @@ class StateManager:
                         excerpt = (output_text or "")[-1800:]
                         raise ValueError(
                             f"The {pass_name} continuity pass returned an invalid proposal "
-                            f"after one correction attempt. No state changes were applied.\\n\\n"
-                            f"Validation detail: {exc}\\n\\n"
-                            f"Last model response excerpt (last 1800 characters):\\n{excerpt}"
+                            f"after one correction attempt. No state changes were applied.\n\n"
+                            f"Validation detail: {exc}\n\n"
+                            f"Last model response excerpt (last 1800 characters):\n{excerpt}"
                         ) from exc
                     correction_prompt = (
                         prompt_text
-                        + "\\n\\nAUTOMATIC CORRECTION REQUIRED: return one valid JSON object "
+                        + "\n\nAUTOMATIC CORRECTION REQUIRED: return one valid JSON object "
                         "for this pass only. Correct the schema issue using only evidence in "
-                        "the supplied prose. Do not add unrelated keys or invent events.\\n"
-                        + f"VALIDATION ERROR: {exc}\\n"
+                        "the supplied prose. Do not add unrelated keys or invent events.\n"
+                        + f"VALIDATION ERROR: {exc}\n"
                         + "Allowed keys: "
                         + ", ".join(sorted(allowed_fields))
                         + ". Return JSON only."
-                        + "\\nPREVIOUS INVALID RESPONSE:\\n"
+                        + "\nPREVIOUS INVALID RESPONSE:\n"
                         + (output_text or "")[-2500:]
                     )
                     output_text = run_model(correction_prompt, system_prompt, max_tokens)
