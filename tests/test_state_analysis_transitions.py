@@ -53,13 +53,14 @@ class StateAnalysisTransitionTests(unittest.TestCase):
         )
         self.assertEqual(len(updated), 1)
 
-    def test_recent_events_are_capped_to_latest_twelve(self):
-        existing = [{"event": f"Earlier event {index}"} for index in range(12)]
+    def test_recent_events_are_capped_to_latest_sixteen(self):
+        existing = [{"event": f"Earlier event {index}"} for index in range(20)]
         updated = append_recent_events(existing, ["New breakfast disclosure."])
 
-        self.assertEqual(len(updated), 12)
+        self.assertEqual(len(updated), 16)
+        self.assertEqual(updated[0], {"event": "Earlier event 5"})
         self.assertEqual(updated[-1], {"event": "New breakfast disclosure."})
-        self.assertNotIn({"event": "Earlier event 0"}, updated)
+        self.assertNotIn({"event": "Earlier event 4"}, updated)
 
     def test_transition_proposal_accepts_partial_objectives_and_new_events(self):
         base = {
