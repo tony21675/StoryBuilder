@@ -18,7 +18,7 @@ The regular Writer **Analyze Accepted Scene** path now calls State Analysis in m
 - The separate saved-state recovery workflow still uses its detailed reconstruction path.
 - Prompt Trace labels the regular pass `state_main_plot_summary`.
 
-New regression tests cover the one-call output and its Prompt Trace role. The last confirmed laptop baseline was **378 passed** before this experiment. GitHub's `test` and `Compile and unit tests` checks were still running on code commit `e46834e` when this checkpoint was written. Do not claim local verification yet.
+New regression tests cover the one-call output and its Prompt Trace role. GitHub's `test` and `Compile and unit tests` checks both passed on code commit `e46834e`. The last confirmed laptop baseline was **378 passed** before this experiment; the new mode still needs its local suite run after sync.
 
 ## Current novel: The Long Way Home
 
