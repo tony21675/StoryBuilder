@@ -78,7 +78,11 @@ from builder.state_manager import (
 )
 from builder.scene_contract import SceneContract, extract_authored_scene_sections, extract_scene_header_metadata
 from builder.scene_idea_suggestion import generate_scene_idea_suggestion
-from builder.focused_revision import revise_selected_passage
+from builder.focused_revision import (
+    apply_focused_replacement,
+    propose_focused_replacement,
+    revise_selected_passage,
+)
 from builder.scene_completion import (
     completion_notice_is_success,
     generate_scene_with_completion_check,
@@ -187,6 +191,11 @@ class StoryBuilderApp(tk.Tk):
         self.accepted_scene = ""
         self.accepted_scene_context = None
         self.focused_revision_history = []
+        self.validator_review_in_progress = False
+        self.validator_review_state = None
+        self.validator_review_dialog = None
+        self.validator_review_dialog_state = None
+        self.generated_scene_review_context = None
         # Keep each generated scene tied to the chapter/scene and exact start
         # state that produced it. Never file prose under a later UI selection.
         self.generated_scene_context: tuple[int, int] | None = None
