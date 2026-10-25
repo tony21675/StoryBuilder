@@ -1,3 +1,18 @@
+# Latest continuity test result — October 24, 2026
+
+## App launch and continuity retest
+
+- Tony pulled the shell-sync repair to the local `redesign/simplified-writing-workflow` branch and ran `python3 -m pytest -q`: **371 passed**.
+- `./start.sh` succeeded: it fetched GitHub, fast-forwarded the active development branch, reported it up to date, and launched StoryBuilder. Tony confirmed the application window opened normally.
+- Tony re-ran post-scene analysis for accepted Scene 4 of *The Long Way Home*. The new proposal is still unsafe and **must not be applied**.
+- The result still advances Elena, Morgan, and Priya toward an internal scrubber-housing inspection, though the canonical Scene 4 endpoint is Elena beginning partial pressurization at the sealed maintenance hatch while Morgan and Priya check external housing mounts. It also invents/changes physical details (e.g. Daniel closing the tablet, Ryan seated, Zoe leaning over display), changes several objectives without adequate support, incorrectly describes Daniel's temperature projection as exponential, and risks correlating Zoe's independent communications investigation with onboard diagnostics. Its recent-events list contains a mixture of potentially real scene beats and claims that must be verified against accepted prose; do not treat those proposed events as canon.
+- No state changes were applied. The accepted Scene 4 prose remains intact. The novel repository was not modified by this retest. GitHub's novel manuscript archive currently contains Sections 1–3 only, so the exact active Scene 4 prose is not available in the remote manuscript tree for independent line-by-line inspection; rely on the prose already accepted in StoryBuilder and the established endpoint noted above.
+- Removing Scene End Guidance from the StateManager prompt was insufficient. The remaining failure is not solved by another prompt checklist. Current architecture asks one local-model call to reconstruct the ending situation, all physical state/location changes, objectives, clues, unresolved questions, and new events from the full prose plus state context. `STATE_SYSTEM_PROMPT` is about 11.3k characters and the CLI sets an 8192-token context with a 1000-token output budget. This creates a plausible context/attention bottleneck, though it is not yet proven that hard truncation occurred.
+- Recommended next design, discuss with Tony before changing app code: split the analysis responsibilities. One focused pass should derive only the actual ending state from the before-state plus the final few prose paragraphs. A separate whole-scene pass should propose new events/clues/questions but must not be allowed to override end-of-scene locations/physical state/current situation. Keep existing objectives unless the accepted prose directly establishes that a goal or assigned role changed. Add a regression case where earlier movement toward the hatch is superseded by final partial pressurization and external mount checks. Do not add a longer checklist or change any novel files.
+- Current branch remains `redesign/simplified-writing-workflow`. Shell-sync repair commits are already pulled locally; no need to repull them. Next changes require discussion/approval before app code or novel edits. Continue using `python3`, never `python`, in Tony's laptop commands.
+
+---
+
 # Shell launcher and sync repair — October 24, 2026
 
 ## Root cause and repair
