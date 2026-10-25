@@ -64,5 +64,5 @@ A future separate app idea: an e-liquid flavor/recipe tracker with separate flav
 3. Keep the duplicate-scene safeguard. Never join two complete scene drafts. Preserve accepted prose and saved state unless Tony explicitly chooses otherwise.
 4. After the Phase 1 behavior is verified, design and test the separate source-backed science reviewer. Do not mix real-world science rules into novel-specific canon or add a large fixed rule list.
 
-**Milestone note:** Phase 1 code and regression-test changes are being prepared on the existing redesign branch. The handoff is updated here; do not claim the new tests passed until they are run.
+**Milestone note:** Phase 1 code and regression tests are committed on the existing redesign branch. The earlier 380-passed laptop result predates these edits; the updated suite has not yet been run locally or verified by a recorded CI check. Do not claim the new tests passed until verification is complete.
 
