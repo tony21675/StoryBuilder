@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 from typing import Any
 
@@ -67,6 +68,31 @@ def set_state_patch_value(patch: dict[str, Any], path: str, value: str) -> None:
     if not isinstance(target, dict) or not isinstance(target.get(parts[-1]), str):
         raise ValueError("Only an existing text field can receive this focused correction.")
     target[parts[-1]] = str(value)
+
+
+def apply_state_text_replacement(original: str, target: str, replacement: str) -> str:
+    """Replace one unique passage inside one proposed text field; full-field replacement is allowed."""
+    original = str(original or "")
+    target = str(target or "")
+    replacement = str(replacement or "")
+    if not original.strip():
+        raise ValueError("The proposed state text is empty.")
+    if not target.strip():
+        raise ValueError("The state correction did not identify a target passage.")
+    pieces = re.split(r"(\s+)", target)
+    pattern = "".join(r"\s+" if piece and piece.isspace() else re.escape(piece) for piece in pieces)
+    matches = list(re.finditer(pattern, original))
+    if not matches:
+        raise ValueError("The target passage does not appear in the current proposed state text.")
+    if len(matches) != 1:
+        raise ValueError("The target passage appears more than once in this state field.")
+    match = matches[0]
+    revised = original[:match.start()] + replacement + original[match.end():]
+    if revised == original:
+        raise ValueError("The proposed state correction would not change the value.")
+    if not revised.strip():
+        raise ValueError("A proposed state text field cannot be left empty.")
+    return revised
 
 
 def build_state_proposal_review_prompt(

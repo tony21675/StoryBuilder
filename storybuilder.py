@@ -81,6 +81,7 @@ from builder.scene_idea_suggestion import generate_scene_idea_suggestion
 from builder.state_review import (
     get_state_patch_value,
     set_state_patch_value,
+    apply_state_text_replacement,
     review_state_proposal,
 )
 from builder.focused_revision import (
@@ -4312,6 +4313,8 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         if skipped:
             summary += " Skipped concerns remain unresolved; inspect the plain-English changes before applying."
         summary += " Apply State Update only when the proposed state is correct."
+        if state.get("last_recheck_warning"):
+            summary += " The last recheck could not complete: " + str(state["last_recheck_warning"]).splitlines()[0]
         self.writer_status.configure(text=summary)
 
     def _recheck_state_validator_review_after_fix(self):
@@ -4340,7 +4343,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         def work():
             findings = []
             try:
-                findings, _warning = review_state_proposal(
+                findings, warning = review_state_proposal(
                     engine=self.writer_engine,
                     model_path=context.get("model_path") or self.writer_engine.model_path,
                     original_system_prompt=str(context.get("writer_system_prompt") or ""),
@@ -4352,20 +4355,13 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
                     prompt_trace=None,
                 )
             except Exception as exc:
-                findings = [{
-                    "kind": "unavailable",
-                    "field": "current_situation",
-                    "title": "State review could not be repeated",
-                    "message": "The correction remains only in the proposal. The check could not finish: "
-                        + str(exc).splitlines()[0],
-                    "edit_request": "",
-                    "can_suggest": False,
-                }]
+                findings = []
+                warning = "The correction remains only in the proposal. The state check could not finish: " + str(exc).splitlines()[0]
             try:
                 self.after(
                     0,
                     lambda: self._finish_state_validator_review_recheck(
-                        findings, original_dismissed, original_skipped, dialog_state_to_keep
+                        findings, original_dismissed, original_skipped, dialog_state_to_keep, warning
                     ),
                 )
             except tk.TclError:
@@ -4375,12 +4371,13 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         self.writer_thread.start()
 
     def _finish_state_validator_review_recheck(
-        self, findings, original_dismissed, original_skipped, dialog_state,
+        self, findings, original_dismissed, original_skipped, dialog_state, warning=None,
     ):
         state = getattr(self, "validator_review_state", None)
         if not isinstance(state, dict) or state.get("mode") != "state":
             self._close_validator_review_dialog()
             return
+        self.validator_review_state["last_recheck_warning"] = warning
         new_items = [dict(item) for item in (findings or []) if isinstance(item, dict)]
         still_skipped = [
             item for item in new_items
@@ -4749,7 +4746,11 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
                 ensure_ascii=False,
             )
             try:
-                revised_value = apply_focused_replacement(current_value, response)
+                revised_value = apply_state_text_replacement(
+                    current_value,
+                    str(patch.get("target_text", "")),
+                    replacement,
+                )
                 set_state_patch_value(working_patch, field, revised_value)
                 StateManager.validate_patch(self.package.current_state, working_patch)
             except (TypeError, ValueError) as exc:

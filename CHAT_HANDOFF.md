@@ -85,3 +85,7 @@ A future separate app idea: an e-liquid flavor/recipe tracker with separate flav
 ## October 25, 2026: state review validation follow-up
 
 The first CI run for the unified state review found stale Notebook selection calls and a prompt assertion. These are being removed/fixed in a follow-up commit. Do not pull to a local machine or treat this as ready until both GitHub test workflows pass.
+
+## October 25, 2026: state-text correction safety
+
+State-focused corrections are limited to one string-valued leaf in the temporary proposed patch; unlike scene prose edits, they may replace that entire field if necessary. The saved state remains untouched until author approval. The first CI run found stale Notebook references and a prompt assertion mismatch; a follow-up fix is being verified.

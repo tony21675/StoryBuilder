@@ -64,3 +64,7 @@ Wait for Tony's other question and do not pull yet. When he says he is ready:
 ## State review CI repair note
 
 Commit `684caf2` introduced the unified plain-English state review and the sequential state proposal audit. The first CI run found three stale attempts to select the removed Notebook tabs and one new prompt assertion mismatch. The follow-up commit removes those obsolete tab selections; validator-unavailable results remain advisory in the status text rather than pretending an audit finding was produced. Re-run both Python test workflows before treating this change as ready to pull.
+
+## State proposal correction safety and CI follow-up
+
+State-focused corrections may replace a complete text-valued proposed field when necessary, or target one unique passage within it. They never touch another field, accepted prose, or saved current state. The first CI run found stale Notebook selections and a prompt assertion mismatch; a follow-up repair is on the same development branch. Do not treat this feature as ready until both CI workflows pass.

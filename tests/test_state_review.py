@@ -69,6 +69,25 @@ class StateProposalReviewTests(unittest.TestCase):
             "location.Elena": "Near the closed hatch.",
         })
 
+    def test_state_text_replacement_can_correct_an_entire_single_field(self):
+        from builder.state_review import apply_state_text_replacement
+
+        corrected = apply_state_text_replacement(
+            "The scrubber has failed because contamination is confirmed.",
+            "The scrubber has failed because contamination is confirmed.",
+            "The scrubber temperature remains elevated, but the cause is still unknown.",
+        )
+        self.assertEqual(
+            corrected,
+            "The scrubber temperature remains elevated, but the cause is still unknown.",
+        )
+
+    def test_state_text_replacement_rejects_ambiguous_targets(self):
+        from builder.state_review import apply_state_text_replacement
+
+        with self.assertRaisesRegex(ValueError, "appears more than once"):
+            apply_state_text_replacement("Unknown. Still unknown.", "unknown", "uncertain")
+
     def test_path_accessor_rejects_overwriting_non_text_state_structures(self):
         with self.assertRaisesRegex(ValueError, "existing text field"):
             set_state_patch_value({"active_clues": ["one"]}, "active_clues", "replacement")
