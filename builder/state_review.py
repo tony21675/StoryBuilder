@@ -97,7 +97,7 @@ def build_state_proposal_review_prompt(
         + str(author_guidance or "").strip()
         + "\n\nPROPOSED STATE CHANGES (only these text-valued fields are editable findings):\n"
         + json.dumps(patch_fields, ensure_ascii=False, indent=2)
-        + "\n\nReview the proposed changes now. Return {\"findings\":[]} if there is no material problem. "
+        + "\n\nPreserve uncertainty explicitly. Review the proposed changes now. Return {\"findings\":[]} if there is no material problem. "
         + "Each finding's field must be one of these paths: "
         + ", ".join(patch_fields)
         + ". The finding is advice, not an instruction to change the state. JSON only."
@@ -205,30 +205,12 @@ def review_state_proposal(
                 prompt_trace.record_event("state_proposal_review_finished", findings=[], warning=warning)
             except Exception:
                 pass
-        fallback_field = "current_situation" if "current_situation" in patch_fields else next(iter(patch_fields))
-        findings = [{
-            "kind": "unavailable",
-            "field": fallback_field,
-            "title": "State review could not complete",
-            "message": "The state validator could not check this proposal. Review the proposed wording carefully. "
-                + warning.splitlines()[0][:500],
-            "edit_request": "",
-            "can_suggest": False,
-        }]
+        findings = []
     finally:
         try:
             engine.reset_context(model_path, original_system_prompt)
         except Exception as exc:
             restore_warning = "The Writer model context could not be restored after state review: " + str(exc).splitlines()[0]
             warning = (warning + "; " if warning else "") + restore_warning
-            if not findings:
-                fallback_field = "current_situation" if "current_situation" in patch_fields else next(iter(patch_fields))
-                findings = [{
-                    "kind": "unavailable",
-                    "field": fallback_field,
-                    "title": "Writer context restoration needs attention",
-                    "message": restore_warning,
-                    "edit_request": "",
-                    "can_suggest": False,
-                }]
+            findings = []
     return findings, warning

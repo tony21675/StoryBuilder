@@ -81,3 +81,7 @@ A future separate app idea: an e-liquid flavor/recipe tracker with separate flav
 5. Keep hardware/model fit in mind: Surface Laptop 3 with 8 GB RAM, documented as running Gemma 4 E4B GGUF through llama.cpp. Revisit stronger review/science models only after the new workflow has been tested in the app. No separate science reviewer has been implemented.
 
 **Milestone note:** The author-controlled validator review workflow and regression tests are committed on the existing redesign branch. GitHub Actions passed on code/test commit `24cb281` (388 pytest tests and 53 subtests; 388 unittest tests plus compile checks). The handoff-only update will advance the remote branch again, but the code is the same tested code. No changes have been pulled to the laptop, no app has been run locally, and no novel files, accepted prose, or saved story state have been modified.
+
+## October 25, 2026: state review validation follow-up
+
+The first CI run for the unified state review found stale Notebook selection calls and a prompt assertion. These are being removed/fixed in a follow-up commit. Do not pull to a local machine or treat this as ready until both GitHub test workflows pass.

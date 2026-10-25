@@ -60,3 +60,7 @@ Wait for Tony's other question and do not pull yet. When he says he is ready:
 ## Standing writing principle
 
 **The story is the novel. The state is only a memory aid.** Keep State Analysis to the main plot, stakes, meaningful discoveries/decisions, and unresolved danger. Don't build a rule for every model mistake, prescribe plot outcomes, or hard-code novel-specific facts into StoryBuilder. Preserve accepted prose, and never apply a proposed state change without explicit approval.
+
+## State review CI repair note
+
+Commit `684caf2` introduced the unified plain-English state review and the sequential state proposal audit. The first CI run found three stale attempts to select the removed Notebook tabs and one new prompt assertion mismatch. The follow-up commit removes those obsolete tab selections; validator-unavailable results remain advisory in the status text rather than pretending an audit finding was produced. Re-run both Python test workflows before treating this change as ready to pull.

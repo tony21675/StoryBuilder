@@ -6988,8 +6988,6 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             self.writer_state_diff_preview.delete("1.0", "end")
             self.writer_state_diff_preview.insert("1.0", state_diff)
             self.writer_state_diff_preview.configure(state="disabled")
-        if getattr(self, "writer_state_review_notebook", None) is not None and getattr(self, "writer_state_diff_tab", None) is not None:
-            self.writer_state_review_notebook.select(self.writer_state_diff_tab)
         self.writer_state_preview.delete("1.0", "end")
         self.writer_state_preview.insert(
             "1.0",
@@ -7304,8 +7302,6 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         )
         if "writer_state_situation_quick" in self.__dict__:
             self._refresh_quick_state_editor(candidate_state)
-        if getattr(self, "writer_state_review_notebook", None) is not None and getattr(self, "writer_state_diff_tab", None) is not None:
-            self.writer_state_review_notebook.select(self.writer_state_diff_tab)
         self.writer_status.configure(
             text=(
                 "Changes to Review has been refreshed from the advanced preview. "
@@ -7338,11 +7334,6 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
                         "Nothing has been applied. Open Full State JSON (Advanced) and click "
                         "'Refresh Changes to Review' before applying this state update.",
                     )
-                    if (
-                        "writer_state_review_notebook" in self.__dict__
-                        and "writer_state_json_tab" in self.__dict__
-                    ):
-                        self.writer_state_review_notebook.select(self.writer_state_json_tab)
                     self.writer_status.configure(
                         text="Refresh Changes to Review before applying the edited preview."
                     )
