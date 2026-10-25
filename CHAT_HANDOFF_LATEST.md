@@ -72,3 +72,9 @@ State-focused corrections may replace a complete text-valued proposed field when
 ## State review test correction
 
 The current state review implementation is on `redesign/simplified-writing-workflow`. The last CI run passed 394 tests and 53 subtests except one newly added ambiguity test whose fixture accidentally differed by letter case. The fixture is corrected to contain two identical targets. Await both CI workflow results before declaring ready.
+
+## State review CI verification, October 25, 2026
+
+The unified single-screen, plain-English proposed-state workflow is implemented on `redesign/simplified-writing-workflow`. The three state tabs and visible JSON controls are removed. The state proposal is reviewed one finding at a time using the same focused correction, dismiss and skip controls as scene validation. A focused correction changes only the temporary proposed state value; the accepted scene and saved state remain untouched until the author explicitly applies the update.
+
+Verified on commit `a3d61564d794e0c9f11431d2b77b12d190fdfbfd`: GitHub Python tests passed **395 tests and 53 subtests**; the compile-and-unit-test workflow passed. A follow-up wording cleanup is being made after that run. This remains remote CI only, and the live application has not yet been tested with the new state-review popup. Do not pull to the user's machines until the next CI check passes and the user says ready.

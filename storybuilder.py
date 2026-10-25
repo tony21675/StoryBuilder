@@ -1687,7 +1687,7 @@ class StoryBuilderApp(tk.Tk):
 
         ttk.Button(
             self.writer_state_diff_tab,
-            text="Use Quick Edits in Preview",
+            text="Update Proposed Changes",
             command=self._apply_quick_state_edits_to_preview,
         ).pack(anchor="e", padx=10, pady=(0, 10))
 
@@ -6812,7 +6812,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         self.writer_reload_scene_button.configure(state="disabled")
         self.writer_analyze_button.configure(state="disabled")
         self.writer_apply_state_button.configure(state="disabled")
-        self.writer_status.configure(text="Analyzing accepted scene...")
+        self.writer_status.configure(text="Analyzing the accepted scene and checking proposed changes...")
         prompt_trace = None
         if self.__dict__.get("prompt_trace_enabled", False):
             try:
@@ -7246,14 +7246,14 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         self.writer_state_diff_preview.configure(state="disabled")
         self.writer_status.configure(
             text=(
-                "Quick edits are in the preview only. Review the plain-English summary above, then click "
+                "Your corrections are included in the proposed changes. Review the plain-English summary above, then click "
                 "Apply State Update to save them and prepare the next scene."
             )
         )
         self._update_writer_buttons()
 
     def _refresh_state_review_from_json(self):
-        """Validate the advanced preview and refresh its human-readable change list."""
+        """Validate the internal state buffer and refresh the plain-English change summary."""
         if self.package is None or not isinstance(self.pending_state_patch, dict):
             self.writer_status.configure(
                 text="Analyze the accepted scene before refreshing the state review."
@@ -7305,8 +7305,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             self._refresh_quick_state_editor(candidate_state)
         self.writer_status.configure(
             text=(
-                "Changes to Review has been refreshed from the advanced preview. "
-                "Nothing has been applied or saved."
+                "The proposed changes have been refreshed. Nothing has been applied or saved."
             )
         )
         self._update_writer_buttons()
@@ -7331,12 +7330,11 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
                 if current_serialized != last_reviewed:
                     messagebox.showwarning(
                         "Review Needs Refresh",
-                        "The advanced state preview changed after the change list was last refreshed. "
-                        "Nothing has been applied. Open Full State JSON (Advanced) and click "
-                        "'Refresh Changes to Review' before applying this state update.",
+                        "The proposed changes changed after the review was prepared. Nothing has been applied. "
+                        "Analyze the accepted scene again to rebuild the proposed changes before applying.",
                     )
                     self.writer_status.configure(
-                        text="Refresh Changes to Review before applying the edited preview."
+                        text="Analyze the accepted scene again before applying this state update."
                     )
                     self._update_writer_buttons()
                     return
