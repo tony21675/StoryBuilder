@@ -1861,7 +1861,7 @@ class StateManager:
             raise RuntimeError(failure)
 
         diagnostics_match = re.search(
-            r"\[ Prompt: .*? \| Generation: .*? \]\s*$",
+            r"\[ Prompt: .*? \| Generation: .*? \]",
             str(output or ""),
             flags=re.DOTALL,
         )
@@ -2324,7 +2324,7 @@ class StateManager:
                 )
 
             diagnostics_match = re.search(
-                r"\[ Prompt: .*? \| Generation: .*? \]\s*$",
+                r"\[ Prompt: .*? \| Generation: .*? \]",
                 str(output or ""),
                 flags=re.DOTALL,
             )
