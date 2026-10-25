@@ -1,3 +1,24 @@
+# State Analysis trace diagnosis and repair — October 24, 2026
+
+## Trace findings from Chapter 1, Scene 4
+
+The latest private trace is available at [StoryBuilder-Traces/prompt_trace.json](https://github.com/tony21675/StoryBuilder-Traces/blob/main/prompt_trace.json). The accepted prose and saved novel state were not changed; the proposal remains unapplied.
+
+- The ending-state model collapsed `current_situation` to the Ryan/Zoe communications thread because the prompt did not explicitly say to carry forward unresolved main crises when the final paragraphs shift focus.
+- The evidence model promoted routine scene logistics and a character's stated intention into clues. It also proposed resolving the continuing temperature-rise clue, but the existing deterministic resolution check rejected that unsupported removal.
+- Recent events are a rolling list capped at 12. Adding many low-value actions can push older events out; prompt guidance now emphasizes consequential beats instead of routine gestures.
+- The separate character-knowledge audit was missing from Prompt Trace. It is now captured as a third session named `state_knowledge_audit`, including the exact prompt, full raw CLI output, runtime settings, timing, parse result, and runtime/parse errors.
+
+## Targeted changes in progress
+
+- Strengthen the ending-state instructions to preserve every unresolved major situation unless the accepted prose clearly resolves or materially changes it; changing narrative focus is not resolution.
+- Sharpen clue/event boundaries: clues need independent investigative value; routine gestures, orders, plans, and intentions are not clues by themselves; predictions and hypotheses must remain attributed and uncertain.
+- Extend trace integration to the knowledge audit and add regression tests for the instructions and all three captured model calls.
+
+**Verification is pending GitHub CI on the latest code/test commits. Do not pull yet.** Keep the accepted Scene 4 prose untouched and do not apply the prior state proposal. After both workflows pass, Tony can pull, run `python3 -m pytest -q`, then re-analyze the accepted scene without applying the result until reviewed.
+
+---
+
 # Trace compile correction — October 24, 2026
 
 The first CI run for commit `66defa419df614a8e018a7ebdef220c5d10c7c23` caught a malformed duplicate method splice in `storybuilder.py`; compilation failed before tests ran. The splice has been removed, and the initial trace-button label now reflects the saved On/Off preference. Do not pull the code until the correction commit's compile and test workflows pass.
