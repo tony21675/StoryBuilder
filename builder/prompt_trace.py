@@ -147,6 +147,8 @@ class PromptTrace:
             return "state_ending_analysis"
         if first_line.startswith("You extract only concrete new evidence and events"):
             return "state_evidence_analysis"
+        if first_line.startswith("You are a delta auditor for character knowledge"):
+            return "state_knowledge_audit"
         if is_primary:
             return "scene_writer"
         if first_line.startswith("Review original idea/state"):
