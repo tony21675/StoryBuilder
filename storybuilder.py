@@ -1415,7 +1415,7 @@ class StoryBuilderApp(tk.Tk):
         trace_row.pack(fill="x", pady=(0, 8))
         self.writer_trace_button = ttk.Button(
             trace_row,
-            text="Prompt Trace (On)",
+            text="Prompt Trace (On)" if self.prompt_trace_enabled else "Prompt Trace (Off)",
             command=self._toggle_prompt_trace,
         )
         self.writer_trace_button.pack(side="left")
@@ -6091,13 +6091,6 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             )
 
         self.writer_thread = threading.Thread(
-            target=work,
-            daemon=True,
-        )
-        self.writer_thread.start()
-
-
-    def _finish_state_analysis        self.writer_thread = threading.Thread(
             target=work,
             daemon=True,
         )

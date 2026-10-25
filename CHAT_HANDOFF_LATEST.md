@@ -1,3 +1,7 @@
+# Trace compile correction — October 24, 2026
+
+The first CI run for commit `66defa419df614a8e018a7ebdef220c5d10c7c23` caught a malformed duplicate method splice in `storybuilder.py`; compilation failed before tests ran. The splice has been removed, and the initial trace-button label now reflects the saved On/Off preference. Do not pull the code until the correction commit's compile and test workflows pass.
+
 # Persistent prompt tracing for State Analysis — October 24, 2026
 
 ## Current remote change under test
