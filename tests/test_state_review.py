@@ -1,3 +1,4 @@
+import json
 import unittest
 
 from builder.state_manager import MAIN_PLOT_SYSTEM_PROMPT
@@ -80,7 +81,7 @@ class StateProposalReviewTests(unittest.TestCase):
             '{"field":"current_situation","title":"Unsupported cause",'
             '"message":"The scene leaves the cause unknown.",'
             '"edit_request":"Remove the confirmed cause and preserve uncertainty.",'
-            '"scene_evidence":' + __import__("json").dumps(scene_evidence) + ','
+            '"scene_evidence":' + json.dumps(scene_evidence) + ','
             '"summary_evidence":' + __import__("json").dumps(summary_evidence) + '},'
             '{"field":"active_clues","title":"Bad target","message":"Do not target a list field.",'
             '"scene_evidence":' + __import__("json").dumps(scene_evidence) + '},'
