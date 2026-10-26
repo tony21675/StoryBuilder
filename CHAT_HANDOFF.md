@@ -1,6 +1,16 @@
-# StoryBuilder handoff — October 25, 2026
+# StoryBuilder handoff — October 26, 2026
 
-## State-summary and state-review prompt refinement (October 25, 2026)
+## State-review liberalization and evidence grounding (October 26, 2026)
+
+The author approved a focused fix after the Scene 8 state reviewer falsely claimed the accepted scene covered only the initial alarm and tried to carry a previous diagnostic instruction into a newer bypass decision. Code is committed on the existing `redesign/simplified-writing-workflow` branch:
+- `1be39969b9bff0ba5c2449378ef7c8f080e36f40`: makes the state-review prompt more liberal about concise summaries, treats before-state as a baseline rather than a checklist, and recognizes that a newer scene decision can supersede a prior instruction or task.
+- `27256e017cd618c973e8ddd75ed129d6927abe6d`: fixes whitespace normalization for the quote-evidence check.
+- `edde1467fbe6e796e1e988e28bd8827e216895f1` and `c8f3359ecb398cc5d866358c57fd1f1f97358d61`: add/update regression tests.
+- The reviewer must supply a substantial verbatim quote from accepted scene prose. If it supplies a nonempty excerpt from the proposed summary, that excerpt must also match the summary. Unsupported findings are discarded, not shown to the author as additional correction work.
+- The new tests and GitHub Actions are **not verified yet**. The commit-status endpoint returned no status entries; don't claim the checks passed until a completed run is confirmed.
+- No StoryBuilder code has been pulled or run locally after these commits. The author reported saving/syncing the novel; code changes are remote only. The accepted prose and saved novel state were not changed by these code commits.
+
+## Earlier state-summary and state-review prompt refinement (October 25, 2026)
 
 Approved changes are committed to the existing `redesign/simplified-writing-workflow` branch:
 - `3907a214d40527fe244c1946c8785936e1341a64` updates the main-plot summary prompt to retain concise, materially important unresolved evidence and active diagnostic responsibilities without building a full clue ledger. It explicitly distinguishes observed evidence, hypotheses, predictions, and causal links.
@@ -75,8 +85,8 @@ Science/plot note from Scene 5: Daniel's graph reports a rising temperature and 
 - Canonical local package: `~/Documents/MyNovel/The-Long-Way-Home`.
 - GitHub: `tony21675/The-Long-Way-Home`.
 - Premise: six-person Mars research outpost crew, all under 30, four women/two men, single/unmarried. Their life-support crisis is accidental, with no sabotage and no one to blame. Goal: survive until rescue from Earth or repair.
-- Chapter 1, Scenes 5 and 6 are accepted. The author reviewed and applied both proposed state updates; the next writing target is Chapter 1, Scene 7.
-- Current situation: Daniel's model warns that, if the accelerating temperature rise continues, thermal runaway may become probable within three hours. Elena chose a phased response centered on controlled isolation and preliminary manual-bypass checks. Morgan reports an intermittent metallic vibration; Ryan sees a possible timing match in old maintenance cycles but cannot confirm a link. Zoe suspects the patterned communications are an echo from a faulty localized sensor relay. Whether the signal anomaly, vibration, and overheating share a cause remains unknown.
+- Chapter 1, Scenes 5 through 8 are accepted and their state updates have been applied. Next writing target: Chapter 1, Scene 9.
+- Current accepted main-plot state after Scene 8: thermal runaway is projected within ninety minutes as manifold temperature spikes. The crew decided to prepare a risky partial bypass of Sensor Node Delta-9 to attempt stabilization; Daniel warned that bypassing a primary sensor without knowing its role could cause cascading failures. The bypass has not yet been shown as executed, and the underlying fault/cause remains unconfirmed.
 - Keep the three-hour projection conditional, not a confirmed countdown. Do not assume the anomalies share a cause. Scene 6 leaves temperature monitoring with Daniel, crew-vitals monitoring with Priya, and external communications monitoring with Ryan and Zoe as the phased response proceeds.
 - [Latest StoryBuilder prompt trace](https://github.com/tony21675/StoryBuilder-Traces/blob/main/prompt_trace.json). Traces include prompts and private story text.
 
@@ -90,18 +100,10 @@ A future separate app idea: an e-liquid flavor/recipe tracker with separate flav
 
 ## Immediate next steps
 
-1. The immediate story task is Chapter 1, Scene 7. Scenes 5 and 6 are accepted and both state updates were applied.
-2. The new summary/reviewer prompt changes are remote only until pulled onto the laptop. Do not sync or restart while a scene is being generated or any draft is at risk.
-3. When ready to sync, from `~/Documents/StoryBuilder`, first run `python3 -m pytest -q`. Stop and investigate if anything fails. If green, run `git pull --ff-only` on the existing `redesign/simplified-writing-workflow` branch and rerun `python3 -m pytest -q`. Only restart StoryBuilder after both test runs pass. Use one terminal command at a time and never use `python`.
-4. GitHub Actions for source commits `3907a214`, `20abe48b`, and test commit `d34b7913` have not yet been verified. Do not report the prompt-regression tests as green until completed workflows confirm it.
-5. After syncing, observe a future State Analysis run: the summary should carry only materially important unresolved evidence forward, and the reviewer should not claim a clue is absent from the scene when it appears in the accepted prose. Do not change accepted prose or state just to satisfy a validator.
+1. Next writing target is Chapter 1, Scene 9. Scenes 5–8 are accepted and the corresponding state updates were applied.
+2. The state-review liberalization commits are on remote branch `redesign/simplified-writing-workflow` only. Ensure no scene is being generated and no unaccepted draft is at risk before updating StoryBuilder.
+3. From `~/Documents/StoryBuilder`, run `python3 -m pytest -q` before pulling. Stop if any test fails. If green, run `git pull --ff-only` on the existing branch, then rerun `python3 -m pytest -q`. Restart the app only if both test runs pass. Use one terminal command at a time and never use `python`.
+4. Tests and GitHub Actions for the latest commits have not yet been verified. No status entries were returned for these commits; do not report tests as passing until confirmed.
+5. On a future State Analysis run, check that weak findings are suppressed; core deadlines, meaningful choices, and unresolved causation are still preserved; and a new accepted decision may supersede a previous task without generating a false omission. Do not change accepted prose just to satisfy a reviewer.
 
-**Milestone note:** The author-controlled review workflow remains the active approach. The newest changes are limited to prompt wording and regression tests. No novel files, accepted prose, or saved story state were edited by those code commits.
-
-## October 25, 2026: proposed-state review implemented and verified
-
-The author approved removing the separate “Changes to Review”, “Quick Edits (No JSON)”, and “Full State JSON (Advanced)” tabs. The Writer's state area now presents one plain-English change summary and correction fields. Proposed state concerns use the same sequential, author-controlled review popup as scene validation: focused correction, dismiss false alarm, or skip for later. A focused correction changes only the temporary proposed text field and reruns the audit. No correction is written to the saved current state until the author explicitly clicks Apply State Update. The visible flow does not require reading or editing JSON.
-
-The current normal Writer State Analysis deliberately asks for a concise main-plot summary. The new state audit reviews that generated summary against the before-state, accepted scene, and author guidance. Other values the author edits through the plain-language correction fields remain part of the unified proposal and are checked by the existing state-shape validation before application. Audit failures are reported plainly and leave the proposal for author judgment.
-
-**Previously verified code checkpoint:** Both CI workflows passed on clipboard/UI code commit `bd07e474685c4fc32b9c89150584d9490d61ef8a`: 400 pytest tests plus 60 subtests, and 400 unittest tests with compile checks. Live GUI verification remains a separate requirement. The newer state-summary/reviewer prompt changes are commits `3907a214`, `20abe48b`, and `d34b7913`; their CI results are not yet verified. No novel prose or state was changed by these code updates.
+**Milestone note:** This code work changes only StoryBuilder's state-review prompt, evidence validation, and tests, plus these handoffs. It does not change the novel package, accepted Scene 8 prose, or the author's applied state update.
