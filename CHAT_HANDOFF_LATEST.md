@@ -1,5 +1,9 @@
 # StoryBuilder current checkpoint — October 25, 2026
 
+## Scene-validator clipboard access (October 25, 2026)
+
+The scene-review popup now has a scene-mode-only **Copy Draft Prose** button. It copies the complete current visible Writer draft to the main application clipboard, keeps the popup open, and does not modify prose or saved story state. It is deliberately absent from proposed-state review. Regression coverage checks the popup action and clipboard payload. Both GitHub CI workflows passed on code/test commit `60e7117c25d0dbd9231adceb3930cfbdf1060453`; live GUI confirmation remains pending.
+
 ## Proposed state review design (October 25, 2026)
 
 The author approved extending the sequential, author-controlled scene validator pattern to proposed state changes and removing the three separate state-review tabs. The intended UI is one unified, plain-English state-review surface: human-readable change summary plus the existing no-JSON correction fields. Do not expose the raw JSON editor or a Copy Full JSON action. JSON can remain internal implementation detail.
@@ -39,7 +43,7 @@ GitHub Actions passed on code/test commit `24cb281`:
 - Pytest: **388 passed, 53 subtests passed in 1.76s**.
 - Compile-and-unittest workflow: **388 unittest tests passed**, and compileall succeeded.
 
-These are remote CI results for the prior checkpoint. On October 25, the work laptop ran StoryBuilder and generated a fresh unaccepted draft through the sequential scene-review popup; that was an in-app smoke test, not a full local test-suite run. The proposed state-review screen still needs a live UI check. The new Copy Draft Prose button is a subsequent code change and still needs CI and live verification.
+Both GitHub workflows passed on code/test commit `60e7117c25d0dbd9231adceb3930cfbdf1060453`: the Python test workflow and the StoryBuilder compile-and-unit-test workflow. These are remote CI results, not a full local suite run. On October 25, the work laptop ran a fresh unaccepted draft through the sequential scene-review popup; this new Copy Draft Prose button is a subsequent remote change and still needs sync/live UI verification. The proposed plain-English state-review screen also needs a live UI check.
 
 ## The Long Way Home
 
@@ -66,4 +70,4 @@ The author approved one plain-English state-review screen, replacing the three p
 
 The state proposal audit compares the generated main-plot summary with the before-state, accepted scene, and author guidance. Findings are advisory. Audit errors show a plain-language warning rather than pretending an audit result exists. A state text correction may replace a whole single proposed text field or one unique passage inside it; it cannot edit another field. The old full-state JSON remains only as an unshown internal buffer for existing validation/merge plumbing.
 
-**Verification:** GitHub Actions passed on code/test commit `d7b0b6ae92fe8117cab889c7dcf5ee976546701d` (395 Python tests and 53 subtests passed; compile-and-unit-test workflow succeeded). The final implementation/UI and test expectation fixes are on `redesign/simplified-writing-workflow`; current remote head is expected to be a handoff-only commit after this checkpoint update. The desktop/laptop have not pulled these changes, and the new state-review UI has not yet been tried in the live app. Do not pull until the user says ready. No novel package, accepted prose, or saved story state was changed.
+**Latest verification:** Both GitHub Actions workflows passed on code/test commit `60e7117c25d0dbd9231adceb3930cfbdf1060453`: Python tests and StoryBuilder compile/unit tests. The new scene-review popup copy action has regression coverage. The work laptop already ran the previous validator checkpoint, but this Copy Draft Prose update still needs a deliberate sync and live UI test. The plain-English state-review screen also needs an in-app check. No novel package, accepted prose, or saved story state was changed by this code update.
