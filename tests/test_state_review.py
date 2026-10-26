@@ -1,6 +1,8 @@
 import unittest
 
+from builder.state_manager import MAIN_PLOT_SYSTEM_PROMPT
 from builder.state_review import (
+    STATE_PROPOSAL_REVIEW_SYSTEM_PROMPT,
     build_state_proposal_review_prompt,
     get_state_patch_value,
     iter_state_patch_text_fields,
@@ -39,6 +41,26 @@ class StateProposalReviewTests(unittest.TestCase):
         self.assertIn("must be one of these paths: current_situation", prompt)
         self.assertIn("uncertainty", prompt.lower())
         self.assertIn("What is causing the temperature rise?", prompt)
+
+
+    def test_main_plot_summary_keeps_material_unresolved_evidence(self):
+        prompt = MAIN_PLOT_SYSTEM_PROMPT
+        self.assertIn("exhaustive clue lists", prompt)
+        self.assertIn("do not omit a concise reference to an unresolved physical anomaly", prompt)
+        self.assertIn("when it materially changes the main crisis", prompt)
+        self.assertIn("briefly identify who is pursuing an active diagnostic avenue", prompt)
+        self.assertIn("a hypothesis is not a diagnosis", prompt)
+
+    def test_state_reviewer_checks_full_scene_before_claiming_omission(self):
+        prompt = STATE_PROPOSAL_REVIEW_SYSTEM_PROMPT
+        self.assertIn("the entire accepted scene from beginning to end", prompt)
+        self.assertIn("including dialogue and actions in the middle", prompt)
+        self.assertIn(
+            "Never claim that the scene does not mention something when the scene explicitly describes or discusses it.",
+            prompt,
+        )
+        self.assertIn("genuinely absent from the proposed summary", prompt)
+        self.assertIn("possible timing match", prompt)
 
     def test_parser_keeps_only_findings_targeting_existing_text_in_the_patch(self):
         response = (
