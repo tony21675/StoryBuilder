@@ -803,6 +803,57 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         self.assertNotIn("def save_draft", manuscript_source)
         self.assertIn("def _confirm_discard_unaccepted_writer_text", source)
 
+    def test_scene_validator_popup_can_copy_full_draft_while_remaining_open(self):
+        FakePopupWidget.instances.clear()
+        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
+        draft = "First paragraph.\n\nSecond paragraph with the complete scene ending."
+        app.generated_scene = "stale fallback draft"
+        app.writer_output_text = FakeText(draft)
+        app.clipboard_clear = Mock()
+        app.clipboard_append = Mock()
+        app.update_idletasks = Mock()
+        app.validator_review_in_progress = True
+        app.validator_review_state = {
+            "queue": [{
+                "kind": "coverage",
+                "title": "Possible omission",
+                "message": "The team decision may be missing.",
+                "can_suggest": False,
+            }],
+            "skipped": [],
+            "dismissed": [],
+            "applied": [],
+            "context": {},
+            "notice": "Review",
+            "reviewed_count": 0,
+            "current": None,
+        }
+
+        with (
+            patch.object(storybuilder_app.tk, "Toplevel", FakePopupWidget),
+            patch.object(storybuilder_app.tk, "Text", FakePopupWidget),
+            patch.object(storybuilder_app.ttk, "Frame", FakePopupWidget),
+            patch.object(storybuilder_app.ttk, "Label", FakePopupWidget),
+            patch.object(storybuilder_app.ttk, "Button", FakePopupWidget),
+        ):
+            storybuilder_app.StoryBuilderApp._show_next_validator_finding(app)
+
+        copy_button = next(
+            widget for widget in FakePopupWidget.instances
+            if widget.kwargs.get("text") == "Copy Draft Prose"
+        )
+        copy_button.kwargs["command"]()
+
+        app.clipboard_clear.assert_called_once_with()
+        app.clipboard_append.assert_called_once_with(draft)
+        app.update_idletasks.assert_called_once_with()
+        self.assertIn(
+            "Full draft prose copied",
+            app.validator_review_dialog_state["status"].options["text"],
+        )
+        self.assertIsNotNone(app.validator_review_dialog)
+        self.assertTrue(app.validator_review_in_progress)
+
     def test_copyable_error_dialog_uses_main_window_clipboard(self):
         FakePopupWidget.instances.clear()
         app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)

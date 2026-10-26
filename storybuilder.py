@@ -4562,6 +4562,14 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             command=self._skip_validator_review_finding,
         )
         skip_button.pack(side="left", padx=(6, 0))
+        copy_draft_button = None
+        if not state_mode:
+            copy_draft_button = ttk.Button(
+                button_row,
+                text="Copy Draft Prose",
+                command=self._copy_validator_review_scene_draft,
+            )
+            copy_draft_button.pack(side="left", padx=(6, 0))
         retry_button = ttk.Button(
             button_row, text="Generate suggestion",
             command=self._regenerate_validator_review_suggestion,
@@ -4580,6 +4588,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             "apply_button": apply_button,
             "dismiss_button": dismiss_button,
             "skip_button": skip_button,
+            "copy_draft_button": copy_draft_button,
             "retry_button": retry_button,
             "suggesting": False,
             "patch": None,
@@ -8852,6 +8861,28 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             if visible:
                 return visible
         return str(getattr(self, "generated_scene", "") or "").strip()
+
+    def _copy_validator_review_scene_draft(self) -> None:
+        """Copy the full current Writer draft without closing the review popup."""
+        value = self._writer_editor_prose()
+        dialog_state = getattr(self, "validator_review_dialog_state", None)
+        status = dialog_state.get("status") if isinstance(dialog_state, dict) else None
+        if not value:
+            if status is not None:
+                status.configure(text="There is no draft prose to copy yet.")
+            return
+        try:
+            # Use the main window clipboard so the text remains available after
+            # the temporary validator popup is closed.
+            self.clipboard_clear()
+            self.clipboard_append(value)
+            self.update_idletasks()
+        except tk.TclError:
+            if status is not None:
+                status.configure(text="Could not copy the draft prose to the clipboard.")
+            return
+        if status is not None:
+            status.configure(text="Full draft prose copied. Paste it into chat with Ctrl+V.")
 
     def _confirm_discard_unaccepted_writer_text(self) -> bool:
         """Confirm that temporary, unaccepted Writer text may be discarded."""

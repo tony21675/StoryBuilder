@@ -14,7 +14,7 @@ For full project history and novel context, see [CHAT_HANDOFF.md](CHAT_HANDOFF.m
 - Branch: `redesign/simplified-writing-workflow`. The intended eventual end state is one StoryBuilder branch, `main`, after deliberate review/merge. Do not create/delete branches casually.
 - Laptop: Surface Laptop 3. `LONG_TERM_GOALS.md` records **8 GB RAM** and local Gemma 4 E4B GGUF through llama.cpp. No dedicated GPU/VRAM details are verified here. Do not recommend a 14B reviewer without assessing memory fit or asking the user to repeat known specs.
 - Always use `python3` on the laptop, one terminal command at a time. Handoff-only edits do not require permission; discuss code/novel changes first.
-- **The local laptop has not pulled these new changes.** Tony explicitly said to hold before pulling because he has another question. Do not give terminal pull/sync instructions until he says he is ready.
+- On October 25, Tony confirmed the active work laptop already had the previous StoryBuilder checkpoint and was writing there. The new Copy Draft Prose change is a later remote update and has not yet been verified live. Confirm which machine is active if unclear; protect unaccepted prose and saved story state during testing.
 
 ## Validator redesign now on GitHub
 
@@ -39,21 +39,20 @@ GitHub Actions passed on code/test commit `24cb281`:
 - Pytest: **388 passed, 53 subtests passed in 1.76s**.
 - Compile-and-unittest workflow: **388 unittest tests passed**, and compileall succeeded.
 
-These are remote CI results only. No fresh test run has been done on Tony's laptop for the review-queue changes. A subsequent handoff-only commit updates `CHAT_HANDOFF.md`; it does not alter tested code.
+These are remote CI results for the prior checkpoint. On October 25, the work laptop ran StoryBuilder and generated a fresh unaccepted draft through the sequential scene-review popup; that was an in-app smoke test, not a full local test-suite run. The proposed state-review screen still needs a live UI check. The new Copy Draft Prose button is a subsequent code change and still needs CI and live verification.
 
 ## The Long Way Home
 
 - Canonical local novel: `~/Documents/MyNovel/The-Long-Way-Home`; GitHub `tony21675/The-Long-Way-Home`.
 - Premise: six-person Mars research outpost, all under 30, four women/two men, all single. Life-support crisis is accidental, no sabotage and no one to blame. Survival until Earth rescue or repair is the goal.
 - Chapter 1, Scene 4 accepted prose remains unchanged; its proposed state update was not applied.
-- Scene 5 remains **unaccepted**. Do not apply the old proposed ending-state update. No recent validator-code change modified the novel, its manuscript, or saved scene state.
+- Scene 5 remains **unaccepted**. Do not apply the old proposed ending-state update. The latest draft was preserved for author review; no new code change modified the novel package, accepted prose, or saved state.
 - Science/continuity concern from the draft: Daniel's graph reports a rising temperature and conditional predicted deadline; Morgan feels vibration at the housing; Zoe hypothesizes an internal telemetry loop. The crew has not independently verified whether the temperature reading reflects real heating or a sensor/software reporting problem. Keep both possibilities unresolved until the story investigates them on-page.
-- The earlier Scene 5 validator incorrectly claimed the explicit decision point (“We need to decide what moves first”) was missing. Do not force the crew to make a final decision just to satisfy the validator.
+- The validator can raise coverage concerns that the author must judge. In the latest trial it said the draft had not shown the team making a definitive choice after presenting the repair-versus-diagnostics tradeoff. Do not force a plot outcome solely to satisfy the validator.
 
 ## Next step after Tony's question
 
-Wait for Tony's other question and do not pull yet. When he says he is ready:
-1. Sync the existing branch on the laptop and run `python3 -m pytest -q`.
+The active work laptop already had the previous checkpoint, but the new Copy Draft Prose change is not yet verified on either live app. When Tony is ready to sync this new code, close StoryBuilder first, check branch/status, then sync the existing branch one command at a time. Do not accept Scene 5 or apply a state update during the UI test.
 2. Open StoryBuilder and test a fresh scene in the new sequential validator popup. Verify local-only edits, dismiss/skip, refreshed findings after a fix, one complete scene, and author-controlled acceptance.
 3. Only after that in-app trial, revisit whether a separate source-backed science reviewer or stronger local reviewer model is needed. Fit any model recommendation to the documented 8 GB RAM limit.
 
