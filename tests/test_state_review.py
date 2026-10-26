@@ -59,27 +59,84 @@ class StateProposalReviewTests(unittest.TestCase):
             "Never claim that the scene does not mention something when the scene explicitly describes or discusses it.",
             prompt,
         )
-        self.assertIn("genuinely absent from the proposed summary", prompt)
+        self.assertIn("genuinely missing or materially underrepresented", prompt)
         self.assertIn("possible timing match", prompt)
 
-    def test_parser_keeps_only_findings_targeting_existing_text_in_the_patch(self):
+    def test_state_reviewer_does_not_treat_prior_state_as_a_checklist(self):
+        prompt = STATE_PROPOSAL_REVIEW_SYSTEM_PROMPT
+        self.assertIn("before-state is a fallible baseline, not a checklist", prompt)
+        self.assertIn("A newer decision or plan in the accepted scene may replace or supersede", prompt)
+        self.assertIn("Do not resurrect an earlier plan when a newer decision is now controlling.", prompt)
+        self.assertIn("Prefer no finding over a weak or merely debatable finding.", prompt)
+        self.assertIn("would likely cause the next scene to repeat events", prompt)
+        self.assertIn("scene_evidence", prompt)
+        self.assertIn("summary_evidence", prompt)
+
+    def test_parser_keeps_only_findings_targeting_existing_text_with_verbatim_evidence(self):
+        scene_evidence = "The silicate-like trace is preliminary, and the team has not confirmed a cause."
+        summary_evidence = "The scrubber has failed because silicate contamination entered the housing."
         response = (
             '{"findings":['
             '{"field":"current_situation","title":"Unsupported cause",'
             '"message":"The scene leaves the cause unknown.",'
-            '"edit_request":"Remove the confirmed cause and preserve uncertainty."},'
-            '{"field":"active_clues","title":"Bad target","message":"Do not target a list field."},'
-            '{"field":"location.Ryan","title":"Not in patch","message":"This field was not proposed."}'
+            '"edit_request":"Remove the confirmed cause and preserve uncertainty.",'
+            '"scene_evidence":' + __import__("json").dumps(scene_evidence) + ','
+            '"summary_evidence":' + __import__("json").dumps(summary_evidence) + '},'
+            '{"field":"active_clues","title":"Bad target","message":"Do not target a list field.",'
+            '"scene_evidence":' + __import__("json").dumps(scene_evidence) + '},'
+            '{"field":"location.Ryan","title":"Not in patch","message":"This field was not proposed.",'
+            '"scene_evidence":' + __import__("json").dumps(scene_evidence) + '}'
             ']}'
         )
-        findings = parse_state_proposal_review(response, self.patch)
+        findings = parse_state_proposal_review(
+            response, self.patch, accepted_scene=self.scene
+        )
         self.assertEqual(len(findings), 1)
         self.assertEqual(findings[0]["field"], "current_situation")
         self.assertEqual(findings[0]["kind"], "state")
         self.assertTrue(findings[0]["can_suggest"])
+        self.assertEqual(findings[0]["scene_evidence"], scene_evidence)
+        self.assertEqual(findings[0]["summary_evidence"], summary_evidence)
+
+    def test_parser_discards_findings_with_invented_scene_quotes(self):
+        response = (
+            '{"findings":[{"field":"current_situation","title":"Missing discovery",'
+            '"message":"The accepted scene only covers the initial alarm.",'
+            '"edit_request":"Repeat the full investigation.",'
+            '"scene_evidence":"The accepted scene only covers the initial alarm.",'
+            '"summary_evidence":""}]}'
+        )
+        findings = parse_state_proposal_review(
+            response,
+            {"current_situation": "The crew decides to prepare a Delta-9 bypass."},
+            accepted_scene=(
+                "Morgan reports intermittent vibration at the sealed housing. "
+                "Ryan finds the Cycle 42 record. Zoe confirms a temporal match. "
+                "Elena decides to prepare a bypass."
+            ),
+        )
+        self.assertEqual(findings, [])
+
+    def test_parser_discards_findings_with_nonverbatim_summary_quotes(self):
+        response = (
+            '{"findings":[{"field":"current_situation","title":"Missing decision",'
+            '"message":"The current decision is not preserved.",'
+            '"edit_request":"Change the summary.",'
+            '"scene_evidence":"Elena decides to prepare a partial bypass.",'
+            '"summary_evidence":"The crew agrees to prep the Delta-9 bypass."}]}'
+        )
+        findings = parse_state_proposal_review(
+            response,
+            {"current_situation": "The crew agrees to prepare the Delta-9 bypass."},
+            accepted_scene="Elena decides to prepare a partial bypass after weighing the risk.",
+        )
+        self.assertEqual(findings, [])
 
     def test_empty_findings_means_no_semantic_concerns(self):
-        self.assertEqual(parse_state_proposal_review('{"findings":[]}', self.patch), [])
+        self.assertEqual(
+            parse_state_proposal_review('{"findings":[]}', self.patch, accepted_scene=self.scene),
+            [],
+        )
 
     def test_text_path_accessors_change_only_the_proposed_patch(self):
         patch = {"current_situation": "First. Second.", "location": {"Elena": "At the hub."}}
