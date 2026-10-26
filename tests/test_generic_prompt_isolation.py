@@ -74,33 +74,23 @@ class GenericStoryPromptTests(unittest.TestCase):
         self.assertIn("self._refresh_writer_scene_guidance()", source)
         self.assertIn("without", source.casefold())
 
-    def test_writer_scene_direction_is_read_only_and_has_copy_action(self):
+    def test_writer_scene_direction_is_read_only_and_keyboard_selectable(self):
         source = inspect.getsource(storybuilder_app.StoryBuilderApp._build_writer_tab)
         self.assertIn('text="Scene Direction (read-only guidance)"', source)
         self.assertIn('state="disabled"', source)
-        self.assertIn('text="Copy Scene Direction"', source)
-        self.assertIn('command=self._copy_writer_direction', source)
+        self.assertIn("exportselection=False", source)
+        self.assertNotIn('text="Copy Scene Direction"', source)
+        self.assertNotIn("command=self._copy_writer_direction", source)
 
-    def test_copy_writer_direction_copies_complete_text_to_clipboard(self):
-        app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
-        app.writer_direction_text = SimpleNamespace(
-            get=Mock(return_value="  CHAPTER 1, SCENE 3\nEnd: The crew agrees on next steps.  ")
-        )
-        app.writer_status = SimpleNamespace(configure=Mock())
-        app.clipboard_clear = Mock()
-        app.clipboard_append = Mock()
-        app.update_idletasks = Mock()
+        selection_helper = inspect.getsource(storybuilder_app.StoryBuilderApp._add_context_menu)
+        self.assertIn('widget.bind("<Control-a>"', selection_helper)
+        self.assertIn('widget.bind("<Control-c>"', selection_helper)
 
-        storybuilder_app.StoryBuilderApp._copy_writer_direction(app)
-
-        app.clipboard_clear.assert_called_once_with()
-        app.clipboard_append.assert_called_once_with(
-            "CHAPTER 1, SCENE 3\nEnd: The crew agrees on next steps."
-        )
-        app.update_idletasks.assert_called_once_with()
-        app.writer_status.configure.assert_called_once_with(
-            text="Scene Direction copied. Paste it into chat with Ctrl+V."
-        )
+    def test_writer_text_widgets_receive_shared_keyboard_selection_support(self):
+        installer = inspect.getsource(storybuilder_app.StoryBuilderApp._install_context_menus)
+        self.assertIn("self._find_text_widgets(self)", installer)
+        self.assertIn("self._add_context_menu(widget)", installer)
+        self.assertFalse(hasattr(storybuilder_app.StoryBuilderApp, "_copy_writer_direction"))
 
     def test_state_knowledge_audit_prompt_is_genre_neutral(self):
         prompt = KNOWLEDGE_AUDIT_SYSTEM_PROMPT.casefold()

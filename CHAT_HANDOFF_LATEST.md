@@ -20,7 +20,7 @@ For full project history and novel context, see [CHAT_HANDOFF.md](CHAT_HANDOFF.m
 - Branch: `redesign/simplified-writing-workflow`. The intended eventual end state is one StoryBuilder branch, `main`, after deliberate review/merge. Do not create/delete branches casually.
 - Laptop: Surface Laptop 3. `LONG_TERM_GOALS.md` records **8 GB RAM** and local Gemma 4 E4B GGUF through llama.cpp. No dedicated GPU/VRAM details are verified here. Do not recommend a 14B reviewer without assessing memory fit or asking the user to repeat known specs.
 - Always use `python3` on the laptop, one terminal command at a time. Handoff-only edits do not require permission; discuss code/novel changes first.
-- On October 25, Tony confirmed the active work laptop already had the previous StoryBuilder checkpoint and was writing there. The new keyboard selection change is a later remote update and has not yet been verified live. Confirm which machine is active if unclear; protect unaccepted prose and saved story state during testing.
+- On October 25, Tony confirmed the active work laptop already had the previous StoryBuilder checkpoint and was writing there. The new text-selection change is a later remote update and has not yet been verified live. Confirm which machine is active if unclear; protect unaccepted prose and saved story state during testing.
 
 ## Validator redesign now on GitHub
 
@@ -45,7 +45,7 @@ GitHub Actions passed on code/test commit `24cb281`:
 - Pytest: **388 passed, 53 subtests passed in 1.76s**.
 - Compile-and-unittest workflow: **388 unittest tests passed**, and compileall succeeded.
 
-Both GitHub workflows passed on code/test commit `60e7117c25d0dbd9231adceb3930cfbdf1060453`: the Python test workflow and the StoryBuilder compile-and-unit-test workflow. These are remote CI results, not a full local suite run. On October 25, the work laptop ran a fresh unaccepted draft through the sequential scene-review popup; this new keyboard selection button is a subsequent remote change and still needs sync/live UI verification. The proposed plain-English state-review screen also needs a live UI check.
+Both GitHub workflows passed on code/test commit `60e7117c25d0dbd9231adceb3930cfbdf1060453`: the Python test workflow and the StoryBuilder compile-and-unit-test workflow. These are remote CI results, not a full local suite run. On October 25, the work laptop ran a fresh unaccepted draft through the sequential scene-review popup; this new keyboard selection is a subsequent remote change and still needs sync/live UI verification. The proposed plain-English state-review screen also needs a live UI check.
 
 ## The Long Way Home
 
@@ -58,7 +58,7 @@ Both GitHub workflows passed on code/test commit `60e7117c25d0dbd9231adceb3930cf
 
 ## Next step
 
-The active work laptop already had the previous checkpoint, but the new keyboard selection change is not yet verified on either live app. When Tony is ready to sync this new code, close StoryBuilder first, check branch/status, then sync the existing branch one command at a time. Do not accept Scene 5 or apply a state update during the UI test.
+The active work laptop already had the previous checkpoint, but the new text-selection change is not yet verified on either live app. When Tony is ready to sync this new code, close StoryBuilder first, check branch/status, then sync the existing branch one command at a time. Do not accept Scene 5 or apply a state update during the UI test.
 2. Open StoryBuilder and test a fresh scene in the new sequential validator popup. Verify local-only edits, dismiss/skip, refreshed findings after a fix, one complete scene, and author-controlled acceptance.
 3. Only after that in-app trial, revisit whether a separate source-backed science reviewer or stronger local reviewer model is needed. Fit any model recommendation to the documented 8 GB RAM limit.
 
@@ -72,4 +72,4 @@ The author approved one plain-English state-review screen, replacing the three p
 
 The state proposal audit compares the generated main-plot summary with the before-state, accepted scene, and author guidance. Findings are advisory. Audit errors show a plain-language warning rather than pretending an audit result exists. A state text correction may replace a whole single proposed text field or one unique passage inside it; it cannot edit another field. The old full-state JSON remains only as an unshown internal buffer for existing validation/merge plumbing.
 
-**Latest verification:** Before this UI change, both GitHub Actions workflows passed on code/test commit `60e7117c25d0dbd9231adceb3930cfbdf1060453`: Python tests and StoryBuilder compile/unit tests. The new scene-review popup copy action has regression coverage. The work laptop already ran the previous validator checkpoint, but this keyboard selection update still needs a deliberate sync and live UI test. The plain-English state-review screen also needs an in-app check. No novel package, accepted prose, or saved story state was changed by this code update.
+**Latest verification:** Before this UI change, both GitHub Actions workflows passed on code/test commit `60e7117c25d0dbd9231adceb3930cfbdf1060453`: Python tests and StoryBuilder compile/unit tests. The text-selection update needs CI and live GUI verification. The work laptop must not sync or restart while an unaccepted draft is being written. Live GUI verification remains pending. The plain-English state-review screen also needs an in-app check. No novel package, accepted prose, or saved story state was changed by this code update.
