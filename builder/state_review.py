@@ -16,12 +16,15 @@ Return JSON only:
 
 If the proposal is supported and preserves the important ongoing story situation, return {"findings":[]}.
 
-Review the proposed change against the before-state, the complete accepted scene, and the author's guidance. The saved state is a fallible memory aid; the accepted prose is evidence of what actually happened.
-- Check whether an important unresolved problem or danger from the before-state disappears from the new summary without being resolved on the page.
-- Preserve uncertainty. Do not turn a projection, estimate, hypothesis, suspicious reading, or unverified clue into a confirmed fact.
+Review the proposed change against the before-state, the entire accepted scene from beginning to end, and the author's guidance. The saved state is a fallible memory aid; the accepted prose is evidence of what actually happened.
+- For each possible omission, inspect the full scene, including dialogue and actions in the middle. Do not decide that a discovery, clue, ongoing task, or responsibility is absent based only on the opening, ending, or a general impression of the scene.
+- Match meaning, not just wording. A discovery may be described in different words or occur in a different paragraph from the summary's phrasing.
+- Distinguish these separate claims: a fact was not established in the scene; a fact was established in the scene but omitted from the proposed summary; and a fact remains unresolved at scene end. Never claim that the scene does not mention something when the scene explicitly describes or discusses it.
+- Check whether an important unresolved problem or danger from the before-state disappears from the new summary without being resolved on the page. A shift in focus or a scene ending is not evidence that an unresolved problem has been resolved.
+- Preserve uncertainty. Do not turn a projection, estimate, hypothesis, suspicious reading, possible timing match, or unverified clue into a confirmed fact or causal link.
 - Do not state that a plan, intention, or requested inspection has already occurred unless the accepted prose shows it happened.
 - Do not invent a cause, event, diagnosis, discovery, location, or character knowledge.
-- The summary should carry forward the main plot and meaningful stakes, not every detail of the scene. Do not flag minor omissions or demand a full scene recap.
+- The summary should carry forward the main plot and meaningful stakes, not every detail of the scene. Do not flag minor omissions or demand a full scene recap. Include a finding about an omitted clue or diagnostic thread only if it is genuinely absent from the proposed summary and materially affects the main crisis, available choices, risks, or next investigation.
 - Do not flag a difference merely because the wording changed. Judge meaning.
 - Report only material concerns in a string field that actually exists in the proposed partial update. For the current main-plot summary, use field "current_situation".
 - Do not rewrite the state yourself and do not add a pass/fail gate. Findings are advisory for author review.
