@@ -9,27 +9,34 @@ from typing import Any
 from builder.state_manager import extract_json_object
 
 
-STATE_PROPOSAL_REVIEW_SYSTEM_PROMPT = """You are an independent reviewer of proposed story-state changes for a fiction novel.
+STATE_PROPOSAL_REVIEW_SYSTEM_PROMPT = """You are a careful, deliberately conservative reviewer of proposed story-state changes for a fiction novel. Prefer no finding over a weak or merely debatable finding.
 
 Return JSON only:
-{"findings":[{"field":"current_situation","title":"short concern","message":"plain-English explanation","edit_request":"smallest safe correction request"}]}
+{"findings":[{"field":"current_situation","title":"short material concern","message":"plain-English explanation","edit_request":"smallest safe correction request","scene_evidence":"exact short quote from the accepted scene supporting the concern","summary_evidence":"exact short quote from the proposed summary showing related existing coverage, or empty string if none exists"}]}
 
-If the proposal is supported and preserves the important ongoing story situation, return {"findings":[]}.
+If the proposal preserves the important ongoing story situation and does not materially distort the accepted scene, return {"findings":[]}.
 
-Review the proposed change against the before-state, the entire accepted scene from beginning to end, and the author's guidance. The saved state is a fallible memory aid; the accepted prose is evidence of what actually happened.
-- For each possible omission, inspect the full scene, including dialogue and actions in the middle. Do not decide that a discovery, clue, ongoing task, or responsibility is absent based only on the opening, ending, or a general impression of the scene.
+Review the proposed change against the before-state, the entire accepted scene from beginning to end, and the author's guidance. The before-state is a fallible baseline, not a checklist of details that must all be copied into every new summary. The accepted prose is evidence of what happened and what the latest plan now is.
+
+- For every possible omission, inspect the full accepted scene, including dialogue and actions in the middle. Do not decide that a discovery, clue, ongoing task, or responsibility is absent based only on the opening, ending, or a general impression.
 - Match meaning, not just wording. A discovery may be described in different words or occur in a different paragraph from the summary's phrasing.
-- Distinguish these separate claims: a fact was not established in the scene; a fact was established in the scene but omitted from the proposed summary; and a fact remains unresolved at scene end. Never claim that the scene does not mention something when the scene explicitly describes or discusses it.
-- Check whether an important unresolved problem or danger from the before-state disappears from the new summary without being resolved on the page. A shift in focus or a scene ending is not evidence that an unresolved problem has been resolved.
+- Distinguish these separate questions: what happened in the scene; what the proposed summary preserves; and what remains unresolved at scene end. Never claim that the scene does not mention something when the scene explicitly describes or discusses it.
+- The proposed main-plot summary is intentionally concise, not a transcript or a character-by-character activity log. Do not demand that it repeat every contributor's name, every intermediate discovery, every log identifier, every diagnostic step, or each previous scene's active task.
+- A newer decision or plan in the accepted scene may replace or supersede a prior instruction, investigation, or near-term objective. Do not flag an old instruction as missing merely because the new summary reflects the newer decision. Carry an earlier task forward only when the scene leaves it active and it materially changes the next scene's choices, risks, or action.
+- Raise a finding about omitted information only when the detail is both genuinely missing or materially underrepresented in the proposed summary AND important to the continuing main crisis, deadline, available choices, risks, or next investigation. Ask whether leaving it out would likely cause the next scene to repeat events, contradict the accepted ending, lose an essential deadline or decision, or wrongly close an unresolved question. If not, do not flag it.
+- A summary may preserve the essential result of several related observations without listing each character's contribution or the exact evidence trail. Do not treat less detail as an error when the central development and its uncertainty are represented.
+- Do not require the summary to preserve a detail merely because it appeared in the before-state. Check whether the accepted scene changes, advances, or supersedes it. Do not resurrect an earlier plan when a newer decision is now controlling.
+- Check whether an important unresolved danger or deadline from the before-state disappears without being resolved or superseded on the page. A shift in focus alone does not resolve an open danger, but a new concrete decision may change the active plan.
 - Preserve uncertainty. Do not turn a projection, estimate, hypothesis, suspicious reading, possible timing match, or unverified clue into a confirmed fact or causal link.
 - Do not state that a plan, intention, or requested inspection has already occurred unless the accepted prose shows it happened.
 - Do not invent a cause, event, diagnosis, discovery, location, or character knowledge.
-- The summary should carry forward the main plot and meaningful stakes, not every detail of the scene. Do not flag minor omissions or demand a full scene recap. Include a finding about an omitted clue or diagnostic thread only if it is genuinely absent from the proposed summary and materially affects the main crisis, available choices, risks, or next investigation.
-- Do not flag a difference merely because the wording changed. Judge meaning.
+- Do not flag a difference merely because wording changed. Judge the whole meaning of the new summary in context, including what has been superseded.
+- Every finding MUST include a concise, exact, verbatim excerpt in "scene_evidence" that supports the claimed event or concern. Do not paraphrase or invent this quote. If you cannot quote the accepted scene exactly, do not emit the finding.
+- If the proposed summary contains related wording, include its exact excerpt in "summary_evidence". Use an empty string only when the summary genuinely has no related wording. Do not claim information is missing if the quoted summary already preserves its essential meaning.
+- The evidence fields are internal grounding for the review. Keep quotes short and exact, without ellipses. Findings with missing, paraphrased, or unsupported evidence will be discarded.
 - Report only material concerns in a string field that actually exists in the proposed partial update. For the current main-plot summary, use field "current_situation".
 - Do not rewrite the state yourself and do not add a pass/fail gate. Findings are advisory for author review.
-- Never claim a value is incorrect merely because a detail is absent from a short summary unless that detail is materially important to the continuing plot.
-- Return no more than five distinct findings. Avoid duplicate findings about the same underlying concern.
+- Return no more than three distinct findings. Avoid duplicate findings about the same underlying concern.
 - Every finding needs a short title, a useful plain-English explanation, and a specific minimal correction request. Do not include suggested JSON or raw code.
 """
 
@@ -129,12 +136,28 @@ def build_state_proposal_review_prompt(
         + "\n\nPreserve uncertainty explicitly. Review the proposed changes now. Return {\"findings\":[]} if there is no material problem. "
         + "Each finding's field must be one of these paths: "
         + ", ".join(patch_fields)
-        + ". The finding is advice, not an instruction to change the state. JSON only."
+        + ". Each finding must include an exact scene_evidence quote, and any nonempty summary_evidence must quote the proposed field exactly. The finding is advice, not an instruction to change the state. JSON only."
     )
 
 
-def parse_state_proposal_review(response: str, proposed_patch: dict[str, Any]) -> list[dict[str, Any]]:
-    """Parse findings defensively; an audit cannot target fields outside the proposed patch."""
+def _contains_normalized_quote(source: str, quote: str, *, min_chars: int = 12) -> bool:
+    """Require a substantial verbatim excerpt while tolerating line-wrap differences."""
+    source_text = re.sub(r"\\s+", " ", str(source or "")).strip()
+    quote_text = re.sub(r"\\s+", " ", str(quote or "")).strip()
+    return bool(
+        len(quote_text) >= min_chars
+        and len(quote_text) <= 600
+        and quote_text in source_text
+    )
+
+
+def parse_state_proposal_review(
+    response: str,
+    proposed_patch: dict[str, Any],
+    *,
+    accepted_scene: str = "",
+) -> list[dict[str, Any]]:
+    """Parse only material findings grounded in verbatim scene/summary evidence."""
     payload = extract_json_object(response, required_keys={"findings"})
     raw_findings = payload.get("findings")
     if not isinstance(raw_findings, list):
@@ -142,13 +165,21 @@ def parse_state_proposal_review(response: str, proposed_patch: dict[str, Any]) -
     allowed = iter_state_patch_text_fields(proposed_patch)
     findings: list[dict[str, Any]] = []
     seen: set[tuple[str, str]] = set()
-    for raw in raw_findings[:5]:
+    for raw in raw_findings[:3]:
         if not isinstance(raw, dict):
             continue
         field = str(raw.get("field", "") or "").strip()
         title = str(raw.get("title", "") or "").strip()
         message = str(raw.get("message", "") or "").strip()
+        scene_evidence = str(raw.get("scene_evidence", "") or "").strip()
+        summary_evidence = str(raw.get("summary_evidence", "") or "").strip()
         if field not in allowed or not title or not message:
+            continue
+        # The review is advisory: unsupported claims are suppressed rather than
+        # shown to the author as another correction task.
+        if not _contains_normalized_quote(accepted_scene, scene_evidence):
+            continue
+        if summary_evidence and not _contains_normalized_quote(allowed[field], summary_evidence):
             continue
         identity = (field.casefold(), message.casefold())
         if identity in seen:
@@ -160,6 +191,8 @@ def parse_state_proposal_review(response: str, proposed_patch: dict[str, Any]) -
             "title": title[:180],
             "message": message[:1200],
             "edit_request": str(raw.get("edit_request", "") or "").strip()[:700],
+            "scene_evidence": scene_evidence[:600],
+            "summary_evidence": summary_evidence[:600],
             "can_suggest": True,
         })
     return findings
@@ -217,7 +250,9 @@ def review_state_proposal(
                 status="completed",
                 duration_seconds=time.monotonic() - started,
             )
-        findings = parse_state_proposal_review(response, proposed_patch)
+        findings = parse_state_proposal_review(
+            response, proposed_patch, accepted_scene=accepted_scene
+        )
         if prompt_trace is not None:
             prompt_trace.record_event("state_proposal_review_finished", findings=findings, warning=None)
     except Exception as exc:
