@@ -142,8 +142,8 @@ def build_state_proposal_review_prompt(
 
 def _contains_normalized_quote(source: str, quote: str, *, min_chars: int = 12) -> bool:
     """Require a substantial verbatim excerpt while tolerating line-wrap differences."""
-    source_text = re.sub(r"\\s+", " ", str(source or "")).strip()
-    quote_text = re.sub(r"\\s+", " ", str(quote or "")).strip()
+    source_text = re.sub(r"\s+", " ", str(source or "")).strip()
+    quote_text = re.sub(r"\s+", " ", str(quote or "")).strip()
     return bool(
         len(quote_text) >= min_chars
         and len(quote_text) <= 600
