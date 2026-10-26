@@ -7,8 +7,8 @@ The author approved a focused fix after the Scene 8 state reviewer falsely claim
 - `27256e017cd618c973e8ddd75ed129d6927abe6d`: fixes whitespace normalization for the quote-evidence check.
 - `edde1467fbe6e796e1e988e28bd8827e216895f1` and `c8f3359ecb398cc5d866358c57fd1f1f97358d61`: add/update regression tests.
 - The reviewer must supply a substantial verbatim quote from accepted scene prose. If it supplies a nonempty excerpt from the proposed summary, that excerpt must also match the summary. Unsupported findings are discarded, not shown to the author as additional correction work.
-- Both GitHub Actions workflows passed on code/test commit `430ea2a738cb4492f091cc4171bc75e72b25550c`: **405 pytest tests and 60 subtests passed in 1.93s**, and **405 unittest tests passed** with compile/launcher checks. A nonfatal post-job cleanup warning mentions the repository's malformed submodule configuration. Local laptop tests remain pending.
-- No StoryBuilder code has been pulled or run locally after these commits. The author reported saving/syncing the novel; code changes are remote only. The accepted prose and saved novel state were not changed by these code commits.
+- Both GitHub Actions workflows passed on code/test commit `430ea2a738cb4492f091cc4171bc75e72b25550c`: **405 pytest tests and 60 subtests passed in 1.93s**, and **405 unittest tests passed** with compile/launcher checks. A nonfatal post-job cleanup warning mentions the repository's malformed submodule configuration. Local verification on 2026-10-26: 405 passed and 60 subtests passed in 0.77s using the project-local virtual environment.
+- The state-review changes are pulled locally and the automated suite passes in the project virtual environment. Behavior-level verification in the app remains pending. The author reported saving/syncing the novel; accepted prose and saved novel state were not changed by these code commits.
 
 ## Earlier state-summary and state-review prompt refinement (October 25, 2026)
 
@@ -102,8 +102,8 @@ A future separate app idea: an e-liquid flavor/recipe tracker with separate flav
 
 1. Next writing target is Chapter 1, Scene 9. Scenes 5–8 are accepted and the corresponding state updates were applied.
 2. The state-review liberalization commits are on remote branch `redesign/simplified-writing-workflow` only. Ensure no scene is being generated and no unaccepted draft is at risk before updating StoryBuilder.
-3. From `~/Documents/StoryBuilder`, run `python3 -m pytest -q` before pulling. Stop if any test fails. If green, run `git pull --ff-only` on the existing branch, then rerun `python3 -m pytest -q`. Restart the app only if both test runs pass. Use one terminal command at a time and never use `python`.
-4. Both GitHub Actions workflows passed for code/test commit `430ea2a738cb4492f091cc4171bc75e72b25550c` (405 pytest tests plus 60 subtests; 405 unittest tests and compile/launcher checks). Run the test suite locally after the safe pull.
+3. On the second computer, sync the latest branch, create `.venv` with `python3 -m venv .venv`, install both files with `.venv/bin/python -m pip install -r requirements.txt -r requirements-dev.txt`, then run `.venv/bin/python -m pytest -q`. The pinned pytest version is `9.1.1`. Use `python3`, never `python`, for system commands.
+4. Both GitHub Actions workflows passed for code/test commit `430ea2a738cb4492f091cc4171bc75e72b25550c` (405 pytest tests plus 60 subtests; 405 unittest tests and compile/launcher checks). Local verification has now passed: 405 tests and 60 subtests in 0.77s.
 5. On a future State Analysis run, check that weak findings are suppressed; core deadlines, meaningful choices, and unresolved causation are still preserved; and a new accepted decision may supersede a previous task without generating a false omission. Do not change accepted prose just to satisfy a reviewer.
 
 **Milestone note:** This code work changes only StoryBuilder's state-review prompt, evidence validation, and tests, plus these handoffs. CI is green on code/test commit `430ea2a738cb4492f091cc4171bc75e72b25550c`; the laptop suite still needs a local run after syncing. No novel package, accepted Scene 8 prose, or applied state update was changed by these code commits.

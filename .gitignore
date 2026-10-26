@@ -10,3 +10,7 @@ MyNovel/Manuscript/Compiled/
 
 # Novel data lives in separate repositories and is not part of StoryBuilder.
 MyNovel/
+
+# Local Python virtual environments
+.venv/
+venv/
