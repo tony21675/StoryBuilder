@@ -1394,11 +1394,6 @@ class StoryBuilderApp(tk.Tk):
             text="Scene Direction (read-only guidance)",
             font=("", 11, "bold"),
         ).pack(side="left")
-        ttk.Button(
-            direction_header,
-            text="Copy Scene Direction",
-            command=self._copy_writer_direction,
-        ).pack(side="right")
         self.writer_direction_text = tk.Text(
             content_frame,
             height=7,
@@ -1806,13 +1801,6 @@ class StoryBuilderApp(tk.Tk):
         )
         self.manuscript_restore_button.pack(side="left", padx=(6, 0))
 
-        self.manuscript_copy_state_button = ttk.Button(
-            recovery_actions,
-            text="Copy Reconstructed JSON",
-            command=self._copy_saved_state_candidate,
-        )
-        self.manuscript_copy_state_button.pack(side="left", padx=(6, 0))
-
         ttk.Label(
             right,
             text="Reconstructed State",
@@ -1829,7 +1817,6 @@ class StoryBuilderApp(tk.Tk):
 
         self.manuscript_analyze_button.configure(state="disabled")
         self.manuscript_restore_button.configure(state="disabled")
-        self.manuscript_copy_state_button.configure(state="disabled")
 
     def _refresh_writer_models(self):
         if not hasattr(self, "writer_model_combo"):
@@ -3062,26 +3049,6 @@ class StoryBuilderApp(tk.Tk):
         if update_status:
             self.writer_status.configure(text="Scene direction refreshed from the current state and active plan.")
 
-    def _copy_writer_direction(self):
-        """Copy the complete read-only Scene Direction for sharing or review."""
-        widget = self.__dict__.get("writer_direction_text")
-        if widget is None:
-            return
-        value = widget.get("1.0", "end-1c").strip()
-        if not value:
-            self.writer_status.configure(text="There is no Scene Direction to copy yet.")
-            return
-        try:
-            self.clipboard_clear()
-            self.clipboard_append(value)
-            self.update_idletasks()
-        except tk.TclError:
-            self.writer_status.configure(text="Could not copy Scene Direction to the clipboard.")
-            return
-        self.writer_status.configure(
-            text="Scene Direction copied. Paste it into chat with Ctrl+V."
-        )
-
     def _writer_system_prompt(self, files):
         base = """You are the novelist for an ongoing work of fiction. Write a compelling, natural scene, not a checklist.
 
@@ -3693,7 +3660,6 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
                 "Read-only diagnostic. Close this window to return to StoryBuilder. "
                 "No scene prose was generated."
             ),
-            copy_label="Copy Full Preview",
         )
 
     def _clear_previous_generated_scene_display(self, preserve_draft=False):
@@ -4199,9 +4165,8 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
                 summary=(
                     "The generated scene remains an unaccepted draft. Its automated completion/"
                     "continuity check failed, was skipped, or could not verify the scene. "
-                    "Copy the full report below when reporting this problem."
+                    "Select the report below with Ctrl+A and copy it with Ctrl+C when reporting this problem."
                 ),
-                copy_label="Copy Full Check Report",
             )
 
 
@@ -4487,8 +4452,38 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         window.geometry("780x690")
         window.minsize(640, 520)
         window.protocol("WM_DELETE_WINDOW", self._skip_validator_review_finding)
-        outer = ttk.Frame(window, padding=12)
-        outer.pack(fill="both", expand=True)
+        pages = ttk.Notebook(window)
+        pages.pack(fill="both", expand=True)
+        outer = ttk.Frame(pages, padding=12)
+        pages.add(outer, text="Review Finding")
+
+        # Keep review modal while making the complete prose available in a
+        # regular read-only field, so Ctrl+A/Ctrl+C work without another button.
+        draft_text = None
+        if not state_mode:
+            draft_page = ttk.Frame(pages, padding=12)
+            pages.add(draft_page, text="Full Scene Draft")
+            ttk.Label(
+                draft_page,
+                text="Read-only complete draft. Use Ctrl+A, then Ctrl+C to copy it.",
+            ).pack(anchor="w", pady=(0, 8))
+            draft_frame = ttk.Frame(draft_page)
+            draft_frame.pack(fill="both", expand=True)
+            draft_scrollbar = ttk.Scrollbar(draft_frame, orient="vertical")
+            draft_text = tk.Text(
+                draft_frame,
+                wrap="word",
+                yscrollcommand=draft_scrollbar.set,
+                padx=8,
+                pady=8,
+                takefocus=True,
+            )
+            draft_scrollbar.configure(command=draft_text.yview)
+            draft_text.pack(side="left", fill="both", expand=True)
+            draft_scrollbar.pack(side="right", fill="y")
+            draft_text.insert("1.0", source or "(No scene draft is available.)")
+            draft_text.configure(state="disabled")
+            self._add_context_menu(draft_text)
 
         reviewed = len(state.get("applied", [])) + len(state.get("dismissed", [])) + len(state.get("skipped", []))
         ttk.Label(
@@ -4505,6 +4500,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         concern.pack(fill="x", pady=(0, 7))
         concern.insert("1.0", str(finding.get("message", "")))
         concern.configure(state="disabled")
+        self._add_context_menu(concern)
 
         ttk.Label(
             outer,
@@ -4520,6 +4516,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
                 "or rewrite the surrounding scene."
             )
         request_box.insert("1.0", request)
+        self._add_context_menu(request_box)
 
         ttk.Label(
             outer,
@@ -4531,6 +4528,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         if state_mode and source:
             target_box.insert("1.0", source)
         target_box.configure(state="disabled")
+        self._add_context_menu(target_box)
 
         ttk.Label(
             outer,
@@ -4541,6 +4539,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             outer, height=7, wrap="word", undo=True, exportselection=False
         )
         replacement_box.pack(fill="both", expand=True, pady=(3, 7))
+        self._add_context_menu(replacement_box)
 
         status = ttk.Label(outer, text="Preparing a focused suggestion..." if finding.get("can_suggest", True) else "No automatic suggestion was prepared for this unverified finding. You may request one, dismiss it, or skip it.", wraplength=730, justify="left")
         status.pack(anchor="w", pady=(0, 7))
@@ -4562,14 +4561,6 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             command=self._skip_validator_review_finding,
         )
         skip_button.pack(side="left", padx=(6, 0))
-        copy_draft_button = None
-        if not state_mode:
-            copy_draft_button = ttk.Button(
-                button_row,
-                text="Copy Draft Prose",
-                command=self._copy_validator_review_scene_draft,
-            )
-            copy_draft_button.pack(side="left", padx=(6, 0))
         retry_button = ttk.Button(
             button_row, text="Generate suggestion",
             command=self._regenerate_validator_review_suggestion,
@@ -4581,6 +4572,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             "window": window,
             "finding": finding,
             "source": source,
+            "draft_text": draft_text,
             "request_box": request_box,
             "target_box": target_box,
             "replacement_box": replacement_box,
@@ -4588,7 +4580,6 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             "apply_button": apply_button,
             "dismiss_button": dismiss_button,
             "skip_button": skip_button,
-            "copy_draft_button": copy_draft_button,
             "retry_button": retry_button,
             "suggesting": False,
             "patch": None,
@@ -5194,7 +5185,6 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
                     "completion/continuity check did not finish successfully. You can regenerate "
                     "the scene, but this version will not be added to the manuscript."
                 ),
-                copy_label="Copy Full Check Report",
             )
             return
         if not self.package or not self.generated_scene.strip():
@@ -7625,27 +7615,6 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
                 text="Writing notes reviewed. No new recurring craft lesson was strong enough to add."
             )
 
-    def _copy_proposed_state(self):
-        if not hasattr(self, "writer_state_preview"):
-            return
-
-        value = self.writer_state_preview.get("1.0", "end-1c").strip()
-        if not value:
-            return
-
-        try:
-            self.clipboard_clear()
-            self.clipboard_append(value)
-            self.update_idletasks()
-            if hasattr(self, "writer_copy_state_button"):
-                self.writer_copy_state_button.configure(text="Copied ✓")
-                self.after(
-                    1200,
-                    lambda: self.writer_copy_state_button.configure(text="Copy JSON")
-                )
-        except tk.TclError:
-            pass
-
     def _selected_manuscript_scene(self):
         if self.package is None or self.package.path is None:
             return None
@@ -7702,7 +7671,6 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
 
             self.manuscript_analyze_button.configure(state="disabled")
             self.manuscript_restore_button.configure(state="disabled")
-            self.manuscript_copy_state_button.configure(state="disabled")
             self.manuscript_recovery_status.configure(
                 text=f"Analyzing {path.name}..."
             )
@@ -7803,10 +7771,6 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             self.manuscript_restore_button.configure(
                 state="normal" if candidate_matches_selection and self.package else "disabled"
             )
-        if hasattr(self, "manuscript_copy_state_button"):
-            self.manuscript_copy_state_button.configure(
-                state="normal" if has_candidate else "disabled"
-            )
 
     def _restore_saved_state_candidate(self):
         if self.package is None or not isinstance(self.saved_state_candidate, dict):
@@ -7844,28 +7808,6 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             text="Reconstructed state restored and saved to current_state.json."
         )
         self._update_saved_state_buttons()
-
-    def _copy_saved_state_candidate(self):
-        if not isinstance(self.saved_state_candidate, dict):
-            return
-        try:
-            value = json.dumps(
-                self.saved_state_candidate,
-                indent=2,
-                ensure_ascii=False,
-            )
-            self.clipboard_clear()
-            self.clipboard_append(value)
-            self.update_idletasks()
-            self.manuscript_copy_state_button.configure(text="Copied ✓")
-            self.after(
-                1200,
-                lambda: self.manuscript_copy_state_button.configure(
-                    text="Copy Reconstructed JSON"
-                ),
-            )
-        except tk.TclError:
-            pass
 
     def _manuscript_target_chapter(self) -> int:
         selected = self._selected_manuscript_scene()
@@ -8171,26 +8113,13 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         scrollbar.pack(side="right", fill="y")
         report_text.insert("1.0", report or "No review report was returned.")
         report_text.configure(state="disabled")
+        self._add_context_menu(report_text)
 
         status = ttk.Label(outer, text="The accepted manuscript remains unchanged.")
         status.pack(anchor="w", pady=(6, 0))
 
-        def copy_report():
-            try:
-                dialog.clipboard_clear()
-                dialog.clipboard_append(report or "")
-                dialog.update_idletasks()
-                status.configure(text="Full report copied to the clipboard.")
-            except tk.TclError as exc:
-                status.configure(text=f"Clipboard copy failed: {exc}")
-
         buttons = ttk.Frame(outer)
         buttons.pack(fill="x", pady=(8, 0))
-        ttk.Button(
-            buttons,
-            text="Copy Full Report",
-            command=copy_report,
-        ).pack(side="left")
         ttk.Button(
             buttons,
             text="Close",
@@ -8317,7 +8246,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
                 "The novel was saved locally, but GitHub sync failed.\n\n" + str(exc),
                 summary=(
                     "The novel was saved locally, but GitHub synchronization did not complete. "
-                    "Review or copy the full error details below."
+                    "Review the full error details below. Use Ctrl+A to select all text and Ctrl+C to copy it."
                 ),
             )
     def _close_and_sync_app(self):
@@ -8369,7 +8298,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
                     + str(exc),
                     summary=(
                         "The app could not sync safely, so StoryBuilder remains open. "
-                        "No novel save or novel sync was attempted. Use Copy Full Error to review the details."
+                        "No novel save or novel sync was attempted. The error details below can be copied with Ctrl+A, then Ctrl+C."
                     ),
                 )
                 self._closing = False
@@ -8861,28 +8790,6 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             if visible:
                 return visible
         return str(getattr(self, "generated_scene", "") or "").strip()
-
-    def _copy_validator_review_scene_draft(self) -> None:
-        """Copy the full current Writer draft without closing the review popup."""
-        value = self._writer_editor_prose()
-        dialog_state = getattr(self, "validator_review_dialog_state", None)
-        status = dialog_state.get("status") if isinstance(dialog_state, dict) else None
-        if not value:
-            if status is not None:
-                status.configure(text="There is no draft prose to copy yet.")
-            return
-        try:
-            # Use the main window clipboard so the text remains available after
-            # the temporary validator popup is closed.
-            self.clipboard_clear()
-            self.clipboard_append(value)
-            self.update_idletasks()
-        except tk.TclError:
-            if status is not None:
-                status.configure(text="Could not copy the draft prose to the clipboard.")
-            return
-        if status is not None:
-            status.configure(text="Full draft prose copied. Paste it into chat with Ctrl+V.")
 
     def _confirm_discard_unaccepted_writer_text(self) -> bool:
         """Confirm that temporary, unaccepted Writer text may be discarded."""
@@ -10977,7 +10884,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
     def _find_entry_widgets(root):
         entries = []
         for child in root.winfo_children():
-            if isinstance(child, ttk.Entry):
+            if isinstance(child, (tk.Entry, tk.Spinbox, ttk.Entry, ttk.Combobox, ttk.Spinbox)):
                 entries.append(child)
             entries.extend(StoryBuilderApp._find_entry_widgets(child))
         return entries
@@ -11177,15 +11084,16 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         widget.bind("<Button-3>", show_menu, add="+")
         widget.bind("<Control-x>", lambda _event: (cut(), "break")[1], add="+")
         widget.bind("<Control-c>", lambda _event: (copy(), "break")[1], add="+")
+        widget.bind("<Control-C>", lambda _event: (copy(), "break")[1], add="+")
         widget.bind("<Control-v>", lambda _event: (paste(), "break")[1], add="+")
         widget.bind("<Control-a>", lambda _event: (select_all(), "break")[1], add="+")
+        widget.bind("<Control-A>", lambda _event: (select_all(), "break")[1], add="+")
 
     def _show_copyable_error(
         self,
         title: str,
         message: str,
         summary: str = "The operation failed. No state changes were applied.",
-        copy_label: str = "Copy Full Error",
     ) -> None:
         """Show a scrollable error whose full text can be selected or copied."""
         dialog = tk.Toplevel(self)
@@ -11229,11 +11137,6 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         action_row.pack(fill="x", pady=(0, 8))
         ttk.Button(
             action_row,
-            text=copy_label,
-            command=lambda: copy_text(str(message)),
-        ).pack(side="left")
-        ttk.Button(
-            action_row,
             text="Close",
             command=dialog.destroy,
         ).pack(side="right")
@@ -11258,7 +11161,7 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         # selection and copy work reliably in both local desktop and RustDesk.
         error_text.configure(state="normal", takefocus=True)
 
-        status = ttk.Label(outer, text="Select text to copy, or copy the full error.")
+        status = ttk.Label(outer, text="Use Ctrl+A to select all text, then Ctrl+C to copy it.")
         status.pack(anchor="w", pady=(6, 0))
 
         def copy_selection(_event=None):

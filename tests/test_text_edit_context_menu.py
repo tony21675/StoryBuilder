@@ -1,4 +1,6 @@
+import inspect
 import unittest
+from pathlib import Path
 
 import storybuilder as storybuilder_app
 
@@ -39,3 +41,36 @@ class SelectedWidgetTextTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TextSelectionCoverageTests(unittest.TestCase):
+    def test_popup_text_fields_get_shared_keyboard_selection_support(self):
+        for method in (
+            storybuilder_app.StoryBuilderApp._show_next_validator_finding,
+            storybuilder_app.StoryBuilderApp._show_scene_flow_report,
+        ):
+            with self.subTest(method=method.__name__):
+                self.assertIn("self._add_context_menu", inspect.getsource(method))
+
+        review_source = inspect.getsource(storybuilder_app.StoryBuilderApp._show_next_validator_finding)
+        self.assertIn('text="Full Scene Draft"', review_source)
+        self.assertIn('self._add_context_menu(draft_text)', review_source)
+
+    def test_entry_discovery_includes_comboboxes_and_spinboxes(self):
+        source = inspect.getsource(storybuilder_app.StoryBuilderApp._find_entry_widgets)
+        self.assertIn("ttk.Combobox", source)
+        self.assertIn("ttk.Spinbox", source)
+        self.assertIn("tk.Entry", source)
+
+    def test_visible_copy_only_buttons_are_removed(self):
+        source = Path(storybuilder_app.__file__).read_text(encoding="utf-8")
+        for label in (
+            "Copy Scene Direction",
+            "Copy Reconstructed JSON",
+            "Copy Draft Prose",
+            "Copy Full Report",
+            "Copy Full Error",
+        ):
+            with self.subTest(label=label):
+                self.assertNotIn(f'text="{label}"', source)
+        self.assertNotIn("copy_label=", source)

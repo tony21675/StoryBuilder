@@ -58,6 +58,7 @@ class FakePopupWidget:
         self.bindings = {}
         self.options = {}
         self.commands = []
+        self.insertions = []
         FakePopupWidget.instances.append(self)
 
     def pack(self, *args, **kwargs):
@@ -70,7 +71,7 @@ class FakePopupWidget:
         self.bindings[sequence] = callback
 
     def insert(self, *args, **kwargs):
-        pass
+        self.insertions.append(args)
 
     def tag_add(self, *args, **kwargs):
         pass
@@ -399,9 +400,8 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             summary=(
                 "The generated scene remains an unaccepted draft. Its automated completion/"
                 "continuity check failed, was skipped, or could not verify the scene. "
-                "Copy the full report below when reporting this problem."
+                "Select the report below with Ctrl+A and copy it with Ctrl+C when reporting this problem."
             ),
-            copy_label="Copy Full Check Report",
         )
         self.assertEqual(app.generated_scene, draft)
         self.assertIn("Scene completion check failed", app.writer_status.options["text"])
@@ -551,7 +551,6 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
                 "completion/continuity check did not finish successfully. You can regenerate "
                 "the scene, but this version will not be added to the manuscript."
             ),
-            copy_label="Copy Full Check Report",
         )
         self.assertNotIn("package", app.__dict__)
 
@@ -728,7 +727,7 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             self.assertEqual(args[0], "Close & Sync App")
             self.assertIn("simulated app branch conflict", args[1])
             self.assertIn("novel was not saved or synced", args[1])
-            self.assertIn("Copy Full Error", kwargs["summary"])
+            self.assertIn("Ctrl+A", kwargs["summary"])
             self.assertFalse(app._closing)
             app.writer_engine.stop.assert_not_called()
             app.destroy.assert_not_called()
@@ -803,15 +802,13 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         self.assertNotIn("def save_draft", manuscript_source)
         self.assertIn("def _confirm_discard_unaccepted_writer_text", source)
 
-    def test_scene_validator_popup_can_copy_full_draft_while_remaining_open(self):
+    def test_scene_validator_popup_exposes_full_draft_in_selectable_tab(self):
         FakePopupWidget.instances.clear()
         app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
         draft = "First paragraph.\n\nSecond paragraph with the complete scene ending."
         app.generated_scene = "stale fallback draft"
         app.writer_output_text = FakeText(draft)
-        app.clipboard_clear = Mock()
-        app.clipboard_append = Mock()
-        app.update_idletasks = Mock()
+        app._add_context_menu = Mock()
         app.validator_review_in_progress = True
         app.validator_review_state = {
             "queue": [{
@@ -835,31 +832,27 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
             patch.object(storybuilder_app.ttk, "Frame", FakePopupWidget),
             patch.object(storybuilder_app.ttk, "Label", FakePopupWidget),
             patch.object(storybuilder_app.ttk, "Button", FakePopupWidget),
+            patch.object(storybuilder_app.ttk, "Notebook", FakePopupWidget),
+            patch.object(storybuilder_app.ttk, "Scrollbar", FakePopupWidget),
         ):
             storybuilder_app.StoryBuilderApp._show_next_validator_finding(app)
 
-        copy_button = next(
-            widget for widget in FakePopupWidget.instances
-            if widget.kwargs.get("text") == "Copy Draft Prose"
-        )
-        copy_button.kwargs["command"]()
-
-        app.clipboard_clear.assert_called_once_with()
-        app.clipboard_append.assert_called_once_with(draft)
-        app.update_idletasks.assert_called_once_with()
+        draft_text = app.validator_review_dialog_state["draft_text"]
         self.assertIn(
-            "Full draft prose copied",
-            app.validator_review_dialog_state["status"].options["text"],
+            draft,
+            "\n".join(str(part) for insertion in draft_text.insertions for part in insertion),
         )
+        app._add_context_menu.assert_any_call(draft_text)
+        self.assertFalse(any(
+            widget.kwargs.get("text") == "Copy Draft Prose"
+            for widget in FakePopupWidget.instances
+        ))
         self.assertIsNotNone(app.validator_review_dialog)
         self.assertTrue(app.validator_review_in_progress)
 
-    def test_copyable_error_dialog_uses_main_window_clipboard(self):
+    def test_error_dialog_text_is_selectable_without_a_copy_button(self):
         FakePopupWidget.instances.clear()
         app = storybuilder_app.StoryBuilderApp.__new__(storybuilder_app.StoryBuilderApp)
-        app.clipboard_clear = Mock()
-        app.clipboard_append = Mock()
-        app.update_idletasks = Mock()
 
         with (
             patch.object(storybuilder_app.tk, "Toplevel", FakePopupWidget),
@@ -876,30 +869,16 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
                 "The novel repository is not on a normal branch.",
             )
 
-        copy_button = next(
-            widget
-            for widget in FakePopupWidget.instances
-            if widget.kwargs.get("text") == "Copy Full Error"
-        )
         text_widget = next(
-            widget
-            for widget in FakePopupWidget.instances
-            if widget.kwargs.get("wrap") == "word"
+            widget for widget in FakePopupWidget.instances
+            if widget.kwargs.get("width") == 76
         )
-        self.assertLess(
-            FakePopupWidget.instances.index(copy_button),
-            FakePopupWidget.instances.index(text_widget),
-            "Copy Full Error must be created above the expandable diagnostic text.",
-        )
-        copy_button.kwargs["command"]()
+        self.assertIn("<Control-a>", text_widget.bindings)
+        self.assertIn("<Control-c>", text_widget.bindings)
+        labels = [widget.kwargs.get("text") for widget in FakePopupWidget.instances]
+        self.assertNotIn("Copy Full Error", labels)
 
-        app.clipboard_clear.assert_called_once_with()
-        app.clipboard_append.assert_called_once_with(
-            "The novel repository is not on a normal branch."
-        )
-        app.update_idletasks.assert_called_once_with()
-
-    def test_unaccepted_writer_text_is_discarded_without_creating_a_draft_file(self):
+    def test_unaccepted_writer_text_is_discarded_without_creating_a_draft_file    def test_unaccepted_writer_text_is_discarded_without_creating_a_draft_file(self):
         with tempfile.TemporaryDirectory() as tmp:
             app = self.make_app(tmp, "Temporary scene text", context=(2, 1))
             app.writer_status = FakeButton()

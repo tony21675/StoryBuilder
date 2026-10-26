@@ -1,8 +1,8 @@
 # StoryBuilder handoff — October 25, 2026
 
-## October 25, 2026: scene-validator clipboard access
+## October 25, 2026: text selection and copy controls
 
-The author asked for a way to copy the full draft while the sequential scene-validator popup is open. Added **Copy Draft Prose** for scene review only; it copies the complete current Writer text using the main application clipboard, leaves the popup open, and makes no prose or saved-state changes. Proposed-state review remains unchanged. Regression coverage is present and both GitHub CI workflows passed on commit `60e7117c25d0dbd9231adceb3930cfbdf1060453`; live UI verification remains pending.
+The author prefers Ctrl+A/Ctrl+C over dedicated copy buttons. Main-screen fields have shared text-selection/context-menu support, but dynamically created popup fields were missed. Remove visible copy-only buttons. In scene-review mode, show the full prose in a **Full Scene Draft** tab using a read-only text field and keep the existing modal review controls. Reviewer concern/request/target/replacement fields, error reports, and scene-flow reports should all support keyboard selection. No copy-button clutter. CI and live UI verification are pending.
 
 ## October 25, 2026: proposed state review
 
@@ -79,8 +79,8 @@ A future separate app idea: an e-liquid flavor/recipe tracker with separate flav
 ## Immediate next steps
 
 1. The author-controlled review workflow is committed to the existing `redesign/simplified-writing-workflow` branch. GitHub CI passed on code/test commit `24cb281`: 388 pytest cases plus 53 subtests, and 388 unittest cases with compile checks. No local test run has been done for this revision.
-2. On October 25, the author confirmed the work laptop already had the previous StoryBuilder checkpoint and generated a fresh unaccepted draft there. The new Copy Draft Prose change is a later remote update and has not yet been verified live.
-3. When the author is ready to sync the new code, close StoryBuilder, check branch/status first, and sync the existing branch one command at a time. Then test the scene popup's Copy Draft Prose button and verify the copied text is the complete current draft. Do not accept Scene 5 or apply a state update during that test.
+2. On October 25, the author confirmed the work laptop already had the previous StoryBuilder checkpoint and generated a fresh unaccepted draft there. The new keyboard selection change is a later remote update and has not yet been verified live.
+3. When the author is ready to sync the new code, close StoryBuilder, check branch/status first, and sync the existing branch one command at a time. Then test the scene popup's keyboard selection button and verify the copied text is the complete current draft. Do not accept Scene 5 or apply a state update during that test.
 4. Watch for these actual behaviors: one complete scene only; one finding per popup; suggested local replacement may be edited before applying; dismiss leaves prose untouched; skip preserves the option to revisit; applying a fix affects only the exact target span and triggers re-review; after review the author can accept without an advisory-only finding blocking the button.
 5. Keep hardware/model fit in mind: Surface Laptop 3 with 8 GB RAM, documented as running Gemma 4 E4B GGUF through llama.cpp. Revisit stronger review/science models only after the new workflow has been tested in the app. No separate science reviewer has been implemented.
 
@@ -92,4 +92,4 @@ The author approved removing the separate “Changes to Review”, “Quick Edit
 
 The current normal Writer State Analysis deliberately asks for a concise main-plot summary. The new state audit reviews that generated summary against the before-state, accepted scene, and author guidance. Other values the author edits through the plain-language correction fields remain part of the unified proposal and are checked by the existing state-shape validation before application. Audit failures are reported plainly and leave the proposal for author judgment.
 
-**Latest GitHub verification:** both CI workflows passed on code/test commit `60e7117c25d0dbd9231adceb3930cfbdf1060453`: the Python test suite and StoryBuilder compile/unit-test workflow. The Copy Draft Prose regression test passed in these workflows. The work laptop has run the scene-validator review queue, but the newer Copy Draft Prose button still awaits sync/live verification; the plain-English state-review screen also needs an in-app check. No novel prose or saved state was changed by the code update.
+**Latest GitHub verification:** both CI workflows passed on code/test commit `60e7117c25d0dbd9231adceb3930cfbdf1060453`: the Python test suite and StoryBuilder compile/unit-test workflow. The keyboard selection regression test passed in these workflows. The work laptop has run the scene-validator review queue, but the newer keyboard selection button still awaits sync/live verification; the plain-English state-review screen also needs an in-app check. No novel prose or saved state was changed by the code update.
