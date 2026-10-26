@@ -878,7 +878,7 @@ class SceneWorkflowSafetyTests(unittest.TestCase):
         labels = [widget.kwargs.get("text") for widget in FakePopupWidget.instances]
         self.assertNotIn("Copy Full Error", labels)
 
-    def test_unaccepted_writer_text_is_discarded_without_creating_a_draft_file    def test_unaccepted_writer_text_is_discarded_without_creating_a_draft_file(self):
+    def test_unaccepted_writer_text_is_discarded_without_creating_a_draft_file(self):
         with tempfile.TemporaryDirectory() as tmp:
             app = self.make_app(tmp, "Temporary scene text", context=(2, 1))
             app.writer_status = FakeButton()

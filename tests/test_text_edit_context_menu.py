@@ -39,10 +39,6 @@ class SelectedWidgetTextTests(unittest.TestCase):
         self.assertEqual(entry.get_calls, [()])
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class TextSelectionCoverageTests(unittest.TestCase):
     def test_popup_text_fields_get_shared_keyboard_selection_support(self):
         for method in (
@@ -74,3 +70,7 @@ class TextSelectionCoverageTests(unittest.TestCase):
             with self.subTest(label=label):
                 self.assertNotIn(f'text="{label}"', source)
         self.assertNotIn("copy_label=", source)
+
+
+if __name__ == "__main__":
+    unittest.main()
