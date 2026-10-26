@@ -11248,9 +11248,11 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             except tk.TclError:
                 return "break"
             try:
-                dialog.clipboard_clear()
-                dialog.clipboard_append(selected)
-                dialog.update_idletasks()
+                # Clipboard ownership must outlive this transient dialog so
+                # the author can answer the prompt, close it, and paste elsewhere.
+                self.clipboard_clear()
+                self.clipboard_append(selected)
+                self.update_idletasks()
             except tk.TclError:
                 pass
             return "break"

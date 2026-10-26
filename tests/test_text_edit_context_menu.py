@@ -58,6 +58,14 @@ class TextSelectionCoverageTests(unittest.TestCase):
         self.assertIn("ttk.Spinbox", source)
         self.assertIn("tk.Entry", source)
 
+    def test_confirmation_dialog_clipboard_survives_dialog_close(self):
+        source = inspect.getsource(storybuilder_app.StoryBuilderApp._ask_yes_no)
+        self.assertIn("self.clipboard_clear()", source)
+        self.assertIn("self.clipboard_append(selected)", source)
+        self.assertIn("self.update_idletasks()", source)
+        self.assertNotIn("dialog.clipboard_clear()", source)
+        self.assertNotIn("dialog.clipboard_append(selected)", source)
+
     def test_visible_copy_only_buttons_are_removed(self):
         source = Path(storybuilder_app.__file__).read_text(encoding="utf-8")
         for label in (
