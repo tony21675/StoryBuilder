@@ -1,6 +1,16 @@
-# StoryBuilder current checkpoint — October 25, 2026
+# StoryBuilder current checkpoint — October 26, 2026
 
-## State-summary and state-review prompt refinement (October 25, 2026)
+## State-review liberalization and evidence grounding (October 26, 2026)
+
+The author approved a focused fix after Scene 8 state review incorrectly claimed the accepted scene covered only the initial alarm and tried to preserve a previous diagnostic instruction despite the new bypass decision. Changes are on the existing `redesign/simplified-writing-workflow` branch:
+- `1be39969b9bff0ba5c2449378ef7c8f080e36f40`: rewrites the state-review prompt to prefer no finding over weak/debatable findings; treat before-state as a baseline, not a checklist; allow new scene decisions to supersede old instructions; and judge omissions by material impact on the next scene.
+- `27256e017cd618c973e8ddd75ed129d6927abe6d`: fixes whitespace normalization used by the evidence quote checker.
+- `edde1467fbe6e796e1e988e28bd8827e216895f1` and `c8f3359ecb398cc5d866358c57fd1f1f97358d61`: regression tests and test-helper cleanup.
+- Findings now require a substantial verbatim quote from the accepted scene. Any nonempty quote from the proposed summary must also match that summary. Findings without supported quotes are discarded rather than presented to the author as correction chores.
+- Tests and latest GitHub Actions status have **not been verified** as of this handoff. The combined-status endpoint returned no status entries; do not claim the suite or CI passed until a completed run confirms it.
+- No novel files, accepted prose, or saved story state were changed by these code commits. The author has saved/synced the novel. StoryBuilder code is remote until safely pulled to the laptop.
+
+## Earlier state-summary and state-review prompt refinement (October 25, 2026)
 
 Approved code changes are committed on `redesign/simplified-writing-workflow`:
 - `3907a214d40527fe244c1946c8785936e1341a64`: main-plot summaries should retain concise, materially important unresolved evidence and active diagnostic responsibilities without becoming a clue ledger. Predictions, observations, hypotheses, and causal links must remain distinct.
@@ -61,16 +71,16 @@ Both GitHub workflows passed on code/test commit `60e7117c25d0dbd9231adceb3930cf
 
 - Canonical local novel: `~/Documents/MyNovel/The-Long-Way-Home`; GitHub `tony21675/The-Long-Way-Home`.
 - Premise: six-person Mars research outpost, all under 30, four women/two men, all single. Life-support crisis is accidental, no sabotage and no one to blame. Survival until Earth rescue or repair is the goal.
-- Chapter 1, Scenes 5 and 6 are accepted. The proposed state updates for both scenes were reviewed and applied by the author.
+- Chapter 1, Scenes 5 through 8 are accepted. The author applied the state updates through Scene 8. The next writing target is Chapter 1, Scene 9.
 - Current story position: next scene is Chapter 1, Scene 7. The crew has chosen a phased response to the rising scrubber temperature, prioritizing controlled isolation/manual-bypass checks while preserving temperature monitoring, crew-vitals monitoring, and external communications watch.
-- Current main-plot state: Daniel's model warns that, if the accelerating temperature rise continues, thermal runaway may become probable within three hours. Morgan reports an intermittent metallic vibration inside the scrubber housing; Ryan notes a possible timing match with older maintenance cycles but cannot confirm a link. Zoe suspects the patterned communications are an echo from a faulty localized sensor relay. Whether the sensor fault, vibration, and overheating share a cause remains unknown. Do not turn the three-hour projection into a confirmed countdown or infer a causal connection.
+- Current accepted main-plot state after Scene 8: the thermal-runaway risk is projected within ninety minutes as manifold temperature spikes. The crew has chosen to prepare a risky partial bypass of Sensor Node Delta-9 to attempt stabilization; Daniel warns that bypassing a primary sensor without knowing its role may cause cascading failures. The accepted prose has not yet shown the bypass being executed or the hardware repaired. Keep future diagnostics, sensor fault, vibration, and causation grounded in what later scenes establish.
 - No novel files were changed by the StoryBuilder prompt update.
 
 ## Next step
 
-The next in-app writing task is Chapter 1, Scene 7; Scenes 5 and 6 and their state updates are already accepted. The new summary/reviewer prompt changes are remote only until pulled onto the laptop.
-When ready to sync, make sure no scene is being generated and no draft is at risk. From `~/Documents/StoryBuilder`, follow the standing rule: run `python3 -m pytest -q` before pulling; if green, run `git pull --ff-only` on the existing branch; then rerun `python3 -m pytest -q`. Do not proceed after a failure. Restart StoryBuilder only after both test runs pass. Use one terminal command at a time; never use `python`.
-After syncing, test a later state summary to see whether it keeps material unresolved evidence and whether the state reviewer avoids false omissions. Do not edit accepted prose or story state just to satisfy a validator.
+The next in-app writing task is Chapter 1, Scene 9. Scenes 5–8 are accepted and the author applied their state updates.
+The state-review liberalization is remote only until pulled onto the laptop. When ready, ensure no scene is being generated and no unaccepted draft is at risk. From `~/Documents/StoryBuilder`, run `python3 -m pytest -q` before pulling. If green, run `git pull --ff-only` on the existing branch, then rerun `python3 -m pytest -q`. Stop if either test run fails. Restart StoryBuilder only after both runs pass. Use one terminal command at a time; never use `python`.
+On a future State Analysis run, check whether weak findings are suppressed, whether real deadline/uncertainty changes remain visible, and whether the reviewer accepts new decisions that supersede prior instructions. This remains an in-app test; no local run has verified the new code yet. Do not edit accepted prose just to satisfy a validator.
 
 ## Standing writing principle
 
@@ -82,4 +92,4 @@ The author approved one plain-English state-review screen, replacing the three p
 
 The state proposal audit compares the generated main-plot summary with the before-state, accepted scene, and author guidance. Findings are advisory. Audit errors show a plain-language warning rather than pretending an audit result exists. A state text correction may replace a whole single proposed text field or one unique passage inside it; it cannot edit another field. The old full-state JSON remains only as an unshown internal buffer for existing validation/merge plumbing.
 
-**Latest code verification:** Both GitHub CI workflows passed on `bd07e474685c4fc32b9c89150584d9490d61ef8a`: 400 pytest tests plus 60 subtests, and 400 unittest tests with compile checks. Live GUI verification remains pending. The work laptop must not sync or restart while an unaccepted draft is being written. The plain-English state-review screen also needs an in-app check. No novel package, accepted prose, or saved story state was changed by this code update.
+**Earlier verified code checkpoint:** Both GitHub CI workflows passed on `bd07e474685c4fc32b9c89150584d9490d61ef8a`: 400 pytest tests plus 60 subtests, and 400 unittest tests with compile checks. The Scene 8 state-review liberalization commits listed at the top of this handoff have not yet been verified by CI or on the laptop. The plain-English state-review screen needs another in-app check after a safe pull. No novel package or accepted prose was changed by the code update; the author independently saved the accepted novel state.
