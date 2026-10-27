@@ -258,6 +258,106 @@ Preserve all established character roles and knowledge boundaries; do not invent
             scene_contract.SEMANTIC_RECHECK_SYSTEM_PROMPT,
         )
 
+    def test_hard_stop_cannot_pass_when_check_only_echoes_the_endpoint_description(self):
+        idea = (
+            "The group reviews the remaining concerns.\\n\\n"
+            "**End / HARD STOP:** End when the group agrees to postpone the decision until morning."
+        )
+        prose = (
+            "They listed the remaining objections.\\n\\n"
+            "Elena asked everyone to keep monitoring the situation while they considered options."
+        )
+        contract = {
+            "author_idea": idea,
+            "hard_stop": "The group agrees to postpone the decision until morning.",
+        }
+        raw_result = {
+            "pass": True,
+            "missed_beats": [],
+            "violations": [],
+            "notes": "",
+            "checks": [{
+                "requirement": "The group reaches the planned decision point.",
+                "status": "met",
+                "evidence": "The group agrees to postpone the decision until morning.",
+            }],
+        }
+        with patch.object(scene_contract, "_run_validator", return_value=raw_result) as run_validator:
+            result = SceneContract.validate_with_engine(
+                FakeEngine(), contract, {"chapter": 1, "scene": 1}, prose
+            )
+
+        self.assertFalse(result["pass"])
+        self.assertIn(
+            "The specified scene endpoint was not independently verified",
+            " ".join(result["missed_beats"]),
+        )
+        self.assertIn("exactly HARD_STOP", run_validator.call_args.args[1])
+
+    def test_hard_stop_needs_exact_evidence_from_the_ending_passage(self):
+        idea = (
+            "The group reviews the remaining concerns.\\n\\n"
+            "**End / HARD STOP:** End when the group agrees to postpone the decision until morning."
+        )
+        contract = {
+            "author_idea": idea,
+            "hard_stop": "The group agrees to postpone the decision until morning.",
+        }
+        raw_result = {
+            "pass": True,
+            "missed_beats": [],
+            "violations": [],
+            "notes": "",
+            "checks": [{
+                "requirement": "HARD_STOP",
+                "status": "met",
+                "evidence": "They agreed to delay the decision until tomorrow.",
+            }],
+        }
+        with patch.object(scene_contract, "_run_validator", return_value=raw_result):
+            result = SceneContract.validate_with_engine(
+                FakeEngine(), contract, {"chapter": 1, "scene": 1},
+                "They reviewed the concerns.\\n\\nThe meeting ended without a decision.",
+            )
+
+        self.assertFalse(result["pass"])
+        self.assertIn(
+            "specified scene endpoint is not shown as reached",
+            " ".join(result["missed_beats"]).casefold(),
+        )
+
+    def test_hard_stop_passes_when_ending_event_is_quoted_from_prose(self):
+        idea = (
+            "The group reviews the remaining concerns.\\n\\n"
+            "**End / HARD STOP:** End when the group agrees to postpone the decision until morning."
+        )
+        prose = (
+            "They listed the remaining objections.\\n\\n"
+            "The group agreed to postpone the decision until morning. They began gathering their papers."
+        )
+        contract = {
+            "author_idea": idea,
+            "hard_stop": "The group agrees to postpone the decision until morning.",
+        }
+        raw_result = {
+            "pass": True,
+            "missed_beats": [],
+            "violations": [],
+            "notes": "",
+            "checks": [{
+                "requirement": "HARD_STOP",
+                "status": "met",
+                "evidence": "The group agreed to postpone the decision until morning.",
+            }],
+        }
+        with patch.object(scene_contract, "_run_validator", return_value=raw_result):
+            result = SceneContract.validate_with_engine(
+                FakeEngine(), contract, {"chapter": 1, "scene": 1}, prose
+            )
+
+        self.assertTrue(result["pass"], result)
+        self.assertEqual(result["missed_beats"], [])
+
     def test_validator_string_false_is_treated_as_false(self):
         prose = "A valid creative scene."
         validator_result = {
