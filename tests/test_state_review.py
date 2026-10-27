@@ -8,6 +8,7 @@ from builder.state_review import (
     get_state_patch_value,
     iter_state_patch_text_fields,
     parse_state_proposal_review,
+    review_state_proposal,
     set_state_patch_value,
 )
 
@@ -132,6 +133,36 @@ class StateProposalReviewTests(unittest.TestCase):
             accepted_scene="Elena decides to prepare a partial bypass after weighing the risk.",
         )
         self.assertEqual(findings, [])
+
+    def test_review_warns_when_all_model_findings_fail_evidence_validation(self):
+        response = (
+            '{"findings":[{"field":"current_situation","title":"Unsupported finding",'
+            '"message":"The scene omits an action that is actually present.",'
+            '"edit_request":"Change the summary.",'
+            '"scene_evidence":"The accepted scene only covers the initial alarm.",'
+            '"summary_evidence":""}]}'
+        )
+
+        class StubEngine:
+            def reset_context(self, model_path, system_prompt):
+                pass
+
+            def generate(self, prompt, timeout):
+                return response
+
+        findings, warning = review_state_proposal(
+            engine=StubEngine(),
+            model_path="test-model.gguf",
+            original_system_prompt="writer prompt",
+            current_state=self.before,
+            proposed_patch=self.patch,
+            accepted_scene=self.scene,
+        )
+        self.assertEqual(findings, [])
+        self.assertIsNotNone(warning)
+        self.assertIn("returned findings", warning)
+        self.assertIn("evidence validation", warning)
+        self.assertIn("No review popup was shown", warning)
 
     def test_empty_findings_means_no_semantic_concerns(self):
         self.assertEqual(

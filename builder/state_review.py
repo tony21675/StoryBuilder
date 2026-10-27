@@ -250,11 +250,22 @@ def review_state_proposal(
                 status="completed",
                 duration_seconds=time.monotonic() - started,
             )
+        response_payload = extract_json_object(response, required_keys={"findings"})
+        raw_findings = response_payload.get("findings")
         findings = parse_state_proposal_review(
             response, proposed_patch, accepted_scene=accepted_scene
         )
+        if isinstance(raw_findings, list) and raw_findings and not findings:
+            warning = (
+                "The state reviewer returned findings, but none passed evidence validation. "
+                "No review popup was shown; no state changes were saved."
+            )
         if prompt_trace is not None:
-            prompt_trace.record_event("state_proposal_review_finished", findings=findings, warning=None)
+            prompt_trace.record_event(
+                "state_proposal_review_finished",
+                findings=findings,
+                warning=warning,
+            )
     except Exception as exc:
         warning = str(exc).strip() or exc.__class__.__name__
         if prompt_trace is not None:
