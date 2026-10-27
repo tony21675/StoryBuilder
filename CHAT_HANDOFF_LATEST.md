@@ -1,8 +1,12 @@
 # StoryBuilder current checkpoint — October 27, 2026
 
-## Current checkpoint: preserve the Scene 11 draft, then sync the verified fixes
+## Current checkpoint: app closed; focused-revision fix committed
 
-The old PID snapshot (StoryBuilder 1516205 / `llama-cli` 1519167) is stale; do not signal those PIDs without checking the current process list. The latest Scene 11 trace completed at 2026-10-27 22:43:59 UTC. Scene 11 is generated for author review but not accepted. Preserve any draft held only in the UI before restarting the app. Then launch `./start.sh` from `~/Documents/StoryBuilder` to pull the commits below. Sync is fast-forward-only.
+StoryBuilder was closed with Ctrl+C. Scene 11 was never accepted. The latest prose was pasted into this conversation, but do not assume it was saved to the novel package; the closed app's in-memory draft may be gone. Do not repeat revision attempts yet.
+
+The focused-revision change is committed on `redesign/simplified-writing-workflow`: `fa012c2` gives the revision model the complete current scene as explicitly read-only context while keeping the selected passage as the only editable span; `5454cc3` adds regression tests that check the full-scene context reaches the initial and retry prompts. This changes the focused-edit workflow only. It adds no global Writer instructions or novel-specific rules. GitHub Actions still need to be checked for these commits; the tests have not been run on the user's laptop.
+
+When ready later tonight, launch `./start.sh` from `~/Documents/StoryBuilder` to sync the branch (fast-forward only). After sync, a useful local check is `python3 -m pytest tests/test_focused_revision.py -q`, followed by the full suite if convenient. Focused revisions are not yet included in prompt-trace capture, which remains a separate observability gap.
 
 
 ## Speed changes committed to GitHub
@@ -36,7 +40,7 @@ A single shared WriterEngine is used, but `reset_context()` starts a new `llama-
 
 ### Scene 11 trace finding
 
-The trace for Chapter 1 Scene 11 completed at 2026-10-27 22:43:59 UTC without runtime error. It starts the Delta-9 isolation and includes Morgan's physical warning and Daniel's recalculation, but ends while the crew is redirected to deal with a suspected local leak. It does **not** reach the explicit endpoint: pressure readings stabilizing just above the collapse threshold while underlying instability remains exposed. Both reviews incorrectly passed. Scene 11 remains a draft for author review, not accepted. Prefer a focused continuation/revision over a full rewrite.
+The trace for Chapter 1 Scene 11 completed at 2026-10-27 22:43:59 UTC without runtime error. It starts the Delta-9 isolation and includes Morgan's physical warning and Daniel's recalculation, but ends while the crew is redirected to deal with a suspected local leak. It does **not** reach the explicit endpoint: pressure readings stabilizing just above the collapse threshold while underlying instability remains exposed. Both reviews incorrectly passed. Scene 11 remains unaccepted. Stop the repeated revision loop until the new focused-revision code has been synced and tested. It now receives the complete current scene as read-only context, but this does not guarantee that the model will dramatize every requested event; check the next result once and stop if it still only summarizes the outcome.
 
 The new generic endpoint check activates only when the author explicitly marks an End/Hard Stop, requiring one `HARD_STOP` status and a supporting quote from the ending prose. No story-specific rules or Writer prose instructions were added.
 
