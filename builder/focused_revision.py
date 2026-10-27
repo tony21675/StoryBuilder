@@ -230,6 +230,7 @@ def build_selected_revision_prompt(
     selected_text: str,
     request: str,
     *,
+    full_scene: str = "",
     before_context: str = "",
     after_context: str = "",
     correction: str | None = None,
@@ -246,10 +247,21 @@ def build_selected_revision_prompt(
         "AUTHOR'S REQUEST:",
         request,
         "",
+        *(
+            [
+                "FULL SCENE FOR READ-ONLY CONTEXT. It is supplied to help preserve continuity and make the local edit fit the scene. Do not rewrite or return this full-scene text; only the separately selected passage may be replaced:",
+                "<<< FULL SCENE START (READ ONLY) >>>",
+                str(full_scene),
+                "<<< FULL SCENE END (READ ONLY) >>>",
+                "",
+            ]
+            if str(full_scene or "").strip()
+            else []
+        ),
         "READ-ONLY CONTEXT BEFORE THE SELECTED PASSAGE:",
         str(before_context or ""),
         "",
-        "EXACT SELECTED PASSAGE TO REPLACE:",
+        "EXACT SELECTED PASSAGE TO REPLACE (THE ONLY EDITABLE SPAN):",
         "<SELECTED_PASSAGE>",
         selected_text,
         "</SELECTED_PASSAGE>",
@@ -258,7 +270,7 @@ def build_selected_revision_prompt(
         str(after_context or ""),
         "",
         'Return one JSON object only: {"replacement_text": "the revised selected passage"}',
-        "Return replacement_text only. Do not quote or identify a target. Do not revise the before/after context. Preserve the selected passage's intended role in the scene. Do not return Markdown fences or commentary.",
+        "Return replacement_text only. Do not quote or identify a target. Do not revise the full-scene context or before/after context. Preserve the selected passage's role and continuity in the full scene. Do not return the whole scene, Markdown fences, or commentary. The application will replace only the selected span and preserve everything else.",
     ]
     if correction:
         parts.extend([
@@ -353,6 +365,7 @@ def revise_selected_passage(
                 build_selected_revision_prompt(
                     selected_text,
                     request,
+                    full_scene=original,
                     before_context=before_context,
                     after_context=after_context,
                     correction=correction,
