@@ -1,11 +1,13 @@
 import json
 import os
 import tempfile
+from types import SimpleNamespace
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
 from builder.story_package import StoryPackage
+from storybuilder import StoryBuilderApp
 from builder.writer_notes import (
     WRITER_NOTES_CONTEXT_TOKENS,
     WRITER_NOTES_MAX_TOKENS,
@@ -28,6 +30,14 @@ class WriterNotesTests(unittest.TestCase):
     def test_automatic_writing_notes_are_disabled_by_default(self):
         with patch.dict(os.environ, {}, clear=True):
             self.assertFalse(writer_notes_auto_update_enabled())
+
+    def test_initial_writer_notes_scan_is_skipped_without_opt_in(self):
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertFalse(
+                StoryBuilderApp._start_initial_writer_notes_scan(
+                    SimpleNamespace(), "unused-model.gguf"
+                )
+            )
 
     def test_automatic_writing_notes_require_explicit_opt_in(self):
         for value in ("1", "true", "yes", "on", " TRUE "):
