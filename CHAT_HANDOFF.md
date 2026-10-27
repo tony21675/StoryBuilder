@@ -1,8 +1,12 @@
 # StoryBuilder handoff — October 27, 2026
 
-## Immediate action: preserve the Scene 11 draft before syncing
+## Current checkpoint: app closed; focused-revision fix committed
 
-The old PID snapshot (StoryBuilder 1516205 / `llama-cli` 1519167) is stale; do not signal those PIDs without checking the current process list. The latest Scene 11 trace completed at 2026-10-27 22:43:59 UTC. Scene 11 was generated for author review but has not been accepted. Preserve the current draft before closing/restarting the desktop app; a restart may lose an unaccepted draft held only in the UI. Once the draft has been safely preserved or the author is ready to regenerate/review it, launch `./start.sh` from `~/Documents/StoryBuilder` to pull this branch's latest commits. The sync script uses fast-forward-only behavior.
+StoryBuilder was closed with Ctrl+C. Scene 11 was never accepted. The latest prose was pasted into this conversation, but do not assume it was saved to the novel package; the closed app's in-memory draft may be gone. Do not repeat revision attempts yet.
+
+The focused-revision change is committed on `redesign/simplified-writing-workflow`: `fa012c2` gives the revision model the complete current scene as explicitly read-only context while keeping the selected passage as the only editable span; `5454cc3` adds regression tests that check the full-scene context reaches the initial and retry prompts. This changes the focused-edit workflow only. It adds no global Writer instructions or novel-specific rules. GitHub Actions still need to be checked for these commits; the tests have not been run on the user's laptop.
+
+When ready later tonight, launch `./start.sh` from `~/Documents/StoryBuilder` to sync the branch (fast-forward only). After sync, a useful local check is `python3 -m pytest tests/test_focused_revision.py -q`, followed by the full suite if convenient. Focused revisions are not yet included in prompt-trace capture, which remains a separate observability gap.
 
 
 Latest remote code commits on `redesign/simplified-writing-workflow`:
@@ -44,7 +48,7 @@ Preserve the uncertainty in Daniel's line, “maybe another hour before that sli
 
 Private trace: `tony21675/StoryBuilder-Traces` `prompt_trace.json`, Chapter 1 Scene 11, trace window 22:25:31–22:43:59 UTC. It completed without runtime error. Recorded model work was about 11m36s writing, 2m26s semantic validation, and 4m01s continuity/scope audit.
 
-The prose starts the Delta-9 isolation, includes Morgan's physical warning and Daniel's recalculation, then ends while the crew is redirected to deal with a suspected local leak. It does **not** reach the author-marked endpoint: pressure readings stabilizing just above the collapse threshold while underlying instability is exposed. Both automated reviews incorrectly passed because the endpoint was treated as satisfied without showing it in the scene. The draft is still for author review, not accepted. A focused continuation or revision is preferable to a complete rewrite.
+The prose starts the Delta-9 isolation, includes Morgan's physical warning and Daniel's recalculation, then ends while the crew is redirected to deal with a suspected local leak. It does **not** reach the author-marked endpoint: pressure readings stabilizing just above the collapse threshold while underlying instability is exposed. Both automated reviews incorrectly passed because the endpoint was treated as satisfied without showing it in the scene. Scene 11 remains unaccepted. Stop the repeated revision loop until the new focused-revision code has been synced and tested. It now receives the complete current scene as read-only context, but this does not guarantee that the model will dramatize every requested event; check the next result once and stop if it still only summarizes the outcome.
 
 The new generic `HARD_STOP` check should catch this class of false pass on future runs after the laptop syncs/restarts. It activates only when the author explicitly marked an ending in the Scene Idea. It adds no novel-specific facts or prose-writing rules.
 
