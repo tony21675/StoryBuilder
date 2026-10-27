@@ -260,11 +260,11 @@ Preserve all established character roles and knowledge boundaries; do not invent
 
     def test_hard_stop_cannot_pass_when_check_only_echoes_the_endpoint_description(self):
         idea = (
-            "The group reviews the remaining concerns.\\n\\n"
+            "The group reviews the remaining concerns.\n\n"
             "**End / HARD STOP:** End when the group agrees to postpone the decision until morning."
         )
         prose = (
-            "They listed the remaining objections.\\n\\n"
+            "They listed the remaining objections.\n\n"
             "Elena asked everyone to keep monitoring the situation while they considered options."
         )
         contract = {
@@ -296,7 +296,7 @@ Preserve all established character roles and knowledge boundaries; do not invent
 
     def test_hard_stop_needs_exact_evidence_from_the_ending_passage(self):
         idea = (
-            "The group reviews the remaining concerns.\\n\\n"
+            "The group reviews the remaining concerns.\n\n"
             "**End / HARD STOP:** End when the group agrees to postpone the decision until morning."
         )
         contract = {
@@ -317,7 +317,7 @@ Preserve all established character roles and knowledge boundaries; do not invent
         with patch.object(scene_contract, "_run_validator", return_value=raw_result):
             result = SceneContract.validate_with_engine(
                 FakeEngine(), contract, {"chapter": 1, "scene": 1},
-                "They reviewed the concerns.\\n\\nThe meeting ended without a decision.",
+                "They reviewed the concerns.\n\nThe meeting ended without a decision.",
             )
 
         self.assertFalse(result["pass"])
@@ -328,11 +328,11 @@ Preserve all established character roles and knowledge boundaries; do not invent
 
     def test_hard_stop_passes_when_ending_event_is_quoted_from_prose(self):
         idea = (
-            "The group reviews the remaining concerns.\\n\\n"
+            "The group reviews the remaining concerns.\n\n"
             "**End / HARD STOP:** End when the group agrees to postpone the decision until morning."
         )
         prose = (
-            "They listed the remaining objections.\\n\\n"
+            "They listed the remaining objections.\n\n"
             "The group agreed to postpone the decision until morning. They began gathering their papers."
         )
         contract = {
@@ -1826,6 +1826,11 @@ The story's location is Tony's home."""
                     "requirement": "Tony thanks Chloe.",
                     "status": "met",
                     "evidence": 'Tony thanked Chloe and called her "my little wildcat".',
+                },
+                {
+                    "requirement": "HARD_STOP",
+                    "status": "met",
+                    "evidence": "the rough framework started to take shape.",
                 }
             ],
             "notes": "",
@@ -1840,7 +1845,7 @@ The story's location is Tony's home."""
                 FakeEngine(),
                 contract,
                 {"chapter": 3, "scene": 3, "scene_cast": ["Tony", "Chloe"]},
-                'Tony thanked Chloe and called her "my little wildcat".',
+                'Tony thanked Chloe and called her "my little wildcat". The group began identifying broad, tentative roles, and the rough framework started to take shape.',
             )
         self.assertTrue(result["pass"], result)
         self.assertIn('"boundaries"', captured["prompt"])
