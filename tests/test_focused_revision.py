@@ -178,11 +178,19 @@ class SelectedPassageRevisionTests(unittest.TestCase):
         prompt = build_selected_revision_prompt(
             "Tony swallowed hard.\n\nChloe held him.",
             "Make Chloe steady Tony.",
+            full_scene=(
+                "The scene opens with Tony close to losing control. "
+                "Tony swallowed hard.\n\nChloe held him. "
+                "The room fell quiet after her response."
+            ),
             before_context="He was close to losing control.",
             after_context="The room fell quiet.",
         )
         self.assertIn('"replacement_text"', prompt)
+        self.assertIn("FULL SCENE FOR READ-ONLY CONTEXT", prompt)
+        self.assertIn("The scene opens with Tony close to losing control.", prompt)
         self.assertIn("Tony swallowed hard.\n\nChloe held him.", prompt)
+        self.assertIn("THE ONLY EDITABLE SPAN", prompt)
         self.assertIn("The room fell quiet.", prompt)
         self.assertNotIn('"target_text"', prompt)
 
@@ -267,8 +275,11 @@ class SelectedPassageRevisionTests(unittest.TestCase):
         self.assertIsNone(restore_error)
         self.assertEqual(len(engine.reset_calls), 3)
         self.assertEqual(engine.reset_calls[-1], ("/models/test.gguf", "normal writer prompt"))
+        self.assertIn("FULL SCENE FOR READ-ONLY CONTEXT", engine.prompts[0])
+        self.assertIn("Before. Selected passage. After.", engine.prompts[0])
         self.assertNotIn("misguided quoted target", engine.prompts[1])
         self.assertIn("Only replacement_text is permitted", engine.prompts[1])
+        self.assertIn("Before. Selected passage. After.", engine.prompts[1])
 
     def test_failed_attempts_return_error_without_mutating_original(self):
         class FakeEngine:
