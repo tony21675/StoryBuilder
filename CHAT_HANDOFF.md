@@ -1,18 +1,24 @@
 # StoryBuilder handoff — October 27, 2026
 
-## Immediate action: recover from the 30-minute writing-notes task
+## Immediate action: preserve the Scene 11 draft before syncing
 
-The live `ps` snapshot showed StoryBuilder PID 1516205 (48:42 elapsed) and `llama-cli` PID 1519167 (26:38 elapsed). Its system prompt identifies the task as the temporary writing-craft notebook review, not scene writing. Based on the preceding session handoff, the current run began after the accepted Scene 10 state update, so it is likely the post-accept review in the old local code. The displayed `-c 16384` and `--n-predict 4000` differ from the newer remote post-accept code's 6,144-token context, 350-token output cap, and 180-second timeout. The process arguments alone cannot prove which helper launched it. A separate initial startup seed scan also missed the default-off flag; commit `dcacdc5` fixes that second path. The accepted Scene 10/state update was already saved before this review. For the exact displayed PIDs, interrupt only the child with `kill -TERM 1519167`; the error-recovery path should skip the notes review and return to the normal Writer session. Recheck PIDs before signaling, and do not kill the StoryBuilder parent if recovering the current session. Then close/restart with `./start.sh` from `~/Documents/StoryBuilder` so `sync.sh start` pulls the fixes.
+The old PID snapshot (StoryBuilder 1516205 / `llama-cli` 1519167) is stale; do not signal those PIDs without checking the current process list. The latest Scene 11 trace completed at 2026-10-27 22:43:59 UTC. Scene 11 was generated for author review but has not been accepted. Preserve the current draft before closing/restarting the desktop app; a restart may lose an unaccepted draft held only in the UI. Once the draft has been safely preserved or the author is ready to regenerate/review it, launch `./start.sh` from `~/Documents/StoryBuilder` to pull this branch's latest commits. The sync script uses fast-forward-only behavior.
+
 
 Latest remote code commits on `redesign/simplified-writing-workflow`:
-- `45524e27550f05db21b4ea29785ba33e07bea156`: automatic writing-notes review now requires explicit opt-in with `STORYBUILDER_AUTO_WRITER_NOTES=1`; default is OFF.
-- `f2f06799bc4dc0199259ad54f515448d9eafa013`: optional notes review constrained to 6,144 context tokens, 350 output tokens, and a 180-second generation timeout.
-- `58f08f8444224ef2dda9efeac128707e903bfa45`: tests for opt-in/default-off and bounded settings.
-- `e54b77180d29190880cb0a30eedc5a449a86a1ce`: skip redundant restoration/reload of the Writer prompt after a successful **automatic** Scene Idea suggestion. Manual suggestions retain prior behavior.
-- `dcacdc590066bec7f1be65333a74db17709996be`: make the **initial startup seed scan** honor the same explicit opt-in flag. This was the missing path: the post-accept updater was gated, but Writer startup still launched the seed scan whenever the notebook was blank.
-- `d7b9b25fa7a707529bcd05d615c474b8b1701385`: add a regression test that startup skips the seed scan when the setting is off.
 
-GitHub Actions passed for the latest test commit `d7b9b25`: both **Python tests** and **StoryBuilder tests** completed successfully. The laptop still needs to sync the remote commits and rerun its local test suite after pulling. The earlier local checkpoint was **406 passed in 0.67s**, with 13 state-review tests passed; do not treat that older local run as verification of the newer changes.
+- `45524e27550f05db21b4ea29785ba33e07bea156`: make automatic writing-notes learning explicitly opt-in; default OFF.
+- `f2f06799bc4dc0199259ad54f515448d9eafa013`: bound the optional post-accept notes review to 6,144 context tokens, 350 output tokens, and a 180-second timeout.
+- `58f08f8444224ef2dda9efeac128707e903bfa45`: test the setting and limits.
+- `e54b77180d29190880cb0a30eedc5a449a86a1ce`: skip one redundant Writer restore after successful automatic Scene Idea suggestion.
+- `dcacdc590066bec7f1be65333a74db17709996be`: make the separate initial notebook seed scan honor the same default-off flag.
+- `d7b9b25fa7a707529bcd05d615c474b8b1701385`: test that startup skips the seed scan by default.
+- `eebf744a4308e30f28f6fb70f1e1431f045f90ca`: remove the duplicate Writer restoration after the continuity audit. The combined review now restores Writer once.
+- `dbc268ba563a20784b186630d9c737e8b3ee0525` and `eb43886aad4a104a848ee20c0fbf1faf79599e49`: add a generic endpoint-evidence check for author-marked End/Hard Stop sections. It requires one dedicated `HARD_STOP` check with exact supporting text from the ending passage. This affects validation only, not the Writer prose prompt, and does not promote stale model-generated endpoint summaries into mandatory stops.
+- `d55d5826ebba1f13afea443136109e869c381a49`: regression tests for endpoint false passes and duplicate Writer restoration.
+
+GitHub Actions passed on `d55d582`: both **Python tests** and **StoryBuilder tests** succeeded (414 tests plus 71 subtests in the Python run). These are remote results; sync the laptop and rerun its local test suite after pulling.
+
 
 ## What the speed fix changes (and doesn't)
 
@@ -24,7 +30,7 @@ The automatic Scene Idea path no longer reloads the previous Writer system promp
 
 **Remaining limitation:** Changing task-specific system prompts in the shared `WriterEngine` still calls `reset_context()`, which stops and restarts `llama-cli`. Several distinct tasks can therefore still reload the model. A larger persistent-server/per-request-prompt redesign would be needed to remove most of these reloads; don't attempt that untested architecture change mid-session.
 
-## Scene 10 and current novel continuity
+## The Long Way Home — Scene 10 accepted; Scene 11 draft needs its endpoint
 
 Local novel: `~/Documents/MyNovel/The-Long-Way-Home`; GitHub repo: `tony21675/The-Long-Way-Home`.
 
@@ -34,11 +40,25 @@ The accepted end of Scene 10 has Elena committing to a manual, controlled isolat
 
 Preserve the uncertainty in Daniel's line, “maybe another hour before that slight curve decides to become a cliff.” Do not state a definite remaining hour or claim the isolation succeeded prematurely. Two potentially over-definite details in Scene 10 (“critical leak” and elevated cortisol readings “through environmental monitoring”) were noted as cautions, but the author accepted the scene; do not reopen it or expand either into confirmed diagnosis/cause without evidence.
 
+## Scene 11 trace findings (October 27)
+
+Private trace: `tony21675/StoryBuilder-Traces` `prompt_trace.json`, Chapter 1 Scene 11, trace window 22:25:31–22:43:59 UTC. It completed without runtime error. Recorded model work was about 11m36s writing, 2m26s semantic validation, and 4m01s continuity/scope audit.
+
+The prose starts the Delta-9 isolation, includes Morgan's physical warning and Daniel's recalculation, then ends while the crew is redirected to deal with a suspected local leak. It does **not** reach the author-marked endpoint: pressure readings stabilizing just above the collapse threshold while underlying instability is exposed. Both automated reviews incorrectly passed because the endpoint was treated as satisfied without showing it in the scene. The draft is still for author review, not accepted. A focused continuation or revision is preferable to a complete rewrite.
+
+The new generic `HARD_STOP` check should catch this class of false pass on future runs after the laptop syncs/restarts. It activates only when the author explicitly marked an ending in the Scene Idea. It adds no novel-specific facts or prose-writing rules.
+
+After Scene 11 is accepted and its ending-state update applied, StoryBuilder should save, advance to Scene 12, refresh Writer direction, and invoke the next-Scene-Idea suggestion automatically. Verify that trigger in the next trace instead of manually requesting a duplicate suggestion.
+
 ## Verified State Analysis warning fix
+
+
 
 Earlier code commit `2c4d7778b5e8e1a656289cf44e6c394d918bf0b9` makes the state reviewer return a warning when the model produces findings but strict evidence validation rejects all of them. After accepting Scene 10, the live trace showed two rejected findings (Zoe's independent communications inquiry and Daniel's predictive modeling task). The trace recorded: “The state reviewer returned findings, but none passed evidence validation. No review popup was shown; no state changes were saved.” The author confirmed the warning appeared in the app's writer status line. This behavior is verified live: it's a status message, not a modal popup, and invalid findings still do not pass validation or get applied automatically.
 
 Latest private trace: https://github.com/tony21675/StoryBuilder-Traces/blob/main/prompt_trace.json (contains private story text; don't expose publicly).
+
+
 
 ## Repo and collaboration rules
 
