@@ -20,6 +20,8 @@ Latest remote code commits on `redesign/simplified-writing-workflow`:
 - `eebf744a4308e30f28f6fb70f1e1431f045f90ca`: remove the duplicate Writer restoration after the continuity audit. The combined review now restores Writer once.
 - `dbc268ba563a20784b186630d9c737e8b3ee0525` and `eb43886aad4a104a848ee20c0fbf1faf79599e49`: add a generic endpoint-evidence check for author-marked End/Hard Stop sections. It requires one dedicated `HARD_STOP` check with exact supporting text from the ending passage. This affects validation only, not the Writer prose prompt, and does not promote stale model-generated endpoint summaries into mandatory stops.
 - `d55d5826ebba1f13afea443136109e869c381a49`: regression tests for endpoint false passes and duplicate Writer restoration.
+- `fa012c2eb49974f4ad8ce788cee7ac87372c5025`: focused passage revisions now receive the complete current scene as read-only context; only the selected passage can be replaced.
+- `5454cc3bc7c1e43e4ac242468b6fb6557d3f95df`: regression tests verify that full-scene context is included in the initial and retry prompts.
 
 GitHub Actions passed on `d55d582`: both **Python tests** and **StoryBuilder tests** succeeded (414 tests plus 71 subtests in the Python run). These are remote results; sync the laptop and rerun its local test suite after pulling.
 
