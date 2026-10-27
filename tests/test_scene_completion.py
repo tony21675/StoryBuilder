@@ -11,6 +11,7 @@ from builder.scene_completion import (
     review_findings_match,
     completion_notice_is_success,
     generate_scene_with_completion_check,
+    review_scene_draft,
 )
 
 
@@ -133,6 +134,28 @@ class SceneCompletionTests(unittest.TestCase):
         self.assertIn("reported no issues", notice)
         self.assertEqual(len(self.engine.prompts), 1)
         self.assertEqual(self.engine.reset_calls, [(self.model, self.system_prompt)])
+
+    @patch("builder.scene_completion.SceneContract.validate_with_engine")
+    def test_combined_review_restores_writer_once_after_integrity_audit(self, validate):
+        validate.return_value = {"pass": True, "missed_beats": [], "violations": [], "notes": ""}
+        self.engine.responses = [json.dumps({"checks": self._audit_checks()})]
+
+        findings, notice = review_scene_draft(
+            engine=self.engine,
+            model_path=self.model,
+            writer_system_prompt=self.system_prompt,
+            prose="The group reviewed the situation.",
+            scene_context="The author's idea and supporting direction.",
+            contract={"author_idea": "The group reviews the situation."},
+            current_state=self.state,
+        )
+
+        self.assertEqual(findings, [])
+        self.assertIn("reported no issues", notice)
+        # One reset for the audit and one to restore the Writer. The audit
+        # helper must not also restore it independently inside this workflow.
+        self.assertEqual(len(self.engine.reset_calls), 2)
+        self.assertEqual(self.engine.reset_calls[-1], (self.model, self.system_prompt))
 
     @patch("builder.scene_completion._run_scene_integrity_audit", return_value=PASS_AUDIT)
     @patch("builder.scene_completion.SceneContract.validate_with_engine")
