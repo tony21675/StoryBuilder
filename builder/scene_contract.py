@@ -1278,6 +1278,13 @@ class SceneContract:
             else []
         )
         author_idea = str(semantic_contract.get("author_idea", "") or "").strip()
+        # Only enforce a separate endpoint evidence check when the author
+        # explicitly marked an ending. Model-generated legacy summaries can be
+        # stale and must not become new hard gates on their own.
+        authored_end = str(extract_authored_scene_sections(author_idea).get("end", "") or "").strip()
+        explicit_hard_stop = bool(
+            authored_end and str(semantic_contract.get("hard_stop", "") or "").strip()
+        )
         validation_state = _compact_validation_state(
             current_state, scene_cast, author_idea
         )
@@ -1318,7 +1325,7 @@ class SceneContract:
             + "Create a SHORT event-level checklist, usually 4–8 checks. Group related details; do not make micro-checks for each clause, adjective, person, object, or small action. Separate events only when their outcomes can be missing independently. "
             + "Judge each event against the entire scene, using meaning rather than keyword overlap. Fail only for a missing or materially changed event, its defining detail, an explicit boundary/request, or the scene endpoint; minor descriptive omissions alone do not fail. "
             + "For each event check, determine requirement and status from the meaning of the entire scene. A quote from COMPLETED SCENE only is optional diagnostic evidence. Never mark an event missing solely because a quote is difficult to reproduce. If absent or materially different, mark missing with empty evidence. "
-            + ("If a hard_stop is supplied, include exactly one check whose requirement is exactly HARD_STOP. Mark it met only if the endpoint outcome is depicted as having happened; for a met result, quote a short exact passage from the ending that demonstrates that outcome. Otherwise mark it missing. " if str(semantic_contract.get("hard_stop", "") or "").strip() else "")
+            + ("If the author explicitly marked an ending, include exactly one check whose requirement is exactly HARD_STOP. Mark it met only if the endpoint outcome is depicted as having happened; for a met result, quote a short exact passage from the ending that demonstrates that outcome. Otherwise mark it missing. " if explicit_hard_stop else "")
             + "If an author idea is present, return a concise non-empty event checklist; pass must be false if any event check is missing. Report material continuity or character-knowledge conflicts separately as violations. "
             + "Return JSON only in this shape: "
             + '{"pass": true, "missed_beats": [], "violations": [], "checks": [{"requirement": "", "status": "met", "evidence": ""}], "notes": ""}'
@@ -1428,7 +1435,7 @@ class SceneContract:
 
                 # Check an explicit endpoint separately from the general event checklist.
                 # A checklist can echo the plan as evidence without showing the result happened.
-                if requires_coverage and str(semantic_contract.get("hard_stop", "") or "").strip():
+                if requires_coverage and explicit_hard_stop:
                     endpoint_checks = [
                         item for item in normalized_checks
                         if str(item.get("requirement", "") or "").strip().casefold() == "hard_stop"
