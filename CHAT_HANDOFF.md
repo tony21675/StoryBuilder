@@ -1,5 +1,9 @@
 # StoryBuilder handoff — October 26, 2026
 
+## October 27, 2026: State-review transparency fix
+
+After a State Analysis trace returned three findings but the app showed no review popup, the author approved a narrow diagnostic fix. Commit `2c4d7778b5e8e1a656289cf44e6c394d918bf0b9` makes `review_state_proposal` report a warning when the model returns findings but all are discarded by existing validation. The warning is recorded in the trace and shown through the existing state-status message; strict evidence validation remains unchanged, and no state is automatically applied. A regression test was added. Both GitHub Actions checks passed. Live verification on the laptop remains pending; no novel prose or saved state was changed.
+
 ## State-review liberalization and evidence grounding (October 26, 2026)
 
 The author approved a focused fix after the Scene 8 state reviewer falsely claimed the accepted scene covered only the initial alarm and tried to carry a previous diagnostic instruction into a newer bypass decision. Code is committed on the existing `redesign/simplified-writing-workflow` branch:

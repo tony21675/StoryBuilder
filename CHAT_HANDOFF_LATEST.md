@@ -1,5 +1,9 @@
 # StoryBuilder current checkpoint — October 26, 2026
 
+## State-review transparency fix (October 27, 2026)
+
+The author approved a narrow fix after a State Analysis run produced three model findings but displayed no review popup. The strict evidence checks correctly discarded unsupported findings, but the app gave no explanation. Commit `2c4d7778b5e8e1a656289cf44e6c394d918bf0b9` updates `builder/state_review.py`: when the reviewer returns findings and every one is discarded, the review result now carries an explicit warning that no popup was shown and no state was saved. It also records that warning in the prompt trace. A regression test covers this case. Both GitHub Actions checks passed. **Live app verification is still pending.** No accepted prose or saved novel state was changed.
+
 ## State-review liberalization and evidence grounding (October 26, 2026)
 
 The author approved a focused fix after Scene 8 state review incorrectly claimed the accepted scene covered only the initial alarm and tried to preserve a previous diagnostic instruction despite the new bypass decision. Changes are on the existing `redesign/simplified-writing-workflow` branch:
