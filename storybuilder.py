@@ -29,8 +29,11 @@ from builder.new_novel_assistant import (
     render_new_novel_preview,
 )
 from builder.writer_notes import (
+    WRITER_NOTES_CONTEXT_TOKENS,
     WRITER_NOTES_FILENAME,
+    WRITER_NOTES_MAX_TOKENS,
     WRITER_NOTES_SYSTEM_PROMPT,
+    WRITER_NOTES_TIMEOUT_SECONDS,
     build_writer_notes_review_prompt,
     collect_recent_accepted_scenes,
     collect_initial_seed_scenes,
@@ -38,6 +41,7 @@ from builder.writer_notes import (
     normalize_writer_notes,
     parse_writer_notes_response,
     save_writer_notes,
+    writer_notes_auto_update_enabled,
 )
 from builder.scene_plan import load_scene_idea_from_plan
 from builder.scene_planner import (
@@ -7489,7 +7493,10 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
                     previous_chapter=completed_chapter,
                     previous_scene=completed_scene,
                 )
-            if completed_prose:
+            # This optional model-driven craft review is disabled by default.
+            # Applying a state update must never make the author wait on notebook
+            # housekeeping. Enable explicitly with STORYBUILDER_AUTO_WRITER_NOTES=1.
+            if completed_prose and writer_notes_auto_update_enabled():
                 self._start_writer_notes_learning(
                     completed_chapter,
                     completed_scene,
@@ -7545,13 +7552,25 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             engine = self.writer_engine
             was_running = False
             old_system_prompt = ""
+            note_runtime_env = {
+                key: os.environ.get(key)
+                for key in ("STORY_WRITER_CONTEXT", "STORY_WRITER_MAX_TOKENS")
+            }
             try:
                 with engine.lock:
                     was_running = engine.child is not None and engine.child.isalive()
                     old_system_prompt = str(engine.system_prompt or "")
                     try:
+                        # This is a tiny JSON-only housekeeping task, not a
+                        # scene-writing pass. Keep its context, output budget,
+                        # and runtime duration tightly bounded.
+                        os.environ["STORY_WRITER_CONTEXT"] = str(WRITER_NOTES_CONTEXT_TOKENS)
+                        os.environ["STORY_WRITER_MAX_TOKENS"] = str(WRITER_NOTES_MAX_TOKENS)
                         engine.reset_context(model, WRITER_NOTES_SYSTEM_PROMPT)
-                        response = engine.generate(review_prompt)
+                        response = engine.generate(
+                            review_prompt,
+                            timeout=WRITER_NOTES_TIMEOUT_SECONDS,
+                        )
                         suggestions = parse_writer_notes_response(response)
                         updated_notes, added_count = merge_writer_notes(
                             notes,
@@ -7561,6 +7580,14 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
                         )
                         save_writer_notes(package_path, updated_notes)
                     finally:
+                        # Restore launch settings before restoring the normal
+                        # Writer session, so its original context/output limits
+                        # are used rather than the tiny notebook-task limits.
+                        for key, value in note_runtime_env.items():
+                            if value is None:
+                                os.environ.pop(key, None)
+                            else:
+                                os.environ[key] = value
                         # Restore the writer session if it was already running.
                         # Next scene generation rebuilds the prompt from current
                         # notes and the current scene state in either case.
