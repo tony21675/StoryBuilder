@@ -1,11 +1,18 @@
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from builder.story_package import StoryPackage
 from builder.writer_notes import (
+    WRITER_NOTES_CONTEXT_TOKENS,
+    WRITER_NOTES_MAX_TOKENS,
+    WRITER_NOTES_TIMEOUT_SECONDS,
+    WRITER_NOTES_AUTO_UPDATE_ENV,
     WRITER_NOTES_FILENAME,
+    writer_notes_auto_update_enabled,
     build_writer_notes_review_prompt,
     collect_recent_accepted_scenes,
     collect_initial_seed_scenes,
@@ -18,6 +25,28 @@ from builder.writer_notes import (
 
 
 class WriterNotesTests(unittest.TestCase):
+    def test_automatic_writing_notes_are_disabled_by_default(self):
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertFalse(writer_notes_auto_update_enabled())
+
+    def test_automatic_writing_notes_require_explicit_opt_in(self):
+        for value in ("1", "true", "yes", "on", " TRUE "):
+            with self.subTest(value=value), patch.dict(
+                os.environ, {WRITER_NOTES_AUTO_UPDATE_ENV: value}, clear=True
+            ):
+                self.assertTrue(writer_notes_auto_update_enabled())
+
+        for value in ("", "0", "false", "off", "no", "anything else"):
+            with self.subTest(value=value), patch.dict(
+                os.environ, {WRITER_NOTES_AUTO_UPDATE_ENV: value}, clear=True
+            ):
+                self.assertFalse(writer_notes_auto_update_enabled())
+
+    def test_optional_notes_review_has_small_generation_budget(self):
+        self.assertLessEqual(WRITER_NOTES_CONTEXT_TOKENS, 6144)
+        self.assertLessEqual(WRITER_NOTES_MAX_TOKENS, 350)
+        self.assertLessEqual(WRITER_NOTES_TIMEOUT_SECONDS, 180)
+
     def test_new_package_save_creates_an_empty_per_novel_notes_file(self):
         with tempfile.TemporaryDirectory() as tmp:
             package_path = Path(tmp) / "New Novel"
