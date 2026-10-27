@@ -1,74 +1,67 @@
 # StoryBuilder handoff — October 27, 2026
 
-## Immediate current state
+## Immediate action: recover from the 30-minute writing-notes task
 
-**Live State Analysis warning fix verified.** After accepting Chapter 1, Scene 10 of *The Long Way Home*, the author ran Stage 2 State Analysis and uploaded a trace. The state summary was proposed, then the model reviewer returned two findings:
-1. Add Zoe's independent monitoring of the patterned communications anomalies.
-2. Give more prominence to Daniel's predictive modeling task.
+The author applied the accepted Scene 10 state update. In `_apply_state_update`, StoryBuilder saves the novel and state snapshot, advances the scene pointer, refreshes the next scene direction, and only then calls optional writer-notes learning. Therefore the accepted Scene 10 and applied state were saved before the slow optional task began. The app is still running code without the latest remote fix. Stop the stuck app process, then launch `./start.sh` from `~/Documents/StoryBuilder` to let `sync.sh start` fast-forward the current branch.
 
-Both findings failed the required evidence validation and were suppressed. The trace recorded the warning “The state reviewer returned findings, but none passed evidence validation. No review popup was shown; no state changes were saved.” The author confirmed that the app displayed the warning in the writer status line. This is the desired transparency behavior; the new warning is a status message, not a modal popup. Invalid findings are not allowed through, and no state update is applied automatically.
+Latest remote code commits on `redesign/simplified-writing-workflow`:
+- `45524e27550f05db21b4ea29785ba33e07bea156`: automatic writing-notes review now requires explicit opt-in with `STORYBUILDER_AUTO_WRITER_NOTES=1`; default is OFF.
+- `f2f06799bc4dc0199259ad54f515448d9eafa013`: optional notes review constrained to 6,144 context tokens, 350 output tokens, and a 180-second generation timeout.
+- `58f08f8444224ef2dda9efeac128707e903bfa45`: tests for opt-in/default-off and bounded settings.
+- `e54b77180d29190880cb0a30eedc5a449a86a1ce`: skip redundant restoration/reload of the Writer prompt after a successful **automatic** Scene Idea suggestion. Manual suggestions retain prior behavior.
 
-**The Scene 10 state proposal has not been applied yet.** The proposed summary says Daniel estimates “less than an hour remains before critical failure,” while accepted dialogue says “maybe another hour before that slight curve decides to become a cliff.” Before applying, review that wording for calibrated uncertainty. Click Apply State Update only if the summary is acceptable.
+These commits are remote and still need the laptop sync and test run. Earlier checkpoint before these changes: full suite reported **406 passed in 0.67s** and 13 state-review tests passed. Do not claim the new commits passed tests until they are pulled and verified.
 
-Latest trace (contains private story text): https://github.com/tony21675/StoryBuilder-Traces/blob/main/prompt_trace.json
+## What the speed fix changes (and doesn't)
 
-## Scene 10 accepted prose status
+The old optional notes task compared up to three accepted scenes and asked the local model for recurring craft lessons. It inherited the Writer's large output budget and long default timeout, then reset the shared model for notes and reset it again to restore the Writer. Because it ran automatically after applying every scene's state, it held up writing and blocked normal close/sync.
+
+Now that task is skipped unless `STORYBUILDER_AUTO_WRITER_NOTES=1` is set before app launch. Existing notes are retained; no note files are deleted. If deliberately enabled, the small output budget and three-minute timeout guard against another extended hang.
+
+The automatic Scene Idea path no longer reloads the previous Writer system prompt immediately after a successful suggestion. The next writing task installs the relevant prompt. This saves one unnecessary model startup in the common next-scene workflow.
+
+**Remaining limitation:** Changing task-specific system prompts in the shared `WriterEngine` still calls `reset_context()`, which stops and restarts `llama-cli`. Several distinct tasks can therefore still reload the model. A larger persistent-server/per-request-prompt redesign would be needed to remove most of these reloads; don't attempt that untested architecture change mid-session.
+
+## Scene 10 and current novel continuity
 
 Local novel: `~/Documents/MyNovel/The-Long-Way-Home`; GitHub repo: `tony21675/The-Long-Way-Home`.
 
-The accepted scene ends with Elena committing the crew to a manual, controlled isolation sequence on Sensor Node Delta-9. Daniel is to run the protocol, Morgan will monitor external/physical feedback, and Priya will monitor crew stability. The procedure's result and the root cause are still unresolved. Start Scene 11 from this decision; do not replay Scene 10.
+Scene 10 was accepted, the false-positive “team didn't commit to one high-risk strategy” finding was rejected, and Stage 2's proposed state was applied and saved. Current pointer is Chapter 1, Scene 11.
 
-The completion review's “team collectively commits” missed-beat finding was a false positive because Elena explicitly says, “Then that’s the course. Manual isolation sequence commencing immediately.” The author rejected the false positive and accepted the scene. The author often rejects reviewer false positives; don't treat every finding as a request to rewrite.
+The accepted end of Scene 10 has Elena committing to a manual, controlled isolation sequence on Delta-9. Daniel runs the protocol; Morgan watches physical feedback; Priya monitors crew stability. The operation's result and underlying root cause remain unknown. Scene 11 begins from this immediate choice and must not replay Scene 10.
 
-Two prose details were noted as potentially over-definite/specific: calling the infrared reading a “critical leak,” and Priya claiming elevated cortisol signatures can be read through environmental monitoring. The author accepted the scene; keep these as potential cautions, not reasons to change accepted prose or assert a confirmed cause.
+Preserve the uncertainty in Daniel's line, “maybe another hour before that slight curve decides to become a cliff.” Do not state a definite remaining hour or claim the isolation succeeded prematurely. Two potentially over-definite details in Scene 10 (“critical leak” and elevated cortisol readings “through environmental monitoring”) were noted as cautions, but the author accepted the scene; do not reopen it or expand either into confirmed diagnosis/cause without evidence.
 
-## StoryBuilder repo and validation
+## Verified State Analysis warning fix
 
-- Local path: `~/Documents/StoryBuilder`.
-- GitHub repo: `tony21675/StoryBuilder`.
-- Active development branch: `redesign/simplified-writing-workflow`. No branch switching or deletion without checking first. Long-term preference: end with only `main` after deliberate review/merge.
-- Code transparency fix: commit `2c4d7778b5e8e1a656289cf44e6c394d918bf0b9`; regression test added to `builder/state_review.py` / `tests/test_state_review.py`. If the reviewer returns findings but all are rejected by strict evidence validation, the flow now returns a warning instead of silently appearing to do nothing. It does not bypass evidence checks or auto-save state.
-- Handoff-only update before this live verification: commit `70fdc37383ecfdcd6b546724d36dd8d5021fa4ad`.
-- Laptop update: clean tree confirmed on the redesign branch, fetched and fast-forward-pulled updates, then focused tests passed (**13 passed in 0.02s**) and full suite passed (**406 passed in 0.67s**).
-- Current in-app verification: warning displayed in the writer status line; trace has no final error, validation warning, or trace-save error. Live verification complete.
-- Startup: `./start.sh` runs `sync.sh start` before launching `python3 storybuilder.py`. The current sync script rejects syncing from `main`, requires the current branch to track `origin/<branch>`, stashes/restores uncommitted local work, and only fast-forward pulls. It does not switch branches or use reset/rebase.
+Earlier code commit `2c4d7778b5e8e1a656289cf44e6c394d918bf0b9` makes the state reviewer return a warning when the model produces findings but strict evidence validation rejects all of them. After accepting Scene 10, the live trace showed two rejected findings (Zoe's independent communications inquiry and Daniel's predictive modeling task). The trace recorded: “The state reviewer returned findings, but none passed evidence validation. No review popup was shown; no state changes were saved.” The author confirmed the warning appeared in the app's writer status line. This behavior is verified live: it's a status message, not a modal popup, and invalid findings still do not pass validation or get applied automatically.
 
-## Collaboration preferences and non-negotiables
+Latest private trace: https://github.com/tony21675/StoryBuilder-Traces/blob/main/prompt_trace.json (contains private story text; don't expose publicly).
 
-- Always use `python3`, never `python`, in terminal commands on the user's Linux laptop.
-- Give one terminal command per message. Avoid long copy/paste blocks.
-- Inspect GitHub files/traces directly when accessible instead of asking the user to paste large amounts of output.
-- Discuss before changing StoryBuilder code or novel packages. Handoff-only changes do not require permission.
-- Update handoff files after meaningful code/app/novel milestones and prune stale detail so the handoff stays useful.
-- Preserve accepted prose and state. Never apply a state proposal without explicit author approval.
-- StoryBuilder should support natural writing, not turn prose into a checklist. The author wants a more streamlined writing workflow, fewer duplicate screens/buttons, editable scene ideas, copyable review content, and fewer false-positive review chores.
-- Treat saved summaries as fallible memory aids, not authoritative proof. Keep uncertainty explicit. Do not invent past events, causation, or character knowledge.
-- Avoid unnecessary rewrites caused by automated findings the accepted prose already satisfies.
-- Do not make app changes or novel-package changes without prior discussion. Never delete branches blindly.
+## Repo and collaboration rules
 
-## *The Long Way Home* continuity
+- StoryBuilder local: `~/Documents/StoryBuilder`; remote `tony21675/StoryBuilder`; active branch `redesign/simplified-writing-workflow`.
+- Startup `./start.sh` calls `sync.sh start` then `exec python3 storybuilder.py`. The sync script refuses to sync from `main`, requires the current branch to track `origin/<branch>`, stashes/restores uncommitted StoryBuilder changes, and only fast-forward pulls. No branch switch/reset/rebase.
+- Use `python3`, never `python`, for Linux terminal commands. One terminal command per message. Avoid large copy/paste.
+- Inspect GitHub source and trace directly instead of asking user to paste large files.
+- Discuss before changes to StoryBuilder app code or novel packages. Handoff-only edits don't require permission. Update/prune handoffs after meaningful milestones.
+- Preserve accepted prose and state; never apply state proposals without explicit author approval. Keep scene suggestions editable. State is a fallible memory aid, not canon.
+- Let the story breathe; avoid over-prescriptive instructions and don't rewrite accepted prose merely to satisfy false-positive review findings.
+- End StoryBuilder on `main` only after deliberate final merge/review. Never delete or switch branches blindly. Each novel repo should keep one branch per novel.
 
-Mars research outpost survival story; six main characters under 30, four women and two men; all single/unmarried at the beginning. The crisis is accidental, not sabotage, and the goal is survival until repair or rescue. Earth rescue/resupply takes months.
+## *The Long Way Home* premise
 
-Current situation after Scene 10: The oxygen scrubber manifold temperature is still climbing despite the Delta-9 bypass. The rate was less steep after the initial spike, and Morgan observed an unusual localized infrared signature at the junction plate. The crew has chosen a manual, controlled isolation procedure, which carries pressure-fluctuation risk. Do not say isolation has succeeded before prose shows it. The source of the heat problem, the silicate-like trace and any entry route remain unconfirmed. Zoe's patterned communications readings remain a separate unresolved investigation unless later evidence establishes a connection.
-
-Next writing target: Chapter 1, Scene 11, after the author reviews and (if satisfied) applies the current state proposal.
-
-## Writing philosophy and future UX ideas
-
-- “The story is the novel. The state is only a memory aid.” Track main-plot stakes, decisions, material discoveries, and unresolved danger. Avoid prompting for every possible state detail.
-- User reports that characters rarely laugh, joke, or make ordinary chit-chat. A future optional, light-touch tone field may help (for example, “tense, grounded, warm, occasional humor”), but no tone feature has been approved or implemented.
-- UX priorities: fewer screens to write a scene; remove duplicate/confusing buttons; editable next-scene suggestion; plain-English guided review rather than full JSON; provide copy options where text is trapped in popups. Ctrl+F isn't available in the user's UI, so don't rely on search-in-text instructions.
+Mars research outpost; six main characters under 30 (four women, two men), all single/unmarried at the beginning. The crisis is accidental, not sabotage, and the goal is survival until repair or rescue. Mars rescue/resupply takes months. Keep possible causes separate unless evidence connects them. Silicate-like trace and entry route remain unconfirmed; Zoe's patterned communications anomalies remain unexplained and unconnected to the life-support issue unless later evidence proves otherwise.
 
 ## Other project context
 
 - `Taken_at_Dusk` at `~/Documents/MyNovel/Taken_at_Dusk`, GitHub `tony21675/MyNovel`: Chapter 3 Scene 3 snapshot was Saturday morning at Tony's home. Tiffany is in the van with the kidnapper; Maya is shaken at the table; Chloe is steadying Tony at the kitchen island; Beth, Jessica, and Rick are present. No operational plan established. Chloe should be unexpectedly steady for Tony; allow Maya's possible stress-slip “I love you” naturally, never force it.
 - LocalStoryChat fallback: `~/Documents/LocalStoryChat`, GitHub `tony21675/LocalStoryChat`; Local Story Chat v7, Dolphin 3.0 Llama 3.1 8B Q4_K_M, llama-cli Vulkan, 10 GPU layers, `--simple-io`, default files under `~/StoryFiles/`.
-- Future separate app idea: e-liquid flavor/recipe tracker with separate flavor profiles for the user and his wife. Keep it separate from StoryBuilder.
+- Future separate app idea: e-liquid flavor/recipe tracker with separate flavor profiles for the user and his wife, separate from StoryBuilder.
 
-## Current next actions
+## Next steps
 
-1. Review the un-applied Stage 2 state summary in StoryBuilder.
-2. If satisfactory, use **Apply State Update** explicitly. If not, edit the plain-English summary so it preserves the uncertainty in Daniel's deadline estimate.
-3. Continue to Scene 11 from Elena's decision to start manual isolation.
-4. Keep the current app session intact; remote handoff-only commits can be synced safely when convenient.
+1. Stop the stuck old app process. The accepted Scene 10 and applied state should already be saved; an unsaved generated Scene 11 suggestion, if any, can be regenerated.
+2. Restart with `./start.sh` so the code updates sync from GitHub.
+3. Run `python3 -m pytest -q` to verify the new changes.
+4. Continue Scene 11 from the manual Delta-9 isolation decision.
