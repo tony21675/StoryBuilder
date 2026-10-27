@@ -2,7 +2,7 @@
 
 ## Current urgent item: stop the stuck notes task and restart with the latest code
 
-The live process list showed StoryBuilder PID 1516205 and `llama-cli` PID 1519167. The model prompt identifies a one-time startup writing-craft seed scan, not scene writing. It was launched because the notes file was blank; that startup path had not checked the intended default-off opt-in flag. The accepted Scene 10 and applied state were already saved. For the shown PIDs, send `kill -TERM 1519167` to interrupt only the child so the app can skip the scan and continue Writer startup; recheck PIDs first and do not kill the parent if recovering the current session. To apply the code fix, restart with `./start.sh` from `~/Documents/StoryBuilder` so the sync helper pulls the remote commits.
+The live process list showed StoryBuilder PID 1516205 and `llama-cli` PID 1519167. The model prompt identifies the temporary writing-craft review, not scene writing. Based on the previous handoff, it was likely triggered by the post-accept state-update path in the old local code; the 16,384 context and 4,000-token output settings also differ from the newer remote post-accept implementation (6,144 context, 350 output tokens, 180-second timeout). The process arguments alone do not identify the exact caller. The saved Scene 10 and state update are already secure. A separate initial seed scan on Writer startup also missed the default-off opt-in check; commit `dcacdc5` fixes that path too. For the shown PIDs, send `kill -TERM 1519167` to interrupt only the child and let the app's recovery path skip the notes review; recheck PIDs first and do not kill the parent if recovering the current session. To get the fixes, restart with `./start.sh` from `~/Documents/StoryBuilder` so sync pulls the remote commits.
 
 ## Speed changes committed to GitHub
 
@@ -17,7 +17,7 @@ GitHub Actions on `d7b9b25` passed both **Python tests** and **StoryBuilder test
 
 ## Model-reuse limitation
 
-A single shared WriterEngine is used, but `reset_context()` starts a new `llama-cli` process. Tasks needing different system prompts therefore still reload the model. The startup seed scan now honors the default-off flag, and the automatic Scene Idea path avoids one redundant restore; this does **not** eliminate every reload. If `STORYBUILDER_AUTO_WRITER_NOTES=1` is explicitly enabled, the startup seed scan still uses the general Writer timeout/token budget. A deeper model-session reuse redesign would require a separate, tested runtime change. Avoid rushing that architecture into the current session.
+A single shared WriterEngine is used, but `reset_context()` starts a new `llama-cli` process. Tasks needing different system prompts therefore still reload the model. The post-accept notes review is opt-in and bounded in the newer code; the initial seed scan now honors the same default-off flag, and the automatic Scene Idea path avoids one redundant restore. This does **not** eliminate every reload. If `STORYBUILDER_AUTO_WRITER_NOTES=1` is explicitly enabled, the initial seed scan still uses the general Writer timeout/token budget. A deeper model-session reuse redesign would require a separate, tested runtime change. Avoid rushing that architecture into the current session.
 
 ## The Long Way Home — Scene 10 accepted and applied
 
