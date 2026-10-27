@@ -143,9 +143,14 @@ def _uncertain_audit(details):
 
 def _run_scene_integrity_audit(
     *, engine, model_path, writer_system_prompt, scene_context,
-    current_state, author_guidance, prose, historical_context=""
+    current_state, author_guidance, prose, historical_context="",
+    restore_writer=True,
 ):
-    """Run a five-part evidence-backed audit; ambiguous results fail closed."""
+    """Run a five-part evidence-backed audit; ambiguous results fail closed.
+
+    Standalone callers restore the Writer by default. The combined scene review
+    owns restoration itself so the shared model is restarted only once.
+    """
     serialized_state = json.dumps(current_state, ensure_ascii=False, separators=(",", ":"))
     source_material = (
         str(scene_context or "") + "\n" + serialized_state + "\n" + str(author_guidance or "") + "\n" + str(historical_context or "") + "\n" + SHARED_CONTINUITY_RULES
@@ -158,7 +163,7 @@ def _run_scene_integrity_audit(
         )
         raw = extract_json_object(raw_text)
     finally:
-        if not _restore_writer_context(engine, model_path, writer_system_prompt):
+        if restore_writer and not _restore_writer_context(engine, model_path, writer_system_prompt):
             raise RuntimeError("Could not restore Writer after the integrity audit.")
 
     if not isinstance(raw, dict) or not isinstance(raw.get("checks"), dict):
@@ -439,6 +444,7 @@ def review_scene_draft(
             author_guidance=author_guidance,
             prose=prose,
             historical_context=historical_context,
+            restore_writer=False,
         )
     except Exception as exc:
         audit_error = _exception_diagnostic("Continuity/scope audit failed", exc)
