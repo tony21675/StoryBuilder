@@ -1524,7 +1524,7 @@ class SceneContract:
             if check["status"] == "missing":
                 requirement = check["requirement"]
                 if _normalize_requirement(requirement) not in existing_missed:
-                    if _normalize_requirement(requirement) == "hard stop":
+                    if str(requirement).strip().casefold() == "hard_stop":
                         message = "The specified scene endpoint is not shown as reached in the ending passage."
                     else:
                         message = f"Author-intent requirement not evidenced: {requirement}"
