@@ -1,25 +1,30 @@
 # StoryBuilder current checkpoint — October 27, 2026
 
-## Current urgent item: stop the stuck notes task and restart with the latest code
+## Current checkpoint: preserve the Scene 11 draft, then sync the verified fixes
 
-The live process list showed StoryBuilder PID 1516205 and `llama-cli` PID 1519167. The model prompt identifies the temporary writing-craft review, not scene writing. Based on the previous handoff, it was likely triggered by the post-accept state-update path in the old local code; the 16,384 context and 4,000-token output settings also differ from the newer remote post-accept implementation (6,144 context, 350 output tokens, 180-second timeout). The process arguments alone do not identify the exact caller. The saved Scene 10 and state update are already secure. A separate initial seed scan on Writer startup also missed the default-off opt-in check; commit `dcacdc5` fixes that path too. For the shown PIDs, send `kill -TERM 1519167` to interrupt only the child and let the app's recovery path skip the notes review; recheck PIDs first and do not kill the parent if recovering the current session. To get the fixes, restart with `./start.sh` from `~/Documents/StoryBuilder` so sync pulls the remote commits.
+The old PID snapshot (StoryBuilder 1516205 / `llama-cli` 1519167) is stale; do not signal those PIDs without checking the current process list. The latest Scene 11 trace completed at 2026-10-27 22:43:59 UTC. Scene 11 is generated for author review but not accepted. Preserve any draft held only in the UI before restarting the app. Then launch `./start.sh` from `~/Documents/StoryBuilder` to pull the commits below. Sync is fast-forward-only.
+
 
 ## Speed changes committed to GitHub
 
-- `45524e27550f05db21b4ea29785ba33e07bea156`: make automatic per-novel writing-note learning explicitly opt-in via `STORYBUILDER_AUTO_WRITER_NOTES=1`; default is OFF, so it no longer blocks ordinary accept/apply workflow.
-- `f2f06799bc4dc0199259ad54f515448d9eafa013`: gate the notes task on that option. If deliberately enabled, it now uses a 6,144-token context, at most 350 output tokens, and a 180-second task timeout rather than inheriting the writer's 4,000-token default and one-hour generation timeout.
-- `58f08f8444224ef2dda9efeac128707e903bfa45`: tests for default-off behavior, explicit opt-in, and bounded notes settings.
-- `e54b77180d29190880cb0a30eedc5a449a86a1ce`: after a successful automatic Scene Idea suggestion, do not immediately reload the writer prompt. The next writing action will set its own task prompt; this avoids one needless model initialization. Manually requested suggestions preserve the prior restoration behavior.
-- `dcacdc590066bec7f1be65333a74db17709996be`: gate the separate initial startup seed scan on the same explicit opt-in. This fixes the missing guard that caused the current 30-minute task.
-- `d7b9b25fa7a707529bcd05d615c474b8b1701385`: add regression coverage for default-off startup behavior.
+- `45524e27550f05db21b4ea29785ba33e07bea156`: optional writing-notes learning is default OFF.
+- `f2f06799bc4dc0199259ad54f515448d9eafa013`: post-accept notes review uses a 6,144-token context, 350 output-token cap, and 180-second timeout when enabled.
+- `58f08f8444224ef2dda9efeac128707e903bfa45`: tests for default-off and bounded settings.
+- `e54b77180d29190880cb0a30eedc5a449a86a1ce`: avoid one redundant Writer restore after automatic Scene Idea suggestion.
+- `dcacdc590066bec7f1be65333a74db17709996be`: initial notebook scan now honors the default-off flag.
+- `d7b9b25fa7a707529bcd05d615c474b8b1701385`: regression test for default-off startup.
+- `eebf744a4308e30f28f6fb70f1e1431f045f90ca`: remove duplicate Writer restoration after continuity audit.
+- `dbc268ba563a20784b186630d9c737e8b3ee0525` and `eb43886aad4a104a848ee20c0fbf1faf79599e49`: generic, validation-only check for explicit author-marked End/Hard Stop sections. It requires a dedicated `HARD_STOP` check and supporting quote from the ending passage. No Writer prose instructions or novel-specific facts were added; stale model-generated stops are not new gates.
+- `d55d5826ebba1f13afea443136109e869c381a49`: regression tests for endpoint false passes and duplicate Writer restoration.
 
-GitHub Actions on `d7b9b25` passed both **Python tests** and **StoryBuilder tests**. The laptop is still running the old process and must sync/restart before using the fix. Re-run the local test suite after pulling; the older local checkpoint was 406 passed.
+Both GitHub Actions workflows passed on `d55d582`: **Python tests** and **StoryBuilder tests** (414 tests plus 71 subtests in the Python run). Sync/restart the laptop before using these changes, then run the local suite.
+
 
 ## Model-reuse limitation
 
 A single shared WriterEngine is used, but `reset_context()` starts a new `llama-cli` process. Tasks needing different system prompts therefore still reload the model. The post-accept notes review is opt-in and bounded in the newer code; the initial seed scan now honors the same default-off flag, and the automatic Scene Idea path avoids one redundant restore. This does **not** eliminate every reload. If `STORYBUILDER_AUTO_WRITER_NOTES=1` is explicitly enabled, the initial seed scan still uses the general Writer timeout/token budget. A deeper model-session reuse redesign would require a separate, tested runtime change. Avoid rushing that architecture into the current session.
 
-## The Long Way Home — Scene 10 accepted and applied
+## The Long Way Home — Scene 10 accepted/applied; Scene 11 awaiting endpoint
 
 - Novel: `~/Documents/MyNovel/The-Long-Way-Home`; GitHub: `tony21675/The-Long-Way-Home`.
 - Scene 10 was accepted. The false-positive completion finding that the team did not choose a strategy was rejected; the scene explicitly begins manual isolation.
@@ -28,6 +33,14 @@ A single shared WriterEngine is used, but `reset_context()` starts a new `llama-
 - Preserve uncertainty around Daniel's “maybe another hour” estimate. Do not turn it into a certain one-hour countdown or declare isolation successful before prose shows what happens.
 - The latest Stage 2 trace confirmed the state-review warning fix live: reviewer returned two findings, both failed evidence validation, trace recorded the warning, and the author confirmed it appeared in the writer status line. Strict evidence checking stayed intact; no auto-application occurred.
 - Latest private trace: https://github.com/tony21675/StoryBuilder-Traces/blob/main/prompt_trace.json. It contains story text; do not share publicly.
+
+### Scene 11 trace finding
+
+The trace for Chapter 1 Scene 11 completed at 2026-10-27 22:43:59 UTC without runtime error. It starts the Delta-9 isolation and includes Morgan's physical warning and Daniel's recalculation, but ends while the crew is redirected to deal with a suspected local leak. It does **not** reach the explicit endpoint: pressure readings stabilizing just above the collapse threshold while underlying instability remains exposed. Both reviews incorrectly passed. Scene 11 remains a draft for author review, not accepted. Prefer a focused continuation/revision over a full rewrite.
+
+The new generic endpoint check activates only when the author explicitly marks an End/Hard Stop, requiring one `HARD_STOP` status and a supporting quote from the ending prose. No story-specific rules or Writer prose instructions were added.
+
+After Scene 11 is accepted and the ending-state update is applied, StoryBuilder should save, advance to Scene 12, refresh the Writer direction, and automatically invoke the next Scene Idea suggestion. Verify this in the next trace; do not manually duplicate the suggestion.
 
 ## Project state and rules
 
