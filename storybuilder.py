@@ -3310,7 +3310,11 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
         self.writer_thread.start()
 
     def _start_initial_writer_notes_scan(self, model):
-        """Seed a blank notebook from a chapter of existing accepted prose."""
+        """Seed a blank notebook only when automatic craft-note learning is enabled."""
+        # This optional housekeeping restarts llama-cli and must never delay
+        # normal writing unless the author explicitly opts in.
+        if not writer_notes_auto_update_enabled():
+            return False
         if self.package is None or self.package.path is None:
             return False
 
