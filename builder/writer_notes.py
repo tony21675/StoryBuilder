@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from difflib import SequenceMatcher
 from pathlib import Path
@@ -13,6 +14,20 @@ WRITER_NOTES_FILENAME = "working_writer_notes.json"
 MAX_LEARNED_NOTES = 8
 MAX_REVIEWED_SCENES = 100
 MAX_EVIDENCE_SCENES = 20
+
+# This model-driven housekeeping is optional and disabled by default because it
+# must restart llama-cli and can delay the author's next writing step.
+WRITER_NOTES_AUTO_UPDATE_ENV = "STORYBUILDER_AUTO_WRITER_NOTES"
+WRITER_NOTES_CONTEXT_TOKENS = 6144
+WRITER_NOTES_MAX_TOKENS = 350
+WRITER_NOTES_TIMEOUT_SECONDS = 180
+
+
+def writer_notes_auto_update_enabled() -> bool:
+    """Return whether automatic craft-note learning was explicitly enabled."""
+    return os.environ.get(WRITER_NOTES_AUTO_UPDATE_ENV, "").strip().casefold() in {
+        "1", "true", "yes", "on"
+    }
 
 WRITER_NOTES_SYSTEM_PROMPT = """You maintain a small, temporary writing-craft notebook for exactly one novel.
 
