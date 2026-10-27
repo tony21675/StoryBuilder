@@ -26,13 +26,14 @@ Judge meaning, not keywords; paraphrases count. Evidence is optional and never c
 Create a short event-level checklist, usually 4–8 meaningful events. Group related details; avoid micro-checks for clauses, adjectives, people, objects, or small actions. Separate independently missable events. Ignore incidental details unless defining, continuity-critical, or an explicit boundary/preference.
 A check is met when its main action and defining details occur. Different wording is fine, but do not substitute a different action, object, person, order, or outcome for a specific request. Check opening continuity, character knowledge, acknowledged requests/preferences, and established relationship facts.
 If an endpoint asks characters to face a decision, presenting the alternatives and making clear a choice is due satisfies it. Do not require a final choice unless the author explicitly asks for one. List material omissions once; if a check is missing, pass must be false.
+If hard_stop is non-empty, include exactly one check whose requirement is exactly "HARD_STOP". Judge whether the endpoint's outcome actually occurs in the completed prose, not merely whether it is planned, predicted, or mentioned in the idea. A met HARD_STOP check must include a short exact quote from the ending passage that demonstrates the outcome has happened. If it is not reached or no supporting quote exists, mark it missing.
 """
 
 SEMANTIC_RECHECK_SYSTEM_PROMPT = """Independently reassess only the supplied checklist items against the completed scene. Return JSON only:
 {"pass": true, "missed_beats": [], "violations": [], "checks": [{"requirement": "", "status": "met", "evidence": ""}], "notes": ""}
 
 The first validator marked these items missing, but that may be a false negative. Judge meaning, not keyword overlap. Synonyms, paraphrases, indirect but clear descriptions, and equivalent actions count. Judge intended meaning across the entire scene. Evidence is optional diagnostic information and never controls status. A quote is not required to mark an event met or missing. Use "missing" only when the event genuinely is omitted or materially different. Preserve specified identity, named people, objects, defining details, order, requests, and outcomes. Do not infer an event that did not occur or create extra requirements. Repeat each supplied requirement unchanged. Assess only the listed items and the completed scene.
-A decision-point endpoint is met when the scene presents the options and makes clear a choice is needed; require an actual selection only when the author explicitly requests one.
+A decision-point endpoint is met when the scene presents the options and makes clear a choice is needed; require an actual selection only when the author explicitly requests one. Exception: when reassessing a check named exactly "HARD_STOP", a met result needs a short exact quote from the ending passage that shows the endpoint outcome has happened; otherwise mark it missing.
 """
 
 
@@ -311,6 +312,19 @@ def _normalize_check_status(value: Any) -> str | None:
     return None
 
 
+def _ending_evidence_is_present(prose: str, evidence: str) -> bool:
+    """Check that hard-stop evidence is quoted from the scene's ending passage."""
+    quote = re.sub(r"\s+", " ", str(evidence or "")).strip().casefold()
+    source = str(prose or "")
+    if not quote or not source.strip():
+        return False
+    # A stop condition should be demonstrated near the end, not evidenced by
+    # an earlier plan or a line that only says the action is about to happen.
+    tail_size = min(len(source), max(1200, int(len(source) * 0.4)))
+    ending = re.sub(r"\s+", " ", source[-tail_size:]).strip().casefold()
+    return quote in ending
+
+
 def _semantic_recheck_checks(
     model: Path,
     engine: Any,
@@ -330,7 +344,8 @@ def _semantic_recheck_checks(
             "Compare meaning, not keyword overlap. A 'red car' can be described as a "
             "'maroon sedan' and still satisfy the requirement when the context supports it. "
             "Determine each status from the meaning of the whole scene. Evidence is optional diagnostic "
-            "information and never controls status. A paraphrase can satisfy a requirement. "
+            "information except for a check named exactly HARD_STOP: if met, quote a short exact passage "
+            "from the ending that shows the endpoint outcome has happened. A paraphrase can satisfy a requirement. "
             "Mark missing only when the event or a defining detail is genuinely absent or "
             "materially different. Keep each requirement unchanged and return one check per item.\n\n"
             "CHECKLIST ITEMS TO REASSESS:\n"
@@ -1304,6 +1319,7 @@ class SceneContract:
             + "Create a SHORT event-level checklist, usually 4–8 checks. Group related details; do not make micro-checks for each clause, adjective, person, object, or small action. Separate events only when their outcomes can be missing independently. "
             + "Judge each event against the entire scene, using meaning rather than keyword overlap. Fail only for a missing or materially changed event, its defining detail, an explicit boundary/request, or the scene endpoint; minor descriptive omissions alone do not fail. "
             + "For each event check, determine requirement and status from the meaning of the entire scene. A quote from COMPLETED SCENE only is optional diagnostic evidence. Never mark an event missing solely because a quote is difficult to reproduce. If absent or materially different, mark missing with empty evidence. "
+            + ("If a hard_stop is supplied, include exactly one check whose requirement is exactly HARD_STOP. Mark it met only if the endpoint outcome is depicted as having happened; for a met result, quote a short exact passage from the ending that demonstrates that outcome. Otherwise mark it missing. " if str(semantic_contract.get("hard_stop", "") or "").strip() else "")
             + "If an author idea is present, return a concise non-empty event checklist; pass must be false if any event check is missing. Report material continuity or character-knowledge conflicts separately as violations. "
             + "Return JSON only in this shape: "
             + '{"pass": true, "missed_beats": [], "violations": [], "checks": [{"requirement": "", "status": "met", "evidence": ""}], "notes": ""}'
@@ -1411,6 +1427,35 @@ class SceneContract:
                     ]
                     passed = not missed and not violations
 
+                # Check an explicit endpoint separately from the general event checklist.
+                # A checklist can echo the plan as evidence without showing the result happened.
+                if requires_coverage and str(semantic_contract.get("hard_stop", "") or "").strip():
+                    endpoint_checks = [
+                        item for item in normalized_checks
+                        if str(item.get("requirement", "") or "").strip().casefold() == "hard_stop"
+                    ]
+                    if len(endpoint_checks) != 1:
+                        passed = False
+                        endpoint_message = (
+                            "The specified scene endpoint was not independently verified "
+                            "against the completed prose."
+                        )
+                        if endpoint_message.casefold() not in {
+                            str(item).strip().casefold() for item in missed
+                        }:
+                            missed.append(endpoint_message)
+                        for item in endpoint_checks:
+                            item["status"] = "missing"
+                            item["evidence"] = ""
+                    else:
+                        endpoint_check = endpoint_checks[0]
+                        if (
+                            endpoint_check["status"] != "met"
+                            or not _ending_evidence_is_present(prose, endpoint_check["evidence"])
+                        ):
+                            endpoint_check["status"] = "missing"
+                            endpoint_check["evidence"] = ""
+
                 normalized_result = {
                     "pass": passed,
                     "missed_beats": [
@@ -1473,7 +1518,10 @@ class SceneContract:
             if check["status"] == "missing":
                 requirement = check["requirement"]
                 if _normalize_requirement(requirement) not in existing_missed:
-                    message = f"Author-intent requirement not evidenced: {requirement}"
+                    if _normalize_requirement(requirement) == "hard stop":
+                        message = "The specified scene endpoint is not shown as reached in the ending passage."
+                    else:
+                        message = f"Author-intent requirement not evidenced: {requirement}"
                     normalized_missed.append(message)
                     existing_missed.add(_normalize_requirement(requirement))
 
