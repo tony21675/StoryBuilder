@@ -26,7 +26,6 @@ Judge meaning, not keywords; paraphrases count. Evidence is optional and never c
 Create a short event-level checklist, usually 4–8 meaningful events. Group related details; avoid micro-checks for clauses, adjectives, people, objects, or small actions. Separate independently missable events. Ignore incidental details unless defining, continuity-critical, or an explicit boundary/preference.
 A check is met when its main action and defining details occur. Different wording is fine, but do not substitute a different action, object, person, order, or outcome for a specific request. Check opening continuity, character knowledge, acknowledged requests/preferences, and established relationship facts.
 If an endpoint asks characters to face a decision, presenting the alternatives and making clear a choice is due satisfies it. Do not require a final choice unless the author explicitly asks for one. List material omissions once; if a check is missing, pass must be false.
-If hard_stop is non-empty, include exactly one check whose requirement is exactly "HARD_STOP". Judge whether the endpoint's outcome actually occurs in the completed prose, not merely whether it is planned, predicted, or mentioned in the idea. A met HARD_STOP check must include a short exact quote from the ending passage that demonstrates the outcome has happened. If it is not reached or no supporting quote exists, mark it missing.
 """
 
 SEMANTIC_RECHECK_SYSTEM_PROMPT = """Independently reassess only the supplied checklist items against the completed scene. Return JSON only:
