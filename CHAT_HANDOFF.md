@@ -2,21 +2,23 @@
 
 ## Immediate action: recover from the 30-minute writing-notes task
 
-The author applied the accepted Scene 10 state update. In `_apply_state_update`, StoryBuilder saves the novel and state snapshot, advances the scene pointer, refreshes the next scene direction, and only then calls optional writer-notes learning. Therefore the accepted Scene 10 and applied state were saved before the slow optional task began. The app is still running code without the latest remote fix. Stop the stuck app process, then launch `./start.sh` from `~/Documents/StoryBuilder` to let `sync.sh start` fast-forward the current branch.
+The live `ps` snapshot showed StoryBuilder PID 1516205 (48:42 elapsed) and `llama-cli` PID 1519167 (26:38 elapsed). Its system prompt identifies the task as the initial writing-craft notebook seed scan, not scene writing. The scan runs before Writer startup when the notebook is blank, but its code was missing the default-off opt-in check. The accepted Scene 10/state update was already saved before this later scan. For this exact snapshot, interrupt only the child with `kill -TERM 1519167` to let the error-recovery path skip the scan and continue Writer startup; recheck PIDs before signaling, and do not kill the StoryBuilder parent if recovering the current session. To apply the remote fix, close/restart with `./start.sh` from `~/Documents/StoryBuilder` so `sync.sh start` pulls the commits.
 
 Latest remote code commits on `redesign/simplified-writing-workflow`:
 - `45524e27550f05db21b4ea29785ba33e07bea156`: automatic writing-notes review now requires explicit opt-in with `STORYBUILDER_AUTO_WRITER_NOTES=1`; default is OFF.
 - `f2f06799bc4dc0199259ad54f515448d9eafa013`: optional notes review constrained to 6,144 context tokens, 350 output tokens, and a 180-second generation timeout.
 - `58f08f8444224ef2dda9efeac128707e903bfa45`: tests for opt-in/default-off and bounded settings.
 - `e54b77180d29190880cb0a30eedc5a449a86a1ce`: skip redundant restoration/reload of the Writer prompt after a successful **automatic** Scene Idea suggestion. Manual suggestions retain prior behavior.
+- `dcacdc590066bec7f1be65333a74db17709996be`: make the **initial startup seed scan** honor the same explicit opt-in flag. This was the missing path: the post-accept updater was gated, but Writer startup still launched the seed scan whenever the notebook was blank.
+- `d7b9b25fa7a707529bcd05d615c474b8b1701385`: add a regression test that startup skips the seed scan when the setting is off.
 
-These commits are remote and still need the laptop sync and test run. Earlier checkpoint before these changes: full suite reported **406 passed in 0.67s** and 13 state-review tests passed. Do not claim the new commits passed tests until they are pulled and verified.
+GitHub Actions passed for the latest test commit `d7b9b25`: both **Python tests** and **StoryBuilder tests** completed successfully. The laptop still needs to sync the remote commits and rerun its local test suite after pulling. The earlier local checkpoint was **406 passed in 0.67s**, with 13 state-review tests passed; do not treat that older local run as verification of the newer changes.
 
 ## What the speed fix changes (and doesn't)
 
-The old optional notes task compared up to three accepted scenes and asked the local model for recurring craft lessons. It inherited the Writer's large output budget and long default timeout, then reset the shared model for notes and reset it again to restore the Writer. Because it ran automatically after applying every scene's state, it held up writing and blocked normal close/sync.
+There are two distinct writing-notes paths. The post-accept updater already requires `STORYBUILDER_AUTO_WRITER_NOTES=1`. A separate one-time seed scan runs before Writer startup when the notes file is blank; that path had missed the opt-in check and could restart `llama-cli` before allowing the Writer to start. Commit `dcacdc5` closes that gap, so the normal default-off workflow proceeds directly to Writer startup and does not create or overwrite notes.
 
-Now that task is skipped unless `STORYBUILDER_AUTO_WRITER_NOTES=1` is set before app launch. Existing notes are retained; no note files are deleted. If deliberately enabled, the small output budget and three-minute timeout guard against another extended hang.
+Existing notes are retained; no note files are deleted. If the flag is explicitly enabled, the initial seed scan still uses the general Writer generation budget/timeout rather than fully applying the note-specific limits; keep it disabled unless intentionally testing this feature. The app uses a shared `WriterEngine`, and changing system prompts still restarts `llama-cli`.
 
 The automatic Scene Idea path no longer reloads the previous Writer system prompt immediately after a successful suggestion. The next writing task installs the relevant prompt. This saves one unnecessary model startup in the common next-scene workflow.
 
