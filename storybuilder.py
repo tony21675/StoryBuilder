@@ -5921,7 +5921,12 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
                     try:
                         idea = generate_scene_idea_suggestion(model, context, engine)
                     finally:
-                        if was_running and old_system_prompt:
+                        if automatic and idea is not None:
+                            # The next writing action installs its own task prompt.
+                            # Restoring the Writer prompt here would reload the same
+                            # model only to replace that prompt again moments later.
+                            pass
+                        elif was_running and old_system_prompt:
                             engine.reset_context(model, old_system_prompt)
                         else:
                             engine.stop()
