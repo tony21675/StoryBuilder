@@ -19,7 +19,7 @@ First live smoke test completed on October 28, 2026:
 
 Current minimal UI has:
 - GGUF model selector, Refresh, and Load Model.
-- An author prompt field, Write, and Stop Writing.
+- An author prompt field plus Write, Continue, and Stop Writing.
 - Editable output that streams model text as it is generated.
 - Open Text, Save, and Save As.
 - Status line and filename/unsaved marker in the window title.
@@ -42,7 +42,7 @@ Default environment:
 - llama.cpp: `~/Documents/llama.cpp/build/bin/llama-cli`
 - `STORY_MODELS_DIR`, `STORY_LLAMA_PATH`, `STORY_WRITER_CONTEXT`, `STORY_WRITER_MAX_TOKENS` remain available as runtime overrides.
 
-Known limitations: `WriterEngine.generate()` flattens newline characters in the prompt before sending it to the interactive llama.cpp process. Streaming uses the existing prompt-echo filter and is best-effort; after completion, the cleaned final response replaces the live preview. Stop Writing now terminates the local `llama-cli` process without waiting for the generation lock, keeps partial streamed text (or restores the previous document if no text arrived), and requires reloading the model. This stop behavior is not yet verified live on the laptop.
+Known limitations: `WriterEngine.generate()` flattens newline characters in the prompt before sending it to the interactive llama.cpp process. Streaming uses the existing prompt-echo filter and is best-effort; after completion, the cleaned final response replaces the live preview. Stop Writing terminates the local `llama-cli` process without waiting for the generation lock, keeps partial streamed text (or restores the previous document if no text arrived), and requires reloading the model. The user tested Stop live and confirmed it works.
 
 ## 4. Open Text / Save / Save As
 
@@ -62,9 +62,23 @@ The user has confirmed that the real model streams words into the output area wh
 
 ## 5. Live text streaming
 
-The Minimal Writer now calls `WriterEngine.generate(prompt, on_delta=...)`. The stream callback schedules text appends onto Tk's UI thread. The completed cleaned answer replaces the preview when the model finishes. The app saves the prior document text and tracking metadata in memory and restores it if generation fails. The user confirmed that the real model streams words into the output as it generates.
+The Minimal Writer now calls `WriterEngine.generate(prompt, on_delta=...)`. The stream callback schedules text appends onto Tk's UI thread. The completed cleaned answer replaces the preview when the model finishes. The app saves the prior document text and tracking metadata in memory and restores it if generation fails. The user confirmed that the real model streams words into the output as it generates. The user also tested Stop Writing live and confirmed that it stops generation.
 
-## 6. Rebuild boundaries
+## 6. Continue action
+
+The Minimal Writer now includes a **Continue** button, implemented but awaiting live laptop testing. **Write** replaces the output with a new passage as before. **Continue** sends a short continuation instruction to the currently loaded model conversation, appends a paragraph boundary to the existing output, then streams the response at the end. At completion the cleaned response is appended to the prior text. On generation failure, the original document is restored. If stopped, partial streamed continuation stays; if no chunks arrived, the original document is restored.
+
+Unit tests passed in commit `682a3556`: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/40641414447) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/40641414419).
+
+Next laptop check after closing the running app:
+
+```bash
+cd ~/Documents/StoryBuilder && ./start.sh
+```
+
+Load the model, write a short passage, click **Continue**, and confirm that the first passage remains and new text appears below it without repeating the entire passage. Then use **Write** with another prompt and confirm it still replaces the output. Don't add further features until this is tested.
+
+## 7. Rebuild boundaries
 
 Do not delete old helper modules yet. They are currently dormant from the new UI's entry point. Once basic model writing and plain text editing are demonstrated reliably on the laptop, discuss and remove unused legacy code in planned pieces, with tests for each change.
 
@@ -78,7 +92,7 @@ Do not add the previous system back by accident. Specifically out of scope unles
 
 The application should stay a simple writer until further pieces are agreed and proven.
 
-## 7. Protected novel checkpoint: The Long Way Home
+## 8. Protected novel checkpoint: The Long Way Home
 
 - Local: `~/Documents/MyNovel/The-Long-Way-Home`.
 - Remote: `tony21675/The-Long-Way-Home`, permanent branch `main`.
@@ -87,7 +101,7 @@ The application should stay a simple writer until further pieces are agreed and 
 - The latest model summary incorrectly sharpened Daniel's uncertain “maybe another hour” estimate into a near-certain critical-failure deadline, turned Morgan's hypothetical structural degradation into a diagnosis, and misdescribed Elena's instructions. The reviewer then returned unsupported claims and was correctly rejected by evidence validation.
 - No change to accepted prose or novel state was made. Don't edit `current_state.json` manually, and don't bring old state-analysis workflow into the new Minimal Writer.
 
-## 8. Repo / terminal / collaboration rules
+## 9. Repo / terminal / collaboration rules
 
 - StoryBuilder repository: `~/Documents/StoryBuilder`.
 - Current branch: `redesign/simplified-writing-workflow`; the remote currently has one branch. Long-term goal remains one stable `main` branch after deliberate review and merge; never switch/delete branches blindly.
