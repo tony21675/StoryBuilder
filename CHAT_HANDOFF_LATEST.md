@@ -4,55 +4,52 @@ Date: October 28, 2026
 
 ## Current direction
 
-The author explicitly chose to rebuild StoryBuilder piece by piece, starting with a local model loader and writing area. No app-added story rules or story-management machinery in the active writing path.
+Rebuild StoryBuilder piece by piece. The active app should load a local model and write without app-added story rules or story-management machinery. Keep the old code recoverable for now. Do not touch novel repositories or accepted prose.
 
 ## Minimal Writer baseline, confirmed on laptop
 
-- `minimal_writer.py` is the UI launched by `./start.sh`.
-- Select a local GGUF model, click Load Model, enter a writing prompt, click Write, and edit the generated output.
-- The model loads with an empty system prompt, and the user's prompt is sent straight to the existing `WriterEngine`.
-- First live test worked: the local model generated a scene, and the output saved through Save As opened correctly in a separate text editor.
-- Local test date: October 28, 2026.
-- The former `storybuilder.py` UI and helper modules are retained for recovery; novels/state were not changed.
+- `minimal_writer.py` is launched by `./start.sh`.
+- Select a local GGUF model, load it, enter a prompt, write, then edit the output.
+- Model loads with an empty system prompt; the user's prompt goes straight to `WriterEngine`.
+- The user confirmed model generation and Save As output opening in an external text editor.
+- Open Text, Save, and Save As were then tested live and reported working.
+- The output editor shows the filename and an asterisk for unsaved edits. Opening a file or closing offers to save changes.
+- UTF-8 text and newline state are preserved by the file helpers.
+- Novels and saved story state have not been changed.
 
-## Newly added document editing
+## New change: live text streaming
 
-Commit `1954d62` adds **Open Text**, **Save**, and **Save As…** to the Minimal Writer:
-- Open Text loads a UTF-8 text file into the editable output field.
-- Save updates the currently open file, or prompts for a filename if the document is untitled.
-- Save As selects a different destination.
-- The window title shows the active filename and an asterisk for unsaved edits.
-- Opening another file or closing asks about unsaved changes.
-- A failed generation no longer clears the text already in the output area.
-- UTF-8, Unicode characters, and newline sequences are preserved by the file helpers.
+The next incremental feature is implemented in `minimal_writer.py`:
+- Generated text is appended to the output as the local model emits it.
+- Streaming callbacks are scheduled onto Tk's UI thread.
+- Once generation completes, the engine's cleaned final response replaces the live preview.
+- If generation fails, the app restores the previous document and its file/saved-text tracking.
+- No app-added prompt or writing rules were introduced.
 
-Tests:
-- [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/40636160718) passed.
-- [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/40636160677) passed.
-- They test source/unit behavior, not every live GUI interaction.
+Automated coverage was updated to verify that the streaming callback is passed through and receives chunks. CI status for this newest change must be checked after the latest commits. The streaming feature still needs a live laptop test with the user's actual local model; CI cannot prove terminal echo filtering or GUI responsiveness.
 
 ## Next laptop test
 
-Sync/relaunch with one command:
+After the current app window is closed, run:
 
 ```bash
 cd ~/Documents/StoryBuilder && ./start.sh
 ```
 
-Please test only the new file actions: open a saved text file, make a small edit, Save, then use Save As to create a second copy and reopen it. Verify the files in a text editor. Do not add other features until this file-editing loop works.
+Load the model and ask for a short passage. Confirm words appear before generation finishes, the final text looks normal without the prompt echoed into it, and editing/saving still work. Then try a second generation with an existing draft open only if the first test succeeds. A failed generation should restore the original draft.
 
 ## Still out of scope
 
-Do not add novel package loading, scene planning, character cards, continuity, rules, validators, state summaries, automatic reviews, or automatic state changes. The writer currently takes the prompt as supplied, without an app-added system prompt.
+No novel package loading, scene planning, character cards, continuity, writing rules, validators, state summaries, automatic reviews, or automatic state changes. Do not delete legacy modules until the new basic workflow is proven and their removal is discussed.
 
 ## Protected novel checkpoint
 
 - Local package: `~/Documents/MyNovel/The-Long-Way-Home`.
 - Remote: `tony21675/The-Long-Way-Home`, branch `main`.
-- Accepted Chapter 1 Scene 10 prose is saved at `Manuscript/Chapters/Chapter_01/Chapter_01_Section_10.txt`.
-- Remote `current_state.json` still points to Scene 10 and its `_after_state.json` is absent. The inaccurate proposal was not saved.
+- Accepted Chapter 1 Scene 10 prose: `Manuscript/Chapters/Chapter_01/Chapter_01_Section_10.txt`.
+- Remote `current_state.json` remains at Scene 10; the after-state file is absent.
 - Do not modify or regenerate Scene 10 during Minimal Writer testing.
 
 ## Working rules
 
-Use `python3`, never `python`, in Linux laptop commands. Keep StoryBuilder on the current development branch for now, `redesign/simplified-writing-workflow`; do not switch or delete branches blindly. Discuss app/novel changes before making them, except handoff-only updates. Preserve accepted prose. Keep terminal steps short.
+Use `python3`, never `python`, in Linux laptop commands. Keep StoryBuilder on `redesign/simplified-writing-workflow` for now; do not switch or delete branches blindly. Discuss app/novel changes before making them, except handoff-only updates. Preserve accepted prose. Keep terminal steps short.
