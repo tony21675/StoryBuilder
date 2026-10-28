@@ -9,6 +9,14 @@ The focused-revision change is committed on `redesign/simplified-writing-workflo
 When ready later tonight, launch `./start.sh` from `~/Documents/StoryBuilder` to sync the branch (fast-forward only). After sync, a useful local check is `python3 -m pytest tests/test_focused_revision.py -q`, followed by the full suite if convenient. Focused revisions are not yet included in prompt-trace capture, which remains a separate observability gap.
 
 
+
+
+## Latest trace check: wrong scene, stopped
+
+The trace uploaded after the focused-revision change is dated 2026-10-28 02:51:40–02:58:58 UTC (October 27 evening local time) and records a **new Chapter 1, Scene 10 generation** using `gemma-4-E4B_q4_0-it.gguf`. It is not Scene 11 and does not contain a focused-revision operation, so it is not a test of commit `fa012c2`. The author correctly stopped the run with Ctrl+C after noticing the scene mismatch. Do not treat its output as accepted manuscript prose or as validation of the focused-revision fix.
+
+This unrelated Scene 10 trace also shows the semantic validator marking the explicit manual-isolation decision missing even though the prose ends with Elena choosing manual isolation and saying, “Then do it.” The continuity/scope audit calls the endpoint clear, so the two reviews disagree. Keep this as a separate validation false-negative to investigate later; do not alter the accepted scene or add writing rules based on this aborted run.
+
 ## Speed changes committed to GitHub
 
 - `45524e27550f05db21b4ea29785ba33e07bea156`: optional writing-notes learning is default OFF.
