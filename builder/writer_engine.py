@@ -352,7 +352,7 @@ class WriterEngine:
                 )
 
             try:
-                child.sendline("/clear")
+                child.sendline(encode_prompt_for_cli("/clear"))
                 child.expect(r"(?m)^> ", timeout=max(1, int(timeout)))
                 output = str(child.before or "")
                 if "Chat history cleared." not in output:
