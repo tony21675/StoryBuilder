@@ -116,4 +116,11 @@ Use `python3`, never `python`, in Linux terminal commands. Keep StoryBuilder on 
 - **Live GUI verification passed on October 28, 2026.** The author supplied a screenshot showing `The-Long-Way-Home`, Chapter 01, Scene 10 selected and the actual Scene 10 prose loaded in the editable output area. The status bar explicitly says the original is untouched and Save opens Save As.
 - The author then clicked **Save**. The operating-system save dialog requested a destination and filename; after the author selected them, the dialog closed and the app's status bar reported that the file was saved. This confirms the Save As path completed without touching the selected manuscript. The destination file was not separately reopened for byte-level verification.
 - No edits were made to the loaded prose, and the accepted novel manuscript and story state remain untouched.
-- Next: discuss the desired safety behavior before any direct-to-scene save feature is implemented. A possible design is a separate, clearly named **Save to Selected Scene** action that shows the target path and requires confirmation before overwriting; the existing **Save** behavior for loaded scene copies should remain Save As unless the user deliberately chooses otherwise.
+- The author approved a separate **Save to Selected Scene** action. Before replacing the selected manuscript file, it should show the exact target path and require explicit confirmation. The ordinary **Save** action for a loaded scene copy remains Save As. Implement and test this as one focused change; do not alter the accepted novel while testing.
+- Proposed verification: use a disposable test novel/package or a test scene file, verify Save to Selected Scene writes only the confirmed path, verify cancellation leaves the file unchanged, and rerun the Python tests with `python3`.
+ 
+## Future app split decision (October 28, 2026)
+ 
+- Proposed architecture confirmed with the author: the future **Story Bible** companion app is responsible for creating a new novel package and its foundations (story bible, characters, outline/plan, and package structure).
+- **StoryBuilder Writer** focuses on writing and editing prose for novels, whether created by the companion app or already present. It browses the shared local novel root and saves scenes into the chosen novel.
+- The two apps should use the same on-disk novel package, avoiding duplicate creation or manual copying of story-bible content. Keep the Story Bible app on hold while Writer is developed and tested first.
