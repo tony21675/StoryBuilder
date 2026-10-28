@@ -107,9 +107,11 @@ def show_copyable_dialog(
         except tk.TclError:
             return "break"
         try:
-            window.clipboard_clear()
-            window.clipboard_append(selected)
-            window.update_idletasks()
+            # Keep the clipboard owner on the main application window so the
+            # copied text remains available after this popup closes.
+            parent.clipboard_clear()
+            parent.clipboard_append(selected)
+            parent.update_idletasks()
         except tk.TclError:
             pass
         return "break"
