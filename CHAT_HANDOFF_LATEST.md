@@ -20,14 +20,14 @@ Rebuild StoryBuilder piece by piece. The active app should load a local model an
 A separate **Continue** action has been implemented in `minimal_writer.py`, but still needs its live laptop test.
 
 - **Write** continues to replace the output with a new passage.
-- **Continue** asks the current model conversation to continue from where it left off and appends the new response after a paragraph break.
+- **Continue** asks the model for only new material, includes up to the last 2,000 characters of the visible passage as context, and appends the response after a paragraph break. This anchors continuation to the text as edited in the output box.
 - The existing passage remains in the output while more words stream in.
 - The app's final cleaned response is appended to the saved-visible passage when generation completes.
 - If continuation fails, the previous text and file tracking are restored.
 - If Stop is pressed during continuation, the previous text plus any streamed continuation is kept. If no new text arrived, the previous document is restored.
 - No hidden system prompt or broader writing rules were added.
 
-Automated tests passed for this feature on commit `682a3556`: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/40641414447) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/40641414419).
+Automated tests passed on commit `04ec5fe9`: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/40641722839) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/40641722845).
 
 ## Next laptop test
 
