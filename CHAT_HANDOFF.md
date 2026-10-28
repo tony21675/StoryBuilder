@@ -1,28 +1,33 @@
 # StoryBuilder handoff — October 27, 2026
 
-## Current checkpoint: app closed; focused-revision fix committed
+## Current checkpoint: saved Scene 10 restoration fixed in Open Novel
 
-StoryBuilder was closed with Ctrl+C. Scene 11 was never accepted. The latest prose was pasted into this conversation, but do not assume it was saved to the novel package; the closed app's in-memory draft may be gone. Do not repeat revision attempts yet.
+The new trace exposed a loading bug, not a missing GitHub manuscript. `_load_startup_novel()` already restores saved prose; the explicit **Open Novel** path cleared the Writer but omitted that restore call. The app therefore generated a fresh Scene 10 even though the saved version existed remotely.
 
-The focused-revision change is committed on `redesign/simplified-writing-workflow`: `fa012c2` gives the revision model the complete current scene as explicitly read-only context while keeping the selected passage as the only editable span; `5454cc3` adds regression tests that check the full-scene context reaches the initial and retry prompts. This changes the focused-edit workflow only. It adds no global Writer instructions or novel-specific rules. The connected status lookup returned no published checks for the new commits, and this execution environment could not clone from GitHub. Treat the regression tests as unverified until GitHub Actions or a laptop test run confirms them.
+Fix and verification on `redesign/simplified-writing-workflow`:
+- `77b2075`: explicit Open Novel now calls `_load_saved_scene_into_writer()` after the package and Writer controls refresh.
+- `1d4d3ce` and `1d14215`: regression test exercises restoration from an actual saved Scene 10 file with a matching before-state, plus a Tk test-fixture fix.
+- `c05bc6b`: update legacy close-flow tests to match the already-implemented safe novel-first sync behavior.
 
-When ready later tonight, launch `./start.sh` from `~/Documents/StoryBuilder` to sync the branch (fast-forward only). After sync, a useful local check is `python3 -m pytest tests/test_focused_revision.py -q`, followed by the full suite if convenient. Focused revisions are not yet included in prompt-trace capture, which remains a separate observability gap.
+Both GitHub Actions checks passed at `c05bc6b`: **Compile and unit tests** and **StoryBuilder tests**. These changes do not edit the novel package or its state.
 
+The latest trace (2026-10-28 03:54:48–04:01:39 UTC) was a new Chapter 1 Scene 10 generation, not a focused revision and not the saved manuscript. It produced three review findings even though Elena's generated ending orders immediate manual isolation; the independent continuity audit considered the endpoint clear. Treat those findings as a separate validator disagreement. Do not revise the saved manuscript to appease them before verifying restoration.
+
+When next using the laptop, start StoryBuilder through `./start.sh` to pull the branch. Open *The Long Way Home* and check for the Writer status **“Restored saved Chapter 1, Scene 10 into Writer.”** Verify that the saved prose is visible before generating anything. If the status reports a state mismatch or missing prose, stop and capture the exact message.
 
 ## Cross-computer novel sync diagnosis and safeguards
 
-Confirmed on GitHub: `tony21675/The-Long-Way-Home` on `main` had `current_state.json` at Chapter 1, Scene 10 as of the latest check. The earlier Scene 11 pointer was saved locally on the home computer but had not been pushed. The cause was that the old close handler synced StoryBuilder code only, and terminal Ctrl+C bypassed the close handler.
+GitHub has `tony21675/The-Long-Way-Home` on `main` with remote `current_state.json` still pointing at Chapter 1, Scene 10. The manuscript file `Manuscript/Chapters/Chapter_01/Chapter_01_Section_10.txt` exists, and `Chapter_01_Section_10_before_state.json` matches that current state. `Chapter_01_Section_10_after_state.json` is absent, so the state transition to Scene 11 is not saved remotely.
 
-New generic safeguards now committed on this StoryBuilder branch:
-- `68f84fcccab51958669e99f688bfce25d63271b4`: closing the app saves the current accepted package, syncs the novel repository first, and syncs StoryBuilder code second. A novel sync error/conflict leaves the app open for resolution. Terminal Ctrl+C is captured and routed through the same safe shutdown path after active tasks settle.
-- `f1a6623836dcf8048cd049278e9c24ad4a65d584`: StoryBuilder synchronizes a novel repository **before loading its local state** at startup or when opening a novel. If sync fails or the folder is not a Git repository, opening is cancelled by default and the user must explicitly choose to open a potentially stale local copy.
-- `6615acae6513c04c4baba56f5f5c16dbc22797cf`, `06a1fbb4f86dd241f5958fbb2bca830047e2fbb5`, and `d03292bf2aa42f7597b920272f4b8fad6503b66c`: regression tests for the safe shutdown sequence, Ctrl+C routing, pre-open sync, and default-cancel behavior.
-- `e838ec19c12e4858ec5ca677c95796b7ec7c1502`: rename the toolbar action to **Save & Sync & Close** so it communicates its broader behavior.
-- `f9b9f6f00dbf36b9fcbd78f39701a3be4fdc6dce`: clean up the shutdown-sync test setup.
+The earlier sync safeguards remain:
+- `68f84fc`: app close saves/syncs the novel before syncing StoryBuilder; Ctrl+C uses the safe close flow.
+- `f1a6623`: sync the novel before loading its local state at startup or Open Novel; sync failure cancels opening by default.
+- `6615aca`, `06a1fbb`, and `d03292b`: regression coverage for shutdown, Ctrl+C, and pre-open sync.
+- `e838ec1`: toolbar text is **Save & Sync & Close**.
+- `77b2075`: restore saved manuscript prose on explicit Open Novel, matching startup recovery.
 
-The user cannot currently access the home computer. Do not try to repair or manually change the remote `current_state.json` from this computer. Later, once home, launch StoryBuilder using `./start.sh` so the app code updates. Opening The Long Way Home will attempt to synchronize the local novel before reading its state; if it succeeds, the Scene 11 state should be pushed/pulled before the Writer loads. If any sync error or conflict appears, choose **No / cancel opening** and report the exact message rather than using an older scene. The close path will then save and synchronize novel data before app code on future exits. The app never accepts unaccepted prose as part of this process.
+The author is okay recreating the old unsaved Scene 11 draft; do not chase or manually restore it. Restore the saved Scene 10 prose first. Then analyze the ending and review the state-update proposal; apply it only after the author confirms the proposed changes. Do not manually edit `current_state.json`.
 
-The new tests have not been run in this execution environment, and the connected GitHub status lookup returned no published checks. After the next code sync, run `python3 -m pytest tests/test_terminal_shutdown_sync.py tests/test_focused_revision.py -q`, then the full suite when convenient.
 ## What the speed fix changes (and doesn't)
 
 There are two distinct writing-notes paths. The post-accept updater requires `STORYBUILDER_AUTO_WRITER_NOTES=1`; the prior commits bound that path to a 6,144-token context, 350 output tokens, and a 180-second timeout. The current process is almost certainly the old local version of that post-accept task, based on the saved-state sequence and its 16,384/4,000 process arguments. A separate one-time seed scan runs before Writer startup when the notebook file is blank; that path had missed the same opt-in check. Commit `dcacdc5` closes that separate gap, so the normal default-off workflow should skip both housekeeping paths.
@@ -33,25 +38,17 @@ The automatic Scene Idea path no longer reloads the previous Writer system promp
 
 **Remaining limitation:** Changing task-specific system prompts in the shared `WriterEngine` still calls `reset_context()`, which stops and restarts `llama-cli`. Several distinct tasks can therefore still reload the model. A larger persistent-server/per-request-prompt redesign would be needed to remove most of these reloads; don't attempt that untested architecture change mid-session.
 
-## The Long Way Home — Scene 10 accepted; Scene 11 draft needs its endpoint
+## The Long Way Home — current recovery point
 
-Local novel: `~/Documents/MyNovel/The-Long-Way-Home`; GitHub repo: `tony21675/The-Long-Way-Home`.
+- Local novel: `~/Documents/MyNovel/The-Long-Way-Home`; GitHub: `tony21675/The-Long-Way-Home`, branch `main`.
+- Saved Scene 10 prose is on GitHub and its before-state matches the live remote state. The remote pointer is still Scene 10 because the after-state snapshot was not pushed.
+- Saved Scene 10 ends with Elena committing to immediate manual isolation on Delta-9. Daniel runs the procedure, Morgan monitors physical feedback, and Priya watches crew stability. The result and root cause are unresolved.
+- After syncing StoryBuilder, load the saved Scene 10, not the newly generated draft in the latest trace. Review it, analyze its ending, and apply the proposed state update only after reviewing it. The Writer should then point to Scene 11.
+- Preserve uncertainty in Daniel's line, “maybe another hour before that slight curve decides to become a cliff.” Do not turn it into a definite countdown or claim isolation succeeded prematurely.
 
-Scene 10 was accepted, the false-positive “team didn't commit to one high-risk strategy” finding was rejected, and Stage 2's proposed state was applied and saved. Current pointer is Chapter 1, Scene 11.
+## Previous Scene 11 draft (not the current recovery source)
 
-The accepted end of Scene 10 has Elena committing to a manual, controlled isolation sequence on Delta-9. Daniel runs the protocol; Morgan watches physical feedback; Priya monitors crew stability. The operation's result and underlying root cause remain unknown. Scene 11 begins from this immediate choice and must not replay Scene 10.
-
-Preserve the uncertainty in Daniel's line, “maybe another hour before that slight curve decides to become a cliff.” Do not state a definite remaining hour or claim the isolation succeeded prematurely. Two potentially over-definite details in Scene 10 (“critical leak” and elevated cortisol readings “through environmental monitoring”) were noted as cautions, but the author accepted the scene; do not reopen it or expand either into confirmed diagnosis/cause without evidence.
-
-## Scene 11 trace findings (October 27)
-
-Private trace: `tony21675/StoryBuilder-Traces` `prompt_trace.json`, Chapter 1 Scene 11, trace window 22:25:31–22:43:59 UTC. It completed without runtime error. Recorded model work was about 11m36s writing, 2m26s semantic validation, and 4m01s continuity/scope audit.
-
-The prose starts the Delta-9 isolation, includes Morgan's physical warning and Daniel's recalculation, then ends while the crew is redirected to deal with a suspected local leak. It does **not** reach the author-marked endpoint: pressure readings stabilizing just above the collapse threshold while underlying instability is exposed. Both automated reviews incorrectly passed because the endpoint was treated as satisfied without showing it in the scene. Scene 11 remains unaccepted. Stop the repeated revision loop until the new focused-revision code has been synced and tested. It now receives the complete current scene as read-only context, but this does not guarantee that the model will dramatize every requested event; check the next result once and stop if it still only summarizes the outcome.
-
-The new generic `HARD_STOP` check should catch this class of false pass on future runs after the laptop syncs/restarts. It activates only when the author explicitly marked an ending in the Scene Idea. It adds no novel-specific facts or prose-writing rules.
-
-After Scene 11 is accepted and its ending-state update applied, StoryBuilder should save, advance to Scene 12, refresh Writer direction, and invoke the next-Scene-Idea suggestion automatically. Verify that trigger in the next trace instead of manually requesting a duplicate suggestion.
+The earlier Scene 11 trace was not saved as accepted manuscript prose on GitHub. Its draft may be recreated once the Scene 10 ending-state update has been reviewed and the pointer advances. Do not try to recover that draft from the current remote novel package.
 
 ## Verified State Analysis warning fix
 
@@ -86,7 +83,8 @@ Mars research outpost; six main characters under 30 (four women, two men), all s
 
 ## Next steps
 
-1. Stop the stuck old app process. The accepted Scene 10 and applied state should already be saved; an unsaved generated Scene 11 suggestion, if any, can be regenerated.
-2. Restart with `./start.sh` so the code updates sync from GitHub.
-3. Run `python3 -m pytest -q` to verify the new changes.
-4. Continue Scene 11 from the manual Delta-9 isolation decision.
+1. Run `./start.sh` from `~/Documents/StoryBuilder` to sync the latest branch.
+2. Open *The Long Way Home* and confirm the status says the saved Chapter 1, Scene 10 was restored. Do not regenerate until the saved prose is visible.
+3. Review the saved Scene 10 ending, run **Analyze Accepted Scene**, and inspect the proposed state changes. Apply them only when they accurately reflect the saved prose.
+4. Once the pointer advances to Scene 11, regenerate that scene from the established Delta-9 isolation decision; the earlier unsaved draft is not needed.
+5. GitHub Actions passed both test workflows at commit `c05bc6b`. Use `python3 -m pytest -q` after syncing if a local verification run is desired.
