@@ -180,6 +180,18 @@ def build_continue_prompt(existing_text: str) -> str:
     return f"{CONTINUE_PROMPT}\n\nPassage ending for context:\n{passage_ending}"
 
 
+def build_revision_prompt(selected_text: str, instruction: str) -> str:
+    """Ask the model to revise only the selected passage, following the author's instruction."""
+    return (
+        "Revise only the selected passage according to the author's instruction. "
+        "Return only the revised passage, with no commentary, label, or explanation. "
+        "Do not continue beyond the passage. Preserve its intended meaning and events "
+        "unless the instruction explicitly asks for a change.\\n\\n"
+        f"Author's instruction:\\n{instruction.strip()}\\n\\n"
+        f"Selected passage to revise:\\n{selected_text}"
+    )
+
+
 def continuation_prefix(text: str) -> str:
     """Return the current passage plus one paragraph boundary for appended text."""
     if not text:
@@ -236,6 +248,10 @@ class MinimalWriterApp:
         self._generation_mode = "write"
         self._generation_prefix = ""
         self._generation_had_chunks = False
+        self._revision_start_mark = "storybuilder_revision_start"
+        self._revision_end_mark = "storybuilder_revision_end"
+        self._revision_original = ""
+        self._revision_active = False
 
         root.title("StoryBuilder Minimal Writer - Untitled")
         root.geometry("1080x820")
@@ -372,7 +388,13 @@ class MinimalWriterApp:
         )
         self.save_scene_button.pack(side="left", padx=(8, 0))
 
-        ttk.Label(outer, text="Output (editable)").pack(anchor="w")
+        output_header = ttk.Frame(outer)
+        output_header.pack(fill="x")
+        ttk.Label(output_header, text="Output (editable)").pack(side="left", anchor="w")
+        self.revise_selection_button = ttk.Button(
+            output_header, text="Revise Selection", command=self.revise_selection
+        )
+        self.revise_selection_button.pack(side="right")
         self.output_box = ScrolledText(
             outer, height=22, wrap="word", undo=True, font=("TkDefaultFont", 11)
         )
@@ -409,6 +431,325 @@ class MinimalWriterApp:
         if choice == "No":
             return False
         return None
+
+    def revise_selection(self) -> None:
+        """Open a small dialog to revise or exactly replace the selected passage."""
+        if self.busy:
+            return
+        try:
+            start = self.output_box.index("sel.first")
+            end = self.output_box.index("sel.last")
+            selected = self.output_box.get(start, end)
+        except tk.TclError:
+            self._showinfo(
+                "Select a passage",
+                "Highlight the sentence or paragraph you want to change in the output, "
+                "then click Revise Selection.",
+            )
+            return
+
+        if not selected.strip():
+            self._showinfo("Select a passage", "Select some non-blank text to revise.")
+            return
+
+        self._revision_original = selected
+        self.output_box.mark_set(self._revision_start_mark, start)
+        self.output_box.mark_gravity(self._revision_start_mark, "right")
+        self.output_box.mark_set(self._revision_end_mark, end)
+        self.output_box.mark_gravity(self._revision_end_mark, "left")
+        self._revision_active = True
+        self._open_revision_dialog(selected)
+
+    def _open_revision_dialog(self, selected_text: str) -> None:
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Revise Selected Passage")
+        dialog.transient(self.root)
+        dialog.resizable(True, True)
+        screen_width = dialog.winfo_screenwidth()
+        screen_height = dialog.winfo_screenheight()
+        width = min(820, max(440, screen_width - 80))
+        height = min(700, max(480, screen_height - 80))
+        x = max(0, (screen_width - width) // 2)
+        y = max(0, (screen_height - height) // 2)
+        dialog.geometry(f"{width}x{height}+{x}+{y}")
+
+        outer = ttk.Frame(dialog, padding=12)
+        outer.pack(fill="both", expand=True)
+        ttk.Label(outer, text="Passage you selected").pack(anchor="w")
+        source_box = ScrolledText(
+            outer, height=4, wrap="word", font=("TkDefaultFont", 10)
+        )
+        source_box.pack(fill="x", pady=(4, 10))
+        source_box.insert("1.0", selected_text)
+        source_box.configure(state="disabled")
+
+        notebook = ttk.Notebook(outer)
+        notebook.pack(fill="both", expand=True)
+        ai_frame = ttk.Frame(notebook, padding=8)
+        replace_frame = ttk.Frame(notebook, padding=8)
+        notebook.add(ai_frame, text="Revise with AI")
+        notebook.add(replace_frame, text="Replace with exact text")
+
+        ttk.Label(
+            ai_frame,
+            text="Describe the change in plain English. Only the selected passage is revised.",
+        ).pack(anchor="w", pady=(0, 5))
+        instruction_box = ScrolledText(
+            ai_frame, height=8, wrap="word", undo=True, font=("TkDefaultFont", 11)
+        )
+        instruction_box.pack(fill="both", expand=True)
+        bind_ctrl_a_select_all(instruction_box)
+
+        ttk.Label(
+            replace_frame,
+            text="Enter the exact wording to use instead. Leave it empty to delete the selection.",
+        ).pack(anchor="w", pady=(0, 5))
+        replacement_box = ScrolledText(
+            replace_frame, height=8, wrap="word", undo=True, font=("TkDefaultFont", 11)
+        )
+        replacement_box.pack(fill="both", expand=True)
+        bind_ctrl_a_select_all(replacement_box)
+
+        def cancel() -> None:
+            self._discard_revision()
+            dialog.destroy()
+
+        def preview() -> None:
+            if notebook.index("current") == 0:
+                if self.loaded_model is None:
+                    self._showinfo(
+                        "Load a model",
+                        "Load a model before asking the AI to revise the selected passage. "
+                        "Exact text replacement does not require a model.",
+                    )
+                    return
+                instruction = instruction_box.get("1.0", "end-1c").strip()
+                if not instruction:
+                    self._showinfo(
+                        "Add an instruction",
+                        "Describe what you want changed in the selected passage.",
+                    )
+                    return
+                prompt = build_revision_prompt(selected_text, instruction)
+                dialog.destroy()
+                self._begin_revision_generation(prompt)
+            else:
+                replacement = replacement_box.get("1.0", "end-1c")
+                dialog.destroy()
+                self._show_revision_review(self._revision_original, replacement)
+
+        button_row = ttk.Frame(outer)
+        button_row.pack(fill="x", pady=(10, 0))
+        ttk.Button(button_row, text="Cancel", command=cancel).pack(side="right")
+        ttk.Button(
+            button_row, text="Preview", command=preview
+        ).pack(side="right", padx=(0, 8))
+        dialog.protocol("WM_DELETE_WINDOW", cancel)
+        dialog.bind("<Escape>", lambda _event: cancel())
+        dialog.grab_set()
+        instruction_box.focus_set()
+        self.root.wait_window(dialog)
+
+    def _begin_revision_generation(self, prompt: str) -> None:
+        """Generate a proposal without changing the current passage."""
+        self.busy = True
+        self.writing = True
+        self.stop_requested = False
+        self.status_var.set(f"Revising selected text with {self.loaded_model.name}…")
+        try:
+            self.output_box.configure(state="disabled")
+        except tk.TclError:
+            pass
+        self._update_controls()
+
+        def work() -> None:
+            try:
+                answer = write_from_prompt(self.engine, prompt)
+            except GenerationInterrupted:
+                self.root.after(0, self._revision_stopped)
+            except Exception as exc:
+                message = str(exc)
+                self.root.after(
+                    0, lambda message=message: self._revision_failed(message)
+                )
+            else:
+                self.root.after(0, lambda answer=answer: self._revision_ready(answer))
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _enable_revision_editor(self) -> None:
+        try:
+            self.output_box.configure(state="normal")
+        except tk.TclError:
+            pass
+
+    def _revision_stopped(self) -> None:
+        self.busy = False
+        self.writing = False
+        self.stop_requested = False
+        self.loaded_model = None
+        self._enable_revision_editor()
+        self._discard_revision()
+        self.status_var.set(
+            "Revision stopped. The original passage was kept. Load the model again to continue."
+        )
+        self._update_controls()
+
+    def _revision_failed(self, message: str) -> None:
+        self.busy = False
+        self.writing = False
+        self.stop_requested = False
+        try:
+            still_loaded = self.engine.child is not None and self.engine.child.isalive()
+        except Exception:
+            still_loaded = False
+        if not still_loaded:
+            self.loaded_model = None
+        self._enable_revision_editor()
+        self._discard_revision()
+        self.status_var.set("Revision failed. The original passage was kept.")
+        self._update_controls()
+        self._showerror("Revision failed", message)
+
+    def _revision_ready(self, answer: str) -> None:
+        if self.stop_requested:
+            self._revision_stopped()
+            return
+        self.busy = False
+        self.writing = False
+        self.stop_requested = False
+        self._enable_revision_editor()
+        self._update_controls()
+
+        candidate = answer.strip()
+        if not candidate:
+            self._discard_revision()
+            self.status_var.set("Revision returned no text. The original passage was kept.")
+            self._showerror(
+                "Empty revision",
+                "The model returned an empty revision, so the selected text was not changed.",
+            )
+            return
+        if not self._revision_target_is_unchanged():
+            self._discard_revision()
+            self.status_var.set("Revision discarded because the selected text changed.")
+            self._showerror(
+                "Selection changed",
+                "The selected passage changed while the revision was running. "
+                "The proposal was discarded to avoid replacing the wrong text.",
+            )
+            return
+        self._show_revision_review(self._revision_original, candidate)
+
+    def _revision_target_is_unchanged(self) -> bool:
+        if not self._revision_active:
+            return False
+        try:
+            current = self.output_box.get(
+                self._revision_start_mark, self._revision_end_mark
+            )
+        except tk.TclError:
+            return False
+        return current == self._revision_original
+
+    def _show_revision_review(self, original: str, proposal: str) -> None:
+        """Preview proposed wording; change the document only on explicit approval."""
+        if not self._revision_target_is_unchanged():
+            self._discard_revision()
+            self.status_var.set("Revision discarded because the selected text changed.")
+            self._showerror(
+                "Selection changed",
+                "The selected passage has changed. Nothing was replaced. Select it again and retry.",
+            )
+            return
+
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Review Passage Change")
+        dialog.transient(self.root)
+        dialog.resizable(True, True)
+        screen_width = dialog.winfo_screenwidth()
+        screen_height = dialog.winfo_screenheight()
+        width = min(820, max(440, screen_width - 80))
+        height = min(720, max(480, screen_height - 80))
+        x = max(0, (screen_width - width) // 2)
+        y = max(0, (screen_height - height) // 2)
+        dialog.geometry(f"{width}x{height}+{x}+{y}")
+
+        outer = ttk.Frame(dialog, padding=12)
+        outer.pack(fill="both", expand=True)
+        ttk.Label(outer, text="Original passage (unchanged so far)").pack(anchor="w")
+        original_box = ScrolledText(
+            outer, height=5, wrap="word", font=("TkDefaultFont", 10)
+        )
+        original_box.pack(fill="x", pady=(4, 10))
+        original_box.insert("1.0", original)
+        original_box.configure(state="disabled")
+
+        ttk.Label(
+            outer,
+            text="Proposed replacement (you can make final edits here)",
+        ).pack(anchor="w")
+        proposal_box = ScrolledText(
+            outer, height=9, wrap="word", undo=True, font=("TkDefaultFont", 11)
+        )
+        proposal_box.pack(fill="both", expand=True, pady=(4, 8))
+        proposal_box.insert("1.0", proposal)
+        bind_ctrl_a_select_all(proposal_box)
+
+        def dismiss() -> None:
+            self._discard_revision()
+            self.status_var.set("Kept original passage; no text was changed.")
+            dialog.destroy()
+            self._update_controls()
+
+        def use_revision() -> None:
+            if not self._revision_target_is_unchanged():
+                self._discard_revision()
+                dialog.destroy()
+                self.status_var.set(
+                    "Revision not applied because the selected text changed."
+                )
+                self._showerror(
+                    "Selection changed",
+                    "The original selection is no longer unchanged. The proposal was not applied.",
+                )
+                self._update_controls()
+                return
+            start = self.output_box.index(self._revision_start_mark)
+            proposed_text = proposal_box.get("1.0", "end-1c")
+            self.output_box.delete(self._revision_start_mark, self._revision_end_mark)
+            self.output_box.insert(start, proposed_text)
+            self.output_box.mark_set("insert", start)
+            self.output_box.see("insert")
+            self.output_box.edit_modified(False)
+            self._discard_revision()
+            dialog.destroy()
+            self.status_var.set("Revision applied to selected passage. Save when ready.")
+            self._update_document_title()
+            self._update_controls()
+
+        buttons = ttk.Frame(outer)
+        buttons.pack(fill="x")
+        ttk.Button(buttons, text="Keep Original", command=dismiss).pack(side="right")
+        ttk.Button(
+            buttons, text="Use Revision", command=use_revision
+        ).pack(side="right", padx=(0, 8))
+        dialog.protocol("WM_DELETE_WINDOW", dismiss)
+        dialog.bind("<Escape>", lambda _event: dismiss())
+        dialog.grab_set()
+        proposal_box.focus_set()
+        self.root.wait_window(dialog)
+
+    def _discard_revision(self) -> None:
+        """Forget selection marks without changing the text in the editor."""
+        try:
+            self.output_box.mark_unset(
+                self._revision_start_mark, self._revision_end_mark
+            )
+        except (AttributeError, tk.TclError):
+            pass
+        self._revision_active = False
+        self._revision_original = ""
 
     def refresh_models(self) -> None:
         try:
@@ -1125,6 +1466,7 @@ class MinimalWriterApp:
                 else "disabled"
             )
         )
+        self.revise_selection_button.configure(state="normal" if idle else "disabled")
         stopping = self.stop_requested
         self.stop_button.configure(
             state="normal" if self.busy and self.writing and not stopping else "disabled",
