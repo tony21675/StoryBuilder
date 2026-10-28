@@ -96,12 +96,11 @@ Use `python3`, never `python`, in Linux terminal commands. Keep StoryBuilder on 
 - The author tested Qwen3-4B TripleX with a basic story prompt only to see whether it loads and generates. Its visible thinking section was merely an observation; no model/display changes requested.
 
 ### Current approved upgrade: New Session
-- The author approved adding a **New Session** button. Expected behavior: clear only the model's conversation history with llama.cpp's interactive `/clear` command, keep the model loaded (no weight reload), and leave the visible draft, prompt field, current filename and saved-text tracking untouched.
-- Implementation adds `WriterEngine.clear_context()`, calls it on a worker thread from Minimal Writer, displays success/failure status, and disables controls while the command runs. If the CLI fails to confirm its clear response, the engine stops the possibly uncertain session and the author must reload the model.
-- Tests were added to cover command/confirmation behavior and ensuring New Session does not modify the visible draft or file tracking.
-- Both CI workflows passed for code/test commit `14a2075dc99bfe1f7294ec64be485c2d4fc5581a`: [Python tests #328](https://github.com/tony21675/StoryBuilder/actions/runs/40766994889) and [StoryBuilder tests #593](https://github.com/tony21675/StoryBuilder/actions/runs/40766994908). Live GUI behavior has not yet been verified.
+- The author approved a **New Session** button to clear only model conversation history while keeping the visible draft, prompt field, current filename, saved-text tracking, and loaded model intact.
+- The first live test failed with an error ending in `/clear`. The likely cause was that `clear_context()` sent `/clear` without the trailing `/` end-of-turn marker required by the app's `--multiline-input` input path. The safety fallback correctly stopped the uncertain CLI session instead of claiming it had cleared.
+- Fixed `WriterEngine.clear_context()` to submit `encode_prompt_for_cli("/clear")`, the same encoder used for author prompts. Added a regression assertion that the command is submitted as `/clear/`. Code fix commit: `3934c2ba012fbe0509e0fc1fa5ed72554fd62076`; test commit: `d20c525c7189f3af9644af626b7097d397edf4a4`.
+- CI for the updated code/tests and the second live GUI check are not yet confirmed. Do not assume New Session is fixed until the next laptop test passes.
 
 ### Next step
-- CI is green. Next, tell the author to close Writer and relaunch with `cd ~/Documents/StoryBuilder && ./start.sh` for live New Session verification.
-- Load a model, generate or open a draft, click **New Session**, and confirm that the app reports success, the same visible text remains exactly unchanged, the model stays loaded, and a subsequent prompt begins without prior conversation context.
-- Do not start another feature until that live check passes. Do not modify novel packages, accepted prose or novel state. Use `python3`, never `python`, in terminal commands. Keep changes incremental and handoffs current.
+- Close Writer and relaunch with `cd ~/Documents/StoryBuilder && ./start.sh` to synchronize the branch.
+- Load a model, generate or open a draft, click **New Session**, and confirm the success status appears, the visible text and file tracking remain unchanged, the model stays loaded, and a fresh prompt no longer carries the previous conversation context.
