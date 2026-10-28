@@ -41,10 +41,6 @@ class PromptEchoStreamFilterTests(unittest.TestCase):
         self.assertEqual(pieces, [])
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class PromptEncodingTests(unittest.TestCase):
     def test_preserves_paragraph_breaks_and_literal_backslash_sequences(self):
         prompt = "First paragraph.\n\nLiteral sequence: \\n\nPath: C:\\models"
@@ -87,3 +83,7 @@ class PromptEncodingTests(unittest.TestCase):
         self.assertEqual(child.sent, expected_cli_input)
         self.assertEqual(answer, "The scene starts.\nA second paragraph.")
         self.assertEqual("".join(chunks), answer)
+
+
+if __name__ == "__main__":
+    unittest.main()
