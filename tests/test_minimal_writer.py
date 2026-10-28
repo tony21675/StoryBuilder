@@ -153,7 +153,7 @@ class MinimalWriterTests(unittest.TestCase):
         self.assertIn("without repeating", CONTINUE_PROMPT)
 
     def test_continue_prompt_uses_the_visible_passage_ending(self):
-        passage = "An opening paragraph.\\n\\nThe door creaked open."
+        passage = "An opening paragraph.\n\nThe door creaked open."
         prompt = build_continue_prompt(passage)
 
         self.assertIn(CONTINUE_PROMPT, prompt)
