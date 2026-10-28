@@ -80,17 +80,16 @@ class TerminalShutdownTests(unittest.TestCase):
     @patch("storybuilder.sync_novel_repository")
     @patch("storybuilder.novel_repo_root")
     def test_close_saves_and_syncs_novel_before_app_code(
-        self, mock_repo_root, mock_sync_novel, mock_sync_app, mock_root, mock_info
+        self, mock_root, mock_sync_novel, mock_sync_app, mock_info
     ):
         events = []
         app = make_close_app(events)
         mock_root.return_value = Path("/tmp/novel")
         mock_sync_novel.side_effect = lambda path: events.append("sync_novel") or "Novel synchronized successfully."
         mock_sync_app.side_effect = lambda path: events.append("sync_app")
-        mock_root.return_value = Path("/tmp/novel")
 
         # Use deterministic sync behavior without depending on a real Git checkout.
-        mock_repo_root.return_value = Path("/tmp/novel")
+        mock_root.return_value = Path("/tmp/novel")
 
         StoryBuilderApp._close_and_sync_app(app)
 
@@ -129,7 +128,7 @@ class TerminalShutdownTests(unittest.TestCase):
     @patch("storybuilder.sync_novel_repository")
     @patch("storybuilder.novel_repo_root", return_value=None)
     def test_non_git_novel_requires_explicit_close_confirmation(
-        self, _mock_root, mock_sync_novel, mock_sync_app, _mock_info
+        self, _mock_root, mock_sync_novel, mock_sync_app, mock_info
     ):
         events = []
         app = make_close_app(events)
@@ -143,10 +142,7 @@ class TerminalShutdownTests(unittest.TestCase):
         ))
         mock_sync_novel.assert_not_called()
         mock_sync_app.assert_called_once()
-        self.assertIn("not synchronized", next(
-            event[1] for event in events
-            if isinstance(event, tuple) and event[0] == "chat"
-        ).lower())
+        self.assertIn("not synchronized", mock_info.call_args.args[1].lower())
 
 
 if __name__ == "__main__":
