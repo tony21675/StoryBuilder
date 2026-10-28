@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import re
+import signal
 import subprocess
 import threading
 
@@ -13,6 +14,10 @@ from builder.workspace import LLAMA as DEFAULT_LLAMA, MODELS_DIR
 
 
 WRITER_TIMEOUT = int(os.environ.get("STORY_WRITER_TIMEOUT", "3600"))
+
+
+class GenerationInterrupted(RuntimeError):
+    """Raised when the author stops an active generation."""
 
 
 class _PromptEchoStreamFilter:
@@ -130,6 +135,11 @@ class WriterEngine:
         self.system_prompt = ""
         self.started_at: float | None = None
         self.prompt_trace = None
+        # These fields use a separate lock because generate() holds self.lock
+        # while waiting for llama-cli. Stop must not wait for that generation lock.
+        self._interrupt_lock = threading.Lock()
+        self._active_generation_child = None
+        self._cancel_generation_requested = False
 
     def _trace_record(self, method_name: str, **details):
         """Record diagnostics when armed, without letting tracing disrupt generation."""
@@ -197,6 +207,29 @@ class WriterEngine:
                     child.kill(1)
                 except Exception:
                     pass
+
+    def interrupt_generation(self) -> bool:
+        """Stop the active turn without waiting for generate() to release its lock.
+
+        llama-cli is terminated to guarantee the model stops. Its in-memory
+        session is lost, so the author must reload the model before writing again.
+        """
+        with self._interrupt_lock:
+            self._cancel_generation_requested = True
+            child = self._active_generation_child or self.child
+            if child is None:
+                return True
+            if self.child is child:
+                self.child = None
+
+        try:
+            child.kill(signal.SIGKILL)
+        except Exception:
+            try:
+                child.terminate(force=True)
+            except Exception:
+                pass
+        return True
 
     @staticmethod
     def detect_accelerator() -> str | None:
@@ -305,10 +338,16 @@ class WriterEngine:
     ) -> str:
         """Generate one turn; optionally stream story-text deltas as they arrive."""
         with self.lock:
-            if self.child is None or not self.child.isalive():
-                raise RuntimeError(
-                    "Writer is not running. Start the Writer first."
-                )
+            with self._interrupt_lock:
+                if self._cancel_generation_requested:
+                    self._cancel_generation_requested = False
+                    raise GenerationInterrupted("Generation stopped by the author.")
+                child = self.child
+                if child is None or not child.isalive():
+                    raise RuntimeError(
+                        "Writer is not running. Start the Writer first."
+                    )
+                self._active_generation_child = child
 
             # llama-cli's interactive input is line-oriented. Collapse the
             # multi-line author direction into one user turn so embedded newlines
@@ -322,7 +361,6 @@ class WriterEngine:
                 sent_prompt=single_line_prompt,
             )
             generation_started = time.monotonic()
-            child = self.child
             stream_filter = (
                 _PromptEchoStreamFilter(single_line_prompt, on_delta)
                 if callable(on_delta) else None
@@ -335,8 +373,19 @@ class WriterEngine:
                 child.sendline(single_line_prompt)
                 child.expect(r"(?m)^> ", timeout=turn_timeout)
             except pexpect.TIMEOUT as exc:
-                child = self.child
-                output = child.before or "" if child is not None else ""
+                output = child.before or ""
+                with self._interrupt_lock:
+                    interrupted = self._cancel_generation_requested
+                if interrupted:
+                    self._trace_record(
+                        "finish_generation",
+                        call_id=trace_call_id,
+                        response="",
+                        status="interrupted",
+                        error="Stopped by the author.",
+                        duration_seconds=time.monotonic() - generation_started,
+                    )
+                    raise GenerationInterrupted("Generation stopped by the author.") from exc
                 diagnostics_match = re.search(
                     r"\[ Prompt: .*? \| Generation: .*? \]\s*$",
                     str(output),
@@ -357,13 +406,26 @@ class WriterEngine:
                         child.kill(1)
                 except Exception:
                     pass
-                self.child = None
+                if self.child is child:
+                    self.child = None
                 raise TimeoutError(
                     f"Local model turn timed out after {turn_timeout} seconds.\n"
                     + str(output)[-2000:]
                 ) from exc
             except Exception as exc:
-                output = self.child.before or ""
+                output = child.before or ""
+                with self._interrupt_lock:
+                    interrupted = self._cancel_generation_requested
+                if interrupted:
+                    self._trace_record(
+                        "finish_generation",
+                        call_id=trace_call_id,
+                        response="",
+                        status="interrupted",
+                        error="Stopped by the author.",
+                        duration_seconds=time.monotonic() - generation_started,
+                    )
+                    raise GenerationInterrupted("Generation stopped by the author.") from exc
                 diagnostics_match = re.search(
                     r"\[ Prompt: .*? \| Generation: .*? \]\s*$",
                     str(output),
@@ -389,8 +451,12 @@ class WriterEngine:
                     except Exception:
                         pass
                     stream_filter.finish()
+                with self._interrupt_lock:
+                    if self._active_generation_child is child:
+                        self._active_generation_child = None
+                    self._cancel_generation_requested = False
 
-            raw_output = str(self.child.before or "")
+            raw_output = str(child.before or "")
             diagnostics_match = re.search(
                 r"\[ Prompt: .*? \| Generation: .*? \]\s*$",
                 raw_output,
