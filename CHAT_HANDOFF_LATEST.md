@@ -165,8 +165,8 @@ Use `python3`, never `python`, in Linux terminal commands. Keep StoryBuilder on 
 - Both paths open a review dialog showing the original and a proposed replacement. The proposal can be edited before **Use Revision** applies it. **Keep Original**, Cancel, or closing the dialog leaves the document text unchanged. Changes are not saved automatically.
 - While the AI is generating, the output editor is disabled. The app tracks the selected range and refuses to apply a proposal if that source passage no longer matches the original. Generation errors and Stop keep the original passage; Stop follows the existing behavior of requiring the model to be reloaded.
 - Regression tests cover prompt targeting, replacing only the selected range, and refusing replacement if the selection changed. Both workflows passed on test commit `d62ef0d8de13f5b2469f94dba39711aeadd6f0c2`: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/40779853981) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/40779854069).
-- **Live laptop/UI/model verification is still pending.** No novel package, accepted manuscript, or story state was changed while implementing this feature.
+- **Live laptop/UI/model verification passed on October 28, 2026.** The author reported that both exact-text replacement and AI revision worked. This confirms both paths function in the live Writer; no novel package, accepted manuscript, or story state was changed during implementation or verification.
 
 ### Next step
-Launch with `cd ~/Documents/StoryBuilder && ./start.sh` and test this on disposable text or an ordinary draft, not an accepted manuscript scene. First try exact replacement and confirm both **Keep Original** and **Use Revision** behave as expected; then test one AI revision using a simple instruction. Report any unexpected behavior before we add another feature.
+This focused revision milestone is complete. Before choosing another feature, discuss the next priority with the author; do not automatically start the next roadmap item.
 
