@@ -87,27 +87,21 @@ No novel package loading, scene planning, character cards, continuity system, wr
 Use `python3`, never `python`, in Linux terminal commands. Keep StoryBuilder on `redesign/simplified-writing-workflow` for now; do not switch or delete branches blindly. Discuss app or novel changes before making them, except handoff-only updates. Preserve accepted prose. Keep terminal steps short.
 
 
-## Minimal Writer status at bedtime (October 28, 2026)
+## Minimal Writer current checkpoint: New Session upgrade (October 28, 2026)
 
-### Confirmed working
+### Confirmed working before this upgrade
+- Active branch: `redesign/simplified-writing-workflow`. Launch locally with `cd ~/Documents/StoryBuilder && ./start.sh`. It synchronizes the current branch and opens `minimal_writer.py`.
+- Live multiline-prompt tests passed: real paragraph boundaries remain distinct; `C:\\models\\drafts\\scene.txt` retains single backslashes; literal `\\n` stays literal; longer generated prose has no prompt echo and keeps requested paragraph breaks.
+- Ctrl+A is explicitly bound in the prompt and output boxes, and the user confirmed it works in both. The code/test commit was `c7fd9d932013f99fced5d0c35bf62fe7cb6ee14c`; both CI workflows passed: [Python #326](https://github.com/tony21675/StoryBuilder/actions/runs/40693875261), [StoryBuilder #591](https://github.com/tony21675/StoryBuilder/actions/runs/40693875342).
+- The author tested Qwen3-4B TripleX with a basic story prompt only to see whether it loads and generates. Its visible thinking section was merely an observation; no model/display changes requested.
 
-- Active project: StoryBuilder Minimal Writer on branch `redesign/simplified-writing-workflow`. Current application entry point remains `minimal_writer.py`; launching via `cd ~/Documents/StoryBuilder && ./start.sh` syncs the active branch and starts the Writer.
-- Multiline prompt transport is fixed in `builder/writer_engine.py`: actual newlines are sent with llama.cpp's `--multiline-input` mode and the trailing `/` end-of-turn marker. Do not revert to escaped single-line transport; llama.cpp does not decode `--escape` in interactive user turns.
-- Live exact-output test passed on the Linux laptop. The path `C:\\models\\drafts\\scene.txt` retained single backslashes, literal `\\n` stayed literal, and output lines remained separate.
-- Live longer scene test passed: four distinct paragraphs, prompt not echoed, the path and literal sequence preserved, and the scene stopped as Mara reached the box lid without revealing the contents.
-- Ctrl+A Select All is now explicitly bound in both the prompt box and editable output box using `bind_ctrl_a_select_all` / `select_all_text` in `minimal_writer.py`. Both `<Control-a>` and `<Control-A>` are handled. The user confirmed Ctrl+A works in both boxes on the laptop.
-- Regression tests for the shortcut were added to `tests/test_minimal_writer.py`.
-- Both CI workflows passed for code commit `c7fd9d932013f99fced5d0c35bf62fe7cb6ee14c`: [Python tests run #326](https://github.com/tony21675/StoryBuilder/actions/runs/40693875261) and [StoryBuilder tests run #591](https://github.com/tony21675/StoryBuilder/actions/runs/40693875342).
-- Handoff-only updates were made after the live checks. No novel packages, accepted prose, or novel state files were changed.
+### Current approved upgrade: New Session
+- The author approved adding a **New Session** button. Expected behavior: clear only the model's conversation history with llama.cpp's interactive `/clear` command, keep the model loaded (no weight reload), and leave the visible draft, prompt field, current filename and saved-text tracking untouched.
+- Implementation adds `WriterEngine.clear_context()`, calls it on a worker thread from Minimal Writer, displays success/failure status, and disables controls while the command runs. If the CLI fails to confirm its clear response, the engine stops the possibly uncertain session and the author must reload the model.
+- Tests were added to cover command/confirmation behavior and ensuring New Session does not modify the visible draft or file tracking.
+- CI is pending for this code/test change. Live GUI behavior has not yet been verified.
 
-### Model observation, no action requested
-
-- The author tested the downloaded Qwen3-4B TripleX model with a short brother/sister breakfast-story prompt. It generated a visible `[Start thinking]` / `[End thinking]` section before the story. The author was only checking whether the model loads and writes at all, not requesting a change. Leave model settings and Writer display behavior alone unless the author brings it up again.
-
-### Resume tomorrow
-
-- Stop here for the night. Do not make further app or novel changes until the author resumes.
-- When resuming, stay on the Minimal Writer rebuild and continue one upgrade at a time. Do not return to legacy StoryBuilder workflow work or model research unless explicitly asked.
-- Code branch should ultimately return to one permanent `main` branch as previously requested, but do not switch or delete branches blindly; discuss/verify the merge path first.
-- Keep the existing rules: use `python3`, never `python`, in Linux terminal commands; preserve novel repositories and accepted prose; keep terminal steps short; handoff-only updates do not need permission, but app/novel changes do.
-
+### Next step
+- Wait for both CI workflows to pass. Then tell the author to close Writer and relaunch with `cd ~/Documents/StoryBuilder && ./start.sh`.
+- Load a model, generate or open a draft, click **New Session**, and confirm that the app reports success, the same visible text remains exactly unchanged, the model stays loaded, and a subsequent prompt begins without prior conversation context.
+- Do not start another feature until that live check passes. Do not modify novel packages, accepted prose or novel state. Use `python3`, never `python`, in terminal commands. Keep changes incremental and handoffs current.

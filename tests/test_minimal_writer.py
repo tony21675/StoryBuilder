@@ -22,6 +22,10 @@ class FakeEngine:
         self.start_calls = []
         self.generate_calls = []
         self.session_history = []
+        self.clear_context_calls = 0
+
+    def clear_context(self):
+        self.clear_context_calls += 1
 
     def start(self, model_path, system_prompt):
         self.start_calls.append((model_path, system_prompt))
@@ -138,6 +142,36 @@ class MinimalWriterTests(unittest.TestCase):
 
         self.assertEqual(select_all_text(event), "break")
         self.assertEqual(widget.tags, [("sel", "1.0", "end-1c")])
+
+    def test_new_session_keeps_visible_draft_and_file_tracking(self):
+        app = MinimalWriterApp.__new__(MinimalWriterApp)
+        app.root = FakeRoot()
+        app.engine = FakeEngine()
+        model_path = Path("/models/example.gguf")
+        app.loaded_model = model_path
+        app.busy = False
+        app.writing = False
+        app.stop_requested = False
+        visible_text = "Unsaved visible draft that must stay untouched."
+        app.output_box = FakeOutputBox(visible_text)
+        current_file = Path("/tmp/draft.txt")
+        app.current_file = current_file
+        saved_text = "Earlier saved draft."
+        app.saved_output_text = saved_text
+        app.status_var = FakeStatus()
+        app._update_controls = lambda: None
+
+        with patch("minimal_writer.threading.Thread", ImmediateThread):
+            app.new_session()
+
+        self.assertEqual(app.engine.clear_context_calls, 1)
+        self.assertEqual(app._output_text(), visible_text)
+        self.assertEqual(app.current_file, current_file)
+        self.assertEqual(app.saved_output_text, saved_text)
+        self.assertEqual(app.loaded_model, model_path)
+        self.assertFalse(app.busy)
+        self.assertFalse(app.writing)
+        self.assertIn("Visible text was kept", app.status_var.value)
 
     def test_model_load_uses_no_app_added_system_prompt(self):
         engine = FakeEngine()

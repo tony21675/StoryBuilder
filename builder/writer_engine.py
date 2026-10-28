@@ -340,6 +340,42 @@ class WriterEngine:
                 },
             )
 
+    def clear_context(self, timeout: int = 30) -> None:
+        """Clear the interactive model conversation without reloading its weights."""
+        with self.lock:
+            child = self.child
+            if child is None or not child.isalive():
+                if self.child is child:
+                    self.child = None
+                raise RuntimeError(
+                    "Writer is not running. Load the model before starting a new session."
+                )
+
+            try:
+                child.sendline("/clear")
+                child.expect(r"(?m)^> ", timeout=max(1, int(timeout)))
+                output = str(child.before or "")
+                if "Chat history cleared." not in output:
+                    raise RuntimeError(
+                        "llama-cli did not confirm clearing the conversation history."
+                    )
+            except Exception as exc:
+                output = str(getattr(child, "before", "") or "")
+                if self.child is child:
+                    self.child = None
+                try:
+                    child.kill(1)
+                except Exception:
+                    try:
+                        child.terminate(force=True)
+                    except Exception:
+                        pass
+                raise RuntimeError(
+                    "Could not clear the model's conversation history. "
+                    "The model was stopped; load it again before writing.\n"
+                    + output[-1500:]
+                ) from exc
+
     def reset_context(self, model_path: str | Path, system_prompt: str) -> None:
         """Restart llama-cli with a fresh conversation context."""
         self.start(model_path, system_prompt)

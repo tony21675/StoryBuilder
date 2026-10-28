@@ -1,4 +1,5 @@
 import unittest
+from pathlib import Path
 
 from builder.writer_engine import (
     _PromptEchoStreamFilter,
@@ -39,6 +40,71 @@ class PromptEchoStreamFilterTests(unittest.TestCase):
         stream.finish()
 
         self.assertEqual(pieces, [])
+
+
+class ClearContextTests(unittest.TestCase):
+    def test_clear_context_uses_cli_command_and_keeps_model_process(self):
+        class FakeChild:
+            def __init__(self):
+                self.before = ""
+                self.sent = []
+                self.killed = False
+                self.wait = None
+
+            def isalive(self):
+                return True
+
+            def sendline(self, value):
+                self.sent.append(value)
+
+            def expect(self, pattern, timeout):
+                self.wait = (pattern, timeout)
+                self.before = "Chat history cleared.\\r\\n"
+                return 0
+
+            def kill(self, _signal):
+                self.killed = True
+
+        engine = WriterEngine()
+        child = FakeChild()
+        engine.child = child
+        model_path = engine.model_path = __import__("pathlib").Path("/models/example.gguf")
+
+        engine.clear_context()
+
+        self.assertEqual(child.sent, ["/clear"])
+        self.assertEqual(child.wait[0], r"(?m)^> ")
+        self.assertEqual(child.wait[1], 30)
+        self.assertFalse(child.killed)
+        self.assertIs(engine.child, child)
+        self.assertEqual(engine.model_path, model_path)
+
+    def test_clear_context_stops_unconfirmed_cli_session(self):
+        class FakeChild:
+            before = "Unexpected CLI response."
+
+            def isalive(self):
+                return True
+
+            def sendline(self, _value):
+                pass
+
+            def expect(self, _pattern, timeout):
+                return 0
+
+            def kill(self, _signal):
+                self.killed = True
+
+        engine = WriterEngine()
+        child = FakeChild()
+        child.killed = False
+        engine.child = child
+
+        with self.assertRaisesRegex(RuntimeError, "Could not clear"):
+            engine.clear_context()
+
+        self.assertTrue(child.killed)
+        self.assertIsNone(engine.child)
 
 
 class PromptEncodingTests(unittest.TestCase):

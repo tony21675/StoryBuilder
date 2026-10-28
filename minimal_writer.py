@@ -147,6 +147,11 @@ class MinimalWriterApp:
         )
         self.continue_button.pack(side="left", padx=(8, 0))
 
+        self.new_session_button = ttk.Button(
+            actions, text="New Session", command=self.new_session
+        )
+        self.new_session_button.pack(side="left", padx=(8, 0))
+
         self.stop_button = ttk.Button(
             actions, text="Stop Writing", command=self.stop_writing, state="disabled"
         )
@@ -278,6 +283,55 @@ class MinimalWriterApp:
             return
 
         self._begin_generation(build_continue_prompt(existing_text), mode="continue")
+
+    def new_session(self) -> None:
+        """Clear model conversation context while preserving the visible draft."""
+        if self.busy:
+            return
+        if self.loaded_model is None:
+            messagebox.showinfo("Load a model", "Load a model before starting a new session.")
+            return
+
+        self.busy = True
+        self.writing = False
+        self.stop_requested = False
+        self.status_var.set(f"Starting a new session with {self.loaded_model.name}…")
+        self._update_controls()
+
+        def work() -> None:
+            try:
+                self.engine.clear_context()
+            except Exception as exc:
+                message = str(exc)
+                self.root.after(0, lambda message=message: self._new_session_failed(message))
+            else:
+                self.root.after(0, self._new_session_succeeded)
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _new_session_succeeded(self) -> None:
+        self.busy = False
+        self.writing = False
+        self.stop_requested = False
+        model_name = self.loaded_model.name if self.loaded_model else "model"
+        self.status_var.set(
+            f"New session ready with {model_name}. Visible text was kept."
+        )
+        self._update_controls()
+
+    def _new_session_failed(self, message: str) -> None:
+        self.busy = False
+        self.writing = False
+        self.stop_requested = False
+        try:
+            still_loaded = self.engine.child is not None and self.engine.child.isalive()
+        except Exception:
+            still_loaded = False
+        if not still_loaded:
+            self.loaded_model = None
+        self.status_var.set("New session failed. Reload the model if needed.")
+        self._update_controls()
+        messagebox.showerror("Could not start a new session", message)
 
     def _begin_generation(self, prompt: str, mode: str) -> None:
         # Keep the previous document recoverable so errors or an immediate Stop
@@ -506,6 +560,9 @@ class MinimalWriterApp:
             state="normal" if idle and self.loaded_model is not None else "disabled"
         )
         self.continue_button.configure(
+            state="normal" if idle and self.loaded_model is not None else "disabled"
+        )
+        self.new_session_button.configure(
             state="normal" if idle and self.loaded_model is not None else "disabled"
         )
         self.open_button.configure(state="normal" if idle else "disabled")
