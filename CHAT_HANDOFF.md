@@ -112,6 +112,7 @@ The October 17–20, 2026, Taken at Dusk / StoryBuilder testing handoffs recorde
 - **Gemma 4 E4B IT**, exact documented path: `~/Documents/Models/01 gemma-4-E4B_q4_0-it.gguf`. This was reported as the best-performing model in testing and the chosen writing model. The name identifies **E4B**, not E2B; the filename does not itself say “uncensored.”
 - **Stheno 8B**. Recorded as another available model; its exact GGUF filename was not documented.
 - **Llama 3.1 8B**. Recorded as another available model; its exact GGUF filename was not documented.
+- **Gemma 4 E4B IT Ultra Uncensored Heretic GGUF**, Hugging Face source `llmfan46/gemma-4-E4B-it-ultra-uncensored-heretic-GGUF`. The author has now confirmed this model is also available locally. Its exact local GGUF filename and quantization are not yet recorded. The model card describes it as a decensored version of `google/gemma-4-E4B-it` made with Heretic, which targets refusal behavior rather than retraining it for different genres. Do not assume “uncensored” will change its romance-like prose style.
 
 This is a historical handoff record, not a verified live listing of the current laptop directory. The active Minimal Writer scans `~/Documents/Models/*.gguf` by default (unless `STORY_MODELS_DIR` overrides it), so the current dropdown or a local directory listing is the authority on which files are present today. Never delete or replace any model without discussing it first.
 
