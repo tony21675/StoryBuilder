@@ -49,23 +49,14 @@ Both GitHub Actions workflows passed on `d55d582`: **Python tests** and **StoryB
 
 A single shared WriterEngine is used, but `reset_context()` starts a new `llama-cli` process. Tasks needing different system prompts therefore still reload the model. The post-accept notes review is opt-in and bounded in the newer code; the initial seed scan now honors the same default-off flag, and the automatic Scene Idea path avoids one redundant restore. This does **not** eliminate every reload. If `STORYBUILDER_AUTO_WRITER_NOTES=1` is explicitly enabled, the initial seed scan still uses the general Writer timeout/token budget. A deeper model-session reuse redesign would require a separate, tested runtime change. Avoid rushing that architecture into the current session.
 
-## The Long Way Home — Scene 10 accepted/applied; Scene 11 awaiting endpoint
+## The Long Way Home — current GitHub recovery point
 
-- Novel: `~/Documents/MyNovel/The-Long-Way-Home`; GitHub: `tony21675/The-Long-Way-Home`.
-- Scene 10 was accepted. The false-positive completion finding that the team did not choose a strategy was rejected; the scene explicitly begins manual isolation.
-- The Stage 2 state update was then applied and saved. Scene pointer advanced to Chapter 1, Scene 11.
-- Current story handoff: Elena chose a manual, controlled isolation sequence on Sensor Node Delta-9. Daniel is to run the protocol, Morgan monitors physical feedback, and Priya monitors crew stability. Results and root cause are unresolved. Scene 11 should continue from this choice without replaying Scene 10.
-- Preserve uncertainty around Daniel's “maybe another hour” estimate. Do not turn it into a certain one-hour countdown or declare isolation successful before prose shows what happens.
-- The latest Stage 2 trace confirmed the state-review warning fix live: reviewer returned two findings, both failed evidence validation, trace recorded the warning, and the author confirmed it appeared in the writer status line. Strict evidence checking stayed intact; no auto-application occurred.
-- Latest private trace: https://github.com/tony21675/StoryBuilder-Traces/blob/main/prompt_trace.json. It contains story text; do not share publicly.
-
-### Scene 11 trace finding
-
-The trace for Chapter 1 Scene 11 completed at 2026-10-27 22:43:59 UTC without runtime error. It starts the Delta-9 isolation and includes Morgan's physical warning and Daniel's recalculation, but ends while the crew is redirected to deal with a suspected local leak. It does **not** reach the explicit endpoint: pressure readings stabilizing just above the collapse threshold while underlying instability remains exposed. Both reviews incorrectly passed. Scene 11 remains unaccepted. Stop the repeated revision loop until the new focused-revision code has been synced and tested. It now receives the complete current scene as read-only context, but this does not guarantee that the model will dramatize every requested event; check the next result once and stop if it still only summarizes the outcome.
-
-The new generic endpoint check activates only when the author explicitly marks an End/Hard Stop, requiring one `HARD_STOP` status and a supporting quote from the ending prose. No story-specific rules or Writer prose instructions were added.
-
-After Scene 11 is accepted and the ending-state update is applied, StoryBuilder should save, advance to Scene 12, refresh the Writer direction, and automatically invoke the next Scene Idea suggestion. Verify this in the next trace; do not manually duplicate the suggestion.
+- Novel: `~/Documents/MyNovel/The-Long-Way-Home`; GitHub: `tony21675/The-Long-Way-Home`, branch `main`.
+- GitHub has the saved Chapter 1, Scene 10 prose in `Manuscript/Chapters/Chapter_01/Chapter_01_Section_10.txt`. Its `_before_state.json` matches remote `current_state.json`, which still points to Scene 10. No `_after_state.json` exists remotely.
+- Scene 10's saved ending commits to immediate manual isolation of Node Delta-9: Daniel runs the protocol, Morgan monitors physical feedback, and Priya watches crew stability. The operation's result and root cause remain unresolved.
+- Do not treat the latest trace's fresh Scene 10 generation as accepted prose. It did not replace the saved GitHub manuscript. After syncing the code fix, confirm the saved manuscript appears in Writer before doing anything else.
+- The remote scene pointer still needs the Stage 2 ending-state update reviewed/applied before StoryBuilder moves to Scene 11. Use the UI's Analyze Accepted Scene / Apply State Update flow; do not edit `current_state.json` by hand.
+- Preserve uncertainty around Daniel's “maybe another hour” estimate. Do not turn it into a definite countdown or declare isolation successful before the prose establishes what happens.
 
 ## Project state and rules
 
