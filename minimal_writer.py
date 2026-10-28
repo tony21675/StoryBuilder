@@ -3,7 +3,7 @@ from __future__ import annotations
 import threading
 import tkinter as tk
 from pathlib import Path
-from tkinter import filedialog, messagebox, ttk
+from tkinter import filedialog, ttk
 from tkinter.scrolledtext import ScrolledText
 
 from builder.writer_engine import GenerationInterrupted, WriterEngine
@@ -36,6 +36,119 @@ def bind_ctrl_a_select_all(widget) -> None:
     """Make Ctrl+A select all text in a Writer text widget."""
     widget.bind("<Control-a>", select_all_text)
     widget.bind("<Control-A>", select_all_text)
+
+
+def show_copyable_dialog(
+    parent: tk.Misc,
+    title: str,
+    message: str,
+    buttons: tuple[str, ...] = ("OK",),
+    default_button: str | None = None,
+) -> str:
+    """Show a screen-sized, scrollable, selectable message and return the button chosen."""
+    if not buttons:
+        raise ValueError("At least one dialog button is required.")
+
+    if default_button not in buttons:
+        if "Cancel" in buttons:
+            default_button = "Cancel"
+        elif "No" in buttons:
+            default_button = "No"
+        else:
+            default_button = buttons[0]
+
+    message = str(message)
+    line_count = message.count("\n") + 1
+    long_message = len(message) > 350 or line_count > 7
+    desired_width = 860 if long_message else 560
+    desired_height = 640 if long_message else 250
+
+    try:
+        parent.update_idletasks()
+        screen_width = parent.winfo_screenwidth()
+        screen_height = parent.winfo_screenheight()
+    except tk.TclError:
+        screen_width, screen_height = 1024, 768
+
+    width = max(320, min(desired_width, screen_width - 60))
+    height = max(220, min(desired_height, screen_height - 80))
+    x = max(0, (screen_width - width) // 2)
+    y = max(0, (screen_height - height) // 2)
+
+    window = tk.Toplevel(parent)
+    window.title(title)
+    window.transient(parent)
+    window.resizable(True, True)
+    window.geometry(f"{width}x{height}+{x}+{y}")
+
+    outer = ttk.Frame(window, padding=12)
+    outer.pack(fill="both", expand=True)
+    ttk.Label(
+        outer,
+        text="Message text: select it and press Ctrl+A, then Ctrl+C to copy.",
+    ).pack(anchor="w", pady=(0, 6))
+
+    text_box = ScrolledText(
+        outer,
+        wrap="word",
+        undo=False,
+        font=("TkDefaultFont", 10),
+        height=8,
+        width=60,
+    )
+    text_box.pack(fill="both", expand=True)
+    text_box.insert("1.0", message)
+    text_box.configure(state="disabled")
+    bind_ctrl_a_select_all(text_box)
+
+    def copy_selection(_event=None):
+        try:
+            selected = text_box.get("sel.first", "sel.last")
+        except tk.TclError:
+            return "break"
+        try:
+            window.clipboard_clear()
+            window.clipboard_append(selected)
+            window.update_idletasks()
+        except tk.TclError:
+            pass
+        return "break"
+
+    text_box.bind("<Control-c>", copy_selection)
+    text_box.bind("<Control-C>", copy_selection)
+
+    result = {"button": default_button}
+
+    def finish(button: str) -> None:
+        result["button"] = button
+        try:
+            window.grab_release()
+        except tk.TclError:
+            pass
+        window.destroy()
+
+    button_row = ttk.Frame(outer)
+    button_row.pack(fill="x", pady=(10, 0))
+    for button_label in buttons:
+        ttk.Button(
+            button_row,
+            text=button_label,
+            command=lambda label=button_label: finish(label),
+        ).pack(side="right", padx=(6, 0))
+
+    window.bind("<Return>", lambda _event: finish(default_button))
+    window.bind("<Escape>", lambda _event: finish("Cancel" if "Cancel" in buttons else ("No" if "No" in buttons else buttons[0])))
+    window.protocol(
+        "WM_DELETE_WINDOW",
+        lambda: finish("Cancel" if "Cancel" in buttons else ("No" if "No" in buttons else buttons[0])),
+    )
+    try:
+        window.grab_set()
+    except tk.TclError:
+        pass
+    text_box.focus_set()
+    parent.wait_window(window)
+    return result["button"]
 
 
 def build_continue_prompt(existing_text: str) -> str:
@@ -249,6 +362,31 @@ class MinimalWriterApp:
             outer, textvariable=self.status_var, anchor="w", relief="sunken"
         ).pack(fill="x", side="bottom")
 
+    def _showinfo(self, title: str, message: str) -> None:
+        show_copyable_dialog(self.root, title, message, buttons=("OK",))
+
+    def _showerror(self, title: str, message: str) -> None:
+        show_copyable_dialog(self.root, title, message, buttons=("OK",))
+
+    def _askyesno(self, title: str, message: str) -> bool:
+        return show_copyable_dialog(
+            self.root, title, message, buttons=("Yes", "No"), default_button="No"
+        ) == "Yes"
+
+    def _askyesnocancel(self, title: str, message: str) -> bool | None:
+        choice = show_copyable_dialog(
+            self.root,
+            title,
+            message,
+            buttons=("Yes", "No", "Cancel"),
+            default_button="Cancel",
+        )
+        if choice == "Yes":
+            return True
+        if choice == "No":
+            return False
+        return None
+
     def refresh_models(self) -> None:
         try:
             paths = WriterEngine.available_models()
@@ -278,7 +416,7 @@ class MinimalWriterApp:
         name = self.model_var.get().strip()
         path = self.models.get(name)
         if path is None:
-            messagebox.showinfo(
+            self._showinfo(
                 "Choose a model", f"No model is selected. Check {MODELS_DIR}."
             )
             return
@@ -315,7 +453,7 @@ class MinimalWriterApp:
         self.loaded_model = None
         self.status_var.set("Model load failed.")
         self._update_controls()
-        messagebox.showerror("Could not load model", message)
+        self._showerror("Could not load model", message)
 
 
     def refresh_novels(self) -> None:
@@ -407,7 +545,7 @@ class MinimalWriterApp:
             return
         source = self.scene_files.get(self.scene_var.get().strip())
         if source is None:
-            messagebox.showinfo(
+            self._showinfo(
                 "Choose a scene",
                 "Select a novel, chapter, and scene that has a saved text file.",
             )
@@ -416,7 +554,7 @@ class MinimalWriterApp:
         try:
             text = read_text_document(source)
         except (OSError, UnicodeError) as exc:
-            messagebox.showerror("Could not load scene", str(exc))
+            self._showerror("Could not load scene", str(exc))
             return
 
         if not self._confirm_save_pending_changes():
@@ -439,7 +577,7 @@ class MinimalWriterApp:
         name = self.novel_var.get().strip()
         novel_path = self.novel_packages.get(name)
         if novel_path is None:
-            messagebox.showinfo(
+            self._showinfo(
                 "Choose a novel",
                 "Select an existing novel package before syncing it to GitHub.",
             )
@@ -449,7 +587,7 @@ class MinimalWriterApp:
             preview = inspect_novel_repository(novel_path)
         except NovelGitSyncError as exc:
             self.status_var.set("Novel sync blocked; no push was attempted.")
-            messagebox.showerror("Cannot sync novel", str(exc))
+            self._showerror("Cannot sync novel", str(exc))
             return
 
         lines = [
@@ -503,7 +641,7 @@ class MinimalWriterApp:
             )
         lines.extend(["", "Proceed with syncing this novel to GitHub?"])
 
-        if not messagebox.askyesno(
+        if not self._askyesno(
             "Confirm novel sync", "\n".join(lines), icon="warning"
         ):
             self.status_var.set("Novel sync cancelled; no Git operation started.")
@@ -543,18 +681,18 @@ class MinimalWriterApp:
         self.busy = False
         self.status_var.set("Novel sync failed. Check the message before retrying.")
         self._update_controls()
-        messagebox.showerror("Novel sync failed", message)
+        self._showerror("Novel sync failed", message)
 
     def write(self) -> None:
         if self.busy:
             return
         if self.loaded_model is None:
-            messagebox.showinfo("Load a model", "Load a model before writing.")
+            self._showinfo("Load a model", "Load a model before writing.")
             return
 
         prompt = self.prompt_box.get("1.0", "end-1c")
         if not prompt.strip():
-            messagebox.showinfo("Add a prompt", "Enter what you want the model to write.")
+            self._showinfo("Add a prompt", "Enter what you want the model to write.")
             return
 
         self._begin_generation(prompt, mode="write")
@@ -563,12 +701,12 @@ class MinimalWriterApp:
         if self.busy:
             return
         if self.loaded_model is None:
-            messagebox.showinfo("Load a model", "Load a model before continuing.")
+            self._showinfo("Load a model", "Load a model before continuing.")
             return
 
         existing_text = self._output_text()
         if not existing_text.strip():
-            messagebox.showinfo(
+            self._showinfo(
                 "Nothing to continue",
                 "Write a passage or open a text file before continuing.",
             )
@@ -581,7 +719,7 @@ class MinimalWriterApp:
         if self.busy:
             return
         if self.loaded_model is None:
-            messagebox.showinfo("Load a model", "Load a model before starting a new session.")
+            self._showinfo("Load a model", "Load a model before starting a new session.")
             return
 
         self.busy = True
@@ -623,7 +761,7 @@ class MinimalWriterApp:
             self.loaded_model = None
         self.status_var.set("New session failed. Reload the model if needed.")
         self._update_controls()
-        messagebox.showerror("Could not start a new session", message)
+        self._showerror("Could not start a new session", message)
 
     def _begin_generation(self, prompt: str, mode: str) -> None:
         # Keep the previous document recoverable so errors or an immediate Stop
@@ -743,7 +881,7 @@ class MinimalWriterApp:
         self.stop_requested = False
         self.status_var.set("Writing failed. Reload the model if it is no longer loaded.")
         self._update_controls()
-        messagebox.showerror("Writing failed", message)
+        self._showerror("Writing failed", message)
 
     def _output_text(self) -> str:
         return self.output_box.get("1.0", "end-1c")
@@ -768,7 +906,7 @@ class MinimalWriterApp:
     def _confirm_save_pending_changes(self) -> bool:
         if self._output_text() == self.saved_output_text:
             return True
-        choice = messagebox.askyesnocancel(
+        choice = self._askyesnocancel(
             "Unsaved changes",
             "Save changes to the current text before continuing?",
         )
@@ -794,7 +932,7 @@ class MinimalWriterApp:
         try:
             text = read_text_document(filename)
         except (OSError, UnicodeError) as exc:
-            messagebox.showerror("Could not open text", str(exc))
+            self._showerror("Could not open text", str(exc))
             return
 
         if not self._confirm_save_pending_changes():
@@ -839,7 +977,7 @@ class MinimalWriterApp:
         if self.busy:
             return False
         if self.selected_scene_source is None:
-            messagebox.showinfo(
+            self._showinfo(
                 "Load a scene first",
                 "Use Load Scene Copy before saving directly to a novel scene.",
             )
@@ -847,7 +985,7 @@ class MinimalWriterApp:
 
         target = self.scene_files.get(self.scene_var.get().strip())
         if target is None:
-            messagebox.showinfo(
+            self._showinfo(
                 "Choose a scene",
                 "Select the existing novel scene you want to replace.",
             )
@@ -855,7 +993,7 @@ class MinimalWriterApp:
 
         target = target.expanduser().resolve()
         if not target.is_file():
-            messagebox.showerror(
+            self._showerror(
                 "Scene file unavailable",
                 f"The selected scene file no longer exists:\n\n{target}",
             )
@@ -875,7 +1013,7 @@ class MinimalWriterApp:
                 f"{loaded_source}"
             )
 
-        if not messagebox.askyesno(
+        if not self._askyesno(
             "Confirm scene overwrite", warning, icon="warning"
         ):
             self.status_var.set("Save to Selected Scene cancelled; no file changed.")
@@ -884,7 +1022,7 @@ class MinimalWriterApp:
         # Recheck after the confirmation dialog so a removed target is not
         # accidentally recreated by write_text().
         if not target.is_file():
-            messagebox.showerror(
+            self._showerror(
                 "Scene file unavailable",
                 f"The selected scene file no longer exists:\n\n{target}",
             )
@@ -894,7 +1032,7 @@ class MinimalWriterApp:
         try:
             saved_path = save_text_document(target, text)
         except (OSError, UnicodeError) as exc:
-            messagebox.showerror("Could not save scene", str(exc))
+            self._showerror("Could not save scene", str(exc))
             return False
 
         # Do not attach the ordinary Save button to the manuscript target.
@@ -913,7 +1051,7 @@ class MinimalWriterApp:
         try:
             saved_path = save_text_document(path, text)
         except (OSError, UnicodeError) as exc:
-            messagebox.showerror("Could not save text", str(exc))
+            self._showerror("Could not save text", str(exc))
             return False
 
         self.current_file = saved_path
@@ -972,7 +1110,7 @@ class MinimalWriterApp:
 
     def close(self) -> None:
         if self.busy:
-            messagebox.showinfo(
+            self._showinfo(
                 "Model is busy",
                 "Wait for the current model task to finish before closing.",
             )
