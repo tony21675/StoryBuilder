@@ -65,6 +65,9 @@ class FakeOutputBox:
     def insert(self, _index, text):
         self.text += text
 
+    def see(self, _index):
+        pass
+
     def edit_modified(self, _value):
         return None
 
