@@ -19,8 +19,8 @@ First live smoke test completed on October 28, 2026:
 
 Current minimal UI has:
 - GGUF model selector, Refresh, and Load Model.
-- An author prompt field and Write button.
-- Editable output.
+- An author prompt field, Write, and Stop Writing.
+- Editable output that streams model text as it is generated.
 - Open Text, Save, and Save As.
 - Status line and filename/unsaved marker in the window title.
 
@@ -42,7 +42,7 @@ Default environment:
 - llama.cpp: `~/Documents/llama.cpp/build/bin/llama-cli`
 - `STORY_MODELS_DIR`, `STORY_LLAMA_PATH`, `STORY_WRITER_CONTEXT`, `STORY_WRITER_MAX_TOKENS` remain available as runtime overrides.
 
-Known limitations: `WriterEngine.generate()` flattens newline characters in the prompt before sending it to the interactive llama.cpp process. Streaming uses the existing prompt-echo filter and is best-effort; after completion, the cleaned final response replaces the live preview.
+Known limitations: `WriterEngine.generate()` flattens newline characters in the prompt before sending it to the interactive llama.cpp process. Streaming uses the existing prompt-echo filter and is best-effort; after completion, the cleaned final response replaces the live preview. Stop Writing now terminates the local `llama-cli` process without waiting for the generation lock, keeps partial streamed text (or restores the previous document if no text arrived), and requires reloading the model. This stop behavior is not yet verified live on the laptop.
 
 ## 4. Open Text / Save / Save As
 
