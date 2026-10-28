@@ -186,9 +186,9 @@ def build_revision_prompt(selected_text: str, instruction: str) -> str:
         "Revise only the selected passage according to the author's instruction. "
         "Return only the revised passage, with no commentary, label, or explanation. "
         "Do not continue beyond the passage. Preserve its intended meaning and events "
-        "unless the instruction explicitly asks for a change.\\n\\n"
-        f"Author's instruction:\\n{instruction.strip()}\\n\\n"
-        f"Selected passage to revise:\\n{selected_text}"
+        "unless the instruction explicitly asks for a change.\n\n"
+        f"Author's instruction:\n{instruction.strip()}\n\n"
+        f"Selected passage to revise:\n{selected_text}"
     )
 
 
