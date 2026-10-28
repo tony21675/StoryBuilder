@@ -203,6 +203,100 @@ class MinimalWriterTests(unittest.TestCase):
             self.assertIn("original is untouched", app.status_var.value)
             self.assertIn("Save opens Save As", app.status_var.value)
 
+    def test_save_to_selected_scene_requires_confirmation_and_keeps_save_as_behavior(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            source = Path(temporary) / "Chapter_01_Section_10.txt"
+            original = "Accepted scene text."
+            edited = "Accepted scene text, carefully revised."
+            source.write_text(original, encoding="utf-8")
+
+            app = MinimalWriterApp.__new__(MinimalWriterApp)
+            app.busy = False
+            app.selected_scene_source = source.resolve()
+            app.scene_files = {"Scene 10": source}
+            app.scene_var = type("FakeVar", (), {"get": lambda self: "Scene 10"})()
+            app.current_file = None
+            app.saved_output_text = original
+            app.output_box = FakeOutputBox(edited)
+            app.root = FakeRoot()
+            app.status_var = FakeStatus()
+
+            with patch("minimal_writer.messagebox.askyesno", return_value=True) as confirm:
+                result = app.save_to_selected_scene()
+
+            self.assertTrue(result)
+            self.assertEqual(source.read_text(encoding="utf-8"), edited)
+            self.assertIn(str(source.resolve()), confirm.call_args.args[1])
+            self.assertEqual(app.saved_output_text, edited)
+            self.assertEqual(app.selected_scene_source, source.resolve())
+            self.assertIsNone(app.current_file)
+            self.assertIn("Ordinary Save still opens Save As", app.status_var.value)
+
+            # Explicit scene saving must not attach the regular Save action
+            # to the manuscript path.
+            app.save_output_as = lambda: True
+            self.assertTrue(app.save_output())
+
+    def test_cancel_save_to_selected_scene_leaves_file_and_tracking_unchanged(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            source = Path(temporary) / "Chapter_01_Section_10.txt"
+            original = "Accepted scene text."
+            edited = "Replacement that must not be written."
+            source.write_text(original, encoding="utf-8")
+
+            app = MinimalWriterApp.__new__(MinimalWriterApp)
+            app.busy = False
+            app.selected_scene_source = source.resolve()
+            app.scene_files = {"Scene 10": source}
+            app.scene_var = type("FakeVar", (), {"get": lambda self: "Scene 10"})()
+            app.current_file = None
+            app.saved_output_text = original
+            app.output_box = FakeOutputBox(edited)
+            app.root = FakeRoot()
+            app.status_var = FakeStatus()
+
+            with patch("minimal_writer.messagebox.askyesno", return_value=False) as confirm:
+                result = app.save_to_selected_scene()
+
+            self.assertFalse(result)
+            self.assertEqual(source.read_text(encoding="utf-8"), original)
+            self.assertEqual(app.saved_output_text, original)
+            self.assertEqual(app.selected_scene_source, source.resolve())
+            self.assertFalse(app.status_var.value.startswith("Saved:"))
+            self.assertIn("cancelled", app.status_var.value.lower())
+            self.assertEqual(confirm.call_count, 1)
+
+    def test_save_to_a_different_selected_scene_warns_and_leaves_loaded_scene_untouched(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            loaded_source = Path(temporary) / "Chapter_01_Section_01.txt"
+            selected_target = Path(temporary) / "Chapter_01_Section_10.txt"
+            loaded_original = "Original loaded scene."
+            target_original = "Different scene that must be confirmed."
+            edited = "Edited text intended for the selected target."
+            loaded_source.write_text(loaded_original, encoding="utf-8")
+            selected_target.write_text(target_original, encoding="utf-8")
+
+            app = MinimalWriterApp.__new__(MinimalWriterApp)
+            app.busy = False
+            app.selected_scene_source = loaded_source.resolve()
+            app.scene_files = {"Scene 10": selected_target}
+            app.scene_var = type("FakeVar", (), {"get": lambda self: "Scene 10"})()
+            app.current_file = None
+            app.saved_output_text = loaded_original
+            app.output_box = FakeOutputBox(edited)
+            app.root = FakeRoot()
+            app.status_var = FakeStatus()
+
+            with patch("minimal_writer.messagebox.askyesno", return_value=True) as confirm:
+                result = app.save_to_selected_scene()
+
+            self.assertTrue(result)
+            self.assertIn(str(loaded_source.resolve()), confirm.call_args.args[1])
+            self.assertEqual(loaded_source.read_text(encoding="utf-8"), loaded_original)
+            self.assertEqual(selected_target.read_text(encoding="utf-8"), edited)
+            self.assertEqual(app.selected_scene_source, selected_target.resolve())
+            self.assertIsNone(app.current_file)
+
     def test_model_load_uses_no_app_added_system_prompt(self):
         engine = FakeEngine()
         model_path = Path("/models/example.gguf")
