@@ -45,6 +45,16 @@ Stop/reload behavior, Continue append behavior, and Write's replace/context-pres
 - **Protected Taken at Dusk secret letters: do not remove or alter.** Correction to the initial read-only audit: `builder/secret_letter.py` is not an obsolete cleanup candidate. The first-novel handoff identifies two separate, encrypted, local-only assets: Tiffany's letter at `~/Documents/MyNovel/Taken_at_Dusk/secrets/sarah_letter.enc.b64` and Tony's separate letter at `~/Documents/MyNovel/Taken_at_Dusk/secrets/sarah_tony.enc.json`. Their metadata and supporting files are also local-only and intentionally excluded from GitHub. Preserve both encrypted letters, both metadata files, the helper, verification script, local README, private key, and the `/secrets/` Git-ignore rule. The author has not yet seen the letter contents. Do not decrypt, display, copy, or add their contents to GitHub, handoffs, manuscripts, or StoryBuilder prompts unless the author explicitly asks to reveal them. The audit did not open or decrypt either letter, and nothing was deleted or changed in the novel repository.
 - This was a read-only static audit. No application code, model configuration, branch, novel package, accepted prose, or novel state was changed.
 
+## Local model inventory from earlier handoffs
+
+The October 17–20, 2026, Taken at Dusk / StoryBuilder testing handoffs recorded these local models:
+
+- **Gemma 4 E4B IT**, exact documented path: `~/Documents/Models/01 gemma-4-E4B_q4_0-it.gguf`. This was reported as the best-performing model in testing and the chosen writing model. The name identifies **E4B**, not E2B; the filename does not itself say “uncensored.”
+- **Stheno 8B**. Recorded as another available model; its exact GGUF filename was not documented.
+- **Llama 3.1 8B**. Recorded as another available model; its exact GGUF filename was not documented.
+
+This is a historical handoff record, not a verified live listing of the current laptop directory. The active app scans `~/Documents/Models/*.gguf` by default (unless `STORY_MODELS_DIR` overrides it), so the current dropdown or a local directory listing is the authority on which files are present today. Never delete or replace any model without discussing it first.
+
 ## Out of scope
 
 No novel package loading, scene planning, character cards, continuity system, writing rules, validators, state summaries, automatic reviews, or automatic state changes. Do not delete legacy modules until removal is discussed.
