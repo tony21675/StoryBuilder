@@ -66,9 +66,9 @@ The Minimal Writer now calls `WriterEngine.generate(prompt, on_delta=...)`. The 
 
 ## 6. Continue action
 
-The Minimal Writer now includes a **Continue** button, implemented but awaiting live laptop testing. **Write** replaces the output with a new passage as before. **Continue** sends a short continuation instruction with up to the last 2,000 characters of the current visible passage, appends a paragraph boundary to the existing output, then streams the response at the end. This anchors it to text the author may have edited. At completion the cleaned response is appended to the prior text. On generation failure, the original document is restored. If stopped, partial streamed continuation stays; if no chunks arrived, the original document is restored.
+The Minimal Writer now includes a **Continue** button, and the user has confirmed the append behavior live on the laptop. **Write** replaces the output with a new passage as before. **Continue** sends a short continuation instruction with up to the last 2,000 characters of the current visible passage, appends a paragraph boundary to the existing output, then streams the response at the end. This anchors it to text the author may have edited. At completion the cleaned response is appended to the prior text. On generation failure, the original document is restored. If stopped, partial streamed continuation stays; if no chunks arrived, the original document is restored.
 
-Unit tests passed in commit `091280b0`: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/40641857573) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/40641857583).
+The user tested a comedic Tiffany/Kim passage: the first passage remained intact and the new writing followed it without repeating the whole original. Unit tests passed in commit `091280b0`: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/40641857573) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/40641857583).
 
 Next laptop check after closing the running app:
 
@@ -76,7 +76,7 @@ Next laptop check after closing the running app:
 cd ~/Documents/StoryBuilder && ./start.sh
 ```
 
-Load the model, write a short passage, click **Continue**, and confirm that the first passage remains and new text appears below it without repeating the entire passage. Then use **Write** with another prompt and confirm it still replaces the output. Don't add further features until this is tested.
+The Continue append behavior has passed its live test. When practical, run a quick regression check that **Write** still replaces the output after a continuation. Stop/reload behavior was already confirmed by the user; it is useful to check again if stopping a continuation.
 
 ## 7. Rebuild boundaries
 
