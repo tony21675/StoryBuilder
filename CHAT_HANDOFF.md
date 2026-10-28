@@ -2,95 +2,93 @@
 
 Date: October 28, 2026
 
-## 1. Current direction
+## 1. Agreed rebuild direction
 
-The author explicitly requested a rebuild of StoryBuilder from a clean starting point: “it loads a model and writes nothing else to start with.” Treat the old feature set as out of scope unless the author adds features back later. The writing app should not impose its own scene rules or manage continuity behind the author's back.
+The author decided to rebuild the app piece by piece, starting with the simplest useful thing: load a local model and write. Remove the old rule-heavy workflow from the active path. Do not add features back until the current layer has been verified on the author's laptop.
 
-Initial app work is authorized. Continue incrementally and preserve the old code until the replacement's basic local-model flow has passed a real laptop test.
+The active rebuild is explicitly authorized. Keep the old app code recoverable for now; do not touch novel repositories or accepted prose.
 
-## 2. Minimal Writer now launches by default
+## 2. Minimal Writer works on the laptop
 
-Commit `bb05e7b` added `minimal_writer.py`. It has only:
-- a list of local GGUF models
-- Load Model
-- a prompt text box
-- Write
-- editable output
-- Save Output As for a plain text file
-- a small status line
+The normal launcher `./start.sh` runs `sync.sh start`, then starts `minimal_writer.py` with `python3`.
 
-Implementation boundary:
-- `load_model_for_writing(engine, model_path)` invokes `engine.start(model_path, system_prompt="")`. No app-written system instructions.
-- `write_from_prompt(engine, prompt)` passes the author's prompt straight to `WriterEngine.generate(prompt)`.
-- The minimal UI does not import or call the novel package, scene contract, story planner, continuity context, state manager/reviewer, scene validators, or writer-notes workflow.
-- It reuses only the existing local `WriterEngine` for llama.cpp model loading and generation, and `MODELS_DIR` for model discovery.
-- Generated output is shown in an editable text field; saving is explicit, not automatic.
-- Loading/generation run on a background thread so the UI can show status without freezing. Closing is deferred while the model is busy.
+First live smoke test completed on October 28, 2026:
+- The Minimal Writer window opened after launch.
+- The user loaded their local model, submitted a short scene prompt, and received generated text.
+- The user saved the output, then opened the saved text successfully in a separate text editor.
 
-Launcher changes:
-- `start.sh` still runs the existing safe code sync first, then starts `minimal_writer.py` with `python3`.
-- No separate minimal launcher is retained.
-- `tests/test_minimal_writer.py` tests that the loaded model gets an empty system prompt and the author's prompt is passed through unchanged.
-- `tests/test_shell_sync.py` now asserts that the normal launcher starts the minimal writer.
-- Both CI workflows passed on `c2237337524abcc236329179ce7c97ce15059fdd`:
-  - [Python tests run 40634603660](https://github.com/tony21675/StoryBuilder/actions/runs/40634603660)
-  - [StoryBuilder tests run 40634603671](https://github.com/tony21675/StoryBuilder/actions/runs/40634603671)
-- The author ran the normal launcher and confirmed the **Minimal Writer window opens**. The earlier appearance of the old Scene 10 UI was resolved by launching `./start.sh` directly; prior to that direct launch, no StoryBuilder Python or llama.cpp process was running.
+Current minimal UI has:
+- GGUF model selector, Refresh, and Load Model.
+- An author prompt field and Write button.
+- Editable output.
+- Open Text, Save, and Save As.
+- Status line and filename/unsaved marker in the window title.
 
-The live GGUF generation path is not yet confirmed.
+No novel package loader, scene planner, scene contract, continuity context, character cards, validator, state updater, or writer-notes process is invoked by the new UI.
 
-## 3. Next laptop smoke test
+## 3. Direct model path
 
-The launcher is confirmed:
-```bash
-cd ~/Documents/StoryBuilder && ./start.sh
-```
+File: `minimal_writer.py`.
 
-With the Minimal Writer open, test the next single step: choose the usual GGUF and click **Load Model**. Once loading succeeds, test a short prompt, edit the output, and use Save Output As to write a text file. Keep this strictly to the minimal workflow.
+- `load_model_for_writing(engine, model_path)` calls `engine.start(model_path, system_prompt="")`; there is no app-authored system prompt.
+- `write_from_prompt(engine, prompt)` passes the prompt straight to `engine.generate(prompt)`.
+- Uses the existing `WriterEngine` and `MODELS_DIR` only.
+- Runs model loading/generation on a worker thread so the window can remain responsive.
+- Keeps the current output visible while generation runs. A failed model response doesn't clear an existing draft.
+- Do not infer the quality of live generation from CI alone; the real-model smoke test was performed separately.
 
-Do not introduce scene management, novel import, saved state, continuity, validators, rule prompts, or extra features until the basic writer works reliably. If any step fails, capture the exact status/error and repair only that step.
+Default environment:
+- Models: `~/Documents/Models/*.gguf`
+- llama.cpp: `~/Documents/llama.cpp/build/bin/llama-cli`
+- `STORY_MODELS_DIR`, `STORY_LLAMA_PATH`, `STORY_WRITER_CONTEXT`, `STORY_WRITER_MAX_TOKENS` remain available as runtime overrides.
 
-Runtime defaults:
-- GGUF directory: `~/Documents/Models`
-- llama.cpp executable: `~/Documents/llama.cpp/build/bin/llama-cli`
-- model context default: 16,384
-- maximum generation default from launcher: 4,000 tokens
-- `STORY_MODELS_DIR`, `STORY_LLAMA_PATH`, `STORY_WRITER_CONTEXT`, and `STORY_WRITER_MAX_TOKENS` remain available as environment overrides where applicable.
+Known limitation to revisit only when required: the existing `WriterEngine.generate()` flattens newline characters in the prompt before sending it to the interactive llama.cpp process. It currently returns completed text to the output area rather than streaming partial text.
 
-Known limit to revisit only after a successful first test: the existing `WriterEngine.generate()` normalizes multiline user prompts to one line before sending them to the interactive llama.cpp session. The UI currently displays output when generation finishes instead of streaming partial text. No live-model claim should be made until tested locally.
+## 4. Open Text / Save / Save As
 
-## 4. Scope of the rebuild
+Commit `1954d62be1aebbd62f2f8014201e01cdfe9a6089` adds:
+- `Open Text…`: opens a UTF-8 text file into the editable output field.
+- `Save`: writes to the current file; for untitled text it launches Save As.
+- `Save As…`: writes to a chosen destination and sets that as the current file.
+- Title displays the active filename; an asterisk indicates changes compared with the saved text.
+- When opening another file or closing, the app offers to save dirty output first.
+- Text file helpers round-trip Unicode and newline sequences exactly.
 
-`storybuilder.py` and its legacy helper modules remain in the repository so they can be recovered if needed. The normal launcher no longer opens that feature-heavy UI. This is a temporary safety measure during the incremental rebuild, not a plan to keep parallel apps indefinitely. Once the minimal writer succeeds on the laptop, assess the unused feature modules and remove them in deliberate, tested pieces. Do not restore legacy workflow behavior just because a module or test still exists.
+Tests added in `tests/test_minimal_writer.py` cover empty system prompt, direct prompt handoff, text round-trip, and preserving the final-newline state. CI results for code commit `f45e969c1f1bc433f30d7dcb84bfc53049c04ca6`:
+- [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/40636160718): passed.
+- [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/40636160677): passed.
 
-Initial principles:
-- No app-added writing rules or hidden story prompt.
-- No automatic state changes or novel-package writes.
-- No automatic generation/validation/revision loops.
-- No background task that changes the manuscript.
-- Keep the text writable by the author, and save only where the author chooses.
-- Make no claims about the model's quality based only on unit tests.
+The current incremental step is for the user to sync/relaunch and test file editing with the actual desktop UI: open a text file, edit and Save, then Save As a second copy, reopen it, and verify in an external text editor. Don't add another feature until this basic document workflow works.
 
-## 5. Active novel, protected
+## 5. Rebuild boundaries
 
-Local path: `~/Documents/MyNovel/The-Long-Way-Home`
-Remote: `tony21675/The-Long-Way-Home`, permanent branch `main`.
+Do not delete old helper modules yet. They are currently dormant from the new UI's entry point. Once basic model writing and plain text editing are demonstrated reliably on the laptop, discuss and remove unused legacy code in planned pieces, with tests for each change.
 
-Accepted Chapter 1, Scene 10 is saved in:
-`Manuscript/Chapters/Chapter_01/Chapter_01_Section_10.txt`
+Do not add the previous system back by accident. Specifically out of scope unless later requested:
+- novel package management
+- continuity summaries, clues, character state, or state update
+- scene planning, Scene Idea parsing, or scene contracts
+- semantic validators or automatic regeneration/review
+- writing rules or hidden system prompts
+- automatic manuscript file writes
 
-The remote `current_state.json` still points to Chapter 1, Scene 10, and `Chapter_01_Section_10_after_state.json` is missing. The most recent proposed state summary was inaccurate, and its reviewer returned unsupported findings; evidence validation discarded them. No state changes were saved.
+The application should stay a simple writer until further pieces are agreed and proven.
 
-The scene's confirmed endpoint: Elena orders immediate manual isolation of Delta-9; Daniel is told to run the protocol, Morgan monitors abnormal physical feedback, and Priya monitors crew stability. Daniel's “maybe another hour” is an uncertain estimate, not a guaranteed countdown. The IR observation is real within the prose, but its cause and significance are unresolved. The earlier silicate-like trace remains unverified and is not established as connected to the IR bleed.
+## 6. Protected novel checkpoint: The Long Way Home
 
-Do not edit `current_state.json` manually, replace accepted prose, or resume the old analysis workflow during the initial minimal-writer test. The rebuild currently leaves this novel untouched.
+- Local: `~/Documents/MyNovel/The-Long-Way-Home`.
+- Remote: `tony21675/The-Long-Way-Home`, permanent branch `main`.
+- Accepted Chapter 1 Scene 10 is saved at `Manuscript/Chapters/Chapter_01/Chapter_01_Section_10.txt`.
+- The remote state pointer remains Chapter 1, Scene 10. `Chapter_01_Section_10_after_state.json` is absent, so no transition to Scene 11 was saved.
+- The latest model summary incorrectly sharpened Daniel's uncertain “maybe another hour” estimate into a near-certain critical-failure deadline, turned Morgan's hypothetical structural degradation into a diagnosis, and misdescribed Elena's instructions. The reviewer then returned unsupported claims and was correctly rejected by evidence validation.
+- No change to accepted prose or novel state was made. Don't edit `current_state.json` manually, and don't bring old state-analysis workflow into the new Minimal Writer.
 
-## 6. Repository and collaboration rules
+## 7. Repo / terminal / collaboration rules
 
-- StoryBuilder root: `~/Documents/StoryBuilder`.
-- Current single development branch: `redesign/simplified-writing-workflow`. The remote currently has only that branch. Long-term branch target is one permanent `main` branch after deliberate merge/review, not blind switching or branch deletion.
-- Use `python3`, never `python`, in commands for the author's Linux laptop.
-- Prefer one short terminal command per step; avoid long copy/paste instructions.
-- Discuss app/novel changes before making them; handoff-only updates don't need approval. The broad minimal rebuild is explicitly authorized.
-- Update and prune handoffs after milestones.
-- Preserve accepted manuscript content and saved state.
+- StoryBuilder repository: `~/Documents/StoryBuilder`.
+- Current branch: `redesign/simplified-writing-workflow`; the remote currently has one branch. Long-term goal remains one stable `main` branch after deliberate review and merge; never switch/delete branches blindly.
+- Use `python3`, never `python`, in Linux-laptop commands.
+- Keep terminal instructions short, one command per step where practical.
+- Discuss changes to app or novel packages first, except handoff-only updates.
+- Preserve accepted text and saved story state.
+- Update and prune handoffs at milestones.
