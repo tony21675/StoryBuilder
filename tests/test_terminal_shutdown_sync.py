@@ -75,6 +75,46 @@ class TerminalShutdownTests(unittest.TestCase):
         self.assertEqual(len(scheduled), 1)
         self.assertEqual(scheduled[0][0], 250)
 
+    @patch("storybuilder.sync_novel_repository", return_value="Novel synchronized successfully.")
+    @patch("storybuilder.novel_repo_root", return_value=Path("/tmp/novel"))
+    def test_novel_is_synchronized_before_it_is_opened(self, _mock_root, mock_sync):
+        app = StoryBuilderApp.__new__(StoryBuilderApp)
+        messages = []
+        app._chat = lambda who, message: messages.append((who, message))
+
+        allowed = StoryBuilderApp._sync_novel_before_open(app, Path("/tmp/novel"))
+
+        self.assertTrue(allowed)
+        mock_sync.assert_called_once_with(Path("/tmp/novel"))
+        self.assertIn("Novel synchronized before opening", messages[0][1])
+
+    @patch("storybuilder.messagebox.askyesno", return_value=False)
+    @patch("storybuilder.sync_novel_repository", side_effect=NovelSyncError("remote conflict"))
+    @patch("storybuilder.novel_repo_root", return_value=Path("/tmp/novel"))
+    def test_open_is_cancelled_by_default_when_novel_sync_fails(
+        self, _mock_root, mock_sync, mock_ask
+    ):
+        app = StoryBuilderApp.__new__(StoryBuilderApp)
+
+        allowed = StoryBuilderApp._sync_novel_before_open(app, Path("/tmp/novel"))
+
+        self.assertFalse(allowed)
+        mock_sync.assert_called_once_with(Path("/tmp/novel"))
+        self.assertEqual(mock_ask.call_args.kwargs["default"], mock_ask.call_args.kwargs["default"])
+        self.assertIn("older scene", mock_ask.call_args.args[1])
+
+    @patch("storybuilder.messagebox.askyesno", return_value=False)
+    @patch("storybuilder.novel_repo_root", return_value=None)
+    def test_local_non_git_novel_is_not_opened_without_explicit_confirmation(
+        self, _mock_root, mock_ask
+    ):
+        app = StoryBuilderApp.__new__(StoryBuilderApp)
+
+        allowed = StoryBuilderApp._sync_novel_before_open(app, Path("/tmp/local-novel"))
+
+        self.assertFalse(allowed)
+        self.assertIn("out of date", mock_ask.call_args.args[1].lower())
+
     @patch("storybuilder.messagebox.showinfo")
     @patch("storybuilder.sync_storybuilder_repository")
     @patch("storybuilder.sync_novel_repository")
