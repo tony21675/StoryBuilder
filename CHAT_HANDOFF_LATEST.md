@@ -145,3 +145,13 @@ Use `python3`, never `python`, in Linux terminal commands. Keep StoryBuilder on 
 - **Live laptop sync passed on October 28, 2026.** The author launched Writer, selected `The-Long-Way-Home`, clicked **Sync Novel to GitHub**, accepted the confirmation, and Writer reported that the novel was synced.
 - The author then ran `git -C ~/Documents/MyNovel/The-Long-Way-Home status -sb`. Output was `## main...origin/main`, with no modified/untracked paths or ahead/behind counts. This corroborates that the local `main` working tree is clean and aligned with its recorded `origin/main` after the sync. No further Git command or file mutation was made in the verification step.
 - This was an intentional first real novel sync, with the user confirming they clicked **Yes**. Continue to keep syncing manual and explicit. Before any future sync, the UI should continue to show the selected folder, branch, remote, changes and pending commits, and warn if visible editor text has not been saved to a file.
+
+
+## Copyable popup milestone (October 28, 2026)
+
+- Implemented in `minimal_writer.py` as a common popup dialog used for all information messages, errors, and confirmation prompts. Long messages use a scrollable, resizable text box capped to the available screen size instead of a native message box that can run top-to-bottom.
+- The message text can be selected with the mouse or with **Ctrl+A**, then copied with **Ctrl+C**. The text area blocks editing/paste/cut while allowing selection and copying. The clipboard owner is the main app window so copied text persists when the popup closes.
+- Existing confirmation choices remain **Yes / No / Cancel** as appropriate. Safety-sensitive confirmations default to the non-destructive option: No for Yes/No, Cancel for Yes/No/Cancel.
+- README documents the new popup behavior. No novel package, manuscript, or story state was changed.
+- Automated workflows passed on code/test commit `da8c966cc1dce65bbd03767ce76872bab212d69e`: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/40778101321) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/40778101292).
+- Next: on laptop, launch with `cd ~/Documents/StoryBuilder && ./start.sh`, click **Sync Novel to GitHub** for `The-Long-Way-Home`, and verify the long confirmation is contained in a scrollable text box. Click inside the message, press **Ctrl+A**, then **Ctrl+C** to copy. Click **Cancel** for this check so it performs no Git operation. Also verify short messages remain compact and confirmation buttons still work.
