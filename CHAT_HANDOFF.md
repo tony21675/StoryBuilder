@@ -143,11 +143,27 @@ For a second model, the intended use is **explicit adult erotica/porn-style fict
 
 
 
-## One-step Writer upgrade: preserve multiline prompts (October 28, 2026)
+## Minimal Writer status at bedtime (October 28, 2026)
 
-- The initial escaped-single-line transport failed the live exact-output test: the model output showed the newline separator as literal `\\n` and doubled path backslashes. That output exposed a transport problem, not just a prose-formatting preference.
-- Root cause confirmed in llama.cpp's interactive CLI source: `--escape` does not decode escape sequences for interactive user turns. The old regression tests only mocked the escape-encoded payload, so they did not catch this runtime behavior.
-- Corrective implementation: send the prompt with actual line breaks, enable `--multiline-input`, and append the CLI's trailing `/` marker to end the multiline turn. The CLI consumes the marker before tokenization. The streaming echo filter now matches multiline input while ignoring terminal line breaks.
-- Both CI workflows passed for code/test commit `a44e37d30adb400367c46ca76881a1b786218c54`: [Python tests run #323](https://github.com/tony21675/StoryBuilder/actions/runs/40690286838) and [StoryBuilder tests run #588](https://github.com/tony21675/StoryBuilder/actions/runs/40690286747).
-- Live exact-output and longer scene-generation checks passed on the Linux laptop. The scene retained distinct paragraphs, included the exact path `C:\\models\\drafts\\scene.txt` with single backslashes, preserved the literal sequence `\\n`, and showed no echoed prompt. The scene ended before the box was opened.
-- Current next change: bind Ctrl+A to Select All in both the prompt and editable output text boxes. This is a focused UI fix; no extra controls or workflow changes. Automated tests are included in the same commit. CI and live shortcut verification are pending. Do not start another feature until Ctrl+A is verified on the laptop.
+### Confirmed working
+
+- Active project: StoryBuilder Minimal Writer on branch `redesign/simplified-writing-workflow`. Current application entry point remains `minimal_writer.py`; launching via `cd ~/Documents/StoryBuilder && ./start.sh` syncs the active branch and starts the Writer.
+- Multiline prompt transport is fixed in `builder/writer_engine.py`: actual newlines are sent with llama.cpp's `--multiline-input` mode and the trailing `/` end-of-turn marker. Do not revert to escaped single-line transport; llama.cpp does not decode `--escape` in interactive user turns.
+- Live exact-output test passed on the Linux laptop. The path `C:\\models\\drafts\\scene.txt` retained single backslashes, literal `\\n` stayed literal, and output lines remained separate.
+- Live longer scene test passed: four distinct paragraphs, prompt not echoed, the path and literal sequence preserved, and the scene stopped as Mara reached the box lid without revealing the contents.
+- Ctrl+A Select All is now explicitly bound in both the prompt box and editable output box using `bind_ctrl_a_select_all` / `select_all_text` in `minimal_writer.py`. Both `<Control-a>` and `<Control-A>` are handled. The user confirmed Ctrl+A works in both boxes on the laptop.
+- Regression tests for the shortcut were added to `tests/test_minimal_writer.py`.
+- Both CI workflows passed for code commit `c7fd9d932013f99fced5d0c35bf62fe7cb6ee14c`: [Python tests run #326](https://github.com/tony21675/StoryBuilder/actions/runs/40693875261) and [StoryBuilder tests run #591](https://github.com/tony21675/StoryBuilder/actions/runs/40693875342).
+- Handoff-only updates were made after the live checks. No novel packages, accepted prose, or novel state files were changed.
+
+### Model observation, no action requested
+
+- The author tested the downloaded Qwen3-4B TripleX model with a short brother/sister breakfast-story prompt. It generated a visible `[Start thinking]` / `[End thinking]` section before the story. The author was only checking whether the model loads and writes at all, not requesting a change. Leave model settings and Writer display behavior alone unless the author brings it up again.
+
+### Resume tomorrow
+
+- Stop here for the night. Do not make further app or novel changes until the author resumes.
+- When resuming, stay on the Minimal Writer rebuild and continue one upgrade at a time. Do not return to legacy StoryBuilder workflow work or model research unless explicitly asked.
+- Code branch should ultimately return to one permanent `main` branch as previously requested, but do not switch or delete branches blindly; discuss/verify the merge path first.
+- Keep the existing rules: use `python3`, never `python`, in Linux terminal commands; preserve novel repositories and accepted prose; keep terminal steps short; handoff-only updates do not need permission, but app/novel changes do.
+
