@@ -34,7 +34,7 @@ File: `minimal_writer.py`.
 - `write_from_prompt(engine, prompt)` passes the prompt straight to `engine.generate(prompt)`.
 - Uses the existing `WriterEngine` and `MODELS_DIR` only.
 - Runs model loading/generation on a worker thread so the window can remain responsive.
-- Keeps the current output visible while generation runs. A failed model response doesn't clear an existing draft.
+- Streams generated text into the output area as the model writes. The prior document is held in memory during generation and restored if generation fails.
 - Do not infer the quality of live generation from CI alone; the real-model smoke test was performed separately.
 
 Default environment:
@@ -42,7 +42,7 @@ Default environment:
 - llama.cpp: `~/Documents/llama.cpp/build/bin/llama-cli`
 - `STORY_MODELS_DIR`, `STORY_LLAMA_PATH`, `STORY_WRITER_CONTEXT`, `STORY_WRITER_MAX_TOKENS` remain available as runtime overrides.
 
-Known limitation to revisit only when required: the existing `WriterEngine.generate()` flattens newline characters in the prompt before sending it to the interactive llama.cpp process. It currently returns completed text to the output area rather than streaming partial text.
+Known limitations: `WriterEngine.generate()` flattens newline characters in the prompt before sending it to the interactive llama.cpp process. Streaming uses the existing prompt-echo filter and is best-effort; after completion, the cleaned final response replaces the live preview.
 
 ## 4. Open Text / Save / Save As
 
@@ -58,9 +58,13 @@ Tests added in `tests/test_minimal_writer.py` cover empty system prompt, direct 
 - [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/40636160718): passed.
 - [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/40636160677): passed.
 
-The current incremental step is for the user to sync/relaunch and test file editing with the actual desktop UI: open a text file, edit and Save, then Save As a second copy, reopen it, and verify in an external text editor. Don't add another feature until this basic document workflow works.
+The current incremental step is for the user to sync/relaunch and test live streaming with their actual local model. Confirm that words appear before generation ends, the prompt is not echoed into the final text, and the finished output can still be edited and saved. If generation fails, verify the previous draft is restored.
 
-## 5. Rebuild boundaries
+## 5. Live text streaming
+
+The Minimal Writer now calls `WriterEngine.generate(prompt, on_delta=...)`. The stream callback schedules text appends onto Tk's UI thread. The completed cleaned answer replaces the preview when the model finishes. The app saves the prior document text and tracking metadata in memory and restores it if generation fails. Unit tests verify callback forwarding and chunk receipt; this still needs real-model GUI testing.
+
+## 6. Rebuild boundaries
 
 Do not delete old helper modules yet. They are currently dormant from the new UI's entry point. Once basic model writing and plain text editing are demonstrated reliably on the laptop, discuss and remove unused legacy code in planned pieces, with tests for each change.
 
@@ -74,7 +78,7 @@ Do not add the previous system back by accident. Specifically out of scope unles
 
 The application should stay a simple writer until further pieces are agreed and proven.
 
-## 6. Protected novel checkpoint: The Long Way Home
+## 7. Protected novel checkpoint: The Long Way Home
 
 - Local: `~/Documents/MyNovel/The-Long-Way-Home`.
 - Remote: `tony21675/The-Long-Way-Home`, permanent branch `main`.
@@ -83,7 +87,7 @@ The application should stay a simple writer until further pieces are agreed and 
 - The latest model summary incorrectly sharpened Daniel's uncertain “maybe another hour” estimate into a near-certain critical-failure deadline, turned Morgan's hypothetical structural degradation into a diagnosis, and misdescribed Elena's instructions. The reviewer then returned unsupported claims and was correctly rejected by evidence validation.
 - No change to accepted prose or novel state was made. Don't edit `current_state.json` manually, and don't bring old state-analysis workflow into the new Minimal Writer.
 
-## 7. Repo / terminal / collaboration rules
+## 8. Repo / terminal / collaboration rules
 
 - StoryBuilder repository: `~/Documents/StoryBuilder`.
 - Current branch: `redesign/simplified-writing-workflow`; the remote currently has one branch. Long-term goal remains one stable `main` branch after deliberate review and merge; never switch/delete branches blindly.
