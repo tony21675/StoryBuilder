@@ -14,6 +14,13 @@ CONTINUE_PROMPT = (
     "Continue the current passage from where it ended. "
     "Write only new material, without repeating the text already written."
 )
+CONTINUE_CONTEXT_CHARS = 2000
+
+
+def build_continue_prompt(existing_text: str) -> str:
+    """Include the visible passage ending so Continue respects editor changes."""
+    passage_ending = existing_text[-CONTINUE_CONTEXT_CHARS:]
+    return f"{CONTINUE_PROMPT}\\n\\nPassage ending for context:\\n{passage_ending}"
 
 
 def continuation_prefix(text: str) -> str:
@@ -253,7 +260,7 @@ class MinimalWriterApp:
             )
             return
 
-        self._begin_generation(CONTINUE_PROMPT, mode="continue")
+        self._begin_generation(build_continue_prompt(existing_text), mode="continue")
 
     def _begin_generation(self, prompt: str, mode: str) -> None:
         # Keep the previous document recoverable so errors or an immediate Stop
