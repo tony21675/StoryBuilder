@@ -297,6 +297,71 @@ class MinimalWriterTests(unittest.TestCase):
             self.assertEqual(app.selected_scene_source, selected_target.resolve())
             self.assertIsNone(app.current_file)
 
+    def test_cancelled_novel_sync_starts_no_git_operation(self):
+        from types import SimpleNamespace
+
+        app = MinimalWriterApp.__new__(MinimalWriterApp)
+        novel_path = Path("/tmp/Selected-Novel")
+        app.busy = False
+        app.novel_var = type("FakeVar", (), {"get": lambda self: "Selected-Novel"})()
+        app.novel_packages = {"Selected-Novel": novel_path}
+        app.status_var = FakeStatus()
+        preview = SimpleNamespace(
+            repository=novel_path,
+            branch="main",
+            remote_url="git@github.com:writer/selected-novel.git",
+            changed_files=("Manuscript/scene.txt",),
+        )
+
+        with patch("minimal_writer.inspect_novel_repository", return_value=preview):
+            with patch("minimal_writer.messagebox.askyesno", return_value=False) as confirm:
+                with patch("minimal_writer.sync_novel_repository") as sync:
+                    app.sync_selected_novel_to_github()
+
+        self.assertEqual(confirm.call_count, 1)
+        self.assertIn(str(novel_path), confirm.call_args.args[1])
+        self.assertIn("Manuscript/scene.txt", confirm.call_args.args[1])
+        self.assertIn("cancelled", app.status_var.value.lower())
+        sync.assert_not_called()
+
+    def test_confirmed_novel_sync_runs_only_after_preview_confirmation(self):
+        from types import SimpleNamespace
+
+        app = MinimalWriterApp.__new__(MinimalWriterApp)
+        novel_path = Path("/tmp/Selected-Novel")
+        app.root = FakeRoot()
+        app.busy = False
+        app.novel_var = type("FakeVar", (), {
+            "get": lambda self: "Selected-Novel",
+            "set": lambda self, value: setattr(self, "value", value),
+        })()
+        app.novel_var.value = "Selected-Novel"
+        app.novel_packages = {"Selected-Novel": novel_path}
+        app.status_var = FakeStatus()
+        app._update_controls = lambda: None
+        app.refresh_novels = lambda: None
+        app._on_novel_selected = lambda: None
+        preview = SimpleNamespace(
+            repository=novel_path,
+            branch="main",
+            remote_url="git@github.com:writer/selected-novel.git",
+            changed_files=(),
+        )
+        result = SimpleNamespace(message="Novel sync test succeeded.")
+
+        with patch("minimal_writer.inspect_novel_repository", return_value=preview):
+            with patch("minimal_writer.messagebox.askyesno", return_value=True) as confirm:
+                with patch("minimal_writer.sync_novel_repository", return_value=result) as sync:
+                    with patch("minimal_writer.threading.Thread", ImmediateThread):
+                        app.sync_selected_novel_to_github()
+
+        self.assertEqual(confirm.call_count, 1)
+        sync.assert_called_once_with(novel_path)
+        self.assertIn("Confirm novel sync", confirm.call_args.args[0])
+        self.assertIn("StoryBuilder's code", confirm.call_args.args[1])
+        self.assertEqual(app.status_var.value, result.message)
+        self.assertFalse(app.busy)
+
     def test_model_load_uses_no_app_added_system_prompt(self):
         engine = FakeEngine()
         model_path = Path("/models/example.gguf")
