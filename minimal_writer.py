@@ -20,6 +20,18 @@ def write_from_prompt(engine: WriterEngine, prompt: str) -> str:
     return engine.generate(prompt)
 
 
+def read_text_document(path: str | Path) -> str:
+    """Read a UTF-8 text document without altering its contents."""
+    return Path(path).expanduser().read_text(encoding="utf-8")
+
+
+def save_text_document(path: str | Path, text: str) -> Path:
+    """Save text exactly as provided and return its resolved file path."""
+    target = Path(path).expanduser().resolve()
+    target.write_text(str(text), encoding="utf-8")
+    return target
+
+
 class MinimalWriterApp:
     """A small local-model writing window, with no story-management pipeline."""
 
@@ -28,9 +40,11 @@ class MinimalWriterApp:
         self.engine = WriterEngine()
         self.models: dict[str, Path] = {}
         self.loaded_model: Path | None = None
+        self.current_file: Path | None = None
+        self.saved_output_text = ""
         self.busy = False
 
-        root.title("StoryBuilder Minimal Writer")
+        root.title("StoryBuilder Minimal Writer - Untitled")
         root.geometry("1080x820")
         root.minsize(760, 600)
         root.protocol("WM_DELETE_WINDOW", self.close)
@@ -74,21 +88,34 @@ class MinimalWriterApp:
 
         actions = ttk.Frame(outer)
         actions.pack(fill="x", pady=(0, 8))
+
         self.write_button = ttk.Button(
             actions, text="Write", command=self.write
         )
         self.write_button.pack(side="left")
 
+        self.open_button = ttk.Button(
+            actions, text="Open Text…", command=self.open_text
+        )
+        self.open_button.pack(side="left", padx=(8, 0))
+
         self.save_button = ttk.Button(
-            actions, text="Save Output As…", command=self.save_output
+            actions, text="Save", command=self.save_output
         )
         self.save_button.pack(side="left", padx=(8, 0))
+
+        self.save_as_button = ttk.Button(
+            actions, text="Save As…", command=self.save_output_as
+        )
+        self.save_as_button.pack(side="left", padx=(8, 0))
 
         ttk.Label(outer, text="Output (editable)").pack(anchor="w")
         self.output_box = ScrolledText(
             outer, height=22, wrap="word", undo=True, font=("TkDefaultFont", 11)
         )
         self.output_box.pack(fill="both", expand=True, pady=(4, 8))
+        self.output_box.bind("<<Modified>>", self._on_output_modified)
+        self.output_box.edit_modified(False)
 
         ttk.Label(
             outer, textvariable=self.status_var, anchor="w", relief="sunken"
@@ -168,8 +195,9 @@ class MinimalWriterApp:
             messagebox.showinfo("Add a prompt", "Enter what you want the model to write.")
             return
 
+        # Keep the current text visible while generation runs. If generation
+        # fails, the author's open or edited document remains intact.
         self.busy = True
-        self.output_box.delete("1.0", "end")
         self.status_var.set(f"Writing with {self.loaded_model.name}…")
         self._update_controls()
 
@@ -185,8 +213,7 @@ class MinimalWriterApp:
         threading.Thread(target=work, daemon=True).start()
 
     def _write_succeeded(self, answer: str) -> None:
-        self.output_box.delete("1.0", "end")
-        self.output_box.insert("1.0", answer)
+        self._set_output_text(answer)
         self.busy = False
         model_name = self.loaded_model.name if self.loaded_model else "model"
         self.status_var.set(f"Finished writing with {model_name}. Edit the output or save it.")
@@ -204,25 +231,103 @@ class MinimalWriterApp:
         self._update_controls()
         messagebox.showerror("Writing failed", message)
 
-    def save_output(self) -> None:
-        text = self.output_box.get("1.0", "end-1c")
-        if not text.strip():
-            messagebox.showinfo("Nothing to save", "The output area is empty.")
-            return
-        filename = filedialog.asksaveasfilename(
-            title="Save written text",
-            defaultextension=".txt",
-            filetypes=[("Text files", "*.txt"), ("All files", "*.*")],
-            initialfile="draft.txt",
+    def _output_text(self) -> str:
+        return self.output_box.get("1.0", "end-1c")
+
+    def _set_output_text(self, text: str) -> None:
+        self.output_box.delete("1.0", "end")
+        self.output_box.insert("1.0", text)
+        self.output_box.edit_modified(False)
+        self._update_document_title()
+
+    def _on_output_modified(self, _event=None) -> None:
+        if self.output_box.edit_modified():
+            self.output_box.edit_modified(False)
+            self._update_document_title()
+
+    def _update_document_title(self) -> None:
+        label = self.current_file.name if self.current_file is not None else "Untitled"
+        dirty = self._output_text() != self.saved_output_text
+        marker = "*" if dirty else ""
+        self.root.title(f"StoryBuilder Minimal Writer - {label}{marker}")
+
+    def _confirm_save_pending_changes(self) -> bool:
+        if self._output_text() == self.saved_output_text:
+            return True
+        choice = messagebox.askyesnocancel(
+            "Unsaved changes",
+            "Save changes to the current text before continuing?",
         )
+        if choice is None:
+            return False
+        if choice:
+            return self.save_output()
+        return True
+
+    def open_text(self) -> None:
+        if self.busy:
+            return
+        options = {
+            "title": "Open text",
+            "filetypes": [("Text files", "*.txt"), ("All files", "*.*")],
+        }
+        if self.current_file is not None:
+            options["initialdir"] = str(self.current_file.parent)
+        filename = filedialog.askopenfilename(**options)
         if not filename:
             return
+
         try:
-            Path(filename).write_text(text.rstrip() + "\n", encoding="utf-8")
-        except OSError as exc:
-            messagebox.showerror("Could not save text", str(exc))
+            text = read_text_document(filename)
+        except (OSError, UnicodeError) as exc:
+            messagebox.showerror("Could not open text", str(exc))
             return
-        self.status_var.set(f"Saved: {filename}")
+
+        if not self._confirm_save_pending_changes():
+            return
+
+        self.current_file = Path(filename).expanduser().resolve()
+        self.saved_output_text = text
+        self._set_output_text(text)
+        self.status_var.set(f"Opened: {self.current_file}")
+        self._update_document_title()
+
+    def save_output(self) -> bool:
+        if self.busy:
+            return False
+        if self.current_file is None:
+            return self.save_output_as()
+        return self._save_to_path(self.current_file)
+
+    def save_output_as(self) -> bool:
+        if self.busy:
+            return False
+        options = {
+            "title": "Save text as",
+            "defaultextension": ".txt",
+            "filetypes": [("Text files", "*.txt"), ("All files", "*.*")],
+            "initialfile": self.current_file.name if self.current_file else "draft.txt",
+        }
+        if self.current_file is not None:
+            options["initialdir"] = str(self.current_file.parent)
+        filename = filedialog.asksaveasfilename(**options)
+        if not filename:
+            return False
+        return self._save_to_path(Path(filename))
+
+    def _save_to_path(self, path: str | Path) -> bool:
+        text = self._output_text()
+        try:
+            saved_path = save_text_document(path, text)
+        except (OSError, UnicodeError) as exc:
+            messagebox.showerror("Could not save text", str(exc))
+            return False
+
+        self.current_file = saved_path
+        self.saved_output_text = text
+        self.status_var.set(f"Saved: {saved_path}")
+        self._update_document_title()
+        return True
 
     def _update_controls(self) -> None:
         idle = not self.busy
@@ -232,7 +337,9 @@ class MinimalWriterApp:
         self.write_button.configure(
             state="normal" if idle and self.loaded_model is not None else "disabled"
         )
+        self.open_button.configure(state="normal" if idle else "disabled")
         self.save_button.configure(state="normal" if idle else "disabled")
+        self.save_as_button.configure(state="normal" if idle else "disabled")
 
     def close(self) -> None:
         if self.busy:
@@ -240,6 +347,8 @@ class MinimalWriterApp:
                 "Model is busy",
                 "Wait for the current model task to finish before closing.",
             )
+            return
+        if not self._confirm_save_pending_changes():
             return
         try:
             self.engine.stop()
