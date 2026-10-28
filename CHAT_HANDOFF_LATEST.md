@@ -27,9 +27,24 @@ Rebuild StoryBuilder piece by piece. The active app should load a local model an
 - No app-added prompt or writing rules were introduced.
 - Unit tests cover forwarding the streaming callback and receiving chunks; the user has confirmed that words appear while generation is happening on the laptop.
 
-## Next step
+## New piece: Stop Writing
 
-The basic Minimal Writer layers now work: model loading/writing, editable output, opening and saving text files, and live streaming. Do not add another feature automatically. Discuss the next small piece with the author before implementation.
+A Stop Writing button and engine interruption path have been added, but have not yet been tested live on the laptop.
+
+- Stop terminates the active `llama-cli` process without waiting for the generation lock.
+- Any streamed partial text remains editable. If Stop is pressed before the first chunk, the previous document is restored.
+- The model is marked unloaded after stopping and must be loaded again before the next generation.
+- Automated tests cover prompt-thread-independent interruption and preservation of partial or prior text. Verify CI and live behavior before moving on.
+
+Next laptop test, after closing the current app window:
+
+```bash
+cd ~/Documents/StoryBuilder && ./start.sh
+```
+
+Load the model, generate a longer passage, and press Stop while words are appearing. Confirm generation stops promptly, the partial text remains editable, and the app allows model reload followed by a new generation. Also try pressing Stop very soon after clicking Write to check that the previous text is not lost.
+
+Do not add another feature until this test is complete.
 
 ## Still out of scope
 
