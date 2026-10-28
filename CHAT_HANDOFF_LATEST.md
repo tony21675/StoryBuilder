@@ -12,35 +12,28 @@ Rebuild StoryBuilder piece by piece. The active app should load a local model an
 - Select a local GGUF model, load it, enter a prompt, write, then edit the output.
 - Model loads with an empty system prompt; the user's prompt goes straight to `WriterEngine`.
 - The user confirmed model generation and Save As output opening in an external text editor.
-- Open Text, Save, and Save As were then tested live and reported working.
+- Open Text, Save, and Save As were tested live and reported working.
+- The user has now confirmed live streaming works: generated words appear in the output as the model produces them.
 - The output editor shows the filename and an asterisk for unsaved edits. Opening a file or closing offers to save changes.
 - UTF-8 text and newline state are preserved by the file helpers.
 - Novels and saved story state have not been changed.
 
-## New change: live text streaming
+## Live text streaming, verified
 
-The next incremental feature is implemented in `minimal_writer.py`:
 - Generated text is appended to the output as the local model emits it.
 - Streaming callbacks are scheduled onto Tk's UI thread.
-- Once generation completes, the engine's cleaned final response replaces the live preview.
+- When generation completes, the engine's cleaned final response replaces the live preview.
 - If generation fails, the app restores the previous document and its file/saved-text tracking.
 - No app-added prompt or writing rules were introduced.
+- Unit tests cover forwarding the streaming callback and receiving chunks; the user has confirmed that words appear while generation is happening on the laptop.
 
-Automated coverage was updated to verify that the streaming callback is passed through and receives chunks. CI status for this newest change must be checked after the latest commits. The streaming feature still needs a live laptop test with the user's actual local model; CI cannot prove terminal echo filtering or GUI responsiveness.
+## Next step
 
-## Next laptop test
-
-After the current app window is closed, run:
-
-```bash
-cd ~/Documents/StoryBuilder && ./start.sh
-```
-
-Load the model and ask for a short passage. Confirm words appear before generation finishes, the final text looks normal without the prompt echoed into it, and editing/saving still work. Then try a second generation with an existing draft open only if the first test succeeds. A failed generation should restore the original draft.
+The basic Minimal Writer layers now work: model loading/writing, editable output, opening and saving text files, and live streaming. Do not add another feature automatically. Discuss the next small piece with the author before implementation.
 
 ## Still out of scope
 
-No novel package loading, scene planning, character cards, continuity, writing rules, validators, state summaries, automatic reviews, or automatic state changes. Do not delete legacy modules until the new basic workflow is proven and their removal is discussed.
+No novel package loading, scene planning, character cards, continuity, writing rules, validators, state summaries, automatic reviews, or automatic state changes. Do not delete legacy modules until the replacement has been proven further and their removal is discussed.
 
 ## Protected novel checkpoint
 
