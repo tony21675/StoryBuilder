@@ -5,6 +5,7 @@ from pathlib import Path
 from minimal_writer import (
     CONTINUE_PROMPT,
     MinimalWriterApp,
+    build_continue_prompt,
     continuation_prefix,
     load_model_for_writing,
     read_text_document,
@@ -150,6 +151,21 @@ class MinimalWriterTests(unittest.TestCase):
     def test_continue_prompt_requests_only_new_material(self):
         self.assertIn("Continue the current passage", CONTINUE_PROMPT)
         self.assertIn("without repeating", CONTINUE_PROMPT)
+
+    def test_continue_prompt_uses_the_visible_passage_ending(self):
+        passage = "An opening paragraph.\\n\\nThe door creaked open."
+        prompt = build_continue_prompt(passage)
+
+        self.assertIn(CONTINUE_PROMPT, prompt)
+        self.assertIn("The door creaked open.", prompt)
+        self.assertIn("Passage ending for context", prompt)
+
+    def test_continue_prompt_limits_added_context_for_long_passages(self):
+        passage = "x" * 2500 + "THE_ENDING"
+        prompt = build_continue_prompt(passage)
+
+        self.assertIn("THE_ENDING", prompt)
+        self.assertNotIn("x" * 2100, prompt)
 
     def test_continue_final_response_is_appended_not_replaced(self):
         existing = "Maya ran into the rain."
