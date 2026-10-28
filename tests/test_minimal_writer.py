@@ -1,6 +1,7 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from minimal_writer import (
     CONTINUE_PROMPT,
@@ -18,16 +19,37 @@ class FakeEngine:
     def __init__(self):
         self.start_calls = []
         self.generate_calls = []
+        self.session_history = []
 
     def start(self, model_path, system_prompt):
         self.start_calls.append((model_path, system_prompt))
+        self.session_history = []
 
     def generate(self, prompt, on_delta=None):
         self.generate_calls.append((prompt, on_delta))
+        self.session_history.append(prompt)
         if on_delta is not None:
             on_delta("Generated ")
             on_delta("text")
         return "Generated text"
+
+
+class FakePromptBox:
+    def __init__(self, text=""):
+        self.text = text
+
+    def get(self, _start, _end):
+        return self.text
+
+
+class ImmediateThread:
+    """Run a worker immediately so UI generation paths are easy to test."""
+
+    def __init__(self, target, daemon=None):
+        self.target = target
+
+    def start(self):
+        self.target()
 
 
 class FakeOutputBox:
@@ -53,6 +75,9 @@ class FakeRoot:
 
     def title(self, value):
         self.title_text = value
+
+    def after(self, _delay, callback):
+        callback()
 
 
 class FakeStatus:
@@ -80,6 +105,49 @@ class MinimalWriterTests(unittest.TestCase):
 
         self.assertEqual(engine.generate_calls, [(prompt, None)])
         self.assertEqual(answer, "Generated text")
+
+    def test_write_replaces_visible_prose_but_preserves_model_session_context(self):
+        app = MinimalWriterApp.__new__(MinimalWriterApp)
+        app.root = FakeRoot()
+        app.engine = FakeEngine()
+        model_path = Path("/models/example.gguf")
+        load_model_for_writing(app.engine, model_path)
+        starts_after_load = list(app.engine.start_calls)
+
+        app.busy = False
+        app.writing = False
+        app.stop_requested = False
+        app.loaded_model = model_path
+        app.prompt_box = FakePromptBox("Write the first scene.")
+        app.output_box = FakeOutputBox("Old prose that will be replaced.")
+        app.current_file = None
+        app.saved_output_text = ""
+        app.status_var = FakeStatus()
+        app._update_controls = lambda: None
+
+        with patch("minimal_writer.threading.Thread", ImmediateThread):
+            app.write()
+            self.assertEqual(app._output_text(), "Generated text")
+
+            app.prompt_box.text = "Write the next scene, picking up where that left off."
+            app.write()
+
+        self.assertEqual(app._output_text(), "Generated text")
+        self.assertEqual(
+            [call[0] for call in app.engine.generate_calls],
+            [
+                "Write the first scene.",
+                "Write the next scene, picking up where that left off.",
+            ],
+        )
+        self.assertEqual(app.engine.start_calls, starts_after_load)
+        self.assertEqual(
+            app.engine.session_history,
+            [
+                "Write the first scene.",
+                "Write the next scene, picking up where that left off.",
+            ],
+        )
 
     def test_writing_forwards_streamed_text_chunks(self):
         engine = FakeEngine()
