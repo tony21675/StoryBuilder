@@ -72,7 +72,8 @@ class ClearContextTests(unittest.TestCase):
 
         engine.clear_context()
 
-        self.assertEqual(child.sent, ["/clear"])
+        self.assertEqual(child.sent, [encode_prompt_for_cli("/clear")])
+        self.assertEqual(child.sent, ["/clear/"])
         self.assertEqual(child.wait[0], r"(?m)^> ")
         self.assertEqual(child.wait[1], 30)
         self.assertFalse(child.killed)
