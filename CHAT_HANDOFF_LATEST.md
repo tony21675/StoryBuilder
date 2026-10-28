@@ -17,14 +17,18 @@ The trace uploaded after the focused-revision change is dated 2026-10-28 02:51:4
 
 This unrelated Scene 10 trace also shows the semantic validator marking the explicit manual-isolation decision missing even though the prose ends with Elena choosing manual isolation and saying, “Then do it.” The continuity/scope audit calls the endpoint clear, so the two reviews disagree. Keep this as a separate validation false-negative to investigate later; do not alter the accepted scene or add writing rules based on this aborted run.
 
-## Cross-computer novel sync diagnosis
+## Cross-computer novel sync diagnosis and safeguards
 
-I checked GitHub directly. `tony21675/The-Long-Way-Home` on `main` still has `current_state.json` set to Chapter 1, Scene 10. Its latest novel sync commit is `3367931421b466fef0e7d9d8f7b6bb2f2ee2a391` (2026-10-27 21:17 UTC / 3:17 PM MDT). The Scene 10 after-state file is not present on the remote branch. The Oct 27 evening trace therefore loaded an older novel state; the earlier handoff's Scene 11 pointer described local state on the other computer and was not pushed to GitHub.
+Confirmed on GitHub: `tony21675/The-Long-Way-Home` on `main` had `current_state.json` at Chapter 1, Scene 10 as of the latest check. The earlier Scene 11 pointer was saved locally on the home computer but had not been pushed. The cause was that the old close handler synced StoryBuilder code only, and terminal Ctrl+C bypassed the close handler.
 
-Important distinction: `./start.sh` and **Close & Sync App** synchronize StoryBuilder application code only. They do not synchronize the novel. Ctrl+C bypasses the app's close handler. Novel data has its own toolbar button: **Sync Novel**.
+New generic safeguards now committed on this StoryBuilder branch:
+- `68f84fcccab51958669e99f688bfce25d63271b4`: closing the app saves the current accepted package, syncs the novel repository first, and syncs StoryBuilder code second. A novel sync error/conflict leaves the app open for resolution. Terminal Ctrl+C is captured and routed through the same safe shutdown path after active tasks settle.
+- `f1a6623836dcf8048cd049278e9c24ad4a65d584`: StoryBuilder synchronizes a novel repository **before loading its local state** at startup or when opening a novel. If sync fails or the folder is not a Git repository, opening is cancelled by default and the user must explicitly choose to open a potentially stale local copy.
+- `6615acae6513c04c4baba56f5f5c16dbc22797cf`, `06a1fbb4f86dd241f5958fbb2bca830047e2fbb5`, and `d03292bf2aa42f7597b920272f4b8fad6503b66c`: regression tests for the safe shutdown sequence, Ctrl+C routing, pre-open sync, and default-cancel behavior.
 
-Recovery sequence: on the computer where the Stage 2 update actually advanced The Long Way Home to Scene 11, open that package and press **Sync Novel**; verify the app reports “Novel synchronized successfully.” Only then move to the other computer, open the same package, and press **Sync Novel** there before writing. The second sync should pull the Scene 11 state. If the first computer no longer has Scene 11 locally, or either sync reports an error/conflict, stop and inspect the local novel repository before attempting another scene. Do not edit `current_state.json` manually or accept the aborted Scene 10 draft.
+The user cannot currently access the home computer. Do not try to repair or manually change the remote `current_state.json` from this computer. Later, once home, launch StoryBuilder using `./start.sh` so the app code updates. Opening The Long Way Home will attempt to synchronize the local novel before reading its state; if it succeeds, the Scene 11 state should be pushed/pulled before the Writer loads. If any sync error or conflict appears, choose **No / cancel opening** and report the exact message rather than using an older scene. The close path will then save and synchronize novel data before app code on future exits. The app never accepts unaccepted prose as part of this process.
 
+The new tests have not been run in this execution environment, and the connected GitHub status lookup returned no published checks. After the next code sync, run `python3 -m pytest tests/test_terminal_shutdown_sync.py tests/test_focused_revision.py -q`, then the full suite when convenient.
 ## Speed changes committed to GitHub
 
 - `45524e27550f05db21b4ea29785ba33e07bea156`: optional writing-notes learning is default OFF.
