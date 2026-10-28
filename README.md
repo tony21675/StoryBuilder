@@ -25,7 +25,8 @@ The launcher synchronizes the current StoryBuilder branch before starting the ap
 9. Keeps the accepted source scene out of the ordinary Save target. After loading a scene copy, **Save** opens **Save As**.
 10. Provides **Save to Selected Scene**, a separate action that displays the exact file path and requires confirmation before replacing that scene. Cancel leaves the file unchanged.
 11. Provides **Sync Novel to GitHub** as an explicit, separate action. It shows the selected novel folder, branch, remote, local changes, and local commits before confirmation. It safely fast-forwards when possible, commits the novel's local changes, and pushes only that novel's branch.
-12. Opens other UTF-8 text files, saves ordinary drafts, and warns before replacing a document or closing with unsaved output edits.
+12. Uses compact popups for short messages and a scrollable, read-only text box for long messages and confirmations. Popup text can be selected and copied with **Ctrl+A**, then **Ctrl+C**.
+13. Opens other UTF-8 text files, saves ordinary drafts, and warns before replacing a document or closing with unsaved output edits.
 
 The Writer does not load or modify `current_state.json`, before/after state JSON, character cards, or other novel state files as part of ordinary writing or syncing. Direct scene saving is protected by a path-specific confirmation. Novel-to-GitHub syncing requires a second explicit confirmation and operates only inside the selected novel's own Git repository, not StoryBuilder's code repository. It requires an existing `origin` and matching `origin/<current-branch>` upstream, creates no branches, and stops rather than merging if the local and remote histories have diverged. Local-only secret/encrypted paths found in Git's change list block syncing before staging or pushing. Scene planning, continuity analysis, validators, automatic review, and automatic state changes remain outside the active Writer.
 
@@ -49,6 +50,10 @@ The author has confirmed live model generation, continuation, stopping, text-fil
 Novel browsing and direct scene saving were tested live on the laptop. The author verified that Cancel leaves Scene 10 untouched, then confirmed a write against a separate disposable test scene and read back the exact saved text. The disposable test package was removed afterwards. The new novel-sync code is covered by automated tests using disposable Git repositories, including local commit/push, fast-forwarding remote changes, refusing a diverged history, and blocking secret paths. Its first live laptop sync remains to be verified with a novel whose GitHub remote/upstream configuration is ready.
 
 Prompt line breaks use llama-cli's `--multiline-input` and trailing `/` end-of-turn marker. Tests cover paragraph breaks, literal backslashes, returned prose, and streaming. Live checks confirmed paragraph breaks stay distinct, Windows-style paths retain single backslashes, literal `\n` stays literal, and the prompt is not echoed. **Write** replaces visible text but retains model context; **Continue** appends new material using the visible passage ending as context. **New Session** clears the model conversation without reloading weights.
+
+## Popup messages
+
+Writer's popups use a selectable text area so long errors and confirmation summaries remain readable without filling the whole screen. Click inside the message text, press **Ctrl+A**, then **Ctrl+C** to copy it. Confirmation dialogs preserve their **Yes**, **No**, and **Cancel** choices; safety-sensitive confirmations default to the non-destructive choice.
 
 ## Data safety
 
