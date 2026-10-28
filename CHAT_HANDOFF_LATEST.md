@@ -33,7 +33,7 @@ Automated tests passed on commit `091280b0`: [Python tests](https://github.com/t
 
 The user tested **Write** after a passage and Continue, then tested again with a changed prompt. Write replaces the visible output but preserves the current model session/context, so the model can carry the story forward from where the prior scene ended. The user explicitly likes this behavior. Keep it as intended: Write = replace visible prose while preserving ongoing model/story context; Continue = append new prose to the visible output. Do not implement a fresh-session reset for Write. A separate explicit “new session” action would be a future option only if requested.
 
-Stop/reload behavior and Continue append behavior have been confirmed live on the laptop. No further regression check is currently needed for Write's replace/context-preserving behavior.
+Stop/reload behavior, Continue append behavior, and Write's replace/context-preserving behavior have all been confirmed live on the laptop. A regression test now exercises two successive Write actions with changed prompts: visible output is replaced each time, while the fake engine session is not restarted and retains both prompts in its session history. This milestone changes tests and documentation only, not runtime behavior.
 
 ## Out of scope
 
