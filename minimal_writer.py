@@ -20,7 +20,7 @@ CONTINUE_CONTEXT_CHARS = 2000
 def build_continue_prompt(existing_text: str) -> str:
     """Include the visible passage ending so Continue respects editor changes."""
     passage_ending = existing_text[-CONTINUE_CONTEXT_CHARS:]
-    return f"{CONTINUE_PROMPT}\\n\\nPassage ending for context:\\n{passage_ending}"
+    return f"{CONTINUE_PROMPT}\n\nPassage ending for context:\n{passage_ending}"
 
 
 def continuation_prefix(text: str) -> str:
