@@ -9,6 +9,14 @@ The focused-revision change is committed on `redesign/simplified-writing-workflo
 When ready later tonight, launch `./start.sh` from `~/Documents/StoryBuilder` to sync the branch (fast-forward only). After sync, a useful local check is `python3 -m pytest tests/test_focused_revision.py -q`, followed by the full suite if convenient. Focused revisions are not yet included in prompt-trace capture, which remains a separate observability gap.
 
 
+## Cross-computer novel sync diagnosis
+
+I checked GitHub directly. `tony21675/The-Long-Way-Home` on `main` still has `current_state.json` set to Chapter 1, Scene 10. Its latest novel sync commit is `3367931421b466fef0e7d9d8f7b6bb2f2ee2a391` (2026-10-27 21:17 UTC / 3:17 PM MDT). The Scene 10 after-state file is not present on the remote branch. The Oct 27 evening trace therefore loaded an older novel state; the earlier handoff's Scene 11 pointer described local state on the other computer and was not pushed to GitHub.
+
+Important distinction: `./start.sh` and **Close & Sync App** synchronize StoryBuilder application code only. They do not synchronize the novel. Ctrl+C bypasses the app's close handler. Novel data has its own toolbar button: **Sync Novel**.
+
+Recovery sequence: on the computer where the Stage 2 update actually advanced The Long Way Home to Scene 11, open that package and press **Sync Novel**; verify the app reports “Novel synchronized successfully.” Only then move to the other computer, open the same package, and press **Sync Novel** there before writing. The second sync should pull the Scene 11 state. If the first computer no longer has Scene 11 locally, or either sync reports an error/conflict, stop and inspect the local novel repository before attempting another scene. Do not edit `current_state.json` manually or accept the aborted Scene 10 draft.
+
 Latest remote code commits on `redesign/simplified-writing-workflow`:
 
 - `45524e27550f05db21b4ea29785ba33e07bea156`: make automatic writing-notes learning explicitly opt-in; default OFF.
