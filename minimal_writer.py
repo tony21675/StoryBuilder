@@ -98,8 +98,29 @@ def show_copyable_dialog(
     )
     text_box.pack(fill="both", expand=True)
     text_box.insert("1.0", message)
-    text_box.configure(state="disabled")
+    # Keep the widget enabled so the user can mouse-select and copy text.
+    # Block editing keystrokes and paste/cut operations instead of disabling it,
+    # because a disabled Text widget may not accept focus for keyboard shortcuts.
+    text_box.configure(state="normal")
     bind_ctrl_a_select_all(text_box)
+
+    def protect_read_only_text(event):
+        key = event.keysym
+        control_down = bool(event.state & 0x4)
+        if control_down and key.lower() in {"v", "x"}:
+            return "break"
+        if key in {
+            "BackSpace", "Delete", "Insert", "Return", "KP_Enter", "Tab",
+        }:
+            return "break"
+        if event.char and event.char.isprintable():
+            return "break"
+        return None
+
+    text_box.bind("<KeyPress>", protect_read_only_text)
+    text_box.bind("<<Paste>>", lambda _event: "break")
+    text_box.bind("<<Cut>>", lambda _event: "break")
+    text_box.bind("<<Clear>>", lambda _event: "break")
 
     def copy_selection(_event=None):
         try:
