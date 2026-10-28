@@ -27,7 +27,7 @@ A separate **Continue** action has been implemented in `minimal_writer.py`, but 
 - If Stop is pressed during continuation, the previous text plus any streamed continuation is kept. If no new text arrived, the previous document is restored.
 - No hidden system prompt or broader writing rules were added.
 
-Automated tests passed on commit `04ec5fe9`: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/40641722839) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/40641722845).
+Automated tests passed on commit `091280b0`: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/40641857573) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/40641857583).
 
 ## Next laptop test
 
