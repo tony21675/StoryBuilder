@@ -16,13 +16,14 @@ class ShellSyncTests(unittest.TestCase):
         self.assertIn('git pull --ff-only "$REMOTE" "$BRANCH"', script)
         self.assertNotIn("git pull --rebase", script)
 
-    def test_start_syncs_before_launching_storybuilder_with_python3(self):
+    def test_start_syncs_before_launching_minimal_writer_with_python3(self):
         script = (ROOT / "start.sh").read_text(encoding="utf-8")
 
         sync_position = script.index('bash "$SCRIPT_DIR/sync.sh" start')
-        launch_position = script.index('exec python3 "$SCRIPT_DIR/storybuilder.py"')
+        launch_position = script.index('exec python3 "$SCRIPT_DIR/minimal_writer.py"')
         self.assertLess(sync_position, launch_position)
         self.assertIn("set -euo pipefail", script)
+        self.assertNotIn('exec python3 "$SCRIPT_DIR/storybuilder.py"', script)
 
 
 if __name__ == "__main__":
