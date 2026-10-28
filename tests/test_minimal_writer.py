@@ -204,13 +204,13 @@ class MinimalWriterTests(unittest.TestCase):
         self.assertEqual(widget.tags, [("sel", "1.0", "end-1c")])
 
     def test_revision_prompt_targets_only_selected_passage_and_instruction(self):
-        selected = "Maya lowered her voice. \\\\"
+        selected = "Maya lowered her voice."
         instruction = "Make this sound more tense, but keep the same event."
         prompt = build_revision_prompt(selected, instruction)
 
         self.assertIn("only the selected passage", prompt.lower())
-        self.assertIn("Author's instruction:\\n" + instruction, prompt)
-        self.assertIn("Selected passage to revise:\\n" + selected, prompt)
+        self.assertIn("Author's instruction:\n" + instruction, prompt)
+        self.assertIn("Selected passage to revise:\n" + selected, prompt)
         self.assertNotIn("rewrite the whole scene", prompt.lower())
 
     def test_revision_application_changes_only_the_selected_range(self):
