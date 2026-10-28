@@ -100,7 +100,7 @@ class TerminalShutdownTests(unittest.TestCase):
 
         self.assertFalse(allowed)
         mock_sync.assert_called_once_with(Path("/tmp/novel"))
-        self.assertEqual(mock_ask.call_args.kwargs["default"], mock_ask.call_args.kwargs["default"])
+        self.assertEqual(mock_ask.call_args.kwargs["default"], "no")
         self.assertIn("older scene", mock_ask.call_args.args[1])
 
     @patch("storybuilder.messagebox.askyesno", return_value=False)
