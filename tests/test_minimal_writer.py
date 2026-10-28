@@ -7,6 +7,7 @@ from minimal_writer import (
     CONTINUE_PROMPT,
     MinimalWriterApp,
     build_continue_prompt,
+    build_revision_prompt,
     continuation_prefix,
     load_model_for_writing,
     read_text_document,
@@ -98,6 +99,65 @@ class FakeOutputBox:
         return None
 
 
+class FakeRevisionText:
+    """Minimal one-line Text widget double for testing marked-range replacement."""
+
+    def __init__(self, text, start, end):
+        self.text = text
+        self.marks = {"revision_start": start, "revision_end": end}
+        self.gravities = {}
+
+    @staticmethod
+    def _offset(index):
+        if isinstance(index, int):
+            return index
+        if index.startswith("1."):
+            return int(index.split(".", 1)[1])
+        raise ValueError(index)
+
+    def get(self, start, end):
+        if start == "1.0" and end == "end-1c":
+            return self.text
+        return self.text[self.marks[start]:self.marks[end]]
+
+    def index(self, index):
+        if index in self.marks:
+            return f"1.{self.marks[index]}"
+        return index
+
+    def mark_set(self, name, index):
+        self.marks[name] = self._offset(index)
+
+    def mark_gravity(self, name, gravity):
+        self.gravities[name] = gravity
+
+    def mark_unset(self, *names):
+        for name in names:
+            self.marks.pop(name, None)
+
+    def delete(self, start, end):
+        a, b = self.marks[start], self.marks[end]
+        self.text = self.text[:a] + self.text[b:]
+        for name, pos in list(self.marks.items()):
+            if pos >= b:
+                self.marks[name] = pos - (b - a)
+            elif pos >= a:
+                self.marks[name] = a
+
+    def insert(self, index, text):
+        pos = self._offset(index)
+        self.text = self.text[:pos] + text + self.text[pos:]
+        for name, mark_pos in list(self.marks.items()):
+            if mark_pos > pos:
+                self.marks[name] = mark_pos + len(text)
+
+    def see(self, _index):
+        pass
+
+    def edit_modified(self, _value):
+        return None
+
+
 class FakeRoot:
     def __init__(self):
         self.title_text = ""
@@ -142,6 +202,59 @@ class MinimalWriterTests(unittest.TestCase):
 
         self.assertEqual(select_all_text(event), "break")
         self.assertEqual(widget.tags, [("sel", "1.0", "end-1c")])
+
+    def test_revision_prompt_targets_only_selected_passage_and_instruction(self):
+        selected = "Maya lowered her voice. \\\\"
+        instruction = "Make this sound more tense, but keep the same event."
+        prompt = build_revision_prompt(selected, instruction)
+
+        self.assertIn("only the selected passage", prompt.lower())
+        self.assertIn("Author's instruction:\\n" + instruction, prompt)
+        self.assertIn("Selected passage to revise:\\n" + selected, prompt)
+        self.assertNotIn("rewrite the whole scene", prompt.lower())
+
+    def test_revision_application_changes_only_the_selected_range(self):
+        original = "Before. Old sentence. After."
+        selected = "Old sentence."
+        start = original.index(selected)
+        end = start + len(selected)
+        app = MinimalWriterApp.__new__(MinimalWriterApp)
+        app.output_box = FakeRevisionText(original, start, end)
+        app._revision_start_mark = "revision_start"
+        app._revision_end_mark = "revision_end"
+        app._revision_original = selected
+        app._revision_active = True
+        app.status_var = FakeStatus()
+        app._update_document_title = lambda: None
+        app._update_controls = lambda: None
+
+        applied = app._apply_revision_candidate("A different sentence!")
+
+        self.assertTrue(applied)
+        self.assertEqual(app._output_text(), "Before. A different sentence! After.")
+        self.assertFalse(app._revision_active)
+        self.assertIn("applied", app.status_var.value.lower())
+
+    def test_revision_is_refused_if_selected_text_changed(self):
+        original = "Before. Old sentence. After."
+        selected = "Old sentence."
+        start = original.index(selected)
+        end = start + len(selected)
+        app = MinimalWriterApp.__new__(MinimalWriterApp)
+        app.output_box = FakeRevisionText(original, start, end)
+        app._revision_start_mark = "revision_start"
+        app._revision_end_mark = "revision_end"
+        app._revision_original = selected
+        app._revision_active = True
+        app.status_var = FakeStatus()
+        app._update_document_title = lambda: None
+        app._update_controls = lambda: None
+
+        app.output_box.text = "Before. Changed sentence. After."
+        applied = app._apply_revision_candidate("Unsafe overwrite.")
+
+        self.assertFalse(applied)
+        self.assertEqual(app._output_text(), "Before. Changed sentence. After.")
 
     def test_new_session_keeps_visible_draft_and_file_tracking(self):
         app = MinimalWriterApp.__new__(MinimalWriterApp)
