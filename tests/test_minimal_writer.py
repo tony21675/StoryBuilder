@@ -167,6 +167,21 @@ class MinimalWriterTests(unittest.TestCase):
         self.assertIn("THE_ENDING", prompt)
         self.assertNotIn("x" * 2100, prompt)
 
+    def test_continue_action_uses_current_editor_text_as_context(self):
+        app = MinimalWriterApp.__new__(MinimalWriterApp)
+        app.busy = False
+        app.loaded_model = Path("/models/example.gguf")
+        app.output_box = FakeOutputBox("Edited ending of the passage.")
+        captured = {}
+        app._begin_generation = lambda prompt, mode: captured.update(
+            prompt=prompt, mode=mode
+        )
+
+        app.continue_writing()
+
+        self.assertEqual(captured["mode"], "continue")
+        self.assertIn("Edited ending of the passage.", captured["prompt"])
+
     def test_continue_final_response_is_appended_not_replaced(self):
         existing = "Maya ran into the rain."
         app = MinimalWriterApp.__new__(MinimalWriterApp)
