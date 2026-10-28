@@ -6,7 +6,7 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 from tkinter.scrolledtext import ScrolledText
 
-from builder.writer_engine import WriterEngine
+from builder.writer_engine import GenerationInterrupted, WriterEngine
 from builder.workspace import MODELS_DIR
 
 
@@ -43,6 +43,8 @@ class MinimalWriterApp:
         self.current_file: Path | None = None
         self.saved_output_text = ""
         self.busy = False
+        self.writing = False
+        self.stop_requested = False
         self._pre_generation_text = ""
         self._pre_generation_file: Path | None = None
         self._pre_generation_saved_text = ""
@@ -96,6 +98,11 @@ class MinimalWriterApp:
             actions, text="Write", command=self.write
         )
         self.write_button.pack(side="left")
+
+        self.stop_button = ttk.Button(
+            actions, text="Stop Writing", command=self.stop_writing, state="disabled"
+        )
+        self.stop_button.pack(side="left", padx=(8, 0))
 
         self.open_button = ttk.Button(
             actions, text="Open Text…", command=self.open_text
@@ -159,6 +166,8 @@ class MinimalWriterApp:
             return
 
         self.busy = True
+        self.writing = False
+        self.stop_requested = False
         self.status_var.set(f"Loading {path.name}…")
         self._update_controls()
 
@@ -175,12 +184,16 @@ class MinimalWriterApp:
 
     def _load_succeeded(self, path: Path) -> None:
         self.busy = False
+        self.writing = False
+        self.stop_requested = False
         self.loaded_model = path
         self.status_var.set(f"Loaded: {path.name}")
         self._update_controls()
 
     def _load_failed(self, message: str) -> None:
         self.busy = False
+        self.writing = False
+        self.stop_requested = False
         self.loaded_model = None
         self.status_var.set("Model load failed.")
         self._update_controls()
@@ -205,6 +218,8 @@ class MinimalWriterApp:
         self._pre_generation_saved_text = self.saved_output_text
         self._set_output_text("")
         self.busy = True
+        self.writing = True
+        self.stop_requested = False
         self.status_var.set(f"Writing with {self.loaded_model.name}…")
         self._update_controls()
 
@@ -220,6 +235,8 @@ class MinimalWriterApp:
         def work() -> None:
             try:
                 answer = write_from_prompt(self.engine, prompt, on_delta=stream_delta)
+            except GenerationInterrupted:
+                self.root.after(0, self._write_stopped)
             except Exception as exc:
                 message = str(exc)
                 self.root.after(0, lambda message=message: self._write_failed(message))
@@ -227,6 +244,14 @@ class MinimalWriterApp:
                 self.root.after(0, lambda answer=answer: self._write_succeeded(answer))
 
         threading.Thread(target=work, daemon=True).start()
+
+    def stop_writing(self) -> None:
+        if not self.busy or not self.writing or self.stop_requested:
+            return
+        self.stop_requested = True
+        self.status_var.set("Stopping generation…")
+        self._update_controls()
+        self.engine.interrupt_generation()
 
     def _append_streamed_chunk(self, chunk: str) -> None:
         if not self.busy:
@@ -243,20 +268,46 @@ class MinimalWriterApp:
     def _write_succeeded(self, answer: str) -> None:
         # Use the engine's final cleaned response as the canonical saved text.
         self._set_output_text(answer)
+        if self.stop_requested:
+            self._finish_stopped()
+            return
         self.busy = False
+        self.writing = False
         model_name = self.loaded_model.name if self.loaded_model else "model"
         self.status_var.set(f"Finished writing with {model_name}. Edit the output or save it.")
         self._update_controls()
 
+    def _write_stopped(self) -> None:
+        # Keep any words already streamed. If none arrived before Stop was
+        # pressed, restore the document that was open before generation.
+        if not self._output_text():
+            self._restore_pre_generation_output()
+        self._finish_stopped()
+
+    def _finish_stopped(self) -> None:
+        self.busy = False
+        self.writing = False
+        self.loaded_model = None
+        self.stop_requested = False
+        self.status_var.set(
+            "Writing stopped. Partial text is kept. Load the model again to continue."
+        )
+        self._update_controls()
+
     def _write_failed(self, message: str) -> None:
+        if self.stop_requested:
+            self._write_stopped()
+            return
         self._restore_pre_generation_output()
         self.busy = False
+        self.writing = False
         try:
             still_loaded = self.engine.child is not None and self.engine.child.isalive()
         except Exception:
             still_loaded = False
         if not still_loaded:
             self.loaded_model = None
+        self.stop_requested = False
         self.status_var.set("Writing failed. Reload the model if it is no longer loaded.")
         self._update_controls()
         messagebox.showerror("Writing failed", message)
@@ -370,6 +421,11 @@ class MinimalWriterApp:
         self.open_button.configure(state="normal" if idle else "disabled")
         self.save_button.configure(state="normal" if idle else "disabled")
         self.save_as_button.configure(state="normal" if idle else "disabled")
+        stopping = self.stop_requested
+        self.stop_button.configure(
+            state="normal" if self.busy and self.writing and not stopping else "disabled",
+            text="Stopping…" if stopping else "Stop Writing",
+        )
 
     def close(self) -> None:
         if self.busy:
