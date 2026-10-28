@@ -62,7 +62,7 @@ The user has confirmed that the real model streams words into the output area wh
 
 ## 5. Live text streaming
 
-The Minimal Writer now calls `WriterEngine.generate(prompt, on_delta=...)`. The stream callback schedules text appends onto Tk's UI thread. The completed cleaned answer replaces the preview when the model finishes. The app saves the prior document text and tracking metadata in memory and restores it if generation fails. Unit tests verify callback forwarding and chunk receipt; this still needs real-model GUI testing.
+The Minimal Writer now calls `WriterEngine.generate(prompt, on_delta=...)`. The stream callback schedules text appends onto Tk's UI thread. The completed cleaned answer replaces the preview when the model finishes. The app saves the prior document text and tracking metadata in memory and restores it if generation fails. The user confirmed that the real model streams words into the output as it generates.
 
 ## 6. Rebuild boundaries
 
