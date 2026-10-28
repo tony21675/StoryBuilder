@@ -5,6 +5,7 @@ import os
 import queue
 import re
 import shutil
+import signal
 import subprocess
 import threading
 import tkinter as tk
@@ -69,7 +70,7 @@ from builder.writer_context_budget import (
     fit_writer_context_files,
 )
 from builder.scene_flow import review_chapter_flow
-from builder.novel_sync import NovelSyncError, sync_novel_repository
+from builder.novel_sync import NovelSyncError, novel_repo_root, sync_novel_repository
 from builder.app_sync import StoryBuilderSyncError, sync_storybuilder_repository
 from builder.state_manager import (
     ENDING_STATE_SYSTEM_PROMPT,
@@ -253,9 +254,55 @@ class StoryBuilderApp(tk.Tk):
         self.scene_planner_thread = None
 
         self._build_ui()
-        # Closing the window saves locally; syncing requires an explicit user action.
+        self._terminal_interrupt_pending = False
+        self._previous_sigint_handler = None
+        try:
+            # Ctrl+C must enter the same safe save/sync flow as closing the window.
+            # The signal handler only records a flag; Tk work happens in its poll callback.
+            self._previous_sigint_handler = signal.getsignal(signal.SIGINT)
+            signal.signal(signal.SIGINT, self._on_terminal_interrupt_signal)
+            self.after(250, self._poll_terminal_interrupt)
+        except (ValueError, tk.TclError):
+            # signal.signal is only available on the main thread. Normal window-close
+            # protection remains enabled if initialization ever occurs elsewhere.
+            self._previous_sigint_handler = None
         self.protocol("WM_DELETE_WINDOW", self._close_and_sync_app)
         self._load_startup_novel()
+
+    def _on_terminal_interrupt_signal(self, _signum, _frame):
+        """Request a safe shutdown without calling Tk from a signal handler."""
+        self._terminal_interrupt_pending = True
+
+    def _terminal_shutdown_is_busy(self):
+        """Whether a running task must settle before the terminal-exit request is handled."""
+        return any((
+            getattr(self, "writer_generation_in_progress", False),
+            self.__dict__.get("focused_revision_in_progress", False),
+            self.__dict__.get("validator_review_in_progress", False),
+            self.__dict__.get("writer_notes_update_in_progress", False),
+            self.__dict__.get("scene_planner_request_in_progress", False),
+            getattr(self, "scene_contract_building", False),
+            self.__dict__.get("state_analysis_in_progress", False),
+            self.__dict__.get("scene_idea_suggestion_in_progress", False),
+        ))
+
+    def _poll_terminal_interrupt(self):
+        """Route terminal Ctrl+C through the UI's save-and-sync shutdown flow."""
+        try:
+            if self._terminal_interrupt_pending and not self._terminal_shutdown_is_busy():
+                self._terminal_interrupt_pending = False
+                self.writer_status.configure(
+                    text="Ctrl+C received. Saving and synchronizing the novel before closing..."
+                )
+                self._close_and_sync_app()
+            elif self._terminal_interrupt_pending:
+                self.writer_status.configure(
+                    text="Ctrl+C received. Waiting for the active task to stop before safely saving and synchronizing..."
+                )
+            if self.winfo_exists():
+                self.after(250, self._poll_terminal_interrupt)
+        except tk.TclError:
+            return
 
     def _build_ui(self):
         toolbar = ttk.Frame(self, padding=8)
@@ -8286,70 +8333,120 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
                 ),
             )
     def _close_and_sync_app(self):
-        """Sync only StoryBuilder application files; never save or sync novel data."""
+        """Save/sync the open novel first, sync StoryBuilder, then close safely."""
         if self.__dict__.get("writer_notes_update_in_progress", False):
             messagebox.showwarning(
-                "Close & Sync App",
-                "StoryBuilder is updating the novel's temporary writing notes. The app will remain open until the update finishes.",
+                "Close & Sync",
+                "StoryBuilder is updating temporary writing notes. The app will remain open until that update finishes.",
             )
             return
         if self._closing:
             return
         self._closing = True
 
+        novel_sync_result = ""
         try:
-            # UI editors can contain changes before self.dirty is set. Always
-            # make the no-novel-save behavior explicit before closing.
-            if self.package is not None:
-                change_note = (
-                    "StoryBuilder currently marks the novel as modified. "
-                    if self.dirty
-                    else ""
-                )
-                if not self._ask_yes_no(
-                    "Close & Sync App",
-                    (
-                        change_note
-                        + "This action synchronizes only StoryBuilder application files. It will not "
-                        "save or sync the novel. Any unsaved novel edits will be discarded from memory.\n\n"
-                        "Choose No to cancel closing and use Save Novel or Sync Novel first. "
-                        "Choose Yes to continue closing without saving the novel."
-                    ),
-                ):
-                    self._closing = False
-                    return
-
+            # Unaccepted Writer text is never added to the manuscript implicitly.
+            # The author must explicitly approve discarding it before shutdown.
             if not self._confirm_discard_unaccepted_writer_text():
                 self._closing = False
                 return
 
-            # Sync the app before stopping the writer so a failed sync leaves
-            # the current session available for the user to resolve the problem.
+            if self.package is not None:
+                if self.package.path is None:
+                    if not self._ask_yes_no(
+                        "Novel Not Saved or Synced",
+                        "This novel has no saved package folder, so it cannot be synchronized to GitHub. "
+                        "Close StoryBuilder anyway and leave this unsaved novel behind?",
+                    ):
+                        self._closing = False
+                        return
+                    novel_sync_result = (
+                        "The current novel was not saved or synchronized because it has no saved package folder."
+                    )
+                else:
+                    if not self._apply_all_edits():
+                        self._closing = False
+                        return
+                    # Save the current accepted manuscript/state and other package data
+                    # before touching Git. Never put generated, unaccepted Writer text
+                    # into the manuscript as part of this shutdown.
+                    self.package.save()
+                    self.dirty = False
+                    self._update_path_label()
+
+                    if novel_repo_root(self.package.path) is None:
+                        if not self._ask_yes_no(
+                            "Novel Not Synchronized",
+                            "The novel was saved locally, but this folder is not connected to a Git repository. "
+                            "It will not be shared with your other computer. Close anyway?",
+                        ):
+                            self._closing = False
+                            return
+                        novel_sync_result = (
+                            "The novel was saved locally but not synchronized: this folder is not a Git repository."
+                        )
+                    else:
+                        try:
+                            novel_sync_result = sync_novel_repository(self.package.path)
+                            self._chat("Builder", novel_sync_result)
+                        except (NovelSyncError, OSError, subprocess.SubprocessError) as exc:
+                            self._show_copyable_error(
+                                "Novel Sync Failed",
+                                "The novel was saved locally, but GitHub synchronization did not complete. "
+                                "StoryBuilder will remain open, and no conflicting remote changes were intentionally overwritten. "
+                                "Resolve the sync issue before switching computers.\n\n"
+                                + str(exc),
+                                summary=(
+                                    "Novel saved locally; remote sync failed. The app remains open so you can inspect the error. "
+                                    "Do not keep retrying if Git reports a conflict."
+                                ),
+                            )
+                            self._closing = False
+                            return
+
+            # App-code sync comes after novel sync. If this fails, the novel's successful
+            # sync is still reported, and the UI remains open to handle the app-code error.
             try:
                 sync_storybuilder_repository(Path(__file__).resolve().parent)
             except (StoryBuilderSyncError, OSError, subprocess.SubprocessError) as exc:
                 self._show_copyable_error(
-                    "Close & Sync App",
-                    "StoryBuilder application sync failed. The novel was not saved or synced.\n\n"
+                    "StoryBuilder Sync Failed",
+                    "The novel sync result is shown below. StoryBuilder application sync failed, so the app remains open.\n\n"
+                    + (novel_sync_result + "\n\n" if novel_sync_result else "")
                     + str(exc),
                     summary=(
-                        "The app could not sync safely, so StoryBuilder remains open. "
-                        "No novel save or novel sync was attempted. The error details below can be copied with Ctrl+A, then Ctrl+C."
+                        "The novel and app use separate Git repositories. Check the result above: the novel may already be synchronized, "
+                        "but StoryBuilder code sync did not finish."
                     ),
                 )
                 self._closing = False
                 return
+
+            if novel_sync_result:
+                messagebox.showinfo(
+                    "Close & Sync",
+                    novel_sync_result + "\n\nStoryBuilder application synchronized successfully. Closing now.",
+                    parent=self,
+                )
 
             try:
                 self.writer_engine.stop()
             except Exception:
                 pass
 
+            previous_handler = self.__dict__.get("_previous_sigint_handler")
+            if previous_handler is not None:
+                try:
+                    signal.signal(signal.SIGINT, previous_handler)
+                except (ValueError, tk.TclError):
+                    pass
             self.destroy()
         except Exception as exc:
             self._show_copyable_error(
-                "Close & Sync App",
-                "StoryBuilder could not close cleanly. The novel was not saved or synced by the close action.\n\n"
+                "Close & Sync",
+                "StoryBuilder could not complete its safe shutdown. The app remains open. "
+                "Review the error and verify novel synchronization before switching computers.\n\n"
                 + str(exc),
             )
             self._closing = False
