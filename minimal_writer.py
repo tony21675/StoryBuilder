@@ -9,6 +9,11 @@ from tkinter.scrolledtext import ScrolledText
 from builder.writer_engine import GenerationInterrupted, WriterEngine
 from builder.workspace import MODELS_DIR, NOVEL_ROOT
 from builder.novel_browser import list_novel_packages, list_scene_chapters, list_scene_files
+from builder.novel_git_sync import (
+    NovelGitSyncError,
+    inspect_novel_repository,
+    sync_novel_repository,
+)
 
 
 CONTINUE_PROMPT = (
@@ -167,6 +172,19 @@ class MinimalWriterApp:
             novel_row, text="Load Scene Copy", command=self.load_selected_scene_copy
         )
         self.load_scene_button.pack(side="left")
+
+        sync_row = ttk.Frame(outer)
+        sync_row.pack(fill="x", pady=(0, 10))
+        self.sync_novel_button = ttk.Button(
+            sync_row,
+            text="Sync Novel to GitHub",
+            command=self.sync_selected_novel_to_github,
+        )
+        self.sync_novel_button.pack(side="left")
+        ttk.Label(
+            sync_row,
+            text="Uploads only the selected novel repository, not StoryBuilder code.",
+        ).pack(side="left", padx=(10, 0))
 
         ttk.Label(outer, text="What should it write?").pack(anchor="w")
         self.prompt_box = ScrolledText(
@@ -412,6 +430,98 @@ class MinimalWriterApp:
             f"Loaded scene copy from {source}. The original is untouched; Save opens Save As."
         )
         self._update_controls()
+
+    def sync_selected_novel_to_github(self) -> None:
+        """Preview and explicitly confirm syncing only the selected novel repo."""
+        if self.busy:
+            return
+
+        name = self.novel_var.get().strip()
+        novel_path = self.novel_packages.get(name)
+        if novel_path is None:
+            messagebox.showinfo(
+                "Choose a novel",
+                "Select an existing novel package before syncing it to GitHub.",
+            )
+            return
+
+        try:
+            preview = inspect_novel_repository(novel_path)
+        except NovelGitSyncError as exc:
+            self.status_var.set("Novel sync blocked; no push was attempted.")
+            messagebox.showerror("Cannot sync novel", str(exc))
+            return
+
+        lines = [
+            "Review the target before syncing:",
+            "",
+            f"Novel folder: {preview.repository}",
+            f"Branch: {preview.branch}",
+            f"GitHub remote: {preview.remote_url}",
+            "",
+            "This sync will only operate inside this novel's Git repository.",
+            "It will fetch and fast-forward safely if possible, commit the listed local "
+            "changes, and push this branch. It will not sync StoryBuilder's code.",
+            "If local and GitHub branches have diverged, syncing stops without pushing.",
+            "Local-only secret/encrypted assets in the Git change list block syncing.",
+            "",
+        ]
+        if preview.changed_files:
+            lines.append("Local changes to include in the commit:")
+            shown_files = preview.changed_files[:15]
+            lines.extend(f"  • {path}" for path in shown_files)
+            if len(preview.changed_files) > len(shown_files):
+                lines.append(
+                    f"  • …and {len(preview.changed_files) - len(shown_files)} more file(s)"
+                )
+        else:
+            lines.append(
+                "No local file changes detected. This will still check for safe "
+                "fast-forward updates from GitHub and push the selected branch if needed."
+            )
+        lines.extend(["", "Proceed with syncing this novel to GitHub?"])
+
+        if not messagebox.askyesno(
+            "Confirm novel sync", "\n".join(lines), icon="warning"
+        ):
+            self.status_var.set("Novel sync cancelled; no Git operation started.")
+            return
+
+        self.busy = True
+        self.status_var.set(f"Syncing {name} to GitHub on branch {preview.branch}…")
+        self._update_controls()
+
+        def work() -> None:
+            try:
+                result = sync_novel_repository(novel_path)
+            except Exception as exc:
+                message = str(exc)
+                self.root.after(
+                    0, lambda message=message: self._novel_sync_failed(message)
+                )
+            else:
+                self.root.after(
+                    0, lambda result=result: self._novel_sync_succeeded(result)
+                )
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _novel_sync_succeeded(self, result) -> None:
+        self.busy = False
+        selected_name = self.novel_var.get().strip()
+        # The fast-forward may have brought in new chapter or scene files.
+        self.refresh_novels()
+        if selected_name in self.novel_packages:
+            self.novel_var.set(selected_name)
+            self._on_novel_selected()
+        self.status_var.set(result.message)
+        self._update_controls()
+
+    def _novel_sync_failed(self, message: str) -> None:
+        self.busy = False
+        self.status_var.set("Novel sync failed. Check the message before retrying.")
+        self._update_controls()
+        messagebox.showerror("Novel sync failed", message)
 
     def write(self) -> None:
         if self.busy:
@@ -802,6 +912,13 @@ class MinimalWriterApp:
             self.scene_picker.configure(state="readonly" if idle else "disabled")
             self.load_scene_button.configure(
                 state="normal" if idle and bool(self.scene_files) else "disabled"
+            )
+            self.sync_novel_button.configure(
+                state=(
+                    "normal"
+                    if idle and self.novel_var.get().strip() in self.novel_packages
+                    else "disabled"
+                )
             )
         self.load_button.configure(state="normal" if idle else "disabled")
         self.write_button.configure(
