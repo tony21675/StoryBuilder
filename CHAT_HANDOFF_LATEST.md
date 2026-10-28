@@ -1,36 +1,35 @@
 # StoryBuilder current checkpoint — October 27, 2026
 
-## Current checkpoint: app closed; focused-revision fix committed
+## Current checkpoint: explicit Open Novel now restores saved prose
 
-StoryBuilder was closed with Ctrl+C. Scene 11 was never accepted. The latest prose was pasted into this conversation, but do not assume it was saved to the novel package; the closed app's in-memory draft may be gone. Do not repeat revision attempts yet.
+The saved Scene 10 manuscript was already on GitHub. The problem was in StoryBuilder: startup recovery calls `_load_saved_scene_into_writer(startup=True)`, but the explicit **Open Novel** path cleared the Writer and never restored the saved section. That made the app generate a new Scene 10 instead of showing the saved prose.
 
-The focused-revision change is committed on `redesign/simplified-writing-workflow`: `fa012c2` gives the revision model the complete current scene as explicitly read-only context while keeping the selected passage as the only editable span; `5454cc3` adds regression tests that check the full-scene context reaches the initial and retry prompts. This changes the focused-edit workflow only. It adds no global Writer instructions or novel-specific rules. The connected status lookup returned no published checks for the new commits, and this execution environment could not clone from GitHub. Treat the regression tests as unverified until GitHub Actions or a laptop test run confirms them.
+The fix is committed on `redesign/simplified-writing-workflow`:
+- `77b2075`: call the saved-scene restore routine after opening the package and refreshing the Writer.
+- `1d4d3ce` plus `1d14215`: add a regression test using an actual saved Scene 10 file and matching before-state; fix the Tk test fixture.
+- `c05bc6b`: align older close/sync tests with the already-implemented safe novel-sync flow.
 
-When ready later tonight, launch `./start.sh` from `~/Documents/StoryBuilder` to sync the branch (fast-forward only). After sync, a useful local check is `python3 -m pytest tests/test_focused_revision.py -q`, followed by the full suite if convenient. Focused revisions are not yet included in prompt-trace capture, which remains a separate observability gap.
+Both GitHub Actions checks passed at `c05bc6b`: **Compile and unit tests** and **StoryBuilder tests**. The fix changes StoryBuilder only; it does not edit the novel manuscript or `current_state.json`.
 
+After the laptop syncs these commits, launch `./start.sh` and open *The Long Way Home*. The Writer should report **“Restored saved Chapter 1, Scene 10 into Writer.”** Confirm the saved text is visible before generating anything else. If the status reports a mismatch or says no saved prose was found, stop and report that exact message instead of regenerating Scene 10.
 
+## Latest trace diagnosis: fresh Scene 10 was generated instead of restored
 
-
-## Latest trace check: wrong scene, stopped
-
-The trace uploaded after the focused-revision change is dated 2026-10-28 02:51:40–02:58:58 UTC (October 27 evening local time) and records a **new Chapter 1, Scene 10 generation** using `gemma-4-E4B_q4_0-it.gguf`. It is not Scene 11 and does not contain a focused-revision operation, so it is not a test of commit `fa012c2`. The author correctly stopped the run with Ctrl+C after noticing the scene mismatch. Do not treat its output as accepted manuscript prose or as validation of the focused-revision fix.
-
-This unrelated Scene 10 trace also shows the semantic validator marking the explicit manual-isolation decision missing even though the prose ends with Elena choosing manual isolation and saying, “Then do it.” The continuity/scope audit calls the endpoint clear, so the two reviews disagree. Keep this as a separate validation false-negative to investigate later; do not alter the accepted scene or add writing rules based on this aborted run.
+The latest private trace ran from 2026-10-28 03:54:48 to 04:01:39 UTC (October 27 evening in Denver). It records a new Chapter 1, Scene 10 generation, not the saved manuscript and not a focused revision. The generated text ended with Elena ordering immediate manual isolation, but the coverage validator still reported the group’s commitment and hard stop as missing while the independent continuity audit called the endpoint clear. Those overlapping findings are a separate validator disagreement, not the cause of the saved-text loading bug. Do not revise or replace the saved manuscript to satisfy those findings before verifying that Open Novel restores it.
 
 ## Cross-computer novel sync diagnosis and safeguards
 
-Confirmed on GitHub: `tony21675/The-Long-Way-Home` on `main` had `current_state.json` at Chapter 1, Scene 10 as of the latest check. The earlier Scene 11 pointer was saved locally on the home computer but had not been pushed. The cause was that the old close handler synced StoryBuilder code only, and terminal Ctrl+C bypassed the close handler.
+GitHub currently has `tony21675/The-Long-Way-Home` on `main` with `current_state.json` pointing to Chapter 1, Scene 10. The saved file `Manuscript/Chapters/Chapter_01/Chapter_01_Section_10.txt` exists, and `Chapter_01_Section_10_before_state.json` matches the current state. `Chapter_01_Section_10_after_state.json` is absent, so the remote state transition to Scene 11 is not present.
 
-New generic safeguards now committed on this StoryBuilder branch:
-- `68f84fcccab51958669e99f688bfce25d63271b4`: closing the app saves the current accepted package, syncs the novel repository first, and syncs StoryBuilder code second. A novel sync error/conflict leaves the app open for resolution. Terminal Ctrl+C is captured and routed through the same safe shutdown path after active tasks settle.
-- `f1a6623836dcf8048cd049278e9c24ad4a65d584`: StoryBuilder synchronizes a novel repository **before loading its local state** at startup or when opening a novel. If sync fails or the folder is not a Git repository, opening is cancelled by default and the user must explicitly choose to open a potentially stale local copy.
-- `6615acae6513c04c4baba56f5f5c16dbc22797cf`, `06a1fbb4f86dd241f5958fbb2bca830047e2fbb5`, and `d03292bf2aa42f7597b920272f4b8fad6503b66c`: regression tests for the safe shutdown sequence, Ctrl+C routing, pre-open sync, and default-cancel behavior.
-- `e838ec19c12e4858ec5ca677c95796b7ec7c1502`: rename the toolbar action to **Save & Sync & Close** so it communicates its broader behavior.
-- `f9b9f6f00dbf36b9fcbd78f39701a3be4fdc6dce`: clean up the shutdown-sync test setup.
+Generic sync safeguards already committed on this branch:
+- `68f84fc`: closing saves and syncs the novel before syncing StoryBuilder code; Ctrl+C uses the safe close flow.
+- `f1a6623`: sync a novel repo before loading its local state at startup or through Open Novel; sync failures cancel opening by default.
+- `6615aca`, `06a1fbb`, and `d03292b`: tests for safe shutdown, Ctrl+C, and pre-open syncing.
+- `e838ec1`: label the action **Save & Sync & Close**.
+- `77b2075`: restore saved manuscript prose in the explicit Open Novel flow, matching startup behavior.
 
-The user cannot currently access the home computer. Do not try to repair or manually change the remote `current_state.json` from this computer. Later, once home, launch StoryBuilder using `./start.sh` so the app code updates. Opening The Long Way Home will attempt to synchronize the local novel before reading its state; if it succeeds, the Scene 11 state should be pushed/pulled before the Writer loads. If any sync error or conflict appears, choose **No / cancel opening** and report the exact message rather than using an older scene. The close path will then save and synchronize novel data before app code on future exits. The app never accepts unaccepted prose as part of this process.
+Do not manually change the novel repo or force the state pointer. After the saved Scene 10 prose is restored, analyze its ending and review the proposed state update; apply it only after reviewing it. Once the pointer advances to Scene 11, recreate that scene from the saved endpoint. The previous unsaved Scene 11 draft is not the recovery source.
 
-The new tests have not been run in this execution environment, and the connected GitHub status lookup returned no published checks. After the next code sync, run `python3 -m pytest tests/test_terminal_shutdown_sync.py tests/test_focused_revision.py -q`, then the full suite when convenient.
 ## Speed changes committed to GitHub
 
 - `45524e27550f05db21b4ea29785ba33e07bea156`: optional writing-notes learning is default OFF.
