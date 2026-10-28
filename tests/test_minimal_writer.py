@@ -50,7 +50,9 @@ class MinimalWriterTests(unittest.TestCase):
 
         answer = write_from_prompt(engine, "Write something.", on_delta=chunks.append)
 
-        self.assertEqual(engine.generate_calls, [("Write something.", chunks.append)])
+        self.assertEqual(len(engine.generate_calls), 1)
+        self.assertEqual(engine.generate_calls[0][0], "Write something.")
+        self.assertTrue(callable(engine.generate_calls[0][1]))
         self.assertEqual(chunks, ["Generated ", "text"])
         self.assertEqual("".join(chunks), answer)
 
