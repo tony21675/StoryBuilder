@@ -58,7 +58,7 @@ Tests added in `tests/test_minimal_writer.py` cover empty system prompt, direct 
 - [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/40636160718): passed.
 - [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/40636160677): passed.
 
-The current incremental step is for the user to sync/relaunch and test live streaming with their actual local model. Confirm that words appear before generation ends, the prompt is not echoed into the final text, and the finished output can still be edited and saved. If generation fails, verify the previous draft is restored.
+The user has confirmed that the real model streams words into the output area while generating. The basic streaming milestone is verified on the laptop; prompt-echo cleanup and failure restoration are useful follow-up checks.
 
 ## 5. Live text streaming
 
