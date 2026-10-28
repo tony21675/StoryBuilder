@@ -66,9 +66,9 @@ The Minimal Writer now calls `WriterEngine.generate(prompt, on_delta=...)`. The 
 
 ## 6. Continue action
 
-The Minimal Writer now includes a **Continue** button, implemented but awaiting live laptop testing. **Write** replaces the output with a new passage as before. **Continue** sends a short continuation instruction to the currently loaded model conversation, appends a paragraph boundary to the existing output, then streams the response at the end. At completion the cleaned response is appended to the prior text. On generation failure, the original document is restored. If stopped, partial streamed continuation stays; if no chunks arrived, the original document is restored.
+The Minimal Writer now includes a **Continue** button, implemented but awaiting live laptop testing. **Write** replaces the output with a new passage as before. **Continue** sends a short continuation instruction with up to the last 2,000 characters of the current visible passage, appends a paragraph boundary to the existing output, then streams the response at the end. This anchors it to text the author may have edited. At completion the cleaned response is appended to the prior text. On generation failure, the original document is restored. If stopped, partial streamed continuation stays; if no chunks arrived, the original document is restored.
 
-Unit tests passed in commit `682a3556`: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/40641414447) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/40641414419).
+Unit tests passed in commit `04ec5fe9`: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/40641722839) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/40641722845).
 
 Next laptop check after closing the running app:
 
