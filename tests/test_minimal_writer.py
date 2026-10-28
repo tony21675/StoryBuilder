@@ -18,8 +18,11 @@ class FakeEngine:
     def start(self, model_path, system_prompt):
         self.start_calls.append((model_path, system_prompt))
 
-    def generate(self, prompt):
-        self.generate_calls.append(prompt)
+    def generate(self, prompt, on_delta=None):
+        self.generate_calls.append((prompt, on_delta))
+        if on_delta is not None:
+            on_delta("Generated ")
+            on_delta("text")
         return "Generated text"
 
 
@@ -38,8 +41,18 @@ class MinimalWriterTests(unittest.TestCase):
 
         answer = write_from_prompt(engine, prompt)
 
-        self.assertEqual(engine.generate_calls, [prompt])
+        self.assertEqual(engine.generate_calls, [(prompt, None)])
         self.assertEqual(answer, "Generated text")
+
+    def test_writing_forwards_streamed_text_chunks(self):
+        engine = FakeEngine()
+        chunks = []
+
+        answer = write_from_prompt(engine, "Write something.", on_delta=chunks.append)
+
+        self.assertEqual(engine.generate_calls, [("Write something.", chunks.append)])
+        self.assertEqual(chunks, ["Generated ", "text"])
+        self.assertEqual("".join(chunks), answer)
 
     def test_text_file_round_trip_preserves_unicode_and_newlines_exactly(self):
         original = "First paragraph.\n\nMañana, she said, “continue.”\n"
