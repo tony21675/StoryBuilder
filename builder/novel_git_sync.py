@@ -18,6 +18,7 @@ class NovelSyncPreview:
     upstream: str
     remote_url: str
     changed_files: tuple[str, ...]
+    local_commits: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -53,7 +54,8 @@ def _run_git(
     except subprocess.TimeoutExpired as exc:
         raise NovelGitSyncError(
             f"Git timed out while running '{' '.join(arguments)}'. "
-            "No push was attempted; check the repository before trying again."
+            "Check the repository and GitHub state before retrying; a timed-out "
+            "network command may have an uncertain result."
         ) from exc
 
     if check and result.returncode != 0:
@@ -73,9 +75,9 @@ def _safe_remote_url(remote_url: str) -> str:
         host = parsed.hostname
         if parsed.port:
             host = f"{host}:{parsed.port}"
-        return urlunsplit(
-            (parsed.scheme, host, parsed.path, parsed.query, parsed.fragment)
-        )
+        # Remote query/fragment fields are unnecessary for Git and could contain
+        # credentials in a custom URL, so never show them in the confirmation.
+        return urlunsplit((parsed.scheme, host, parsed.path, "", ""))
     # SCP-style URLs (git@github.com:owner/repo.git) contain no URL password
     # field, and are useful for identifying the configured repository.
     return remote_url
@@ -208,6 +210,18 @@ def inspect_novel_repository(novel_path: str | Path) -> NovelSyncPreview:
             "Sync is blocked rather than pushing to an unexpected branch."
         )
 
+    commit_result = _run_git(
+        repository, "log", "--oneline", f"{upstream}..HEAD", check=False
+    )
+    if commit_result.returncode != 0:
+        raise NovelGitSyncError(
+            f"Could not inspect local commits ahead of {upstream}. "
+            "Sync is blocked rather than pushing an unreviewed branch."
+        )
+    local_commits = tuple(
+        line for line in commit_result.stdout.splitlines() if line.strip()
+    )
+
     _check_no_operation_in_progress(repository)
     lines = _status_lines(repository)
     changed_files = _paths_from_status(lines)
@@ -219,6 +233,7 @@ def inspect_novel_repository(novel_path: str | Path) -> NovelSyncPreview:
         upstream=upstream,
         remote_url=remote_url,
         changed_files=changed_files,
+        local_commits=local_commits,
     )
 
 
@@ -318,7 +333,16 @@ def sync_novel_repository(novel_path: str | Path) -> NovelSyncResult:
             _run_git(repository, "commit", "-m", message, timeout=60)
             committed = True
 
-    _run_git(repository, "push", "origin", preview.branch, timeout=90)
+    try:
+        _run_git(repository, "push", "origin", preview.branch, timeout=90)
+    except NovelGitSyncError as exc:
+        raise NovelGitSyncError(
+            f"GitHub push did not report success for branch '{preview.branch}'. "
+            "Any local commit is preserved in the selected novel repository. Check "
+            "the remote before retrying, especially if the command timed out. "
+            f"Git said:\n{exc}"
+        ) from exc
+
     if committed:
         message = (
             f"Synced '{repository.name}' to GitHub on branch '{preview.branch}'. "
