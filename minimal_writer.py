@@ -213,6 +213,11 @@ class MinimalWriterApp:
         )
         self.save_as_button.pack(side="left", padx=(8, 0))
 
+        self.save_scene_button = ttk.Button(
+            actions, text="Save to Selected Scene", command=self.save_to_selected_scene
+        )
+        self.save_scene_button.pack(side="left", padx=(8, 0))
+
         ttk.Label(outer, text="Output (editable)").pack(anchor="w")
         self.output_box = ScrolledText(
             outer, height=22, wrap="word", undo=True, font=("TkDefaultFont", 11)
@@ -697,6 +702,80 @@ class MinimalWriterApp:
             return False
         return self._save_to_path(Path(filename))
 
+    def save_to_selected_scene(self) -> bool:
+        """Overwrite the selected existing scene only after explicit confirmation."""
+        if self.busy:
+            return False
+        if self.selected_scene_source is None:
+            messagebox.showinfo(
+                "Load a scene first",
+                "Use Load Scene Copy before saving directly to a novel scene.",
+            )
+            return False
+
+        target = self.scene_files.get(self.scene_var.get().strip())
+        if target is None:
+            messagebox.showinfo(
+                "Choose a scene",
+                "Select the existing novel scene you want to replace.",
+            )
+            return False
+
+        target = target.expanduser().resolve()
+        if not target.is_file():
+            messagebox.showerror(
+                "Scene file unavailable",
+                f"The selected scene file no longer exists:\n\n{target}",
+            )
+            return False
+
+        loaded_source = self.selected_scene_source.expanduser().resolve()
+        warning = (
+            "This will replace the contents of this existing scene file with "
+            "the text currently in the editor:\n\n"
+            f"{target}\n\n"
+            "This action changes that file. Cancel to leave it untouched. "
+            "The ordinary Save button will still open Save As."
+        )
+        if loaded_source != target:
+            warning += (
+                "\n\nNote: this is different from the scene originally loaded:\n"
+                f"{loaded_source}"
+            )
+
+        if not messagebox.askyesno(
+            "Confirm scene overwrite", warning, icon="warning"
+        ):
+            self.status_var.set("Save to Selected Scene cancelled; no file changed.")
+            return False
+
+        # Recheck after the confirmation dialog so a removed target is not
+        # accidentally recreated by write_text().
+        if not target.is_file():
+            messagebox.showerror(
+                "Scene file unavailable",
+                f"The selected scene file no longer exists:\n\n{target}",
+            )
+            return False
+
+        text = self._output_text()
+        try:
+            saved_path = save_text_document(target, text)
+        except (OSError, UnicodeError) as exc:
+            messagebox.showerror("Could not save scene", str(exc))
+            return False
+
+        # Do not attach the ordinary Save button to the manuscript target.
+        # The next ordinary Save must still use Save As.
+        self.current_file = None
+        self.selected_scene_source = saved_path
+        self.saved_output_text = text
+        self.status_var.set(
+            f"Saved selected scene: {saved_path}. Ordinary Save still opens Save As."
+        )
+        self._update_document_title()
+        return True
+
     def _save_to_path(self, path: str | Path) -> bool:
         text = self._output_text()
         try:
@@ -737,6 +816,15 @@ class MinimalWriterApp:
         self.open_button.configure(state="normal" if idle else "disabled")
         self.save_button.configure(state="normal" if idle else "disabled")
         self.save_as_button.configure(state="normal" if idle else "disabled")
+        self.save_scene_button.configure(
+            state=(
+                "normal"
+                if idle
+                and self.selected_scene_source is not None
+                and bool(self.scene_files)
+                else "disabled"
+            )
+        )
         stopping = self.stop_requested
         self.stop_button.configure(
             state="normal" if self.busy and self.writing and not stopping else "disabled",
