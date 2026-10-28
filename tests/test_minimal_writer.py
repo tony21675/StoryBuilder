@@ -1,7 +1,13 @@
+import tempfile
 import unittest
 from pathlib import Path
 
-from minimal_writer import load_model_for_writing, write_from_prompt
+from minimal_writer import (
+    load_model_for_writing,
+    read_text_document,
+    save_text_document,
+    write_from_prompt,
+)
 
 
 class FakeEngine:
@@ -34,6 +40,26 @@ class MinimalWriterTests(unittest.TestCase):
 
         self.assertEqual(engine.generate_calls, [prompt])
         self.assertEqual(answer, "Generated text")
+
+    def test_text_file_round_trip_preserves_unicode_and_newlines_exactly(self):
+        original = "First paragraph.\n\nMañana, she said, “continue.”\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "draft.txt"
+
+            saved_path = save_text_document(path, original)
+            reopened = read_text_document(saved_path)
+
+        self.assertEqual(saved_path, path.resolve())
+        self.assertEqual(reopened, original)
+
+    def test_save_does_not_add_or_remove_a_trailing_newline(self):
+        original = "A sentence without a final newline."
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "draft.txt"
+
+            save_text_document(path, original)
+
+            self.assertEqual(path.read_text(encoding="utf-8"), original)
 
 
 if __name__ == "__main__":
