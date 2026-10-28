@@ -124,12 +124,10 @@ class TerminalShutdownTests(unittest.TestCase):
     ):
         events = []
         app = make_close_app(events)
+        # Use deterministic sync behavior without depending on a real Git checkout.
         mock_root.return_value = Path("/tmp/novel")
         mock_sync_novel.side_effect = lambda path: events.append("sync_novel") or "Novel synchronized successfully."
         mock_sync_app.side_effect = lambda path: events.append("sync_app")
-
-        # Use deterministic sync behavior without depending on a real Git checkout.
-        mock_root.return_value = Path("/tmp/novel")
 
         StoryBuilderApp._close_and_sync_app(app)
 
