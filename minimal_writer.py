@@ -466,8 +466,21 @@ class MinimalWriterApp:
             "Local-only secret/encrypted assets in the Git change list block syncing.",
             "",
         ]
+        if preview.local_commits:
+            lines.append(
+                "Local commits currently ahead of the last fetched origin branch "
+                "(these may be pushed; the list can change after fetching):"
+            )
+            shown_commits = preview.local_commits[:10]
+            lines.extend(f"  • {commit}" for commit in shown_commits)
+            if len(preview.local_commits) > len(shown_commits):
+                lines.append(
+                    f"  • …and {len(preview.local_commits) - len(shown_commits)} more commit(s)"
+                )
+            lines.append("")
+
         if preview.changed_files:
-            lines.append("Local changes to include in the commit:")
+            lines.append("Local file changes to include in the commit:")
             shown_files = preview.changed_files[:15]
             lines.extend(f"  • {path}" for path in shown_files)
             if len(preview.changed_files) > len(shown_files):
@@ -476,8 +489,8 @@ class MinimalWriterApp:
                 )
         else:
             lines.append(
-                "No local file changes detected. This will still check for safe "
-                "fast-forward updates from GitHub and push the selected branch if needed."
+                "No uncommitted local file changes detected. This will still check for "
+                "safe fast-forward updates from GitHub and push the selected branch if needed."
             )
         lines.extend(["", "Proceed with syncing this novel to GitHub?"])
 
