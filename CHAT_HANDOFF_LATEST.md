@@ -167,6 +167,12 @@ Use `python3`, never `python`, in Linux terminal commands. Keep StoryBuilder on 
 - Regression tests cover prompt targeting, replacing only the selected range, and refusing replacement if the selection changed. Both workflows passed on test commit `d62ef0d8de13f5b2469f94dba39711aeadd6f0c2`: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/40779853981) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/40779854069).
 - **Live laptop/UI/model verification passed on October 28, 2026.** The author reported that both exact-text replacement and AI revision worked. This confirms both paths function in the live Writer; no novel package, accepted manuscript, or story state was changed during implementation or verification.
 
-### Next step
-This focused revision milestone is complete. Before choosing another feature, discuss the next priority with the author; do not automatically start the next roadmap item.
+## Project status: on hold (October 28, 2026)
+
+- The author confirmed they really like how selected-passage revision works and asked to hold the project for now.
+- **Do not start more feature work, refactors, merges, or branch cleanup until the author explicitly resumes the project.** Handoff-only updates are fine when requested.
+- Keep the current working branch `redesign/simplified-writing-workflow`; do not switch or delete branches while the project is on hold.
+- Design preference confirmed by the author: keep Writer actions simple and focused. Let the author highlight the text, explain the desired change in plain English or provide exact replacement wording, review the proposal, and decide whether to apply it. The author stays in control; nothing saves automatically. Use this as a guiding pattern for future discussions, not permission to add features without asking.
+- Last completed milestone: **Revise Selection** for plain-English AI revisions and exact text replacement. Both paths were confirmed working live on the laptop, and automated tests passed. No accepted novel or story state was changed.
+
 
