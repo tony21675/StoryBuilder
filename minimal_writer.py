@@ -466,6 +466,15 @@ class MinimalWriterApp:
             "Local-only secret/encrypted assets in the Git change list block syncing.",
             "",
         ]
+        if hasattr(self, "output_box") and self._output_text() != self.saved_output_text:
+            lines.extend(
+                [
+                    "WARNING: The Writer pane contains unsaved edits.",
+                    "Those edits are not included in this Git sync until you save them to a file.",
+                    "",
+                ]
+            )
+
         if preview.local_commits:
             lines.append(
                 "Local commits currently ahead of the last fetched origin branch "
