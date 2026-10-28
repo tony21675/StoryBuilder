@@ -34,7 +34,7 @@ A Stop Writing button and engine interruption path have been added, but have not
 - Stop terminates the active `llama-cli` process without waiting for the generation lock.
 - Any streamed partial text remains editable. If Stop is pressed before the first chunk, the previous document is restored.
 - The model is marked unloaded after stopping and must be loaded again before the next generation.
-- Automated tests cover prompt-thread-independent interruption and preservation of partial or prior text. Verify CI and live behavior before moving on.
+- Automated tests cover prompt-thread-independent interruption and preservation of partial or prior text. Both workflows passed on commit `3e0e70d9`: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/40640287788) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/40640287647). The stop behavior itself still needs the live laptop test.
 
 Next laptop test, after closing the current app window:
 
