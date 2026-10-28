@@ -2,62 +2,57 @@
 
 Date: October 28, 2026
 
-## Current direction
+## Direction
 
-Rebuild StoryBuilder piece by piece. The active app should load a local model and write without app-added story rules or story-management machinery. Keep the old code recoverable for now. Do not touch novel repositories or accepted prose.
+Rebuild StoryBuilder piece by piece. The active app should load a local model and write without app-added story rules or story-management machinery. Keep legacy code recoverable for now. Do not touch novel packages or accepted prose.
 
-## Minimal Writer baseline, confirmed on laptop
+## Minimal Writer, confirmed on laptop
 
-- `minimal_writer.py` is launched by `./start.sh`.
-- Select a local GGUF model, load it, enter a prompt, write, then edit the output.
-- Model loads with an empty system prompt; the user's prompt goes straight to `WriterEngine`.
-- The user confirmed model generation and Save As output opening in an external text editor.
-- Open Text, Save, and Save As were tested live and reported working.
-- The user has now confirmed live streaming works: generated words appear in the output as the model produces them.
-- The output editor shows the filename and an asterisk for unsaved edits. Opening a file or closing offers to save changes.
-- UTF-8 text and newline state are preserved by the file helpers.
-- Novels and saved story state have not been changed.
+- Launched by `./start.sh`.
+- The user confirmed local model writing, live text streaming, and opening/saving text files.
+- `minimal_writer.py` loads the model with an empty system prompt and sends the author's writing prompt directly to `WriterEngine`.
+- **Stop Writing was tested live and the user confirmed it worked.** Stopping terminates the local model process; reload the model before writing again.
+- UTF-8 open/save helpers preserve text and final-newline state.
+- No novel or saved story state has been changed.
 
-## Live text streaming, verified
+## New piece: Continue
 
-- Generated text is appended to the output as the local model emits it.
-- Streaming callbacks are scheduled onto Tk's UI thread.
-- When generation completes, the engine's cleaned final response replaces the live preview.
-- If generation fails, the app restores the previous document and its file/saved-text tracking.
-- No app-added prompt or writing rules were introduced.
-- Unit tests cover forwarding the streaming callback and receiving chunks; the user has confirmed that words appear while generation is happening on the laptop.
+A separate **Continue** action has been implemented in `minimal_writer.py`, but still needs its live laptop test.
 
-## New piece: Stop Writing
+- **Write** continues to replace the output with a new passage.
+- **Continue** asks the current model conversation to continue from where it left off and appends the new response after a paragraph break.
+- The existing passage remains in the output while more words stream in.
+- The app's final cleaned response is appended to the saved-visible passage when generation completes.
+- If continuation fails, the previous text and file tracking are restored.
+- If Stop is pressed during continuation, the previous text plus any streamed continuation is kept. If no new text arrived, the previous document is restored.
+- No hidden system prompt or broader writing rules were added.
 
-A Stop Writing button and engine interruption path have been added, but have not yet been tested live on the laptop.
+Automated tests passed for this feature on commit `682a3556`: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/40641414447) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/40641414419).
 
-- Stop terminates the active `llama-cli` process without waiting for the generation lock.
-- Any streamed partial text remains editable. If Stop is pressed before the first chunk, the previous document is restored.
-- The model is marked unloaded after stopping and must be loaded again before the next generation.
-- Automated tests cover prompt-thread-independent interruption and preservation of partial or prior text. Both workflows passed on commit `3e0e70d9`: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/40640287788) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/40640287647). The stop behavior itself still needs the live laptop test.
+## Next laptop test
 
-Next laptop test, after closing the current app window:
+After finishing any current writing experiment, close the running app and run:
 
 ```bash
 cd ~/Documents/StoryBuilder && ./start.sh
 ```
 
-Load the model, generate a longer passage, and press Stop while words are appearing. Confirm generation stops promptly, the partial text remains editable, and the app allows model reload followed by a new generation. Also try pressing Stop very soon after clicking Write to check that the previous text is not lost.
+Load the model and generate a short passage. Click **Continue**. Confirm the original stays there and new text appears below it without repeating the whole passage. Then click **Write** with a new prompt and confirm it still replaces the output. Save the result if needed. Stop/reload behavior was already confirmed by the user, but make sure it still works if you interrupt a continuation.
 
-Do not add another feature until this test is complete.
+Do not add more features until Continue is tested live.
 
-## Still out of scope
+## Out of scope
 
-No novel package loading, scene planning, character cards, continuity, writing rules, validators, state summaries, automatic reviews, or automatic state changes. Do not delete legacy modules until the replacement has been proven further and their removal is discussed.
+No novel package loading, scene planning, character cards, continuity system, writing rules, validators, state summaries, automatic reviews, or automatic state changes. Do not delete legacy modules until removal is discussed.
 
 ## Protected novel checkpoint
 
-- Local package: `~/Documents/MyNovel/The-Long-Way-Home`.
+- Local: `~/Documents/MyNovel/The-Long-Way-Home`.
 - Remote: `tony21675/The-Long-Way-Home`, branch `main`.
 - Accepted Chapter 1 Scene 10 prose: `Manuscript/Chapters/Chapter_01/Chapter_01_Section_10.txt`.
 - Remote `current_state.json` remains at Scene 10; the after-state file is absent.
-- Do not modify or regenerate Scene 10 during Minimal Writer testing.
+- Do not modify or regenerate Scene 10 during Minimal Writer work.
 
 ## Working rules
 
-Use `python3`, never `python`, in Linux laptop commands. Keep StoryBuilder on `redesign/simplified-writing-workflow` for now; do not switch or delete branches blindly. Discuss app/novel changes before making them, except handoff-only updates. Preserve accepted prose. Keep terminal steps short.
+Use `python3`, never `python`, in Linux terminal commands. Keep StoryBuilder on `redesign/simplified-writing-workflow` for now; do not switch or delete branches blindly. Discuss app or novel changes before making them, except handoff-only updates. Preserve accepted prose. Keep terminal steps short.
