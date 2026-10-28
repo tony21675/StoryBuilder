@@ -306,6 +306,8 @@ class MinimalWriterTests(unittest.TestCase):
         app.novel_var = type("FakeVar", (), {"get": lambda self: "Selected-Novel"})()
         app.novel_packages = {"Selected-Novel": novel_path}
         app.status_var = FakeStatus()
+        app.output_box = FakeOutputBox("Unsaved writer edits.")
+        app.saved_output_text = ""
         preview = SimpleNamespace(
             repository=novel_path,
             branch="main",
@@ -322,6 +324,7 @@ class MinimalWriterTests(unittest.TestCase):
         self.assertEqual(confirm.call_count, 1)
         self.assertIn(str(novel_path), confirm.call_args.args[1])
         self.assertIn("Manuscript/scene.txt", confirm.call_args.args[1])
+        self.assertIn("unsaved edits", confirm.call_args.args[1].lower())
         self.assertIn("cancelled", app.status_var.value.lower())
         sync.assert_not_called()
 
