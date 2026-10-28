@@ -10,6 +10,23 @@ from builder.writer_engine import GenerationInterrupted, WriterEngine
 from builder.workspace import MODELS_DIR
 
 
+CONTINUE_PROMPT = (
+    "Continue the current passage from where it ended. "
+    "Write only new material, without repeating the text already written."
+)
+
+
+def continuation_prefix(text: str) -> str:
+    """Return the current passage plus one paragraph boundary for appended text."""
+    if not text:
+        return ""
+    if text.endswith("\n\n"):
+        return text
+    if text.endswith("\n"):
+        return text + "\n"
+    return text + "\n\n"
+
+
 def load_model_for_writing(engine: WriterEngine, model_path: str | Path) -> None:
     """Load the selected local model without adding a writing system prompt."""
     engine.start(model_path, system_prompt="")
@@ -48,6 +65,9 @@ class MinimalWriterApp:
         self._pre_generation_text = ""
         self._pre_generation_file: Path | None = None
         self._pre_generation_saved_text = ""
+        self._generation_mode = "write"
+        self._generation_prefix = ""
+        self._generation_had_chunks = False
 
         root.title("StoryBuilder Minimal Writer - Untitled")
         root.geometry("1080x820")
@@ -98,6 +118,11 @@ class MinimalWriterApp:
             actions, text="Write", command=self.write
         )
         self.write_button.pack(side="left")
+
+        self.continue_button = ttk.Button(
+            actions, text="Continue", command=self.continue_writing
+        )
+        self.continue_button.pack(side="left", padx=(8, 0))
 
         self.stop_button = ttk.Button(
             actions, text="Stop Writing", command=self.stop_writing, state="disabled"
@@ -211,16 +236,45 @@ class MinimalWriterApp:
             messagebox.showinfo("Add a prompt", "Enter what you want the model to write.")
             return
 
-        # Keep a recoverable copy so a failed generation cannot destroy the
-        # author's existing document. New text appears here as the model writes.
+        self._begin_generation(prompt, mode="write")
+
+    def continue_writing(self) -> None:
+        if self.busy:
+            return
+        if self.loaded_model is None:
+            messagebox.showinfo("Load a model", "Load a model before continuing.")
+            return
+
+        existing_text = self._output_text()
+        if not existing_text.strip():
+            messagebox.showinfo(
+                "Nothing to continue",
+                "Write a passage or open a text file before continuing.",
+            )
+            return
+
+        self._begin_generation(CONTINUE_PROMPT, mode="continue")
+
+    def _begin_generation(self, prompt: str, mode: str) -> None:
+        # Keep the previous document recoverable so errors or an immediate Stop
+        # do not destroy the author's text.
         self._pre_generation_text = self._output_text()
         self._pre_generation_file = self.current_file
         self._pre_generation_saved_text = self.saved_output_text
-        self._set_output_text("")
+        self._generation_mode = mode
+        self._generation_had_chunks = False
+        if mode == "continue":
+            self._generation_prefix = continuation_prefix(self._pre_generation_text)
+            self._set_output_text(self._generation_prefix)
+        else:
+            self._generation_prefix = ""
+            self._set_output_text("")
+
         self.busy = True
         self.writing = True
         self.stop_requested = False
-        self.status_var.set(f"Writing with {self.loaded_model.name}…")
+        action = "Continuing" if mode == "continue" else "Writing"
+        self.status_var.set(f"{action} with {self.loaded_model.name}…")
         self._update_controls()
 
         def stream_delta(chunk: str) -> None:
@@ -257,6 +311,7 @@ class MinimalWriterApp:
         if not self.busy:
             return
         self.output_box.insert("end", chunk)
+        self._generation_had_chunks = True
         self.output_box.see("end")
         self.output_box.edit_modified(False)
 
@@ -266,8 +321,14 @@ class MinimalWriterApp:
         self._set_output_text(self._pre_generation_text)
 
     def _write_succeeded(self, answer: str) -> None:
-        # Use the engine's final cleaned response as the canonical saved text.
-        self._set_output_text(answer)
+        # Use the cleaned response as canonical text. Continue keeps the passage
+        # that was already in the editor and appends only the new response.
+        final_text = (
+            self._generation_prefix + answer
+            if self._generation_mode == "continue"
+            else answer
+        )
+        self._set_output_text(final_text)
         if self.stop_requested:
             self._finish_stopped()
             return
@@ -280,7 +341,7 @@ class MinimalWriterApp:
     def _write_stopped(self) -> None:
         # Keep any words already streamed. If none arrived before Stop was
         # pressed, restore the document that was open before generation.
-        if not self._output_text():
+        if not self._generation_had_chunks:
             self._restore_pre_generation_output()
         self._finish_stopped()
 
@@ -416,6 +477,9 @@ class MinimalWriterApp:
         self.refresh_button.configure(state="normal" if idle else "disabled")
         self.load_button.configure(state="normal" if idle else "disabled")
         self.write_button.configure(
+            state="normal" if idle and self.loaded_model is not None else "disabled"
+        )
+        self.continue_button.configure(
             state="normal" if idle and self.loaded_model is not None else "disabled"
         )
         self.open_button.configure(state="normal" if idle else "disabled")
