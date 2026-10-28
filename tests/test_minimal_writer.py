@@ -3,7 +3,9 @@ import unittest
 from pathlib import Path
 
 from minimal_writer import (
+    CONTINUE_PROMPT,
     MinimalWriterApp,
+    continuation_prefix,
     load_model_for_writing,
     read_text_document,
     save_text_document,
@@ -101,6 +103,7 @@ class MinimalWriterTests(unittest.TestCase):
         app.busy = True
         app.writing = True
         app.stop_requested = True
+        app._generation_had_chunks = True
         app.loaded_model = Path("/models/example.gguf")
         app.status_var = FakeStatus()
         app._update_controls = lambda: None
@@ -126,6 +129,7 @@ class MinimalWriterTests(unittest.TestCase):
         app.busy = True
         app.writing = True
         app.stop_requested = True
+        app._generation_had_chunks = False
         app.loaded_model = Path("/models/example.gguf")
         app.status_var = FakeStatus()
         app._update_controls = lambda: None
@@ -136,6 +140,60 @@ class MinimalWriterTests(unittest.TestCase):
         self.assertEqual(app.current_file, Path("/tmp/draft.txt"))
         self.assertEqual(app.saved_output_text, "Earlier draft.")
         self.assertIsNone(app.loaded_model)
+
+    def test_continuation_prefix_preserves_existing_text_and_adds_paragraph_break(self):
+        self.assertEqual(continuation_prefix("First passage."), "First passage.\\n\\n")
+        self.assertEqual(continuation_prefix("First passage.\\n"), "First passage.\\n\\n")
+        self.assertEqual(continuation_prefix("First passage.\\n\\n"), "First passage.\\n\\n")
+        self.assertEqual(continuation_prefix(""), "")
+
+    def test_continue_prompt_requests_only_new_material(self):
+        self.assertIn("Continue the current passage", CONTINUE_PROMPT)
+        self.assertIn("without repeating", CONTINUE_PROMPT)
+
+    def test_continue_final_response_is_appended_not_replaced(self):
+        existing = "Maya ran into the rain."
+        app = MinimalWriterApp.__new__(MinimalWriterApp)
+        app.root = FakeRoot()
+        app.output_box = FakeOutputBox(continuation_prefix(existing) + "streamed preview")
+        app.current_file = None
+        app.saved_output_text = ""
+        app._generation_mode = "continue"
+        app._generation_prefix = continuation_prefix(existing)
+        app.busy = True
+        app.writing = True
+        app.stop_requested = False
+        app.loaded_model = Path("/models/example.gguf")
+        app.status_var = FakeStatus()
+        app._update_controls = lambda: None
+
+        app._write_succeeded("A bell rang behind her.")
+
+        self.assertEqual(
+            app._output_text(),
+            "Maya ran into the rain.\\n\\nA bell rang behind her.",
+        )
+        self.assertFalse(app.busy)
+        self.assertFalse(app.writing)
+
+    def test_write_final_response_still_replaces_previous_output(self):
+        app = MinimalWriterApp.__new__(MinimalWriterApp)
+        app.root = FakeRoot()
+        app.output_box = FakeOutputBox("Old passage.\\n\\nPreview")
+        app.current_file = None
+        app.saved_output_text = ""
+        app._generation_mode = "write"
+        app._generation_prefix = ""
+        app.busy = True
+        app.writing = True
+        app.stop_requested = False
+        app.loaded_model = Path("/models/example.gguf")
+        app.status_var = FakeStatus()
+        app._update_controls = lambda: None
+
+        app._write_succeeded("A new scene begins.")
+
+        self.assertEqual(app._output_text(), "A new scene begins.")
 
     def test_text_file_round_trip_preserves_unicode_and_newlines_exactly(self):
         original = "First paragraph.\n\nMañana, she said, “continue.”\n"
