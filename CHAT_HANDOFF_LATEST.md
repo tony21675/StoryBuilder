@@ -17,7 +17,7 @@ Rebuild StoryBuilder piece by piece. The active app should load a local model an
 
 ## New piece: Continue
 
-A separate **Continue** action has been implemented in `minimal_writer.py`, but still needs its live laptop test.
+A separate **Continue** action has been implemented and tested live on the laptop. In the user's Tiffany/Kim test, the original passage remained and the continuation followed it without repeating the original.
 
 - **Write** continues to replace the output with a new passage.
 - **Continue** asks the model for only new material, includes up to the last 2,000 characters of the visible passage as context, and appends the response after a paragraph break. This anchors continuation to the text as edited in the output box.
@@ -31,15 +31,15 @@ Automated tests passed on commit `091280b0`: [Python tests](https://github.com/t
 
 ## Next laptop test
 
+Continue is confirmed working for append behavior. When practical, do one final check that **Write** still replaces the output after a continuation, and try Stop during continuation if useful. No new feature should be added until this quick regression check is done.
+
 After finishing any current writing experiment, close the running app and run:
 
 ```bash
 cd ~/Documents/StoryBuilder && ./start.sh
 ```
 
-Load the model and generate a short passage. Click **Continue**. Confirm the original stays there and new text appears below it without repeating the whole passage. Then click **Write** with a new prompt and confirm it still replaces the output. Save the result if needed. Stop/reload behavior was already confirmed by the user, but make sure it still works if you interrupt a continuation.
-
-Do not add more features until Continue is tested live.
+Load the model and generate a short passage. Click **Write** with a new prompt afterward to confirm it still replaces the output. Save the result if needed. Stop/reload behavior was already confirmed by the user, but it is useful to verify it if you interrupt a continuation.
 
 ## Out of scope
 
