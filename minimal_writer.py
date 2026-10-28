@@ -15,9 +15,9 @@ def load_model_for_writing(engine: WriterEngine, model_path: str | Path) -> None
     engine.start(model_path, system_prompt="")
 
 
-def write_from_prompt(engine: WriterEngine, prompt: str) -> str:
-    """Send the author's prompt directly to the model without app-generated text."""
-    return engine.generate(prompt)
+def write_from_prompt(engine: WriterEngine, prompt: str, on_delta=None) -> str:
+    """Send the author's prompt directly to the model, optionally streaming output."""
+    return engine.generate(prompt, on_delta=on_delta)
 
 
 def read_text_document(path: str | Path) -> str:
@@ -43,6 +43,9 @@ class MinimalWriterApp:
         self.current_file: Path | None = None
         self.saved_output_text = ""
         self.busy = False
+        self._pre_generation_text = ""
+        self._pre_generation_file: Path | None = None
+        self._pre_generation_saved_text = ""
 
         root.title("StoryBuilder Minimal Writer - Untitled")
         root.geometry("1080x820")
@@ -195,15 +198,28 @@ class MinimalWriterApp:
             messagebox.showinfo("Add a prompt", "Enter what you want the model to write.")
             return
 
-        # Keep the current text visible while generation runs. If generation
-        # fails, the author's open or edited document remains intact.
+        # Keep a recoverable copy so a failed generation cannot destroy the
+        # author's existing document. New text appears here as the model writes.
+        self._pre_generation_text = self._output_text()
+        self._pre_generation_file = self.current_file
+        self._pre_generation_saved_text = self.saved_output_text
+        self._set_output_text("")
         self.busy = True
         self.status_var.set(f"Writing with {self.loaded_model.name}…")
         self._update_controls()
 
+        def stream_delta(chunk: str) -> None:
+            # WriterEngine calls this from the worker thread. Tk widgets must
+            # only be touched on the UI thread.
+            if chunk:
+                try:
+                    self.root.after(0, lambda chunk=chunk: self._append_streamed_chunk(chunk))
+                except tk.TclError:
+                    pass
+
         def work() -> None:
             try:
-                answer = write_from_prompt(self.engine, prompt)
+                answer = write_from_prompt(self.engine, prompt, on_delta=stream_delta)
             except Exception as exc:
                 message = str(exc)
                 self.root.after(0, lambda message=message: self._write_failed(message))
@@ -212,7 +228,20 @@ class MinimalWriterApp:
 
         threading.Thread(target=work, daemon=True).start()
 
+    def _append_streamed_chunk(self, chunk: str) -> None:
+        if not self.busy:
+            return
+        self.output_box.insert("end", chunk)
+        self.output_box.see("end")
+        self.output_box.edit_modified(False)
+
+    def _restore_pre_generation_output(self) -> None:
+        self.current_file = self._pre_generation_file
+        self.saved_output_text = self._pre_generation_saved_text
+        self._set_output_text(self._pre_generation_text)
+
     def _write_succeeded(self, answer: str) -> None:
+        # Use the engine's final cleaned response as the canonical saved text.
         self._set_output_text(answer)
         self.busy = False
         model_name = self.loaded_model.name if self.loaded_model else "model"
@@ -220,6 +249,7 @@ class MinimalWriterApp:
         self._update_controls()
 
     def _write_failed(self, message: str) -> None:
+        self._restore_pre_generation_output()
         self.busy = False
         try:
             still_loaded = self.engine.child is not None and self.engine.child.isalive()
