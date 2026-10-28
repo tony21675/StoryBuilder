@@ -18,7 +18,7 @@ The launcher synchronizes the current StoryBuilder branch before starting the ap
 2. Loads the selected model.
 3. Sends your writing prompt to the model without an app-added system prompt.
 4. Streams generated text into the editable area as the model writes, then finalizes the cleaned response.
-5. Uses **Write** to replace the output with a new passage, or **Continue** to append more text to the current passage.
+5. Uses **Write** to replace the visible prose while preserving the already-loaded model session/context, or **Continue** to append more text to the current visible passage. A changed prompt with Write can carry the story forward; it does not start a fresh model session.
 6. Stops generation on request, keeping any partial text already generated. The local model process is ended and must be reloaded before writing again.
 7. Opens UTF-8 text files into that editable area.
 8. Saves to the currently open file, or uses Save As when untitled.
@@ -44,7 +44,7 @@ The UI is in `minimal_writer.py`. It reuses the existing local-model `WriterEngi
 
 The author has confirmed live model generation and saved-output opening on the Linux laptop. Automated tests also cover the model prompt path and UTF-8 text file round-tripping. They do not replace testing the full GUI manually.
 
-Known limitations: the current shared engine flattens line breaks in the prompt before sending it to the interactive model session. Streaming is best-effort while the engine filters the interactive prompt echo; the final cleaned response replaces the live preview when generation finishes. Continue asks for only new material, includes the last 2,000 characters of the current output as context, and appends the response to the output. This also anchors it to the passage as edited in the text box. Stop ends the local model process, so it must be reloaded to continue.
+Known limitations: the current shared engine flattens line breaks in the prompt before sending it to the interactive model session. Streaming is best-effort while the engine filters the interactive prompt echo; the final cleaned response replaces the live preview when generation finishes. Write replaces the visible output without resetting the model session. Continue asks for only new material, includes the last 2,000 characters of the current output as context, and appends the response to the output. This also anchors it to the passage as edited in the text box. Stop ends the local model process, so it must be reloaded to continue; reloading starts a new model session.
 
 ## Data safety
 
