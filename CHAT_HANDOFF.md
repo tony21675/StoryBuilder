@@ -32,23 +32,23 @@ Launcher changes:
 - No separate minimal launcher is retained.
 - `tests/test_minimal_writer.py` tests that the loaded model gets an empty system prompt and the author's prompt is passed through unchanged.
 - `tests/test_shell_sync.py` now asserts that the normal launcher starts the minimal writer.
-- Both CI workflows passed on `d8690b9e1bce89ad0d38d667d2031be2193668ec`:
-  - [Python tests run 40634415847](https://github.com/tony21675/StoryBuilder/actions/runs/40634415847)
-  - [StoryBuilder tests run 40634415795](https://github.com/tony21675/StoryBuilder/actions/runs/40634415795)
+- Both CI workflows passed on `c2237337524abcc236329179ce7c97ce15059fdd`:
+  - [Python tests run 40634603660](https://github.com/tony21675/StoryBuilder/actions/runs/40634603660)
+  - [StoryBuilder tests run 40634603671](https://github.com/tony21675/StoryBuilder/actions/runs/40634603671)
+- The author ran the normal launcher and confirmed the **Minimal Writer window opens**. The earlier appearance of the old Scene 10 UI was resolved by launching `./start.sh` directly; prior to that direct launch, no StoryBuilder Python or llama.cpp process was running.
 
-These tests do not include the actual local model. This version has not yet been smoke-tested on the author's Linux laptop.
+The live GGUF generation path is not yet confirmed.
 
-## 3. Immediate laptop smoke test
+## 3. Next laptop smoke test
 
-Run one command:
-
+The launcher is confirmed:
 ```bash
 cd ~/Documents/StoryBuilder && ./start.sh
 ```
 
-The launcher syncs the current branch before opening the Minimal Writer. The UI should let the author select/load a GGUF, enter a short writing prompt, generate text, edit it, and save it to a text file.
+With the Minimal Writer open, test the next single step: choose the usual GGUF and click **Load Model**. Once loading succeeds, test a short prompt, edit the output, and use Save Output As to write a text file. Keep this strictly to the minimal workflow.
 
-Test only that vertical slice. Do not introduce scene management, novel import, saved state, continuity, validators, rule prompts, or extra features until the author confirms the basic writer works. If any step fails, capture the exact error and repair that step only.
+Do not introduce scene management, novel import, saved state, continuity, validators, rule prompts, or extra features until the basic writer works reliably. If any step fails, capture the exact status/error and repair only that step.
 
 Runtime defaults:
 - GGUF directory: `~/Documents/Models`
