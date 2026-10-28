@@ -642,7 +642,7 @@ class MinimalWriterApp:
         lines.extend(["", "Proceed with syncing this novel to GitHub?"])
 
         if not self._askyesno(
-            "Confirm novel sync", "\n".join(lines), icon="warning"
+            "Confirm novel sync", "\n".join(lines)
         ):
             self.status_var.set("Novel sync cancelled; no Git operation started.")
             return
@@ -1014,7 +1014,7 @@ class MinimalWriterApp:
             )
 
         if not self._askyesno(
-            "Confirm scene overwrite", warning, icon="warning"
+            "Confirm scene overwrite", warning
         ):
             self.status_var.set("Save to Selected Scene cancelled; no file changed.")
             return False
