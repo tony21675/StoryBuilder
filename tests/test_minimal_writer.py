@@ -311,6 +311,7 @@ class MinimalWriterTests(unittest.TestCase):
             branch="main",
             remote_url="git@github.com:writer/selected-novel.git",
             changed_files=("Manuscript/scene.txt",),
+            local_commits=("abc1234 Previous novel commit",),
         )
 
         with patch("minimal_writer.inspect_novel_repository", return_value=preview):
@@ -346,6 +347,7 @@ class MinimalWriterTests(unittest.TestCase):
             branch="main",
             remote_url="git@github.com:writer/selected-novel.git",
             changed_files=(),
+            local_commits=(),
         )
         result = SimpleNamespace(message="Novel sync test succeeded.")
 
