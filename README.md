@@ -44,7 +44,7 @@ The UI is in `minimal_writer.py`. It reuses the existing local-model `WriterEngi
 
 The author has confirmed live model generation and saved-output opening on the Linux laptop. Automated tests also cover the model prompt path and UTF-8 text file round-tripping. They do not replace testing the full GUI manually.
 
-Known limitations: the current shared engine flattens line breaks in the prompt before sending it to the interactive model session. Streaming is best-effort while the engine filters the interactive prompt echo; the final cleaned response replaces the live preview when generation finishes. Continue uses the loaded model's existing conversation, asks for only new material, and appends it to the output. Stop ends the local model process, so it must be reloaded to continue.
+Known limitations: the current shared engine flattens line breaks in the prompt before sending it to the interactive model session. Streaming is best-effort while the engine filters the interactive prompt echo; the final cleaned response replaces the live preview when generation finishes. Continue asks for only new material, includes the last 2,000 characters of the current output as context, and appends the response to the output. This also anchors it to the passage as edited in the text box. Stop ends the local model process, so it must be reloaded to continue.
 
 ## Data safety
 
