@@ -155,7 +155,7 @@ For a second model, the intended use is **explicit adult erotica/porn-style fict
 - The author approved a **New Session** button to clear only model conversation history while keeping the visible draft, prompt field, current filename, saved-text tracking, and loaded model intact.
 - The first live test failed with an error ending in `/clear`. The likely cause was that `clear_context()` sent `/clear` without the trailing `/` end-of-turn marker required by the app's `--multiline-input` input path. The safety fallback correctly stopped the uncertain CLI session instead of claiming it had cleared.
 - Fixed `WriterEngine.clear_context()` to submit `encode_prompt_for_cli("/clear")`, the same encoder used for author prompts. Added a regression assertion that the command is submitted as `/clear/`. Code fix commit: `3934c2ba012fbe0509e0fc1fa5ed72554fd62076`; test commit: `d20c525c7189f3af9644af626b7097d397edf4a4`.
-- CI for the updated code/tests and the second live GUI check are not yet confirmed. Do not assume New Session is fixed until the next laptop test passes.
+- Both CI workflows passed on code/test commit `8af69ec9ca59332f944ff9ca6c51cf5114f13cd3`: [Python tests #334](https://github.com/tony21675/StoryBuilder/actions/runs/40770183208) and [StoryBuilder tests #599](https://github.com/tony21675/StoryBuilder/actions/runs/40770183212). The second live GUI check is still needed. Do not assume New Session is fixed until the next laptop test passes.
 
 ### Next step
 - Close Writer and relaunch with `cd ~/Documents/StoryBuilder && ./start.sh` to synchronize the branch.
