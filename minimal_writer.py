@@ -7,7 +7,8 @@ from tkinter import filedialog, messagebox, ttk
 from tkinter.scrolledtext import ScrolledText
 
 from builder.writer_engine import GenerationInterrupted, WriterEngine
-from builder.workspace import MODELS_DIR
+from builder.workspace import MODELS_DIR, NOVEL_ROOT
+from builder.novel_browser import list_novel_packages, list_scene_chapters, list_scene_files
 
 
 CONTINUE_PROMPT = (
@@ -80,7 +81,11 @@ class MinimalWriterApp:
         self.models: dict[str, Path] = {}
         self.loaded_model: Path | None = None
         self.current_file: Path | None = None
+        self.selected_scene_source: Path | None = None
         self.saved_output_text = ""
+        self.novel_packages: dict[str, Path] = {}
+        self.chapter_numbers: dict[str, int] = {}
+        self.scene_files: dict[str, Path] = {}
         self.busy = False
         self.writing = False
         self.stop_requested = False
@@ -100,6 +105,7 @@ class MinimalWriterApp:
         self.status_var = tk.StringVar(value="Choose a model, then load it.")
         self._build_widgets()
         self.refresh_models()
+        self.refresh_novels()
 
     def _build_widgets(self) -> None:
         outer = ttk.Frame(self.root, padding=12)
@@ -126,6 +132,41 @@ class MinimalWriterApp:
             model_row, text="Load Model", command=self.load_selected_model
         )
         self.load_button.pack(side="left", padx=(8, 0))
+
+        # Novel browsing is deliberately read-first. Loading a scene puts a
+        # copy in the editor and does not make the accepted manuscript the Save target.
+        novel_row = ttk.Frame(outer)
+        novel_row.pack(fill="x", pady=(0, 10))
+        ttk.Label(novel_row, text="Novel").pack(side="left", padx=(0, 6))
+        self.novel_var = tk.StringVar()
+        self.novel_picker = ttk.Combobox(
+            novel_row, textvariable=self.novel_var, state="readonly", width=24
+        )
+        self.novel_picker.pack(side="left", padx=(0, 6))
+        self.novel_picker.bind("<<ComboboxSelected>>", self._on_novel_selected)
+        self.refresh_novels_button = ttk.Button(
+            novel_row, text="Refresh Novels", command=self.refresh_novels
+        )
+        self.refresh_novels_button.pack(side="left", padx=(0, 12))
+
+        ttk.Label(novel_row, text="Chapter").pack(side="left", padx=(0, 6))
+        self.chapter_var = tk.StringVar()
+        self.chapter_picker = ttk.Combobox(
+            novel_row, textvariable=self.chapter_var, state="readonly", width=12
+        )
+        self.chapter_picker.pack(side="left", padx=(0, 12))
+        self.chapter_picker.bind("<<ComboboxSelected>>", self._on_chapter_selected)
+
+        ttk.Label(novel_row, text="Scene").pack(side="left", padx=(0, 6))
+        self.scene_var = tk.StringVar()
+        self.scene_picker = ttk.Combobox(
+            novel_row, textvariable=self.scene_var, state="readonly", width=10
+        )
+        self.scene_picker.pack(side="left", padx=(0, 8))
+        self.load_scene_button = ttk.Button(
+            novel_row, text="Load Scene Copy", command=self.load_selected_scene_copy
+        )
+        self.load_scene_button.pack(side="left")
 
         ttk.Label(outer, text="What should it write?").pack(anchor="w")
         self.prompt_box = ScrolledText(
@@ -252,6 +293,120 @@ class MinimalWriterApp:
         self.status_var.set("Model load failed.")
         self._update_controls()
         messagebox.showerror("Could not load model", message)
+
+
+    def refresh_novels(self) -> None:
+        """Refresh the local novel library without opening or changing a package."""
+        previous = self.novel_var.get().strip() if hasattr(self, "novel_var") else ""
+        try:
+            paths = list_novel_packages(NOVEL_ROOT)
+        except Exception as exc:
+            self.status_var.set(f"Could not list novels: {exc}")
+            return
+
+        self.novel_packages = {path.name: path for path in paths}
+        names = list(self.novel_packages)
+        self.novel_picker.configure(values=names)
+
+        if not names:
+            self.novel_var.set("")
+            self.chapter_var.set("")
+            self.chapter_numbers = {}
+            self.chapter_picker.configure(values=[])
+            self.scene_var.set("")
+            self.scene_files = {}
+            self.scene_picker.configure(values=[])
+            self.status_var.set(f"No novel packages found in {NOVEL_ROOT}.")
+            self._update_controls()
+            return
+
+        self.novel_var.set(previous if previous in self.novel_packages else names[0])
+        self._on_novel_selected()
+
+    def _on_novel_selected(self, _event=None) -> None:
+        """Populate the chapter picker for the selected novel."""
+        novel_path = self.novel_packages.get(self.novel_var.get().strip())
+        self.chapter_numbers = {}
+        if novel_path is not None:
+            numbers = list_scene_chapters(novel_path)
+            self.chapter_numbers = {f"Chapter {number:02d}": number for number in numbers}
+
+        labels = list(self.chapter_numbers)
+        self.chapter_picker.configure(values=labels)
+        if not labels:
+            self.chapter_var.set("")
+            self.scene_var.set("")
+            self.scene_files = {}
+            self.scene_picker.configure(values=[])
+            if novel_path is not None:
+                self.status_var.set(
+                    f"No Manuscript/Chapters folders found for {novel_path.name}."
+                )
+            self._update_controls()
+            return
+
+        current = self.chapter_var.get().strip()
+        self.chapter_var.set(current if current in self.chapter_numbers else labels[0])
+        self._on_chapter_selected()
+
+    def _on_chapter_selected(self, _event=None) -> None:
+        """Populate the scene picker using only numbered manuscript text files."""
+        novel_path = self.novel_packages.get(self.novel_var.get().strip())
+        chapter_number = self.chapter_numbers.get(self.chapter_var.get().strip())
+        self.scene_files = {}
+        if novel_path is not None and chapter_number is not None:
+            scenes = list_scene_files(novel_path, chapter_number)
+            self.scene_files = {
+                f"Scene {scene_number:02d}": path for scene_number, path in scenes
+            }
+
+        labels = list(self.scene_files)
+        self.scene_picker.configure(values=labels)
+        current = self.scene_var.get().strip()
+        if labels:
+            self.scene_var.set(current if current in self.scene_files else labels[0])
+            self.status_var.set(
+                f"Selected {self.novel_var.get()} / {self.chapter_var.get()} / "
+                f"{self.scene_var.get()}. Load Scene Copy to read it without targeting "
+                "the accepted manuscript for Save."
+            )
+        else:
+            self.scene_var.set("")
+            self.status_var.set(
+                f"No saved scene text files found for {self.chapter_var.get() or 'this chapter'}. "
+                "You can still use the Writer normally."
+            )
+        self._update_controls()
+
+    def load_selected_scene_copy(self) -> None:
+        """Load a selected accepted scene as a copy; Save will use Save As."""
+        if self.busy:
+            return
+        source = self.scene_files.get(self.scene_var.get().strip())
+        if source is None:
+            messagebox.showinfo(
+                "Choose a scene",
+                "Select a novel, chapter, and scene that has a saved text file.",
+            )
+            return
+
+        try:
+            text = read_text_document(source)
+        except (OSError, UnicodeError) as exc:
+            messagebox.showerror("Could not load scene", str(exc))
+            return
+
+        if not self._confirm_save_pending_changes():
+            return
+
+        self.current_file = None
+        self.selected_scene_source = source.resolve()
+        self.saved_output_text = text
+        self._set_output_text(text)
+        self.status_var.set(
+            f"Loaded scene copy from {source}. The original is untouched; Save opens Save As."
+        )
+        self._update_controls()
 
     def write(self) -> None:
         if self.busy:
@@ -509,6 +664,7 @@ class MinimalWriterApp:
             return
 
         self.current_file = Path(filename).expanduser().resolve()
+        self.selected_scene_source = None
         self.saved_output_text = text
         self._set_output_text(text)
         self.status_var.set(f"Opened: {self.current_file}")
@@ -528,7 +684,11 @@ class MinimalWriterApp:
             "title": "Save text as",
             "defaultextension": ".txt",
             "filetypes": [("Text files", "*.txt"), ("All files", "*.*")],
-            "initialfile": self.current_file.name if self.current_file else "draft.txt",
+            "initialfile": (
+                self.current_file.name if self.current_file
+                else self.selected_scene_source.name if self.selected_scene_source
+                else "draft.txt"
+            ),
         }
         if self.current_file is not None:
             options["initialdir"] = str(self.current_file.parent)
@@ -546,6 +706,7 @@ class MinimalWriterApp:
             return False
 
         self.current_file = saved_path
+        self.selected_scene_source = None
         self.saved_output_text = text
         self.status_var.set(f"Saved: {saved_path}")
         self._update_document_title()
@@ -555,6 +716,14 @@ class MinimalWriterApp:
         idle = not self.busy
         self.model_picker.configure(state="readonly" if idle else "disabled")
         self.refresh_button.configure(state="normal" if idle else "disabled")
+        if hasattr(self, "novel_picker"):
+            self.novel_picker.configure(state="readonly" if idle else "disabled")
+            self.refresh_novels_button.configure(state="normal" if idle else "disabled")
+            self.chapter_picker.configure(state="readonly" if idle else "disabled")
+            self.scene_picker.configure(state="readonly" if idle else "disabled")
+            self.load_scene_button.configure(
+                state="normal" if idle and bool(self.scene_files) else "disabled"
+            )
         self.load_button.configure(state="normal" if idle else "disabled")
         self.write_button.configure(
             state="normal" if idle and self.loaded_model is not None else "disabled"

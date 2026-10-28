@@ -173,6 +173,36 @@ class MinimalWriterTests(unittest.TestCase):
         self.assertFalse(app.writing)
         self.assertIn("Visible text was kept", app.status_var.value)
 
+
+    def test_loading_a_novel_scene_uses_a_copy_and_never_targets_the_source_for_save(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            source = Path(temporary) / "Chapter_01_Section_10.txt"
+            original = "Accepted scene text.\n\nThe ending remains here."
+            source.write_text(original, encoding="utf-8")
+
+            app = MinimalWriterApp.__new__(MinimalWriterApp)
+            app.busy = False
+            app.scene_files = {"Scene 10": source}
+            app.scene_var = type("FakeVar", (), {"get": lambda self: "Scene 10"})()
+            app.current_file = Path(temporary) / "some-other-draft.txt"
+            app.selected_scene_source = None
+            app.saved_output_text = "Previous saved draft."
+            app.output_box = FakeOutputBox()
+            app.status_var = FakeStatus()
+            app._confirm_save_pending_changes = lambda: True
+            app._update_controls = lambda: None
+            app._update_document_title = lambda: None
+
+            app.load_selected_scene_copy()
+
+            self.assertEqual(app._output_text(), original)
+            self.assertIsNone(app.current_file)
+            self.assertEqual(app.selected_scene_source, source.resolve())
+            self.assertEqual(app.saved_output_text, original)
+            self.assertEqual(source.read_text(encoding="utf-8"), original)
+            self.assertIn("original is untouched", app.status_var.value)
+            self.assertIn("Save opens Save As", app.status_var.value)
+
     def test_model_load_uses_no_app_added_system_prompt(self):
         engine = FakeEngine()
         model_path = Path("/models/example.gguf")
