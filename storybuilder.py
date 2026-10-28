@@ -8644,6 +8644,9 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             self.writer_state_preview.delete("1.0", "end")
         self._refresh_all()
         self._refresh_writer_models()
+        # Match startup recovery: restore accepted prose for the loaded scene pointer.
+        # Otherwise Open Novel clears the Writer and leaves saved manuscript text unloaded.
+        self._load_saved_scene_into_writer()
         self._chat("Builder", f'Opened "{self.package.story_bible.get("title", Path(folder).name)}".')
     def _save(self):
         if self.__dict__.get("writer_notes_update_in_progress", False):
