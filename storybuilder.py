@@ -8451,8 +8451,36 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             )
             self._closing = False
 
+    def _sync_novel_before_open(self, folder: Path) -> bool:
+        """Synchronize a novel before loading it so this computer cannot silently open stale state."""
+        folder = Path(folder).expanduser().resolve()
+        if novel_repo_root(folder) is None:
+            return bool(messagebox.askyesno(
+                "Novel Not Synchronized",
+                "This novel folder is not connected to a Git repository, so StoryBuilder cannot check for newer work from your other computer. "
+                "Open this local copy anyway? Its scene pointer may be out of date.",
+                default=messagebox.NO,
+                parent=self,
+            ))
+
+        try:
+            result = sync_novel_repository(folder)
+        except (NovelSyncError, OSError, subprocess.SubprocessError) as exc:
+            return bool(messagebox.askyesno(
+                "Novel Sync Needed",
+                "StoryBuilder could not safely synchronize this novel before opening it. "
+                "To avoid accidentally writing from an older scene, the default is to cancel opening.\n\n"
+                + str(exc)
+                + "\n\nOpen this local copy anyway? Choose Yes only if you deliberately want to work from the local version despite the sync problem.",
+                default=messagebox.NO,
+                parent=self,
+            ))
+
+        self._chat("Builder", "Novel synchronized before opening.\n" + result)
+        return True
+
     def _load_startup_novel(self):
-        """Open the sole novel automatically, or ask when the library has several."""
+        """Synchronize the selected novel, then open the sole novel or ask when several exist."""
         candidates = find_novel_packages(NOVEL_ROOT)
         if not candidates:
             self._new_novel()
@@ -8477,6 +8505,9 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
                 )
                 self._new_novel()
                 return
+
+        if not self._sync_novel_before_open(folder):
+            return
 
         try:
             self.writer_engine.stop()
@@ -8578,6 +8609,8 @@ Return only natural story prose. Do not include analysis, summary, headings, or 
             )
             return
         if not self._confirm_discard_unaccepted_writer_text():
+            return
+        if not self._sync_novel_before_open(selected_folder):
             return
         try:
             self.writer_engine.stop()
