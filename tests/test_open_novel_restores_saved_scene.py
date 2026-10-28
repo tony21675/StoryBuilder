@@ -60,6 +60,7 @@ class OpenNovelRestoresSavedSceneTests(unittest.TestCase):
 
             app = StoryBuilderApp.__new__(StoryBuilderApp)
             app.guided_setup = SimpleNamespace(stop=lambda: None)
+            app.guided_button = SimpleNamespace(configure=lambda **_kwargs: None)
             app._confirm_discard_unaccepted_writer_text = lambda: True
             app._sync_novel_before_open = lambda _folder: True
             app.writer_engine = SimpleNamespace(stop=lambda: None)
