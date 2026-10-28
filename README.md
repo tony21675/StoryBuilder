@@ -17,7 +17,7 @@ The launcher synchronizes the current StoryBuilder branch before starting the ap
 1. Lists local GGUF models.
 2. Loads the selected model.
 3. Sends your writing prompt to the model without an app-added system prompt.
-4. Shows the result in an editable text area.
+4. Streams generated text into the editable area as the model writes, then finalizes the cleaned response.
 5. Opens UTF-8 text files into that editable area.
 6. Saves to the currently open file, or uses Save As when untitled.
 7. Saves As to a chosen destination and makes that the current file.
@@ -42,7 +42,7 @@ The UI is in `minimal_writer.py`. It reuses the existing local-model `WriterEngi
 
 The author has confirmed live model generation and saved-output opening on the Linux laptop. Automated tests also cover the model prompt path and UTF-8 text file round-tripping. They do not replace testing the full GUI manually.
 
-Known limitation: the current shared engine flattens line breaks in the prompt before sending it to the interactive model session. Revisit only if this affects the writing workflow.
+Known limitations: the current shared engine flattens line breaks in the prompt before sending it to the interactive model session. Streaming is best-effort while the engine filters the interactive prompt echo; the final cleaned response replaces the live preview when generation finishes.
 
 ## Data safety
 
