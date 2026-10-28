@@ -104,3 +104,15 @@ The application should stay a simple writer until further pieces are agreed and 
 - Discuss changes to app or novel packages first, except handoff-only updates.
 - Preserve accepted text and saved story state.
 - Update and prune handoffs at milestones.
+
+## 10. Read-only legacy dependency audit (October 28, 2026)
+
+- The active launcher is `start.sh` → `sync.sh start` → `python3 minimal_writer.py`. The launcher does not run the old `storybuilder.py` interface.
+- The Minimal Writer's project-code path is `minimal_writer.py` → `builder.writer_engine.WriterEngine` and `builder.workspace.MODELS_DIR`. The engine uses standard-library modules plus `pexpect`, the external `llama-cli` executable, and local GGUF model files.
+- `WriterEngine` still has optional prompt-trace hooks, but Minimal Writer does not attach a trace object. The model is started with an empty system prompt. No StoryBuilder-added NSFW filter or writing-rule prompt is present.
+- `builder.workspace` still contains legacy novel-discovery helpers, but Minimal Writer uses only `MODELS_DIR`; it does not load novel packages or story state.
+- The legacy `storybuilder.py` remains in the repository and imports most of the old workflow modules. Those modules are not active through the Minimal Writer entry point, but they remain dependencies of the preserved legacy interface and/or its tests. Keep them until any removal is deliberately reviewed.
+- Review candidate only: `builder/secret_letter.py` has no references found in `storybuilder.py`, the other `builder/*.py` files, or the test suite. No deletion was made; leave it in place until a later cleanup review.
+- This was a read-only static audit. No application code, model configuration, branch, novel package, accepted prose, or novel state was changed.
+
+
