@@ -4,7 +4,7 @@ Date: October 28, 2026
 
 ## Direction
 
-Rebuild StoryBuilder piece by piece. The active app should load a local model and write without app-added story rules or story-management machinery. Keep legacy code recoverable for now. Do not touch novel packages or accepted prose.
+Rebuild StoryBuilder piece by piece. Keep the Writer's direct, uncomplicated local-model writing experience, then restore useful workflow pieces incrementally. The active app now has a read-first novel/chapter/scene browser; the next step is live laptop verification, followed by careful restoration of scene saving and explicit novel-to-GitHub syncing. Keep legacy code recoverable. Never overwrite accepted prose as part of a navigation test, and do not modify novel packages or novel state during app recovery.
 
 ## Minimal Writer, confirmed on laptop
 
@@ -40,7 +40,7 @@ Stop/reload behavior, Continue append behavior, and Write's replace/context-pres
 - The active launcher is `start.sh` → `sync.sh start` → `python3 minimal_writer.py`. The launcher does not run the old `storybuilder.py` interface.
 - The Minimal Writer's project-code path is `minimal_writer.py` → `builder.writer_engine.WriterEngine` and `builder.workspace.MODELS_DIR`. The engine uses standard-library modules plus `pexpect`, the external `llama-cli` executable, and local GGUF model files.
 - `WriterEngine` still has optional prompt-trace hooks, but Minimal Writer does not attach a trace object. The model is started with an empty system prompt. No StoryBuilder-added NSFW filter or writing-rule prompt is present.
-- `builder.workspace` still contains legacy novel-discovery helpers, but Minimal Writer uses only `MODELS_DIR`; it does not load novel packages or story state.
+- The new `builder.novel_browser` uses the existing package discovery helper plus the configured `NOVEL_ROOT`. Minimal Writer can list novel packages, chapter folders, and numbered manuscript scene text files. It reads only the selected `.txt` scene; it does not load or change `current_state.json`, character cards, before/after state JSON, or other novel data.
 - The legacy `storybuilder.py` remains in the repository and imports most of the old workflow modules. Those modules are not active through the Minimal Writer entry point, but they remain dependencies of the preserved legacy interface and/or its tests. Keep them until any removal is deliberately reviewed.
 - **Protected Taken at Dusk secret letters: do not remove or alter.** Correction to the initial read-only audit: `builder/secret_letter.py` is not an obsolete cleanup candidate. The first-novel handoff identifies two separate, encrypted, local-only assets: Tiffany's letter at `~/Documents/MyNovel/Taken_at_Dusk/secrets/sarah_letter.enc.b64` and Tony's separate letter at `~/Documents/MyNovel/Taken_at_Dusk/secrets/sarah_tony.enc.json`. Their metadata and supporting files are also local-only and intentionally excluded from GitHub. Preserve both encrypted letters, both metadata files, the helper, verification script, local README, private key, and the `/secrets/` Git-ignore rule. The author has not yet seen the letter contents. Do not decrypt, display, copy, or add their contents to GitHub, handoffs, manuscripts, or StoryBuilder prompts unless the author explicitly asks to reveal them. The audit did not open or decrypt either letter, and nothing was deleted or changed in the novel repository.
 - This was a read-only static audit. No application code, model configuration, branch, novel package, accepted prose, or novel state was changed.
@@ -72,7 +72,7 @@ For a second model, the intended use is **explicit adult erotica/porn-style fict
 
 ## Out of scope
 
-No novel package loading, scene planning, character cards, continuity system, writing rules, validators, state summaries, automatic reviews, or automatic state changes. Do not delete legacy modules until removal is discussed.
+The initial novel integration is limited to read-only package/chapter/scene browsing and loading a scene as a copy. No loading/changing story state, character cards, scene planning, continuity system, writing rules, validators, state summaries, automatic reviews, automatic state changes, direct save to the selected manuscript, or novel-to-GitHub syncing yet. Do not delete legacy modules until removal is discussed.
 
 ## Protected novel checkpoint
 
@@ -104,3 +104,14 @@ Use `python3`, never `python`, in Linux terminal commands. Keep StoryBuilder on 
 
 ### Next step
 - New Session is verified. Continue Writer-first development: agree on the next improvement, then make one focused, tested change at a time. Keep the separate Story Bible app on hold until the Writer is where the author wants it.
+
+
+## Novel browser milestone: read-first navigation (October 28, 2026)
+
+- Implemented in code/test commit `bf4e4f81709466f450739cdcb38906736e171dd0`: `builder/novel_browser.py`, `minimal_writer.py`, and tests.
+- Minimal Writer now lists packages under `STORY_NOVEL_ROOT` (default `~/Documents/MyNovel`), lets the author choose chapter and scene, and provides **Load Scene Copy**.
+- The browser identifies numbered manuscript text files under `Manuscript/Chapters/Chapter_XX/` and ignores supporting JSON files when populating scenes.
+- Safety: scene load sets `current_file=None`, remembers the selected source for the default Save As name only, and leaves `saved_output_text` equal to the loaded text. Thus **Save** goes to **Save As**, not directly to the accepted scene. Saving a copy then uses the normal file save flow.
+- Both CI workflows passed: [Python tests #342](https://github.com/tony21675/StoryBuilder/actions/runs/40773141944), [StoryBuilder tests #607](https://github.com/tony21675/StoryBuilder/actions/runs/40773141964).
+- Live GUI verification is not yet done. The local Mars novel package has not been modified.
+- Next: on the laptop, launch with `cd ~/Documents/StoryBuilder && ./start.sh`; select `The-Long-Way-Home`, Chapter 01, Scene 10, and click **Load Scene Copy**. Verify the expected scene text appears, then stop without saving to the original. If testing Save, choose a disposable destination via Save As.

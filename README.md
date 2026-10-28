@@ -1,6 +1,6 @@
 # StoryBuilder, Minimal Writer
 
-StoryBuilder is being rebuilt piece by piece. The current version does two related jobs: load a local language model to generate text, and let you open, edit, and save ordinary text documents.
+StoryBuilder is being rebuilt piece by piece. The current app keeps local-model writing simple and is beginning to restore the useful novel workflow around it. You can browse a novel's existing chapter and scene text and load a scene as a safe working copy, without automatic story rules or state changes.
 
 ## Start the app
 
@@ -14,19 +14,18 @@ The launcher synchronizes the current StoryBuilder branch before starting the ap
 
 ## What this version does
 
-1. Lists local GGUF models.
-2. Loads the selected model.
-3. Sends your writing prompt to the model without an app-added system prompt.
-4. Streams generated text into the editable area as the model writes, then finalizes the cleaned response.
-5. Uses **Write** to replace the visible prose while preserving the already-loaded model session/context, or **Continue** to append more text to the current visible passage. A changed prompt with Write can carry the story forward; it does not start a fresh model session.
-6. Uses **New Session** to clear the model's conversation history without reloading the model or changing the visible draft.
-7. Stops generation on request, keeping any partial text already generated. The local model process is ended and must be reloaded before writing again.
-8. Opens UTF-8 text files into that editable area.
-9. Saves to the currently open file, or uses Save As when untitled.
-10. Saves As to a chosen destination and makes that the current file.
-11. Warns before replacing a document or closing with unsaved output edits.
+1. Lists local GGUF models and loads the selected model.
+2. Sends your writing prompt to the model without an app-added system prompt.
+3. Streams generated text into the editable area as the model writes, then finalizes the cleaned response.
+4. Uses **Write** to replace visible prose while preserving the current model session/context, or **Continue** to append more text to the visible passage.
+5. Uses **New Session** to clear model conversation history without reloading the model or changing the visible draft.
+6. Stops generation on request, keeping any partial text already generated. The model process must be reloaded before writing again.
+7. Lists novel packages found in `STORY_NOVEL_ROOT` (default `~/Documents/MyNovel`), then lets you choose a chapter and saved scene.
+8. Uses **Load Scene Copy** to read the selected numbered scene `.txt` file into the editable area.
+9. Keeps the accepted source scene out of the Save target. After loading a scene copy, **Save** opens **Save As**, so the original scene is not silently overwritten.
+10. Opens other UTF-8 text files, saves ordinary drafts, and warns before replacing a document or closing with unsaved output edits.
 
-There is no novel package loading, scene planning, continuity tracking, state summary, automatic review, validator, or writing-rule prompt in the active UI. The interface is deliberately plain so the basic writing and file-editing path can be tested before any other features are considered.
+The novel browser is intentionally read-first. It does not load or modify `current_state.json`, before/after state JSON, character cards, or other novel data. Direct saving back into a selected manuscript scene and novel-to-GitHub syncing have **not** been restored yet. Those will be separate steps after the browser is verified on the laptop. Scene planning, continuity analysis, validators, automatic review, and automatic state changes remain outside the active Writer.
 
 ## Local requirements
 
@@ -35,18 +34,20 @@ By default, StoryBuilder looks for:
 - Models: `~/Documents/Models/*.gguf`
 - llama.cpp executable: `~/Documents/llama.cpp/build/bin/llama-cli`
 
-The paths can be changed through the existing environment variables in `builder/workspace.py`, including `STORY_MODELS_DIR` and `STORY_LLAMA_PATH`.
+The paths can be changed through the existing environment variables in `builder/workspace.py`, including `STORY_MODELS_DIR`, `STORY_LLAMA_PATH`, and `STORY_NOVEL_ROOT`.
 
 The launcher defaults to a 16,384-token context and 4,000 output tokens, configurable with `STORY_WRITER_CONTEXT` and `STORY_WRITER_MAX_TOKENS`.
 
 ## Rebuild status and test limits
 
-The UI is in `minimal_writer.py`. It reuses the existing local-model `WriterEngine` and loads it with an empty system prompt. The full old application remains in the repository temporarily for recovery, but `start.sh` opens the Minimal Writer. Legacy features will be removed deliberately after the replacement's basic behavior is proven.
+The active UI is `minimal_writer.py` and reuses the existing `WriterEngine` with an empty system prompt. The full old application remains in the repository temporarily for recovery; `start.sh` opens Minimal Writer.
 
-The author has confirmed live model generation and saved-output opening on the Linux laptop. Automated tests cover the direct model prompt path, UTF-8 text round-tripping, and a regression proving that repeated **Write** actions replace visible prose while preserving the loaded model session across changed prompts. The regression passed both automated workflows: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/40647067750) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/40647067765). These checks do not replace testing the full GUI manually.
+The author has confirmed live model generation, continuation, stopping, text-file open/save, Ctrl+A selection, and New Session on the Linux laptop. New Session was tested end to end: it preserved the visible draft, and an unrelated prompt produced a story that did not carry over the previous story's context.
 
-Prompt line breaks are sent as actual multiline input through llama-cli's interactive reader. The CLI's `--escape` option does not decode escape sequences for interactive user turns, so the Writer uses `--multiline-input` and its trailing `/` end-of-turn marker instead. Regression tests cover raw multiline submission, literal backslash sequences, returned prose, and streaming. The live exact-output check and longer scene-generation check both passed on the Linux laptop: paragraph breaks stayed distinct, the path `C:\models\drafts\scene.txt` retained single backslashes, the literal sequence `\n` stayed literal, and the prompt was not echoed. Ctrl+A is explicitly bound to Select All in both the prompt and output text boxes and has been confirmed working live. New Session clears only the model conversation and preserves the visible draft, prompt, and file tracking. The first live test exposed an input-submission bug: `/clear` was sent without the trailing `/` marker that ends multiline input, so the CLI kept waiting and the safety fallback stopped it. The fix sends `/clear` through the same `encode_prompt_for_cli` helper as writing prompts, which adds the required terminator. A regression assertion now checks this. Both CI workflows passed on code/test commit `8af69ec9ca59332f944ff9ca6c51cf5114f13cd3`: [Python tests #334](https://github.com/tony21675/StoryBuilder/actions/runs/40770183208) and [StoryBuilder tests #599](https://github.com/tony21675/StoryBuilder/actions/runs/40770183212). Live laptop verification passed end to end: New Session displayed the success status and preserved the visible draft. The author then used Write with an unrelated lighthouse story prompt. Write replaced the prior visible story, and the two stories were confirmed to have nothing in common, verifying that the old conversation context no longer carried over. The remaining behavior is unchanged: streaming is best-effort while the engine filters the interactive prompt echo; the final cleaned response replaces the live preview when generation finishes. Write replaces the visible output without resetting the model session. Continue asks for only new material, includes the last 2,000 characters of the current output as context, and appends the response to the output. This also anchors it to the passage as edited in the text box. Stop ends the local model process, so it must be reloaded to continue; reloading starts a new model session.
+The first novel-browser slice is implemented in commit `bf4e4f81709466f450739cdcb38906736e171dd0`. Automated workflows passed: [Python tests #342](https://github.com/tony21675/StoryBuilder/actions/runs/40773141944) and [StoryBuilder tests #607](https://github.com/tony21675/StoryBuilder/actions/runs/40773141964). The browser's live GUI behavior still needs to be checked on the laptop. Tests cover package discovery, numeric chapter/scene ordering, exclusion of state JSON files, and loading a scene as a copy without changing the source file.
+
+Prompt line breaks use llama-cli's `--multiline-input` and trailing `/` end-of-turn marker. Tests cover paragraph breaks, literal backslashes, returned prose, and streaming. Live checks confirmed paragraph breaks stay distinct, Windows-style paths retain single backslashes, literal `\n` stays literal, and the prompt is not echoed. **Write** replaces visible text but retains model context; **Continue** appends new material using the visible passage ending as context. **New Session** clears the model conversation without reloading weights.
 
 ## Data safety
 
-The Minimal Writer does not open or alter novel repositories or novel state files. Text files are opened and changed only through explicit Open Text, Save, or Save As actions. Saving writes exactly the current output text as UTF-8. The currently open file is tracked, and unsaved output changes are marked in the window title.
+The browser reads only the selected scene's plain-text manuscript file. Loading a scene does not set that source as the current save target; the initial **Save** action opens **Save As**. The app does not edit novel state files or sync the novel repository to GitHub yet. Ordinary text files are saved as UTF-8, with the current file tracked and unsaved edits marked in the window title.
