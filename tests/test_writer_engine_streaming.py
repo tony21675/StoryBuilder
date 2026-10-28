@@ -42,17 +42,23 @@ class PromptEchoStreamFilterTests(unittest.TestCase):
 
 
 class PromptEncodingTests(unittest.TestCase):
-    def test_preserves_paragraph_breaks_and_literal_backslash_sequences(self):
+    def test_preserves_real_line_breaks_and_literal_backslash_sequences(self):
         prompt = "First paragraph.\n\nLiteral sequence: \\n\nPath: C:\\models"
-        encoded = encode_prompt_for_cli(prompt)
+        cli_input = encode_prompt_for_cli(prompt)
 
+        self.assertEqual(cli_input, prompt + "/")
+        self.assertEqual(cli_input.count("\n"), prompt.count("\n"))
+        self.assertIn(r"Literal sequence: \n", cli_input)
+        self.assertIn(r"Path: C:\models", cli_input)
+        self.assertTrue(cli_input.endswith("/"))
+
+    def test_normalizes_line_endings_before_multiline_submission(self):
         self.assertEqual(
-            encoded,
-            r"First paragraph.\n\nLiteral sequence: \\n\nPath: C:\\models",
+            encode_prompt_for_cli("First\r\nSecond\rThird"),
+            "First\nSecond\nThird/",
         )
-        self.assertNotIn("\n", encoded)
 
-    def test_generate_sends_encoded_multiline_prompt_and_returns_clean_prose(self):
+    def test_generate_sends_raw_multiline_prompt_and_returns_clean_prose(self):
         prompt = "Scene setup.\n\nKeep this literal sequence: \\n\nLast line."
         expected_cli_input = encode_prompt_for_cli(prompt)
         chunks = []
@@ -81,9 +87,10 @@ class PromptEncodingTests(unittest.TestCase):
         answer = engine.generate(prompt, on_delta=chunks.append)
 
         self.assertEqual(child.sent, expected_cli_input)
+        self.assertIn("\n\n", child.sent)
+        self.assertIn(r"Keep this literal sequence: \n", child.sent)
         self.assertEqual(answer, "The scene starts.\nA second paragraph.")
         self.assertEqual("".join(chunks), answer)
-
 
 if __name__ == "__main__":
     unittest.main()

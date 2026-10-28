@@ -17,15 +17,14 @@ WRITER_TIMEOUT = int(os.environ.get("STORY_WRITER_TIMEOUT", "3600"))
 
 
 def encode_prompt_for_cli(prompt: str) -> str:
-    """Encode a possibly multiline prompt as one llama-cli input line.
+    """Prepare raw multiline input for llama-cli's interactive reader.
 
-    llama-cli decodes escaped input before tokenization. Escape existing
-    backslashes first so literal sequences such as \\n remain literal, then
-    encode actual line breaks as \\n sequences for the CLI to restore.
+    Interactive user turns do not decode --escape sequences. Use real line
+    breaks with --multiline-input, then append the CLI's trailing '/' marker
+    so the final line ends the turn without including the marker in the prompt.
     """
     normalized = str(prompt).replace("\r\n", "\n").replace("\r", "\n")
-    return normalized.replace("\\", "\\\\").replace("\n", "\\n")
-
+    return normalized + "/"
 
 class GenerationInterrupted(RuntimeError):
     """Raised when the author stops an active generation."""
@@ -40,8 +39,11 @@ class _PromptEchoStreamFilter:
         self.buffer = ""
         self.finished = False
         self.skip_initial_linebreaks = False
+        # Terminal echo may include physical newlines between prompt lines.
+        # Compare a compact form while consuming the matching original echo below.
         self.candidates = tuple(
-            candidate for candidate in (self.prompt, "> " + self.prompt)
+            candidate.replace("\r", "").replace("\n", "")
+            for candidate in (self.prompt, "> " + self.prompt)
             if candidate
         )
 
@@ -288,7 +290,7 @@ class WriterEngine:
                 "--system-prompt", system_prompt,
                 "--color", "off",
                 "--no-display-prompt",
-                "--escape",
+                "--multiline-input",
                 "--simple-io",
             ])
 
@@ -361,9 +363,9 @@ class WriterEngine:
                     )
                 self._active_generation_child = child
 
-            # The interactive CLI reads one input line at a time. Encode real
-            # paragraph breaks as escapes that llama-cli restores before tokenizing.
-            # Doubling existing backslashes first preserves literal escape sequences.
+            # The interactive CLI does not decode --escape for submitted turns.
+            # Send actual line breaks using --multiline-input and terminate with its
+            # trailing '/' control marker, which is removed before tokenization.
             model_prompt = str(prompt).replace("\r\n", "\n").replace("\r", "\n")
             cli_prompt = encode_prompt_for_cli(model_prompt)
             trace_call_id = self._trace_record(
@@ -478,7 +480,7 @@ class WriterEngine:
             answer = answer.replace("\r", "").strip()
 
             while answer.startswith("> "):
-                answer = answer[2:].lstrip()
+                answer = answer[2:]
 
             # llama-cli may echo the submitted user turn before returning the model
             # response. Remove that echoed prompt so only prose reaches the editor.
