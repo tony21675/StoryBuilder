@@ -652,6 +652,22 @@ class MinimalWriterApp:
             return False
         return current == self._revision_original
 
+    def _apply_revision_candidate(self, proposed_text: str) -> bool:
+        """Replace only the still-unchanged marked passage and retain normal save tracking."""
+        if not self._revision_target_is_unchanged():
+            return False
+        start = self.output_box.index(self._revision_start_mark)
+        self.output_box.delete(self._revision_start_mark, self._revision_end_mark)
+        self.output_box.insert(start, proposed_text)
+        self.output_box.mark_set("insert", start)
+        self.output_box.see("insert")
+        self.output_box.edit_modified(False)
+        self._discard_revision()
+        self.status_var.set("Revision applied to selected passage. Save when ready.")
+        self._update_document_title()
+        self._update_controls()
+        return True
+
     def _show_revision_review(self, original: str, proposal: str) -> None:
         """Preview proposed wording; change the document only on explicit approval."""
         if not self._revision_target_is_unchanged():
@@ -703,7 +719,8 @@ class MinimalWriterApp:
             self._update_controls()
 
         def use_revision() -> None:
-            if not self._revision_target_is_unchanged():
+            proposed_text = proposal_box.get("1.0", "end-1c")
+            if not self._apply_revision_candidate(proposed_text):
                 self._discard_revision()
                 dialog.destroy()
                 self.status_var.set(
@@ -715,18 +732,7 @@ class MinimalWriterApp:
                 )
                 self._update_controls()
                 return
-            start = self.output_box.index(self._revision_start_mark)
-            proposed_text = proposal_box.get("1.0", "end-1c")
-            self.output_box.delete(self._revision_start_mark, self._revision_end_mark)
-            self.output_box.insert(start, proposed_text)
-            self.output_box.mark_set("insert", start)
-            self.output_box.see("insert")
-            self.output_box.edit_modified(False)
-            self._discard_revision()
             dialog.destroy()
-            self.status_var.set("Revision applied to selected passage. Save when ready.")
-            self._update_document_title()
-            self._update_controls()
 
         buttons = ttk.Frame(outer)
         buttons.pack(fill="x")
