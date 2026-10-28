@@ -116,6 +116,14 @@ The October 17–20, 2026, Taken at Dusk / StoryBuilder testing handoffs recorde
 
 This is a historical handoff record, not a verified live listing of the current laptop directory. The active Minimal Writer scans `~/Documents/Models/*.gguf` by default (unless `STORY_MODELS_DIR` overrides it), so the current dropdown or a local directory listing is the authority on which files are present today. Never delete or replace any model without discussing it first.
 
+## Two-model writing goal (October 28, 2026)
+
+Keep the existing Gemma 4 E4B model as the general-purpose writer; the author likes its output so far. The author also confirmed the local inventory includes `llmfan46/gemma-4-E4B-it-ultra-uncensored-heretic-GGUF` (exact local filename/quantization still unconfirmed). The Heretic modification targets refusal behavior; do not assume it will change genre/style.
+
+For a second model, the intended use is **explicit adult erotica/porn-style fiction featuring consenting adults**, not romance-novel style. The author is not looking for illegal sexual content. Prioritize the requested prose style, small GGUFs compatible with the existing llama.cpp setup, and fit for the 8 GB RAM laptop. Do not replace Gemma, download a model, or modify the app without discussion.
+
+Candidate for research/testing, not yet approved for download: `DavidAU/Qwen3-4B-Gemini-TripleX-High-Reasoning-Thinking-Heretic-Uncensored-GGUF`. Its public model card explicitly advertises erotica and vivid prose and documents llama.cpp/GGUF support, but the claims are creator-provided and the available quantization filenames/sizes still need confirmation. Another erotica-tuned option, Dirty Muse Writer v01, has a Q4_K_M file around 5.8 GB, too tight to recommend casually on an 8 GB RAM laptop. Evaluate the smaller candidate first; verify exact quant and test actual prose before choosing.
+
 ## 10. Read-only legacy dependency audit (October 28, 2026)
 
 - The active launcher is `start.sh` → `sync.sh start` → `python3 minimal_writer.py`. The launcher does not run the old `storybuilder.py` interface.
