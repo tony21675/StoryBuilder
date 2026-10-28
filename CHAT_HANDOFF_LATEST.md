@@ -122,8 +122,9 @@ Use `python3`, never `python`, in Linux terminal commands. Keep StoryBuilder on 
 - Both automated workflows passed on the code/test commit: [Python tests #348](https://github.com/tony21675/StoryBuilder/actions/runs/40774810127) and [StoryBuilder tests #613](https://github.com/tony21675/StoryBuilder/actions/runs/40774810099).
 - **Local live verification is still pending.** Next: refresh the laptop with `cd ~/Documents/StoryBuilder && ./start.sh`; select The-Long-Way-Home / Chapter 01 / Scene 10 and load the copy, then click **Save to Selected Scene** and inspect the confirmation path. For this first check, **cancel the confirmation** so the accepted Scene 10 remains untouched. A successful overwrite should later be tested only against a disposable scene in a disposable test package.
  
-## Future app split decision (October 28, 2026)
- 
-- Proposed architecture confirmed with the author: the future **Story Bible** companion app is responsible for creating a new novel package and its foundations (story bible, characters, outline/plan, and package structure).
-- **StoryBuilder Writer** focuses on writing and editing prose for novels, whether created by the companion app or already present. It browses the shared local novel root and saves scenes into the chosen novel.
-- The two apps should use the same on-disk novel package, avoiding duplicate creation or manual copying of story-bible content. Keep the Story Bible app on hold while Writer is developed and tested first.
+## Possible app split (October 28, 2026)
+
+- The author clarified the question was specifically whether Minimal Writer should have a **New Novel** button or only browse/open existing novels. Do not record the app split as a fully approved product decision yet.
+- Current Minimal Writer supports browsing/opening existing local novel packages and writing/editing their scene prose.
+- Recommendation for discussion: keep Writer focused on writing/editing and let the future **Story Bible** companion app create new novel packages (story bible, characters, outline/plan, and required folder structure). If we follow that plan, a New Novel button in Writer is not needed initially.
+- Keep the Story Bible app on hold while Writer is developed and tested first. Revisit a Writer-side New Novel shortcut later if it proves useful.
