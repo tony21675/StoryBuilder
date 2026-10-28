@@ -302,6 +302,7 @@ class MinimalWriterTests(unittest.TestCase):
 
         app = MinimalWriterApp.__new__(MinimalWriterApp)
         novel_path = Path("/tmp/Selected-Novel")
+        app.root = FakeRoot()
         app.busy = False
         app.novel_var = type("FakeVar", (), {"get": lambda self: "Selected-Novel"})()
         app.novel_packages = {"Selected-Novel": novel_path}
