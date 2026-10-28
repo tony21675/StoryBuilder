@@ -19,7 +19,7 @@ First live smoke test completed on October 28, 2026:
 
 Current minimal UI has:
 - GGUF model selector, Refresh, and Load Model.
-- An author prompt field plus Write, Continue, and Stop Writing.
+- An author prompt field plus Write, Continue, New Session, and Stop Writing.
 - Editable output that streams model text as it is generated.
 - Open Text, Save, and Save As.
 - Status line and filename/unsaved marker in the window title.
@@ -42,7 +42,7 @@ Default environment:
 - llama.cpp: `~/Documents/llama.cpp/build/bin/llama-cli`
 - `STORY_MODELS_DIR`, `STORY_LLAMA_PATH`, `STORY_WRITER_CONTEXT`, `STORY_WRITER_MAX_TOKENS` remain available as runtime overrides.
 
-Known limitations: `WriterEngine.generate()` flattens newline characters in the prompt before sending it to the interactive llama.cpp process. Streaming uses the existing prompt-echo filter and is best-effort; after completion, the cleaned final response replaces the live preview. Stop Writing terminates the local `llama-cli` process without waiting for the generation lock, keeps partial streamed text (or restores the previous document if no text arrived), and requires reloading the model. The user tested Stop live and confirmed it works.
+Prompt transport now preserves line breaks through llama.cpp's `--multiline-input` and trailing `/` marker; live prompt and longer-scene checks passed on the laptop. Streaming uses the existing prompt-echo filter and is best-effort; after completion, the cleaned final response replaces the live preview. Stop Writing terminates the local `llama-cli` process without waiting for the generation lock, keeps partial streamed text (or restores the previous document if no text arrived), and requires reloading the model. The user tested Stop live and confirmed it works.
 
 ## 4. Open Text / Save / Save As
 
@@ -155,9 +155,9 @@ For a second model, the intended use is **explicit adult erotica/porn-style fict
 - The author approved adding a **New Session** button. Expected behavior: clear only the model's conversation history with llama.cpp's interactive `/clear` command, keep the model loaded (no weight reload), and leave the visible draft, prompt field, current filename and saved-text tracking untouched.
 - Implementation adds `WriterEngine.clear_context()`, calls it on a worker thread from Minimal Writer, displays success/failure status, and disables controls while the command runs. If the CLI fails to confirm its clear response, the engine stops the possibly uncertain session and the author must reload the model.
 - Tests were added to cover command/confirmation behavior and ensuring New Session does not modify the visible draft or file tracking.
-- CI is pending for this code/test change. Live GUI behavior has not yet been verified.
+- Both CI workflows passed for code/test commit `14a2075dc99bfe1f7294ec64be485c2d4fc5581a`: [Python tests #328](https://github.com/tony21675/StoryBuilder/actions/runs/40766994889) and [StoryBuilder tests #593](https://github.com/tony21675/StoryBuilder/actions/runs/40766994908). Live GUI behavior has not yet been verified.
 
 ### Next step
-- Wait for both CI workflows to pass. Then tell the author to close Writer and relaunch with `cd ~/Documents/StoryBuilder && ./start.sh`.
+- CI is green. Next, tell the author to close Writer and relaunch with `cd ~/Documents/StoryBuilder && ./start.sh` for live New Session verification.
 - Load a model, generate or open a draft, click **New Session**, and confirm that the app reports success, the same visible text remains exactly unchanged, the model stays loaded, and a subsequent prompt begins without prior conversation context.
 - Do not start another feature until that live check passes. Do not modify novel packages, accepted prose or novel state. Use `python3`, never `python`, in terminal commands. Keep changes incremental and handoffs current.
