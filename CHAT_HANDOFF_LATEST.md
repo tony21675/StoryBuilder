@@ -19,7 +19,7 @@ Rebuild StoryBuilder piece by piece. The active app should load a local model an
 
 A separate **Continue** action has been implemented and tested live on the laptop. In the user's Tiffany/Kim test, the original passage remained and the continuation followed it without repeating the original. The user inserted “(Continued here)” manually as a visual marker to show me the boundary between Part 1 and Part 2; it was not model-generated text or an app issue.
 
-- **Write** continues to replace the output with a new passage.
+- **Write** replaces the visible output, but deliberately keeps the current model session/context. The user likes that this lets a changed prompt pick up the story where the prior scene left off, even though the old prose is no longer visible. Do not reset/reload the model on Write unless the user later asks for a fresh-session option.
 - **Continue** asks the model for only new material, includes up to the last 2,000 characters of the visible passage as context, and appends the response after a paragraph break. This anchors continuation to the text as edited in the output box.
 - The existing passage remains in the output while more words stream in.
 - The app's final cleaned response is appended to the saved-visible passage when generation completes.
@@ -29,17 +29,11 @@ A separate **Continue** action has been implemented and tested live on the lapto
 
 Automated tests passed on commit `091280b0`: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/40641857573) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/40641857583).
 
-## Next laptop test
+## Latest behavior confirmation
 
-Continue is confirmed working for append behavior. When practical, do one final check that **Write** still replaces the output after a continuation, and try Stop during continuation if useful. No new feature should be added until this quick regression check is done.
+The user tested **Write** after a passage and Continue, then tested again with a changed prompt. Write replaces the visible output but preserves the current model session/context, so the model can carry the story forward from where the prior scene ended. The user explicitly likes this behavior. Keep it as intended: Write = replace visible prose while preserving ongoing model/story context; Continue = append new prose to the visible output. Do not implement a fresh-session reset for Write. A separate explicit “new session” action would be a future option only if requested.
 
-After finishing any current writing experiment, close the running app and run:
-
-```bash
-cd ~/Documents/StoryBuilder && ./start.sh
-```
-
-Load the model and generate a short passage. Click **Write** with a new prompt afterward to confirm it still replaces the output. Save the result if needed. Stop/reload behavior was already confirmed by the user, but it is useful to verify it if you interrupt a continuation.
+Stop/reload behavior and Continue append behavior have been confirmed live on the laptop. No further regression check is currently needed for Write's replace/context-preserving behavior.
 
 ## Out of scope
 
