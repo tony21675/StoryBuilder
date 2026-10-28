@@ -156,3 +156,17 @@ Use `python3`, never `python`, in Linux terminal commands. Keep StoryBuilder on 
 - Automated workflows passed on code/test commit `da8c966cc1dce65bbd03767ce76872bab212d69e`: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/40778101321) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/40778101292).
 - **Live visual verification passed on the laptop, October 28, 2026.** The author opened the long **Sync Novel to GitHub** confirmation and reported that the new scrollable popup is “much better.” This confirms the long message no longer overwhelms the screen. No code or novel files were modified during this check.
 - The automated tests cover that confirmation remains opt-in and retains its Yes/No behavior. The author has not explicitly confirmed whether keyboard copying or the layout of short messages was separately tested live; leave those as optional follow-up checks if an issue appears.
+
+## Selected-passage revision milestone (October 28, 2026)
+
+- Added **Revise Selection** beside the Output editor.
+- Highlight a sentence or paragraph and choose one of two tabs: **Revise with AI**, where a plain-English instruction guides the model, or **Replace with exact text**, which works even when no model is loaded. Leaving exact replacement blank intentionally deletes the selected passage.
+- The selected source text is shown for reference. AI revision sends the selected passage and the author's instruction, not a request to rewrite the whole scene.
+- Both paths open a review dialog showing the original and a proposed replacement. The proposal can be edited before **Use Revision** applies it. **Keep Original**, Cancel, or closing the dialog leaves the document text unchanged. Changes are not saved automatically.
+- While the AI is generating, the output editor is disabled. The app tracks the selected range and refuses to apply a proposal if that source passage no longer matches the original. Generation errors and Stop keep the original passage; Stop follows the existing behavior of requiring the model to be reloaded.
+- Regression tests cover prompt targeting, replacing only the selected range, and refusing replacement if the selection changed. Both workflows passed on test commit `d62ef0d8de13f5b2469f94dba39711aeadd6f0c2`: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/40779853981) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/40779854069).
+- **Live laptop/UI/model verification is still pending.** No novel package, accepted manuscript, or story state was changed while implementing this feature.
+
+### Next step
+Launch with `cd ~/Documents/StoryBuilder && ./start.sh` and test this on disposable text or an ordinary draft, not an accepted manuscript scene. First try exact replacement and confirm both **Keep Original** and **Use Revision** behave as expected; then test one AI revision using a simple instruction. Report any unexpected behavior before we add another feature.
+
