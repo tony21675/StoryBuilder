@@ -105,6 +105,16 @@ The application should stay a simple writer until further pieces are agreed and 
 - Preserve accepted text and saved story state.
 - Update and prune handoffs at milestones.
 
+### Local model inventory from earlier handoffs
+
+The October 17–20, 2026, Taken at Dusk / StoryBuilder testing handoffs recorded these local models:
+
+- **Gemma 4 E4B IT**, exact documented path: `~/Documents/Models/01 gemma-4-E4B_q4_0-it.gguf`. This was reported as the best-performing model in testing and the chosen writing model. The name identifies **E4B**, not E2B; the filename does not itself say “uncensored.”
+- **Stheno 8B**. Recorded as another available model; its exact GGUF filename was not documented.
+- **Llama 3.1 8B**. Recorded as another available model; its exact GGUF filename was not documented.
+
+This is a historical handoff record, not a verified live listing of the current laptop directory. The active Minimal Writer scans `~/Documents/Models/*.gguf` by default (unless `STORY_MODELS_DIR` overrides it), so the current dropdown or a local directory listing is the authority on which files are present today. Never delete or replace any model without discussing it first.
+
 ## 10. Read-only legacy dependency audit (October 28, 2026)
 
 - The active launcher is `start.sh` → `sync.sh start` → `python3 minimal_writer.py`. The launcher does not run the old `storybuilder.py` interface.
