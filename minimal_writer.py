@@ -17,6 +17,21 @@ CONTINUE_PROMPT = (
 CONTINUE_CONTEXT_CHARS = 2000
 
 
+def select_all_text(event):
+    """Select all text in a Tk Text-compatible widget for Ctrl+A."""
+    widget = event.widget
+    widget.tag_add("sel", "1.0", "end-1c")
+    widget.mark_set("insert", "1.0")
+    widget.see("insert")
+    return "break"
+
+
+def bind_ctrl_a_select_all(widget) -> None:
+    """Make Ctrl+A select all text in a Writer text widget."""
+    widget.bind("<Control-a>", select_all_text)
+    widget.bind("<Control-A>", select_all_text)
+
+
 def build_continue_prompt(existing_text: str) -> str:
     """Include the visible passage ending so Continue respects editor changes."""
     passage_ending = existing_text[-CONTINUE_CONTEXT_CHARS:]
@@ -117,6 +132,7 @@ class MinimalWriterApp:
             outer, height=8, wrap="word", undo=True, font=("TkDefaultFont", 11)
         )
         self.prompt_box.pack(fill="both", expand=False, pady=(4, 12))
+        bind_ctrl_a_select_all(self.prompt_box)
 
         actions = ttk.Frame(outer)
         actions.pack(fill="x", pady=(0, 8))
@@ -156,6 +172,7 @@ class MinimalWriterApp:
             outer, height=22, wrap="word", undo=True, font=("TkDefaultFont", 11)
         )
         self.output_box.pack(fill="both", expand=True, pady=(4, 8))
+        bind_ctrl_a_select_all(self.output_box)
         self.output_box.bind("<<Modified>>", self._on_output_modified)
         self.output_box.edit_modified(False)
 

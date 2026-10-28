@@ -12,6 +12,8 @@ from minimal_writer import (
     read_text_document,
     save_text_document,
     write_from_prompt,
+    bind_ctrl_a_select_all,
+    select_all_text,
 )
 
 
@@ -32,6 +34,26 @@ class FakeEngine:
             on_delta("Generated ")
             on_delta("text")
         return "Generated text"
+
+
+class FakeSelectableText:
+    def __init__(self):
+        self.bindings = {}
+        self.tags = []
+        self.marks = []
+        self.seen = []
+
+    def bind(self, sequence, callback):
+        self.bindings[sequence] = callback
+
+    def tag_add(self, *args):
+        self.tags.append(args)
+
+    def mark_set(self, *args):
+        self.marks.append(args)
+
+    def see(self, index):
+        self.seen.append(index)
 
 
 class FakePromptBox:
@@ -92,6 +114,31 @@ class FakeStatus:
 
 
 class MinimalWriterTests(unittest.TestCase):
+    def test_ctrl_a_is_bound_and_selects_all_text(self):
+        widget = FakeSelectableText()
+        bind_ctrl_a_select_all(widget)
+
+        self.assertEqual(
+            set(widget.bindings),
+            {"<Control-a>", "<Control-A>"},
+        )
+        for sequence in ("<Control-a>", "<Control-A>"):
+            widget.tags.clear()
+            widget.marks.clear()
+            widget.seen.clear()
+            event = type("Event", (), {"widget": widget})()
+            self.assertEqual(widget.bindings[sequence](event), "break")
+            self.assertEqual(widget.tags, [("sel", "1.0", "end-1c")])
+            self.assertEqual(widget.marks, [("insert", "1.0")])
+            self.assertEqual(widget.seen, ["insert"])
+
+    def test_select_all_handler_can_be_called_directly(self):
+        widget = FakeSelectableText()
+        event = type("Event", (), {"widget": widget})()
+
+        self.assertEqual(select_all_text(event), "break")
+        self.assertEqual(widget.tags, [("sel", "1.0", "end-1c")])
+
     def test_model_load_uses_no_app_added_system_prompt(self):
         engine = FakeEngine()
         model_path = Path("/models/example.gguf")
