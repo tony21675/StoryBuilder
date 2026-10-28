@@ -314,6 +314,7 @@ class MinimalWriterApp:
         self._generation_had_chunks = True
         self.output_box.see("end")
         self.output_box.edit_modified(False)
+        self._update_document_title()
 
     def _restore_pre_generation_output(self) -> None:
         self.current_file = self._pre_generation_file
@@ -335,7 +336,8 @@ class MinimalWriterApp:
         self.busy = False
         self.writing = False
         model_name = self.loaded_model.name if self.loaded_model else "model"
-        self.status_var.set(f"Finished writing with {model_name}. Edit the output or save it.")
+        action = "continuing" if self._generation_mode == "continue" else "writing"
+        self.status_var.set(f"Finished {action} with {model_name}. Edit the output or save it.")
         self._update_controls()
 
     def _write_stopped(self) -> None:
