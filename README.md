@@ -18,10 +18,11 @@ The launcher synchronizes the current StoryBuilder branch before starting the ap
 2. Loads the selected model.
 3. Sends your writing prompt to the model without an app-added system prompt.
 4. Streams generated text into the editable area as the model writes, then finalizes the cleaned response.
-5. Opens UTF-8 text files into that editable area.
-6. Saves to the currently open file, or uses Save As when untitled.
-7. Saves As to a chosen destination and makes that the current file.
-8. Warns before replacing a document or closing with unsaved output edits.
+5. Stops generation on request, keeping any partial text already generated. The local model process is ended and must be reloaded before writing again.
+6. Opens UTF-8 text files into that editable area.
+7. Saves to the currently open file, or uses Save As when untitled.
+8. Saves As to a chosen destination and makes that the current file.
+9. Warns before replacing a document or closing with unsaved output edits.
 
 There is no novel package loading, scene planning, continuity tracking, state summary, automatic review, validator, or writing-rule prompt in the active UI. The interface is deliberately plain so the basic writing and file-editing path can be tested before any other features are considered.
 
@@ -42,7 +43,7 @@ The UI is in `minimal_writer.py`. It reuses the existing local-model `WriterEngi
 
 The author has confirmed live model generation and saved-output opening on the Linux laptop. Automated tests also cover the model prompt path and UTF-8 text file round-tripping. They do not replace testing the full GUI manually.
 
-Known limitations: the current shared engine flattens line breaks in the prompt before sending it to the interactive model session. Streaming is best-effort while the engine filters the interactive prompt echo; the final cleaned response replaces the live preview when generation finishes.
+Known limitations: the current shared engine flattens line breaks in the prompt before sending it to the interactive model session. Streaming is best-effort while the engine filters the interactive prompt echo; the final cleaned response replaces the live preview when generation finishes. Stop ends the local model process, so it must be reloaded to continue.
 
 ## Data safety
 
