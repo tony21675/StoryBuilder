@@ -1,6 +1,10 @@
 import unittest
 
-from builder.writer_engine import _PromptEchoStreamFilter
+from builder.writer_engine import (
+    _PromptEchoStreamFilter,
+    WriterEngine,
+    encode_prompt_for_cli,
+)
 
 
 class PromptEchoStreamFilterTests(unittest.TestCase):
@@ -39,3 +43,47 @@ class PromptEchoStreamFilterTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PromptEncodingTests(unittest.TestCase):
+    def test_preserves_paragraph_breaks_and_literal_backslash_sequences(self):
+        prompt = "First paragraph.\n\nLiteral sequence: \\n\nPath: C:\\models"
+        encoded = encode_prompt_for_cli(prompt)
+
+        self.assertEqual(
+            encoded,
+            r"First paragraph.\n\nLiteral sequence: \\n\nPath: C:\\models",
+        )
+        self.assertNotIn("\n", encoded)
+
+    def test_generate_sends_encoded_multiline_prompt_and_returns_clean_prose(self):
+        prompt = "Scene setup.\n\nKeep this literal sequence: \\n\nLast line."
+        expected_cli_input = encode_prompt_for_cli(prompt)
+        chunks = []
+
+        class FakeChild:
+            def __init__(self):
+                self.logfile_read = None
+                self.before = ""
+                self.sent = None
+
+            def isalive(self):
+                return True
+
+            def sendline(self, value):
+                self.sent = value
+
+            def expect(self, _pattern, timeout):
+                self.before = f"> {self.sent}\r\nThe scene starts.\nA second paragraph."
+                if self.logfile_read is not None:
+                    self.logfile_read.write(self.before)
+
+        engine = WriterEngine()
+        child = FakeChild()
+        engine.child = child
+
+        answer = engine.generate(prompt, on_delta=chunks.append)
+
+        self.assertEqual(child.sent, expected_cli_input)
+        self.assertEqual(answer, "The scene starts.\nA second paragraph.")
+        self.assertEqual("".join(chunks), answer)

@@ -16,6 +16,17 @@ from builder.workspace import LLAMA as DEFAULT_LLAMA, MODELS_DIR
 WRITER_TIMEOUT = int(os.environ.get("STORY_WRITER_TIMEOUT", "3600"))
 
 
+def encode_prompt_for_cli(prompt: str) -> str:
+    """Encode a possibly multiline prompt as one llama-cli input line.
+
+    llama-cli decodes escaped input before tokenization. Escape existing
+    backslashes first so literal sequences such as \\n remain literal, then
+    encode actual line breaks as \\n sequences for the CLI to restore.
+    """
+    normalized = str(prompt).replace("\r\n", "\n").replace("\r", "\n")
+    return normalized.replace("\\", "\\\\").replace("\n", "\\n")
+
+
 class GenerationInterrupted(RuntimeError):
     """Raised when the author stops an active generation."""
 
@@ -277,6 +288,7 @@ class WriterEngine:
                 "--system-prompt", system_prompt,
                 "--color", "off",
                 "--no-display-prompt",
+                "--escape",
                 "--simple-io",
             ])
 
@@ -349,20 +361,19 @@ class WriterEngine:
                     )
                 self._active_generation_child = child
 
-            # llama-cli's interactive input is line-oriented. Collapse the
-            # multi-line author direction into one user turn so embedded newlines
-            # are not interpreted as additional commands or prompts.
-            single_line_prompt = " ".join(
-                line.strip() for line in prompt.replace("\r", "").split("\n") if line.strip()
-            )
+            # The interactive CLI reads one input line at a time. Encode real
+            # paragraph breaks as escapes that llama-cli restores before tokenizing.
+            # Doubling existing backslashes first preserves literal escape sequences.
+            model_prompt = str(prompt).replace("\r\n", "\n").replace("\r", "\n")
+            cli_prompt = encode_prompt_for_cli(model_prompt)
             trace_call_id = self._trace_record(
                 "begin_generation",
                 prompt=prompt,
-                sent_prompt=single_line_prompt,
+                sent_prompt=model_prompt,
             )
             generation_started = time.monotonic()
             stream_filter = (
-                _PromptEchoStreamFilter(single_line_prompt, on_delta)
+                _PromptEchoStreamFilter(cli_prompt, on_delta)
                 if callable(on_delta) else None
             )
             previous_logfile_read = getattr(child, "logfile_read", None)
@@ -370,7 +381,7 @@ class WriterEngine:
             try:
                 if stream_filter is not None:
                     child.logfile_read = stream_filter
-                child.sendline(single_line_prompt)
+                child.sendline(cli_prompt)
                 child.expect(r"(?m)^> ", timeout=turn_timeout)
             except pexpect.TIMEOUT as exc:
                 output = child.before or ""
@@ -471,7 +482,7 @@ class WriterEngine:
 
             # llama-cli may echo the submitted user turn before returning the model
             # response. Remove that echoed prompt so only prose reaches the editor.
-            echoed_prompt = single_line_prompt if "single_line_prompt" in locals() else ""
+            echoed_prompt = cli_prompt if "cli_prompt" in locals() else ""
             if echoed_prompt and answer.startswith(echoed_prompt):
                 answer = answer[len(echoed_prompt):].lstrip()
 

@@ -141,3 +141,11 @@ For a second model, the intended use is **explicit adult erotica/porn-style fict
 - This was a read-only static audit. No application code, model configuration, branch, novel package, accepted prose, or novel state was changed.
 
 
+
+
+## One-step Writer upgrade: preserve multiline prompts (October 28, 2026)
+
+- The old WriterEngine.generate() flattened line breaks into spaces before submitting a prompt. The update sends an escaped single-line transport form through llama-cli's escape handling, restoring real paragraph breaks before tokenization. Existing backslashes are escaped first so literal sequences such as \`\\n\` remain literal.
+- Regression coverage checks the encoder and the integrated WriterEngine.generate() path, including clean returned prose and streamed output.
+- The code and tests are committed to the active redesign branch. Automated CI and the live GUI/model check must be reviewed before moving to another upgrade.
+- Next verification only: sync/relaunch with ./start.sh, enter a prompt with multiple separated paragraphs, and confirm each section remains distinct, visible output contains no echoed prompt or stray escape sequences, and streaming still works. Do not change another feature until this test is satisfactory.
