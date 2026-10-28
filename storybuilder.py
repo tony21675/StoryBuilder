@@ -316,7 +316,7 @@ class StoryBuilderApp(tk.Tk):
         ]:
             ttk.Button(toolbar, text=label, command=command).pack(side="left", padx=3)
         ttk.Button(toolbar, text="Sync Novel", command=self._sync_current_novel).pack(side="left", padx=(10, 3))
-        ttk.Button(toolbar, text="Close & Sync App", command=self._close_and_sync_app).pack(side="left", padx=3)
+        ttk.Button(toolbar, text="Save & Sync & Close", command=self._close_and_sync_app).pack(side="left", padx=3)
         self.path_label = ttk.Label(toolbar, text="Unsaved novel")
         self.path_label.pack(side="right", padx=8)
 
