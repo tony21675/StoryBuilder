@@ -221,12 +221,12 @@ class MinimalWriterTests(unittest.TestCase):
             app.root = FakeRoot()
             app.status_var = FakeStatus()
 
-            with patch("minimal_writer.messagebox.askyesno", return_value=True) as confirm:
+            with patch("minimal_writer.show_copyable_dialog", return_value="Yes") as confirm:
                 result = app.save_to_selected_scene()
 
             self.assertTrue(result)
             self.assertEqual(source.read_text(encoding="utf-8"), edited)
-            self.assertIn(str(source.resolve()), confirm.call_args.args[1])
+            self.assertIn(str(source.resolve()), confirm.call_args.args[2])
             self.assertEqual(app.saved_output_text, edited)
             self.assertEqual(app.selected_scene_source, source.resolve())
             self.assertIsNone(app.current_file)
@@ -255,7 +255,7 @@ class MinimalWriterTests(unittest.TestCase):
             app.root = FakeRoot()
             app.status_var = FakeStatus()
 
-            with patch("minimal_writer.messagebox.askyesno", return_value=False) as confirm:
+            with patch("minimal_writer.show_copyable_dialog", return_value="No") as confirm:
                 result = app.save_to_selected_scene()
 
             self.assertFalse(result)
@@ -287,11 +287,11 @@ class MinimalWriterTests(unittest.TestCase):
             app.root = FakeRoot()
             app.status_var = FakeStatus()
 
-            with patch("minimal_writer.messagebox.askyesno", return_value=True) as confirm:
+            with patch("minimal_writer.show_copyable_dialog", return_value="Yes") as confirm:
                 result = app.save_to_selected_scene()
 
             self.assertTrue(result)
-            self.assertIn(str(loaded_source.resolve()), confirm.call_args.args[1])
+            self.assertIn(str(loaded_source.resolve()), confirm.call_args.args[2])
             self.assertEqual(loaded_source.read_text(encoding="utf-8"), loaded_original)
             self.assertEqual(selected_target.read_text(encoding="utf-8"), edited)
             self.assertEqual(app.selected_scene_source, selected_target.resolve())
@@ -317,14 +317,14 @@ class MinimalWriterTests(unittest.TestCase):
         )
 
         with patch("minimal_writer.inspect_novel_repository", return_value=preview):
-            with patch("minimal_writer.messagebox.askyesno", return_value=False) as confirm:
+            with patch("minimal_writer.show_copyable_dialog", return_value="No") as confirm:
                 with patch("minimal_writer.sync_novel_repository") as sync:
                     app.sync_selected_novel_to_github()
 
         self.assertEqual(confirm.call_count, 1)
-        self.assertIn(str(novel_path), confirm.call_args.args[1])
-        self.assertIn("Manuscript/scene.txt", confirm.call_args.args[1])
-        self.assertIn("unsaved edits", confirm.call_args.args[1].lower())
+        self.assertIn(str(novel_path), confirm.call_args.args[2])
+        self.assertIn("Manuscript/scene.txt", confirm.call_args.args[2])
+        self.assertIn("unsaved edits", confirm.call_args.args[2].lower())
         self.assertIn("cancelled", app.status_var.value.lower())
         sync.assert_not_called()
 
@@ -355,15 +355,15 @@ class MinimalWriterTests(unittest.TestCase):
         result = SimpleNamespace(message="Novel sync test succeeded.")
 
         with patch("minimal_writer.inspect_novel_repository", return_value=preview):
-            with patch("minimal_writer.messagebox.askyesno", return_value=True) as confirm:
+            with patch("minimal_writer.show_copyable_dialog", return_value="Yes") as confirm:
                 with patch("minimal_writer.sync_novel_repository", return_value=result) as sync:
                     with patch("minimal_writer.threading.Thread", ImmediateThread):
                         app.sync_selected_novel_to_github()
 
         self.assertEqual(confirm.call_count, 1)
         sync.assert_called_once_with(novel_path)
-        self.assertIn("Confirm novel sync", confirm.call_args.args[0])
-        self.assertIn("StoryBuilder's code", confirm.call_args.args[1])
+        self.assertIn("Confirm novel sync", confirm.call_args.args[1])
+        self.assertIn("StoryBuilder's code", confirm.call_args.args[2])
         self.assertEqual(app.status_var.value, result.message)
         self.assertFalse(app.busy)
 
