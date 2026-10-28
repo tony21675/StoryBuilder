@@ -142,9 +142,9 @@ class MinimalWriterTests(unittest.TestCase):
         self.assertIsNone(app.loaded_model)
 
     def test_continuation_prefix_preserves_existing_text_and_adds_paragraph_break(self):
-        self.assertEqual(continuation_prefix("First passage."), "First passage.\\n\\n")
-        self.assertEqual(continuation_prefix("First passage.\\n"), "First passage.\\n\\n")
-        self.assertEqual(continuation_prefix("First passage.\\n\\n"), "First passage.\\n\\n")
+        self.assertEqual(continuation_prefix("First passage."), "First passage.\n\n")
+        self.assertEqual(continuation_prefix("First passage.\n"), "First passage.\n\n")
+        self.assertEqual(continuation_prefix("First passage.\n\n"), "First passage.\n\n")
         self.assertEqual(continuation_prefix(""), "")
 
     def test_continue_prompt_requests_only_new_material(self):
@@ -171,7 +171,7 @@ class MinimalWriterTests(unittest.TestCase):
 
         self.assertEqual(
             app._output_text(),
-            "Maya ran into the rain.\\n\\nA bell rang behind her.",
+            "Maya ran into the rain.\n\nA bell rang behind her.",
         )
         self.assertFalse(app.busy)
         self.assertFalse(app.writing)
@@ -179,7 +179,7 @@ class MinimalWriterTests(unittest.TestCase):
     def test_write_final_response_still_replaces_previous_output(self):
         app = MinimalWriterApp.__new__(MinimalWriterApp)
         app.root = FakeRoot()
-        app.output_box = FakeOutputBox("Old passage.\\n\\nPreview")
+        app.output_box = FakeOutputBox("Old passage.\n\nPreview")
         app.current_file = None
         app.saved_output_text = ""
         app._generation_mode = "write"
