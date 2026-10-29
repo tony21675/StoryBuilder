@@ -8,6 +8,7 @@ from builder.story_bible_reader import (
     load_story_bible,
     save_story_bible_premise,
     save_story_bible_text_field,
+    save_story_bible_canon_rules,
 )
 
 
@@ -146,6 +147,38 @@ class StoryBibleReaderTests(unittest.TestCase):
 
             self.assertEqual(bible_path.read_bytes(), original)
 
+    def test_save_canon_rules_changes_only_the_rules_array(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            package = create_novel_package("The Long Way Home", novel_root=temporary)
+            bible_path = package / "story_bible.json"
+            original = json.loads(bible_path.read_text(encoding="utf-8"))
+            original["premise"] = "Keep the premise."
+            original["setting"] = "Keep the setting."
+            original["canon_rules"] = ["Keep this existing rule."]
+            original["custom_field"] = {"nested": ["preserve", "this"]}
+            bible_path.write_text(json.dumps(original, indent=2) + "\n", encoding="utf-8")
+            new_rules = ["The crew has six members.", "No one can communicate faster than light."]
+            save_story_bible_canon_rules(package, new_rules)
+            saved = json.loads(bible_path.read_text(encoding="utf-8"))
+            expected = dict(original)
+            expected["canon_rules"] = new_rules
+            self.assertEqual(saved, expected)
+            self.assertEqual(saved["premise"], "Keep the premise.")
+            self.assertEqual(saved["setting"], "Keep the setting.")
+            self.assertEqual(saved["custom_field"], {"nested": ["preserve", "this"]})
+
+    def test_save_canon_rules_rejects_invalid_entries_without_modifying_file(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            package = create_novel_package("A Novel", novel_root=temporary)
+            bible_path = package / "story_bible.json"
+            original = bible_path.read_bytes()
+            with self.assertRaisesRegex(ValueError, "list of text entries"):
+                save_story_bible_canon_rules(package, "not a list")
+            with self.assertRaisesRegex(ValueError, "list of text entries"):
+                save_story_bible_canon_rules(package, ["valid", 12])
+            with self.assertRaisesRegex(ValueError, "single line"):
+                save_story_bible_canon_rules(package, ["first line\nsecond line"])
+            self.assertEqual(bible_path.read_bytes(), original)
 
 if __name__ == "__main__":
     unittest.main()
