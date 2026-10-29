@@ -4,7 +4,11 @@ import unittest
 from pathlib import Path
 
 from builder.novel_creator import create_novel_package
-from builder.story_bible_reader import load_story_bible, save_story_bible_premise
+from builder.story_bible_reader import (
+    load_story_bible,
+    save_story_bible_premise,
+    save_story_bible_text_field,
+)
 
 
 class StoryBibleReaderTests(unittest.TestCase):
@@ -102,6 +106,43 @@ class StoryBibleReaderTests(unittest.TestCase):
 
             with self.assertRaisesRegex(ValueError, "must be text"):
                 save_story_bible_premise(package, None)
+
+            self.assertEqual(bible_path.read_bytes(), original)
+
+
+    def test_save_setting_changes_only_setting_and_preserves_other_fields(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            package = create_novel_package("The Long Way Home", novel_root=temporary)
+            bible_path = package / "story_bible.json"
+            original = json.loads(bible_path.read_text(encoding="utf-8"))
+            original["premise"] = "Keep the premise exactly as it is."
+            original["canon_rules"] = ["Keep this rule."]
+            original["optional_story_modules"] = []
+            original["custom_field"] = {"nested": ["preserve", "this"]}
+            bible_path.write_text(json.dumps(original, indent=2) + "\n", encoding="utf-8")
+
+            save_story_bible_text_field(
+                package, "setting", "A near-future crewed Mars research outpost."
+            )
+
+            saved = json.loads(bible_path.read_text(encoding="utf-8"))
+            expected = dict(original)
+            expected["setting"] = "A near-future crewed Mars research outpost."
+            self.assertEqual(saved, expected)
+            self.assertEqual(saved["premise"], "Keep the premise exactly as it is.")
+            self.assertEqual(saved["custom_field"], {"nested": ["preserve", "this"]})
+            self.assertEqual(saved["optional_story_modules"], [])
+
+    def test_save_setting_rejects_invalid_value_or_field_without_modifying_file(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            package = create_novel_package("A Novel", novel_root=temporary)
+            bible_path = package / "story_bible.json"
+            original = bible_path.read_bytes()
+
+            with self.assertRaisesRegex(ValueError, "Setting must be text"):
+                save_story_bible_text_field(package, "setting", None)
+            with self.assertRaisesRegex(ValueError, "Only these Story Bible text fields"):
+                save_story_bible_text_field(package, "title", "Should not be editable here.")
 
             self.assertEqual(bible_path.read_bytes(), original)
 
