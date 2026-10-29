@@ -6,24 +6,32 @@ Date: October 29, 2026
 
 Keep the Minimal Writer stable while building App #2, **Story Bible**, one small, tested feature at a time. The Writer remains the focused prose-writing app; Story Bible is a separate companion for novel setup and reference information. Nothing should save or alter a novel automatically.
 
-## Latest milestone: Setting field editor (October 29, 2026)
+## Latest milestone: Setting editor and novel sync button (October 29, 2026)
 
-App #2 now has two editable text fields: **Premise** and **Setting**. Each opens its own modal text editor with explicit Save and Cancel actions. The main-page previews and full JSON remain read-only.
+App #2 now contains the package creator, read-only full-JSON viewer, and separate editors for **Premise** and **Setting**. Each editor has explicit Save and Cancel actions; typing is done in a dedicated modal editor window. The new **Sync Selected Novel to GitHub** button supports switching computers by syncing the selected real novel's own Git repository.
 
-- **Premise editor live verification passed:** the author typed in the separate editor, Cancel worked, then saved a test premise to the ongoing test package `~/Documents/MyNovel/Story-Bible-Save-Test`. A read-only `python3` assertion confirmed the exact premise and all other starter fields matched. Do not delete this package yet: it is the integration-test fixture while new fields are built. Never publish or sync it as a real novel.
-- **Setting editor implementation:** added a read-only Setting preview and **Edit Setting** button. The separate editor has **Save Setting** and **Cancel Edit**, supports typing plus Ctrl+A/Ctrl+C, and closing the editor discards the unsaved draft. While a modal editor is open, novel selection, refresh, and load controls are disabled.
+### Setting field
+
+- Added a read-only Setting preview and **Edit Setting** button. The separate editor has **Save Setting** and **Cancel Edit**, supports typing plus Ctrl+A/Ctrl+C, and closing the editor discards the unsaved draft. While a modal editor is open, novel selection, refresh, and load controls are disabled.
 - Added `setting: ""` to the novel creator and `templates/story_bible.json`, so new packages start with an empty Setting field. Existing story bibles are not bulk-migrated or rewritten just by loading them.
 - Generalized safe field writing as `save_story_bible_text_field`, allowing only the `premise` and `setting` keys. It rereads the latest file, preserves all other/unknown JSON keys and nested content, writes via a temporary file and atomic replacement, preserves permission bits, and cancels if the source changes during save. The existing `save_story_bible_premise` function remains as a compatibility wrapper.
-- Regression tests now cover Setting-only changes, retaining Premise/canon rules/unknown keys, rejection of unsupported fields and non-text values, and ensuring new packages get an empty Setting.
-- **Live Setting editor verification is pending.** No real novel or manuscript has been changed by this work. The fixture package currently contains the verified test premise; use it for the first Setting save test.
+- Regression tests cover Setting-only changes, retaining Premise/canon rules/unknown keys, rejection of unsupported fields and non-text values, and ensuring new packages get an empty Setting.
 
-### Next laptop check
+### Switching computers: novel sync
 
-After the latest CI passes, close the current Story Bible app and run:
+- Added **Sync Selected Novel to GitHub** on the View Story Bible tab, reusing `builder.novel_git_sync` and its existing safe repository checks. The confirmation displays the selected package path, branch, remote, local commits ahead of the last fetched upstream, and changed files.
+- **Cancel** starts no Git operation. Confirming runs the sync helper in a background thread, reports success/failure in the status area, and refreshes/reloads the selected Story Bible after a successful fast-forward so remote changes show up in the UI.
+- It operates only in the selected package's own Git repository, not the StoryBuilder code repo. It requires the package to be the root of its own repo with an `origin` and matching `origin/<branch>` upstream. It doesn't create repositories, remotes, branches, or GitHub repos for new packages.
+- The existing helper fetches, only fast-forwards when possible, safely stashes/restores uncommitted changes, checks for unresolved operations/conflicts, refuses divergent histories, and blocks secret/encrypted files. The confirmation is scrollable/copyable.
+- `Story-Bible-Save-Test` is a local-only integration fixture and is explicitly blocked from syncing/publishing. Keep it while adding more fields; do not delete it until Story Bible work is complete.
+- Added `tests/test_story_bible_sync_action.py` to verify the local test fixture is never sent to Git sync and that cancelling the confirmation never invokes the sync operation.
+- The new app, backend changes, tests, and README passed both CI workflows on commit `bd5f459d49e0114e4345049269919a72805e096c`: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/40837883780) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/40837883837).
 
-    cd ~/Documents/StoryBuilder && bash start_story_bible.sh
+### Live laptop status and next check
 
-In **View Story Bible**, select **Story-Bible-Save-Test** and click **Load Story Bible**. You should see both **Premise** and **Setting** previews. Click **Edit Setting**, enter `A temporary setting-edit test on Mars.`, then click **Save Setting**. Do not edit the real The-Long-Way-Home Story Bible. After saving, check the test package's JSON from the terminal to confirm that `setting` was added and `premise` remains exactly the previously verified test text; then we can record the live pass. Keep the test package after verification for future fields.
+- Premise editing passed live on the Surface, including typing, Cancel, Save, and a full JSON verification against the test package at `~/Documents/MyNovel/Story-Bible-Save-Test`. Its known premise is `This is a temporary save test. Only the premise should change.`.
+- Setting editor sync testing is still pending. The test package should be used to verify saving `A temporary setting-edit test on Mars.`; check that Setting changes but the confirmed test Premise is preserved.
+- Sync button is code-tested but not yet live-tested. To try it, close any open Story Bible window, then run `cd ~/Documents/StoryBuilder && bash start_story_bible.sh`. Select a real novel with its own configured GitHub repository and click **Sync Selected Novel to GitHub**. First review the confirmation and choose Cancel to test the preview safely. The local-only test fixture should be blocked. Do not sync/publish the test fixture, and do not change the real `The-Long-Way-Home` Story Bible solely for testing.
 
 ## Minimal Writer checkpoint
 
