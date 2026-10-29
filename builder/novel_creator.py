@@ -67,6 +67,7 @@ def create_novel_package(
             "version": "1.0",
             "status": "active",
             "premise": "",
+            "setting": "",
             "canon_rules": [],
             "character_cards": [],
             "relationships": {},
