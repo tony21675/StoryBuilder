@@ -920,25 +920,6 @@ class StoryBibleApp:
         window.wait_window()
         return selected["button"]
 
-    def _select_all_text(self, widget: tk.Text):
-        widget.tag_add("sel", "1.0", "end-1c")
-        widget.mark_set("insert", "1.0")
-        widget.see("insert")
-        return "break"
-
-    def _copy_selected_text(self, widget: tk.Text):
-        try:
-            selected = widget.get("sel.first", "sel.last")
-        except tk.TclError:
-            return "break"
-        self.root.clipboard_clear()
-        self.root.clipboard_append(selected)
-        try:
-            self.root.update_idletasks()
-        except tk.TclError:
-            pass
-        return "break"
-
     def _set_story_bible_text(self, content: str) -> None:
         self.story_bible_text.configure(state="normal")
         self.story_bible_text.delete("1.0", "end")
