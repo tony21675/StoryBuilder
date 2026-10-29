@@ -6,9 +6,9 @@ StoryBuilder is being rebuilt piece by piece. The current app keeps local-model 
 
 From the Linux laptop:
 
-\`\`\`bash
+```bash
 cd ~/Documents/StoryBuilder && ./start.sh
-\`\`\`
+```
 
 The launcher synchronizes the current StoryBuilder branch before starting the app.
 
@@ -16,16 +16,16 @@ The launcher synchronizes the current StoryBuilder branch before starting the ap
 
 Story Bible is a separate companion app. Start it from the repository folder with:
 
-\`\`\`bash
+```bash
 cd ~/Documents/StoryBuilder && bash start_story_bible.sh
-\`\`\`
+```
 
 It currently has two tabs:
 
-- **Create Novel:** enter a title and optionally customize the folder name. The app creates a new package under the configured novel library (\`STORY_NOVEL_ROOT\`, default \`~/Documents/MyNovel\`), with a \`story_bible.json\` based on the existing template and a \`Manuscript/Chapters/\` directory. It never overwrites an existing destination, initializes Git, or invents story content. The Minimal Writer can discover the new package after **Refresh Novels**.
-- **View Story Bible:** click **Refresh Novels**, select an existing package, and click **Load Story Bible** to display its formatted JSON in a scrollable, read-only text area. The text can be selected and copied with **Ctrl+A**, then **Ctrl+C**. Viewing does not write or save anything. If the file is missing or malformed, the problem is shown in the viewer and the file remains unchanged.
+- **Create Novel:** enter a title and optionally customize the folder name. The app creates a new package under the configured novel library (`STORY_NOVEL_ROOT`, default `~/Documents/MyNovel`), with a `story_bible.json` based on the existing template and a `Manuscript/Chapters/` directory. It never overwrites an existing destination, initializes Git, or invents story content. The Minimal Writer can discover the new package after **Refresh Novels**.
+- **View Story Bible:** click **Refresh Novels**, select an existing package, and click **Load Story Bible** to display its formatted JSON in a scrollable text area. The JSON viewer itself is read-only and copyable with **Ctrl+A**, then **Ctrl+C**. A separate **Premise** field can be edited only after clicking **Edit Premise**. **Save Premise** writes only that field; **Cancel Edit** discards the unsaved text. Other fields remain untouched, including fields this app does not know about. Missing or malformed files are reported without being changed.
 
-The viewer is intentionally read-only. Editing fields, character cards, relationships, locations, or planning is not part of this milestone.
+Premise saves reread the latest file before applying the update, write through an atomic replacement, and stop if the file changes while the save is being prepared. Existing fields and nested data are preserved. Editing other fields, character cards, relationships, locations, or planning is not part of this milestone.
 
 ## What this version does
 
@@ -35,8 +35,8 @@ The viewer is intentionally read-only. Editing fields, character cards, relation
 4. Uses **Write** to replace visible prose while preserving the current model session/context, or **Continue** to append more text to the visible passage.
 5. Uses **New Session** to clear model conversation history without reloading the model or changing the visible draft.
 6. Stops generation on request, keeping any partial text already generated. The model process must be reloaded before writing again.
-7. Lists novel packages found in \`STORY_NOVEL_ROOT\` (default \`~/Documents/MyNovel\`), then lets you choose a chapter and saved scene.
-8. Uses **Load Scene Copy** to read the selected numbered scene \`.txt\` file into the editable area.
+7. Lists novel packages found in `STORY_NOVEL_ROOT` (default `~/Documents/MyNovel`), then lets you choose a chapter and saved scene.
+8. Uses **Load Scene Copy** to read the selected numbered scene `.txt` file into the editable area.
 9. Keeps the accepted source scene out of the ordinary Save target. After loading a scene copy, **Save** opens **Save As**.
 10. Provides **Save to Selected Scene**, a separate action that displays the exact file path and requires confirmation before replacing that scene. Cancel leaves the file unchanged.
 11. Provides **Sync Novel to GitHub** as an explicit, separate action. It shows the selected novel folder, branch, remote, local changes, and local commits before confirmation. It safely fast-forwards when possible, commits the novel's local changes, and pushes only that novel's branch.
@@ -44,28 +44,28 @@ The viewer is intentionally read-only. Editing fields, character cards, relation
 13. Opens other UTF-8 text files, saves ordinary drafts, and warns before replacing a document or closing with unsaved output edits.
 14. Highlights a sentence or paragraph, then either asks the AI for a plain-English revision or provides exact replacement wording. The proposed passage is previewed and editable before **Use Revision** applies it; **Keep Original** leaves it untouched.
 
-The Writer does not load or modify \`current_state.json\`, before/after state JSON, character cards, or other novel state files as part of ordinary writing or syncing. Selected-passage revision changes only the marked text after explicit approval in the preview; it does not save automatically. Direct scene saving is protected by a path-specific confirmation. Novel-to-GitHub syncing requires a second explicit confirmation and operates only inside the selected novel's own Git repository, not StoryBuilder's code repository. It requires an existing \`origin\` and matching \`origin/<current-branch>\` upstream, creates no branches, and stops rather than merging if the local and remote histories have diverged. Local-only secret/encrypted paths found in Git's change list block syncing before staging or pushing. Scene planning, continuity analysis, validators, automatic state changes, and whole-scene automatic rewrites remain outside the active Writer.
+The Writer does not load or modify `current_state.json`, before/after state JSON, character cards, or other novel state files as part of ordinary writing or syncing. Selected-passage revision changes only the marked text after explicit approval in the preview; it does not save automatically. Direct scene saving is protected by a path-specific confirmation. Novel-to-GitHub syncing requires a second explicit confirmation and operates only inside the selected novel's own Git repository, not StoryBuilder's code repository. It requires an existing `origin` and matching `origin/<current-branch>` upstream, creates no branches, and stops rather than merging if the local and remote histories have diverged. Local-only secret/encrypted paths found in Git's change list block syncing before staging or pushing. Scene planning, continuity analysis, validators, automatic state changes, and whole-scene automatic rewrites remain outside the active Writer.
 
 ## Local requirements
 
 By default, StoryBuilder looks for:
 
-- Models: \`~/Documents/Models/*.gguf\`
-- llama.cpp executable: \`~/Documents/llama.cpp/build/bin/llama-cli\`
+- Models: `~/Documents/Models/*.gguf`
+- llama.cpp executable: `~/Documents/llama.cpp/build/bin/llama-cli`
 
-The paths can be changed through the existing environment variables in \`builder/workspace.py\`, including \`STORY_MODELS_DIR\`, \`STORY_LLAMA_PATH\`, and \`STORY_NOVEL_ROOT\`.
+The paths can be changed through the existing environment variables in `builder/workspace.py`, including `STORY_MODELS_DIR`, `STORY_LLAMA_PATH`, and `STORY_NOVEL_ROOT`.
 
-The launcher defaults to a 16,384-token context and 4,000 output tokens, configurable with \`STORY_WRITER_CONTEXT\` and \`STORY_WRITER_MAX_TOKENS\`.
+The launcher defaults to a 16,384-token context and 4,000 output tokens, configurable with `STORY_WRITER_CONTEXT` and `STORY_WRITER_MAX_TOKENS`.
 
 ## Rebuild status and test limits
 
-The active UI is \`minimal_writer.py\` and reuses the existing \`WriterEngine\` with an empty system prompt. The full old application remains in the repository temporarily for recovery; \`start.sh\` opens Minimal Writer.
+The active UI is `minimal_writer.py` and reuses the existing `WriterEngine` with an empty system prompt. The full old application remains in the repository temporarily for recovery; `start.sh` opens Minimal Writer.
 
 The author has confirmed live model generation, continuation, stopping, text-file open/save, Ctrl+A selection, and New Session on the Linux laptop. New Session was tested end to end: it preserved the visible draft, and an unrelated prompt produced a story that did not carry over the previous story's context.
 
-Novel browsing and direct scene saving were tested live on the laptop. The author verified that Cancel leaves Scene 10 untouched, then confirmed a write against a separate disposable test scene and read back the exact saved text. The accepted Scene 10 was left untouched. The first live novel-to-GitHub sync was confirmed on The Long Way Home; the author ran \`git -C ~/Documents/MyNovel/The-Long-Way-Home status -sb\` and received \`## main...origin/main\`.
+Novel browsing and direct scene saving were tested live on the laptop. The author verified that Cancel leaves Scene 10 untouched, then confirmed a write against a separate disposable test scene and read back the exact saved text. The accepted Scene 10 was left untouched. The first live novel-to-GitHub sync was confirmed on The Long Way Home; the author ran `git -C ~/Documents/MyNovel/The-Long-Way-Home status -sb` and received `## main...origin/main`.
 
-Prompt line breaks use llama-cli's \`--multiline-input\` and trailing \`/\` end-of-turn marker. Tests cover paragraph breaks, literal backslashes, returned prose, and streaming. Live checks confirmed paragraph breaks stay distinct, Windows-style paths retain single backslashes, literal \`\\n\` stays literal, and the prompt is not echoed. **Write** replaces visible text but retains model context; **Continue** appends new material using the visible passage ending as context. **New Session** clears the model conversation without reloading weights.
+Prompt line breaks use llama-cli's `--multiline-input` and trailing `/` end-of-turn marker. Tests cover paragraph breaks, literal backslashes, returned prose, and streaming. Live checks confirmed paragraph breaks stay distinct, Windows-style paths retain single backslashes, literal `\\n` stays literal, and the prompt is not echoed. **Write** replaces visible text but retains model context; **Continue** appends new material using the visible passage ending as context. **New Session** clears the model conversation without reloading weights.
 
 ## Popup messages
 
