@@ -32,6 +32,8 @@ class StoryBibleApp:
         self._loaded_novel_label = ""
         self._loaded_premise: str | None = None
         self._premise_editing = False
+        self._premise_editor_window: tk.Toplevel | None = None
+        self._premise_editor_text: tk.Text | None = None
 
         outer = ttk.Frame(root, padding=12)
         outer.pack(fill="both", expand=True)
@@ -151,17 +153,7 @@ class StoryBibleApp:
             premise_buttons, text="Edit Premise", command=self.start_premise_edit,
             state="disabled",
         )
-        self.edit_premise_button.pack(side="left", padx=(0, 8))
-        self.save_premise_button = ttk.Button(
-            premise_buttons, text="Save Premise", command=self.save_premise,
-            state="disabled",
-        )
-        self.save_premise_button.pack(side="left", padx=(0, 8))
-        self.cancel_premise_button = ttk.Button(
-            premise_buttons, text="Cancel Edit", command=self.cancel_premise_edit,
-            state="disabled",
-        )
-        self.cancel_premise_button.pack(side="left")
+        self.edit_premise_button.pack(side="left")
 
         viewer_frame = ttk.Frame(parent)
         viewer_frame.grid(row=5, column=0, sticky="nsew")
@@ -294,26 +286,92 @@ class StoryBibleApp:
         if self._loaded_novel_path is None or self._loaded_premise is None:
             self.viewer_status_var.set("Load a Story Bible with a text premise first.")
             return
+        if self._premise_editing:
+            return
+
         self._premise_editing = True
-        self.premise_text.configure(state="normal")
-        self.premise_text.focus_set()
-        self.edit_premise_button.configure(state="disabled")
-        self.save_premise_button.configure(state="normal")
-        self.cancel_premise_button.configure(state="normal")
+        self._set_premise_controls(editable=True)
         self.novel_combo.configure(state="disabled")
         self.refresh_button.configure(state="disabled")
         self.load_button.configure(state="disabled")
+
+        window = tk.Toplevel(self.root)
+        self._premise_editor_window = window
+        window.title("Edit Premise")
+        window.geometry("720x420")
+        window.minsize(540, 320)
+        window.transient(self.root)
+        window.protocol("WM_DELETE_WINDOW", self.cancel_premise_edit)
+
+        frame = ttk.Frame(window, padding=12)
+        frame.pack(fill="both", expand=True)
+        frame.columnconfigure(0, weight=1)
+        frame.rowconfigure(1, weight=1)
+
+        ttk.Label(
+            frame,
+            text=f"Edit the premise for: {self._loaded_novel_path.name}",
+            font=("TkDefaultFont", 11, "bold"),
+        ).grid(row=0, column=0, sticky="w", pady=(0, 8))
+
+        editor_frame = ttk.Frame(frame)
+        editor_frame.grid(row=1, column=0, sticky="nsew")
+        editor_frame.columnconfigure(0, weight=1)
+        editor_frame.rowconfigure(0, weight=1)
+        editor = tk.Text(
+            editor_frame,
+            wrap="word",
+            state="normal",
+            undo=True,
+            padx=8,
+            pady=8,
+        )
+        self._premise_editor_text = editor
+        scrollbar = ttk.Scrollbar(
+            editor_frame, orient="vertical", command=editor.yview
+        )
+        editor.configure(yscrollcommand=scrollbar.set)
+        editor.grid(row=0, column=0, sticky="nsew")
+        scrollbar.grid(row=0, column=1, sticky="ns")
+        editor.insert("1.0", self._loaded_premise)
+        editor.mark_set("insert", "end-1c")
+        editor.bind("<Control-a>", self._select_all_premise_editor)
+        editor.bind("<Control-A>", self._select_all_premise_editor)
+        editor.bind("<Control-c>", self._copy_selected_premise_editor)
+        editor.bind("<Control-C>", self._copy_selected_premise_editor)
+
+        button_row = ttk.Frame(frame)
+        button_row.grid(row=2, column=0, sticky="w", pady=(10, 0))
+        ttk.Button(
+            button_row, text="Save Premise", command=self.save_premise
+        ).pack(side="left", padx=(0, 8))
+        ttk.Button(
+            button_row, text="Cancel Edit", command=self.cancel_premise_edit
+        ).pack(side="left")
+
+        ttk.Label(
+            frame,
+            text="Only the Premise field will be saved. Cancel discards this draft.",
+            foreground="gray",
+        ).grid(row=3, column=0, sticky="w", pady=(8, 0))
+
+        window.grab_set()
+        window.after_idle(editor.focus_set)
         self.viewer_status_var.set(
-            "Editing Premise. Choose Save Premise to write only this field, "
-            "or Cancel Edit to discard your changes."
+            "Editing premise in a separate window. Save Premise to keep it, "
+            "or Cancel Edit to discard it."
         )
 
     def save_premise(self) -> None:
-        if not self._premise_editing or self._loaded_novel_path is None:
+        if (
+            not self._premise_editing
+            or self._loaded_novel_path is None
+            or self._premise_editor_text is None
+        ):
             self.viewer_status_var.set("Choose Edit Premise before saving.")
             return
 
-        new_premise = self.premise_text.get("1.0", "end-1c")
+        new_premise = self._premise_editor_text.get("1.0", "end-1c")
         try:
             save_story_bible_premise(self._loaded_novel_path, new_premise)
             data = load_story_bible(self._loaded_novel_path)
@@ -333,12 +391,22 @@ class StoryBibleApp:
     def cancel_premise_edit(self) -> None:
         if not self._premise_editing:
             return
-        self._set_premise_text(self._loaded_premise or "")
         self._finish_premise_edit()
         self.viewer_status_var.set("Premise edit cancelled; no file changes were made.")
 
     def _finish_premise_edit(self) -> None:
         self._premise_editing = False
+        window = self._premise_editor_window
+        self._premise_editor_window = None
+        self._premise_editor_text = None
+        if window is not None:
+            try:
+                if window.winfo_exists():
+                    window.grab_release()
+                    window.destroy()
+            except tk.TclError:
+                pass
+
         self._set_premise_text(self._loaded_premise or "")
         self._set_premise_controls(editable=False)
         self.novel_combo.configure(state="readonly")
@@ -347,22 +415,25 @@ class StoryBibleApp:
 
     def _set_premise_controls(self, editable: bool) -> None:
         self._premise_editing = editable
-        self.premise_text.configure(state="normal" if editable else "disabled")
-        has_text_premise = self._loaded_novel_path is not None and self._loaded_premise is not None
+        # The in-page field is always read-only. Typing happens in a dedicated editor.
+        self.premise_text.configure(state="disabled")
+        has_text_premise = (
+            self._loaded_novel_path is not None and self._loaded_premise is not None
+        )
         self.edit_premise_button.configure(
             state="normal" if has_text_premise and not editable else "disabled"
         )
-        self.save_premise_button.configure(state="normal" if editable else "disabled")
-        self.cancel_premise_button.configure(state="normal" if editable else "disabled")
 
     def _set_premise_text(self, content: str) -> None:
         self.premise_text.configure(state="normal")
         self.premise_text.delete("1.0", "end")
         self.premise_text.insert("1.0", content)
-        self.premise_text.configure(state="normal" if self._premise_editing else "disabled")
+        self.premise_text.configure(state="disabled")
         self.premise_text.tag_remove("sel", "1.0", "end")
 
     def _reset_loaded_story_bible(self) -> None:
+        if self._premise_editing:
+            self._finish_premise_edit()
         self._loaded_novel_path = None
         self._loaded_novel_label = ""
         self._loaded_premise = None
@@ -394,6 +465,16 @@ class StoryBibleApp:
 
     def _copy_selected_premise(self, _event=None):
         return self._copy_selected_text(self.premise_text)
+
+    def _select_all_premise_editor(self, _event=None):
+        if self._premise_editor_text is None:
+            return "break"
+        return self._select_all_text(self._premise_editor_text)
+
+    def _copy_selected_premise_editor(self, _event=None):
+        if self._premise_editor_text is None:
+            return "break"
+        return self._copy_selected_text(self._premise_editor_text)
 
     def _select_all_text(self, widget: tk.Text):
         widget.tag_add("sel", "1.0", "end-1c")
