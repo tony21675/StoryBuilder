@@ -34,6 +34,7 @@ class NovelCreatorTests(unittest.TestCase):
             self.assertEqual(story_bible["title"], "The Long Way Home")
             self.assertEqual(story_bible["story_format_version"], "1.0")
             self.assertEqual(story_bible["premise"], "")
+            self.assertEqual(story_bible["setting"], "")
             self.assertEqual(story_bible["canon_rules"], [])
             self.assertEqual(story_bible["character_cards"], [])
 
