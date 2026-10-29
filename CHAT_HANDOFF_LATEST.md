@@ -6,25 +6,26 @@ Date: October 29, 2026
 
 Keep the Minimal Writer stable while building App #2, **Story Bible**, one small, tested feature at a time. The Writer remains the focused prose-writing app; Story Bible is a separate companion for novel setup and reference information. Nothing should save or alter a novel automatically.
 
-## Latest milestone: premise-only Story Bible editing (October 29, 2026)
+## Latest milestone: premise editor reliability fix (October 29, 2026)
 
-App #2 still contains the package creator and the read-only JSON viewer. The viewer now adds one carefully limited edit path for the **Premise** field only.
+The first premise-edit implementation enabled a text field inline, but the author reported that typing did not work after clicking **Edit Premise**. Treat this as a UI bug, not user error. The edit interaction has now been changed to use a dedicated modal editor window.
 
-- Select a novel and click **Load Story Bible**.
-- Click **Edit Premise** to enable the text area. **Save Premise** saves; **Cancel Edit** discards the draft. Novel selection and refresh controls are disabled while editing so the draft cannot be lost accidentally through navigation.
-- The full JSON viewer remains read-only and copyable. After a successful save, it reloads the displayed JSON.
-- Added save_story_bible_premise in builder/story_bible_reader.py. It rereads the latest JSON from disk, changes only the premise key, writes to a temporary file in the same directory, flushes the content, preserves the original permission bits, and atomically replaces the source file. Before replacement it checks that the source has not changed while the save was being prepared. If it has changed, the save is refused and the user can cancel/reload rather than overwrite the newer version.
-- Other fields, including unknown keys, nested data, character-card references, canon rules, and planning fields, are preserved. Invalid JSON and non-text premises are rejected without changing the file. No edits to character cards or other Story Bible fields are part of this milestone.
-- Added regression tests for premise-only changes, preservation of unknown fields, preservation of edits made to other fields before Save, malformed JSON protection, and non-text premise input. Both automated workflows passed on implementation/handoff commit b0f1913c6133f8dc8528b6277a74c0582abf0a72: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/40835737981) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/40835738033).
-- The user previously verified the Create Novel tab live on the Surface and then pasted formatted JSON from the existing The-Long-Way-Home package, confirming the View Story Bible tab loaded and copy/paste worked. **Live verification of the new premise editor and Save/Cancel controls is pending.** No manuscript prose or Story Bible content was changed during implementation.
+- In **View Story Bible**, the premise shown on the main page remains read-only.
+- Clicking **Edit Premise** opens a separate window with an actual editable `tk.Text` field and dedicated **Save Premise** and **Cancel Edit** buttons. The editor receives focus after the window is shown, supports Ctrl+A/Ctrl+C, and closing its window is equivalent to Cancel.
+- The app prevents novel selection and refresh/load actions while the editor is open, preventing accidental loss of the in-progress edit.
+- **Save Premise** still changes only `premise` in the latest JSON, preserves unknown/nested fields, writes atomically, preserves permission bits, and refuses a race where the file changes while a save is being prepared. **Cancel Edit** makes no disk write.
+- Added `save_story_bible_premise` in `builder/story_bible_reader.py`; its automated tests verify premise-only updates, preservation of unknown keys and other recent changes, and refusal to overwrite malformed JSON or invalid premise types.
+- The two workflows passed on the premise backend implementation commit `b0f1913c6133f8dc8528b6277a74c0582abf0a72`: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/40835737981) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/40835738033). The dedicated-window UI fix has now been pushed and is awaiting its new CI result.
+- The author previously verified the package creator and the read-only viewer on the Surface by creating/removing a disposable test package and pasting the existing `The-Long-Way-Home` Story Bible content. The premise editor itself has not yet passed a live typing/cancel/save test.
+- No actual novel or manuscript file was edited by these code changes. Do not test saving by changing the real `The-Long-Way-Home` premise. First verify that the popup accepts typed text and that Cancel closes it without changing the file. Test Save using a disposable package or a separate test file.
 
 ### Next laptop check
 
-After the latest CI passes, close the currently open Story Bible app, then run this command:
+After CI passes, close the currently open Story Bible app, then run:
 
     cd ~/Documents/StoryBuilder && bash start_story_bible.sh
 
-The launcher syncs the current branch before starting the app. In **View Story Bible**, select an existing novel and load its Story Bible. Click **Edit Premise**, change a word, and click **Cancel Edit**. Confirm the original premise text returns and the JSON stays unchanged. To verify saving end-to-end without risking an accepted novel, use a disposable package for this test or tell me before saving any change to a real novel. Do not edit or save the real premise just for verification.
+The launcher syncs the current branch before starting the app. In **View Story Bible**, select an existing novel and click **Load Story Bible**, then click **Edit Premise**. Type a few temporary words in the separate popup, then click **Cancel Edit**. Confirm the popup closes and the main premise/JSON remain unchanged. Do not save the real novel's premise as part of this test.
 
 ## Minimal Writer checkpoint
 
