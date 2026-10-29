@@ -6,26 +6,24 @@ Date: October 29, 2026
 
 Keep the Minimal Writer stable while building App #2, **Story Bible**, one small, tested feature at a time. The Writer remains the focused prose-writing app; Story Bible is a separate companion for novel setup and reference information. Nothing should save or alter a novel automatically.
 
-## Latest milestone: premise editor reliability fix (October 29, 2026)
+## Latest milestone: Setting field editor (October 29, 2026)
 
-The first premise-edit implementation enabled a text field inline, but the author reported that typing did not work after clicking **Edit Premise**. Treat this as a UI bug, not user error. The edit interaction has now been changed to use a dedicated modal editor window.
+App #2 now has two editable text fields: **Premise** and **Setting**. Each opens its own modal text editor with explicit Save and Cancel actions. The main-page previews and full JSON remain read-only.
 
-- In **View Story Bible**, the premise shown on the main page remains read-only.
-- Clicking **Edit Premise** opens a separate window with an actual editable `tk.Text` field and dedicated **Save Premise** and **Cancel Edit** buttons. The editor receives focus after the window is shown, supports Ctrl+A/Ctrl+C, and closing its window is equivalent to Cancel.
-- The app prevents novel selection and refresh/load actions while the editor is open, preventing accidental loss of the in-progress edit.
-- **Save Premise** still changes only `premise` in the latest JSON, preserves unknown/nested fields, writes atomically, preserves permission bits, and refuses a race where the file changes while a save is being prepared. **Cancel Edit** makes no disk write.
-- Added `save_story_bible_premise` in `builder/story_bible_reader.py`; its automated tests verify premise-only updates, preservation of unknown keys and other recent changes, and refusal to overwrite malformed JSON or invalid premise types.
-- The two workflows passed on the premise backend implementation commit `b0f1913c6133f8dc8528b6277a74c0582abf0a72`: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/40835737981) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/40835738033). The dedicated-window UI fix is covered by passing checks: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/40836332104) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/40836332112).
-- The author previously verified the package creator and the read-only viewer on the Surface by creating/removing a disposable test package and pasting the existing `The-Long-Way-Home` Story Bible content. **Live typing/cancel test passed** after the dedicated-window fix: the separate premise editor accepted typing, and the author confirmed it worked after being asked to cancel the edit. **Live Save Premise verification also passed** using the ongoing disposable fixture `~/Documents/MyNovel/Story-Bible-Save-Test`. The author entered the test premise and received success; then a `python3` read-only assertion compared the full saved JSON against the exact expected starter object, including the changed premise and every unchanged field. Terminal output: `PASS: Premise saved correctly; every other Story Bible field is unchanged.`
-- No real novel or manuscript was changed during this milestone. The test package `Story-Bible-Save-Test` is intentionally being retained as an integration-test fixture while more Story Bible fields/features are developed; do not remove it yet or sync/publish it as a real novel. The premise editor has now passed live typing, Cancel, Save, and exact-file verification. Next field editors should reuse the separate-window interaction and retain all unrelated JSON data.
+- **Premise editor live verification passed:** the author typed in the separate editor, Cancel worked, then saved a test premise to the ongoing test package `~/Documents/MyNovel/Story-Bible-Save-Test`. A read-only `python3` assertion confirmed the exact premise and all other starter fields matched. Do not delete this package yet: it is the integration-test fixture while new fields are built. Never publish or sync it as a real novel.
+- **Setting editor implementation:** added a read-only Setting preview and **Edit Setting** button. The separate editor has **Save Setting** and **Cancel Edit**, supports typing plus Ctrl+A/Ctrl+C, and closing the editor discards the unsaved draft. While a modal editor is open, novel selection, refresh, and load controls are disabled.
+- Added `setting: ""` to the novel creator and `templates/story_bible.json`, so new packages start with an empty Setting field. Existing story bibles are not bulk-migrated or rewritten just by loading them.
+- Generalized safe field writing as `save_story_bible_text_field`, allowing only the `premise` and `setting` keys. It rereads the latest file, preserves all other/unknown JSON keys and nested content, writes via a temporary file and atomic replacement, preserves permission bits, and cancels if the source changes during save. The existing `save_story_bible_premise` function remains as a compatibility wrapper.
+- Regression tests now cover Setting-only changes, retaining Premise/canon rules/unknown keys, rejection of unsupported fields and non-text values, and ensuring new packages get an empty Setting.
+- **Live Setting editor verification is pending.** No real novel or manuscript has been changed by this work. The fixture package currently contains the verified test premise; use it for the first Setting save test.
 
 ### Next laptop check
 
-To launch the current version after further code changes, close any open Story Bible window, then run:
+After the latest CI passes, close the current Story Bible app and run:
 
     cd ~/Documents/StoryBuilder && bash start_story_bible.sh
 
-The launcher syncs the current branch before starting the app. In **View Story Bible**, use `Story-Bible-Save-Test` for any further Save-path testing. It currently contains the confirmed test premise. Do not save test changes to the real `The-Long-Way-Home` Story Bible.
+In **View Story Bible**, select **Story-Bible-Save-Test** and click **Load Story Bible**. You should see both **Premise** and **Setting** previews. Click **Edit Setting**, enter `A temporary setting-edit test on Mars.`, then click **Save Setting**. Do not edit the real The-Long-Way-Home Story Bible. After saving, check the test package's JSON from the terminal to confirm that `setting` was added and `premise` remains exactly the previously verified test text; then we can record the live pass. Keep the test package after verification for future fields.
 
 ## Minimal Writer checkpoint
 
