@@ -1,10 +1,10 @@
 # StoryBuilder handoff, current checkpoint
 
-Date: October 28, 2026
+Date: October 29, 2026
 
 ## Direction
 
-Rebuild StoryBuilder piece by piece. Keep the Writer's direct, uncomplicated local-model writing experience, then restore useful workflow pieces incrementally. The active app now has a read-first novel/chapter/scene browser; the next step is live laptop verification, followed by careful restoration of scene saving and explicit novel-to-GitHub syncing. Keep legacy code recoverable. Never overwrite accepted prose as part of a navigation test, and do not modify novel packages or novel state during app recovery.
+Keep the Minimal Writer stable and build App #2, **Story Bible**, separately within this repository. Current App #2 milestone: create an empty novel package that the Writer can discover. Make one focused, testable change at a time. Preserve accepted manuscript prose and existing novel packages. Do not start advanced Story Bible editing/planning until the package creator is live-tested.
 
 ## Minimal Writer, confirmed on laptop
 
@@ -167,12 +167,17 @@ Use `python3`, never `python`, in Linux terminal commands. Keep StoryBuilder on 
 - Regression tests cover prompt targeting, replacing only the selected range, and refusing replacement if the selection changed. Both workflows passed on test commit `d62ef0d8de13f5b2469f94dba39711aeadd6f0c2`: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/40779853981) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/40779854069).
 - **Live laptop/UI/model verification passed on October 28, 2026.** The author reported that both exact-text replacement and AI revision worked. This confirms both paths function in the live Writer; no novel package, accepted manuscript, or story state was changed during implementation or verification.
 
-## Project status: on hold (October 28, 2026)
+## App #2 checkpoint: Story Bible package creator (October 29, 2026)
 
-- The author confirmed they really like how selected-passage revision works and asked to hold the project for now.
-- **Do not start more feature work, refactors, merges, or branch cleanup until the author explicitly resumes the project.** Handoff-only updates are fine when requested.
-- Keep the current working branch `redesign/simplified-writing-workflow`; do not switch or delete branches while the project is on hold.
-- Design preference confirmed by the author: keep Writer actions simple and focused. Let the author highlight the text, explain the desired change in plain English or provide exact replacement wording, review the proposal, and decide whether to apply it. The author stays in control; nothing saves automatically. Use this as a guiding pattern for future discussions, not permission to add features without asking.
-- Last completed milestone: **Revise Selection** for plain-English AI revisions and exact text replacement. Both paths were confirmed working live on the laptop, and automated tests passed. No accepted novel or story state was changed.
+- The author resumed work and approved starting **App #2: Story Bible**. The Minimal Writer remains unchanged by this milestone.
+- Added `story_bible_app.py`, a separate Tkinter app, plus `start_story_bible.sh`. Start it from the repository with `bash start_story_bible.sh`; the launcher first uses the existing safe StoryBuilder branch sync.
+- The first milestone is deliberately small: enter a novel title and optionally customize its folder name, then create a new package under `NOVEL_ROOT` (normally `~/Documents/MyNovel`).
+- Added `builder/novel_creator.py`. New packages contain a `story_bible.json` based on the existing template, with the supplied title and blank story information, plus `Manuscript/Chapters/` so the Writer's scene browser has the expected manuscript root.
+- The creator refuses existing destinations, rejects path traversal, and does not initialize Git, modify other packages, or invent characters/story content. After creation, use **Refresh Novels** in Minimal Writer.
+- Added tests for package discovery, expected starter structure, title/folder-name handling, empty title, unsafe paths, and overwrite protection. Updated CI to check the new app and launcher.
+- Both automated workflows passed on final code/documentation checkpoint `60e37e7abb0a6a9d4f26e8394695c71f31cbaf35`: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/40833702323) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/40833702382).
+- **Live laptop verification is pending.** Do not create a test novel in the author's library until the app is launched locally and the author chooses a disposable title/folder for the test. No actual novel package or manuscript was created or changed during implementation.
+- Keep the working branch `redesign/simplified-writing-workflow`. Do not merge or clean up branches as part of this milestone.
+- Design preference confirmed by the author: keep writing tools simple and focused. In the Writer, the author highlights text, describes a change in plain English or provides exact replacement wording, previews the proposal, and decides whether to apply it. Nothing saves automatically. Use this as a guiding pattern, not permission to add features without discussion.
 
 
