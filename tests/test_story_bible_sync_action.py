@@ -29,6 +29,7 @@ class StoryBibleSyncActionTests(unittest.TestCase):
         app._sync_in_progress = False
         app._premise_editing = False
         app._setting_editing = False
+        app._canon_rules_editing = False
         app.novel_combo = FakeCombo(label)
         app._novel_paths = {label: Path(package)}
         app.viewer_status_var = FakeStatus()
