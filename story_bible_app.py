@@ -16,7 +16,7 @@ from builder.workspace import NOVEL_ROOT
 
 
 class StoryBibleApp:
-    """Create novel packages and view or edit the premise of a Story Bible."""
+    """Create novel packages and view or edit selected text fields in a Story Bible."""
 
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
@@ -422,8 +422,11 @@ class StoryBibleApp:
             return
 
         self._loaded_premise = new_premise
+        setting = data.get("setting", "")
+        self._loaded_setting = setting if isinstance(setting, str) else None
         self._set_story_bible_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
-        self._set_premise_text(new_premise)
+        self._set_premise_text(self._loaded_premise or "")
+        self._set_setting_text(self._loaded_setting or "")
         self._finish_premise_edit()
         self.viewer_status_var.set(
             f"Saved premise only: {self._loaded_novel_path / 'story_bible.json'}. "
@@ -550,12 +553,15 @@ class StoryBibleApp:
             save_story_bible_text_field(self._loaded_novel_path, "setting", new_setting)
             data = load_story_bible(self._loaded_novel_path)
         except (OSError, ValueError, RuntimeError) as exc:
-            self.viewer_status_var.set(f"Setting was not saved:\\n{exc}")
+            self.viewer_status_var.set(f"Setting was not saved:\n{exc}")
             return
 
         self._loaded_setting = new_setting
-        self._set_story_bible_text(json.dumps(data, indent=2, ensure_ascii=False) + "\\n")
-        self._set_setting_text(new_setting)
+        premise = data.get("premise", "")
+        self._loaded_premise = premise if isinstance(premise, str) else None
+        self._set_story_bible_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+        self._set_setting_text(self._loaded_setting)
+        self._set_premise_text(self._loaded_premise or "")
         self._finish_setting_edit()
         self.viewer_status_var.set(
             f"Saved setting only: {self._loaded_novel_path / 'story_bible.json'}. "
