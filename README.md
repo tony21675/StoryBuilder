@@ -12,6 +12,16 @@ cd ~/Documents/StoryBuilder && ./start.sh
 
 The launcher synchronizes the current StoryBuilder branch before starting the app.
 
+## App #2: Story Bible (first milestone)
+
+Story Bible now has a separate initial screen for creating an empty novel package. From the repository folder, run:
+
+```bash
+bash start_story_bible.sh
+```
+
+Enter a novel title and optionally customize the folder name. The app creates a new folder under the configured novel library (`STORY_NOVEL_ROOT`, default `~/Documents/MyNovel`), with a `story_bible.json` based on the existing template and a `Manuscript/Chapters/` directory. The Minimal Writer can discover the package after **Refresh Novels**. Existing paths are never overwritten, and the creator does not initialize Git or invent story content. Editing the Story Bible, characters, and planning are later milestones.
+
 ## What this version does
 
 1. Lists local GGUF models and loads the selected model.
