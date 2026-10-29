@@ -30,9 +30,10 @@ App #2 now contains the package creator, read-only full-JSON viewer, and separat
 ### Live laptop status and next check
 
 - Premise editing passed live on the Surface, including typing, Cancel, Save, and a full JSON verification against the test package at `~/Documents/MyNovel/Story-Bible-Save-Test`. Its known premise is `This is a temporary save test. Only the premise should change.`.
-- **Setting editor live verification passed** on the Surface. The author saved `A temporary setting-edit test on Mars.` to `Story-Bible-Save-Test`, then the read-only `python3` assertion passed: `PASS: Setting saved correctly; premise and title remain unchanged.` This confirms that the saved Setting is exact and the existing Premise and title were preserved.
-- Sync button is code-tested but not yet live-tested. To try it, close any open Story Bible window, then run `cd ~/Documents/StoryBuilder && bash start_story_bible.sh`. Select a real novel with its own configured GitHub repository and click **Sync Selected Novel to GitHub**. First review the confirmation and choose Cancel to test the preview safely. The local-only test fixture should be blocked. Do not sync/publish the test fixture, and do not change the real `The-Long-Way-Home` Story Bible solely for testing.
-
+- **Setting editor live verification passed** on the Surface. The author saved `A temporary setting-edit test on Mars.` to `Story-Bible-Save-Test`, then the read-only `python3` assertion passed: `PASS: Setting saved correctly; premise and title remain unchanged.` The saved Setting was exact and the existing Premise and title were preserved.
+- **Novel sync live verification passed on the Surface.** The confirmation showed `/home/tony/Documents/MyNovel/The-Long-Way-Home`, branch `main`, and remote `https://github.com/tony21675/The-Long-Way-Home.git`. It reported no uncommitted local changes. The author proceeded, and Story Bible reported `synced`; no local file commit was needed. The author first tested Cancel, then completed the sync successfully.
+- **Next check when the author is home: desktop round-trip.** On the desktop, open Story Bible, select `The-Long-Way-Home`, click **Sync Selected Novel to GitHub**, and confirm the result message. This should fetch the latest version from GitHub before switching back to the Surface. No action is needed while away from home.
+- Keep `Story-Bible-Save-Test` local-only and do not delete it until Story Bible feature development is complete. The sync button must continue to block it.
 ## Minimal Writer checkpoint
 
 - Repository: `~/Documents/StoryBuilder`, GitHub `tony21675/StoryBuilder`, working branch `redesign/simplified-writing-workflow`.
