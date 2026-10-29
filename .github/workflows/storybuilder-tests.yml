@@ -37,10 +37,10 @@ jobs:
           python -m pip install -r requirements.txt
 
       - name: Check shell launcher syntax
-        run: bash -n start.sh sync.sh
+        run: bash -n start.sh start_story_bible.sh sync.sh
 
       - name: Compile application and tests
-        run: python -m compileall -q builder storybuilder.py tests
+        run: python -m compileall -q builder storybuilder.py minimal_writer.py story_bible_app.py tests
 
       - name: Run unit tests
         run: python -m unittest discover -s tests -v
