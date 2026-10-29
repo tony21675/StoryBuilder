@@ -34,6 +34,14 @@ App #2 now contains the package creator, read-only full-JSON viewer, and separat
 - **Novel sync live verification passed on the Surface.** The confirmation showed `/home/tony/Documents/MyNovel/The-Long-Way-Home`, branch `main`, and remote `https://github.com/tony21675/The-Long-Way-Home.git`. It reported no uncommitted local changes. The author proceeded, and Story Bible reported `synced`; no local file commit was needed. The author first tested Cancel, then completed the sync successfully.
 - **Desktop round-trip passed.** After the successful Surface sync, the author opened Story Bible on the desktop, selected `The-Long-Way-Home`, ran **Sync Selected Novel to GitHub**, and confirmed the app reported `synced`. This verifies the live two-computer workflow in both directions: Surface push followed by desktop fetch/sync. No local file commit was needed on the Surface. The next time the author switches back to the Surface, they can use the same button to fetch any desktop-side updates before continuing.
 - Keep `Story-Bible-Save-Test` local-only and do not delete it until Story Bible feature development is complete. The sync button must continue to block it.
+### Next Story Bible milestone: Canon Rules editor
+
+- Added a read-only, copyable Canon Rules preview and a separate **Edit Canon Rules** window. The editor uses one rule per line, ignores blank lines, and has explicit Save / Cancel actions. Closing the window cancels the draft.
+- Canon Rules are stored as the existing `canon_rules` array. The dedicated save function updates only that array and uses the same safe atomic-write / changed-on-disk guard as Premise and Setting. The text-field save API remains limited to `premise` and `setting`.
+- Existing non-list or non-text Canon Rules, and existing entries containing line breaks, are displayed but not editable through the line-based editor so their content cannot be silently flattened.
+- Automated tests cover changing only the Canon Rules array, preserving Premise / Setting / unknown fields, and rejecting malformed values without modifying the file. CI and live UI verification are pending.
+- Next: run CI, then test on the Surface using only `Story-Bible-Save-Test`: add a couple of temporary lines, cancel and verify unchanged, then save a separate test and verify that only `canon_rules` changed. Keep the test package local-only and do not delete it yet.
+
 ## Minimal Writer checkpoint
 
 - Repository: `~/Documents/StoryBuilder`, GitHub `tony21675/StoryBuilder`, working branch `redesign/simplified-writing-workflow`.
