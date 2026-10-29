@@ -389,7 +389,7 @@ class StoryBibleApp:
         if self._loaded_novel_path is None or self._loaded_premise is None:
             self.viewer_status_var.set("Load a Story Bible with a text premise first.")
             return
-        if self._premise_editing:
+        if self._premise_editing or self._setting_editing or self._canon_rules_editing:
             return
 
         self._premise_editing = True
@@ -524,7 +524,7 @@ class StoryBibleApp:
         if self._loaded_novel_path is None or self._loaded_setting is None:
             self.viewer_status_var.set("Load a Story Bible with a text setting first.")
             return
-        if self._setting_editing or self._premise_editing:
+        if self._setting_editing or self._premise_editing or self._canon_rules_editing:
             return
 
         self._setting_editing = True
