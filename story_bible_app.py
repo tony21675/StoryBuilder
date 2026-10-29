@@ -141,6 +141,10 @@ class StoryBibleApp:
             pady=6,
         )
         self.premise_text.grid(row=0, column=0, columnspan=3, sticky="ew")
+        self.premise_text.bind("<Control-a>", self._select_all_premise)
+        self.premise_text.bind("<Control-A>", self._select_all_premise)
+        self.premise_text.bind("<Control-c>", self._copy_selected_premise)
+        self.premise_text.bind("<Control-C>", self._copy_selected_premise)
         premise_buttons = ttk.Frame(premise_frame)
         premise_buttons.grid(row=1, column=0, columnspan=3, sticky="w", pady=(8, 0))
         self.edit_premise_button = ttk.Button(
@@ -235,6 +239,7 @@ class StoryBibleApp:
 
         self.novel_combo.configure(values=labels)
         self._reset_loaded_story_bible()
+        self._set_story_bible_text("Choose a novel above, then click Load Story Bible.")
         if labels:
             self.novel_combo.set(labels[0])
             self.viewer_status_var.set(
@@ -379,14 +384,26 @@ class StoryBibleApp:
         self.story_bible_text.tag_remove("sel", "1.0", "end")
 
     def _select_all_story_bible(self, _event=None):
-        self.story_bible_text.tag_add("sel", "1.0", "end-1c")
-        self.story_bible_text.mark_set("insert", "1.0")
-        self.story_bible_text.see("1.0")
-        return "break"
+        return self._select_all_text(self.story_bible_text)
 
     def _copy_selected_story_bible(self, _event=None):
+        return self._copy_selected_text(self.story_bible_text)
+
+    def _select_all_premise(self, _event=None):
+        return self._select_all_text(self.premise_text)
+
+    def _copy_selected_premise(self, _event=None):
+        return self._copy_selected_text(self.premise_text)
+
+    def _select_all_text(self, widget: tk.Text):
+        widget.tag_add("sel", "1.0", "end-1c")
+        widget.mark_set("insert", "1.0")
+        widget.see("1.0")
+        return "break"
+
+    def _copy_selected_text(self, widget: tk.Text):
         try:
-            selected = self.story_bible_text.get("sel.first", "sel.last")
+            selected = widget.get("sel.first", "sel.last")
         except tk.TclError:
             return "break"
         self.root.clipboard_clear()
