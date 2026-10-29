@@ -12,6 +12,7 @@ from builder.story_bible_reader import (
     load_story_bible,
     save_story_bible_premise,
     save_story_bible_text_field,
+    save_story_bible_canon_rules,
 )
 from builder.novel_git_sync import (
     NovelGitSyncError,
@@ -48,6 +49,10 @@ class StoryBibleApp:
         self._setting_editing = False
         self._setting_editor_window: tk.Toplevel | None = None
         self._setting_editor_text: tk.Text | None = None
+        self._loaded_canon_rules: list[str] | None = None
+        self._canon_rules_editing = False
+        self._canon_rules_editor_window: tk.Toplevel | None = None
+        self._canon_rules_editor_text: tk.Text | None = None
         self._sync_in_progress = False
 
         outer = ttk.Frame(root, padding=12)
@@ -114,7 +119,7 @@ class StoryBibleApp:
 
     def _build_view_tab(self, parent: ttk.Frame) -> None:
         parent.columnconfigure(0, weight=1)
-        parent.rowconfigure(7, weight=1)
+        parent.rowconfigure(8, weight=1)
 
         ttk.Label(
             parent, text="View Story Bible", font=("TkDefaultFont", 16, "bold")
@@ -122,8 +127,8 @@ class StoryBibleApp:
         ttk.Label(
             parent,
             text=(
-                "Load an existing Story Bible below. Premise and Setting have separate "
-                "editors; other fields remain untouched."
+                "Load an existing Story Bible below. Premise, Setting, and Canon Rules "
+                "have separate editors; other fields remain untouched."
             ),
             wraplength=760,
         ).grid(row=1, column=0, sticky="w", pady=(4, 12))
@@ -208,8 +213,38 @@ class StoryBibleApp:
         )
         self.edit_setting_button.grid(row=1, column=0, sticky="w", pady=(8, 0))
 
+        canon_rules_frame = ttk.LabelFrame(parent, text="Canon Rules", padding=8)
+        canon_rules_frame.grid(row=7, column=0, sticky="ew", pady=(0, 10))
+        canon_rules_frame.columnconfigure(0, weight=1)
+        self.canon_rules_text = tk.Text(
+            canon_rules_frame,
+            wrap="word",
+            height=4,
+            state="disabled",
+            undo=False,
+            padx=8,
+            pady=6,
+        )
+        self.canon_rules_text.grid(row=0, column=0, sticky="ew")
+        self.canon_rules_text.bind("<Control-a>", self._select_all_canon_rules)
+        self.canon_rules_text.bind("<Control-A>", self._select_all_canon_rules)
+        self.canon_rules_text.bind("<Control-c>", self._copy_selected_canon_rules)
+        self.canon_rules_text.bind("<Control-C>", self._copy_selected_canon_rules)
+        self.edit_canon_rules_button = ttk.Button(
+            canon_rules_frame,
+            text="Edit Canon Rules",
+            command=self.start_canon_rules_edit,
+            state="disabled",
+        )
+        self.edit_canon_rules_button.grid(row=1, column=0, sticky="w", pady=(8, 0))
+        ttk.Label(
+            canon_rules_frame,
+            text="One rule per line. Blank lines are ignored.",
+            foreground="gray",
+        ).grid(row=2, column=0, sticky="w", pady=(6, 0))
+
         viewer_frame = ttk.Frame(parent)
-        viewer_frame.grid(row=7, column=0, sticky="nsew")
+        viewer_frame.grid(row=8, column=0, sticky="nsew")
         viewer_frame.columnconfigure(0, weight=1)
         viewer_frame.rowconfigure(0, weight=1)
 
@@ -240,7 +275,7 @@ class StoryBibleApp:
             anchor="w",
             justify="left",
             wraplength=760,
-        ).grid(row=8, column=0, sticky="ew", pady=(8, 0))
+        ).grid(row=9, column=0, sticky="ew", pady=(8, 0))
 
     def _suggest_folder_name(self, _event=None) -> None:
         if not self._folder_manually_edited:
@@ -331,6 +366,7 @@ class StoryBibleApp:
         self._set_story_bible_text(formatted)
         self._set_premise_controls(editable=False)
         self._set_setting_controls(editable=False)
+        self._load_canon_rules_from_data(data)
         if self._loaded_premise is None:
             self.viewer_status_var.set(
                 f"Loaded: {package / 'story_bible.json'}. "
@@ -340,6 +376,11 @@ class StoryBibleApp:
             self.viewer_status_var.set(
                 f"Loaded: {package / 'story_bible.json'}. "
                 "Setting is not text, so setting editing is disabled."
+            )
+        elif self._loaded_canon_rules is None:
+            self.viewer_status_var.set(
+                f"Loaded: {package / 'story_bible.json'}. "
+                "Canon Rules contain unsupported or multi-line entries, so editing is disabled."
             )
         else:
             self.viewer_status_var.set(f"Loaded read-only: {package / 'story_bible.json'}")
@@ -652,6 +693,8 @@ class StoryBibleApp:
             self._finish_premise_edit()
         if self._setting_editing:
             self._finish_setting_edit()
+        if self._canon_rules_editing:
+            self._finish_canon_rules_edit()
         self._loaded_novel_path = None
         self._loaded_novel_label = ""
         self._loaded_premise = None
@@ -662,6 +705,12 @@ class StoryBibleApp:
         self._setting_editing = False
         self._set_setting_text("")
         self._set_setting_controls(editable=False)
+        self._loaded_canon_rules = None
+        self._canon_rules_editing = False
+        if hasattr(self, "canon_rules_text"):
+            self._set_canon_rules_text("")
+        if hasattr(self, "edit_canon_rules_button"):
+            self._set_canon_rules_controls(editable=False)
         if hasattr(self, "novel_combo"):
             self.novel_combo.configure(state="readonly")
         if hasattr(self, "refresh_button"):
@@ -671,9 +720,221 @@ class StoryBibleApp:
 
 
 
+    def _load_canon_rules_from_data(self, data: dict) -> None:
+        value = data.get("canon_rules", [])
+        if isinstance(value, list) and all(isinstance(rule, str) for rule in value):
+            display_rules = list(value)
+            can_edit = all("\n" not in rule and "\r" not in rule for rule in display_rules)
+            self._loaded_canon_rules = display_rules if can_edit else None
+            preview = self._format_canon_rules_preview(display_rules)
+            if not can_edit:
+                preview += (
+                    "\n\nEditing is disabled because an existing rule spans "
+                    "multiple lines. Its saved text has been left untouched."
+                )
+        else:
+            self._loaded_canon_rules = None
+            preview = (
+                "Canon Rules are not a list of text entries. Editing is disabled "
+                "to preserve the existing data."
+            )
+        self._set_canon_rules_text(preview)
+        self._set_canon_rules_controls(editable=False)
+
+    def start_canon_rules_edit(self) -> None:
+        if self._loaded_novel_path is None or self._loaded_canon_rules is None:
+            self.viewer_status_var.set(
+                "Load a Story Bible with a list of single-line Canon Rules first."
+            )
+            return
+        if self._canon_rules_editing or self._premise_editing or self._setting_editing:
+            return
+
+        self._canon_rules_editing = True
+        self._set_canon_rules_controls(editable=True)
+        self.novel_combo.configure(state="disabled")
+        self.refresh_button.configure(state="disabled")
+        self.load_button.configure(state="disabled")
+
+        window = tk.Toplevel(self.root)
+        self._canon_rules_editor_window = window
+        window.title("Edit Canon Rules")
+        window.geometry("720x480")
+        window.minsize(540, 340)
+        window.transient(self.root)
+        window.protocol("WM_DELETE_WINDOW", self.cancel_canon_rules_edit)
+
+        frame = ttk.Frame(window, padding=12)
+        frame.pack(fill="both", expand=True)
+        frame.columnconfigure(0, weight=1)
+        frame.rowconfigure(1, weight=1)
+
+        ttk.Label(
+            frame,
+            text=(
+                f"Edit canon rules for: {self._loaded_novel_path.name}\n"
+                "Enter one rule per line. Blank lines are ignored."
+            ),
+            font=("TkDefaultFont", 11, "bold"),
+            justify="left",
+        ).grid(row=0, column=0, sticky="w", pady=(0, 8))
+
+        editor_frame = ttk.Frame(frame)
+        editor_frame.grid(row=1, column=0, sticky="nsew")
+        editor_frame.columnconfigure(0, weight=1)
+        editor_frame.rowconfigure(0, weight=1)
+        editor = tk.Text(
+            editor_frame,
+            wrap="word",
+            state="normal",
+            undo=True,
+            padx=8,
+            pady=8,
+        )
+        self._canon_rules_editor_text = editor
+        scrollbar = ttk.Scrollbar(
+            editor_frame, orient="vertical", command=editor.yview
+        )
+        editor.configure(yscrollcommand=scrollbar.set)
+        editor.grid(row=0, column=0, sticky="nsew")
+        scrollbar.grid(row=0, column=1, sticky="ns")
+        editor.insert("1.0", "\n".join(self._loaded_canon_rules))
+        editor.mark_set("insert", "end-1c")
+        editor.bind("<Control-a>", self._select_all_canon_rules_editor)
+        editor.bind("<Control-A>", self._select_all_canon_rules_editor)
+        editor.bind("<Control-c>", self._copy_selected_canon_rules_editor)
+        editor.bind("<Control-C>", self._copy_selected_canon_rules_editor)
+
+        button_row = ttk.Frame(frame)
+        button_row.grid(row=2, column=0, sticky="w", pady=(10, 0))
+        ttk.Button(
+            button_row, text="Save Canon Rules", command=self.save_canon_rules
+        ).pack(side="left", padx=(0, 8))
+        ttk.Button(
+            button_row, text="Cancel Edit", command=self.cancel_canon_rules_edit
+        ).pack(side="left")
+
+        ttk.Label(
+            frame,
+            text="Only the canon_rules list will be saved. Cancel discards this draft.",
+            foreground="gray",
+        ).grid(row=3, column=0, sticky="w", pady=(8, 0))
+
+        window.grab_set()
+        window.after_idle(editor.focus_set)
+        self.viewer_status_var.set(
+            "Editing Canon Rules in a separate window. Save Canon Rules to keep them, "
+            "or Cancel Edit to discard the draft."
+        )
+
+    def save_canon_rules(self) -> None:
+        if (
+            not self._canon_rules_editing
+            or self._loaded_novel_path is None
+            or self._canon_rules_editor_text is None
+        ):
+            self.viewer_status_var.set("Choose Edit Canon Rules before saving.")
+            return
+
+        new_rules = [
+            line.strip()
+            for line in self._canon_rules_editor_text.get("1.0", "end-1c").splitlines()
+            if line.strip()
+        ]
+        try:
+            save_story_bible_canon_rules(self._loaded_novel_path, new_rules)
+            data = load_story_bible(self._loaded_novel_path)
+        except (OSError, ValueError, RuntimeError) as exc:
+            self.viewer_status_var.set(f"Canon Rules were not saved:\n{exc}")
+            return
+
+        premise = data.get("premise", "")
+        self._loaded_premise = premise if isinstance(premise, str) else None
+        setting = data.get("setting", "")
+        self._loaded_setting = setting if isinstance(setting, str) else None
+        self._loaded_canon_rules = new_rules
+        self._set_story_bible_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+        self._set_premise_text(self._loaded_premise or "")
+        self._set_setting_text(self._loaded_setting or "")
+        self._set_canon_rules_text(self._format_canon_rules_preview(new_rules))
+        self._finish_canon_rules_edit()
+        self.viewer_status_var.set(
+            f"Saved Canon Rules only: {self._loaded_novel_path / 'story_bible.json'}. "
+            "Other Story Bible fields were preserved."
+        )
+
+    def cancel_canon_rules_edit(self) -> None:
+        if not self._canon_rules_editing:
+            return
+        self._finish_canon_rules_edit()
+        self.viewer_status_var.set(
+            "Canon Rules edit cancelled; no file changes were made."
+        )
+
+    def _finish_canon_rules_edit(self) -> None:
+        self._canon_rules_editing = False
+        window = self._canon_rules_editor_window
+        self._canon_rules_editor_window = None
+        self._canon_rules_editor_text = None
+        if window is not None:
+            try:
+                if window.winfo_exists():
+                    window.grab_release()
+                    window.destroy()
+            except tk.TclError:
+                pass
+
+        if self._loaded_canon_rules is not None:
+            self._set_canon_rules_text(
+                self._format_canon_rules_preview(self._loaded_canon_rules)
+            )
+        self._set_canon_rules_controls(editable=False)
+        self.novel_combo.configure(state="readonly")
+        self.refresh_button.configure(state="normal")
+        self.load_button.configure(state="normal")
+
+    def _set_canon_rules_controls(self, editable: bool) -> None:
+        has_editable_rules = (
+            self._loaded_novel_path is not None and self._loaded_canon_rules is not None
+        )
+        self.edit_canon_rules_button.configure(
+            state="normal" if has_editable_rules and not editable else "disabled"
+        )
+
+    def _format_canon_rules_preview(self, rules: list[str]) -> str:
+        if not rules:
+            return "No canon rules have been added yet."
+        return "\n\n".join(
+            f"{index}. {rule}" for index, rule in enumerate(rules, start=1)
+        )
+
+    def _set_canon_rules_text(self, content: str) -> None:
+        self.canon_rules_text.configure(state="normal")
+        self.canon_rules_text.delete("1.0", "end")
+        self.canon_rules_text.insert("1.0", content)
+        self.canon_rules_text.configure(state="disabled")
+        self.canon_rules_text.tag_remove("sel", "1.0", "end")
+
+    def _select_all_canon_rules(self, _event=None):
+        return self._select_all_text(self.canon_rules_text)
+
+    def _copy_selected_canon_rules(self, _event=None):
+        return self._copy_selected_text(self.canon_rules_text)
+
+    def _select_all_canon_rules_editor(self, _event=None):
+        if self._canon_rules_editor_text is None:
+            return "break"
+        return self._select_all_text(self._canon_rules_editor_text)
+
+    def _copy_selected_canon_rules_editor(self, _event=None):
+        if self._canon_rules_editor_text is None:
+            return "break"
+        return self._copy_selected_text(self._canon_rules_editor_text)
+
     def sync_selected_novel_to_github(self) -> None:
         """Preview and explicitly confirm syncing only the selected novel repo."""
-        if self._sync_in_progress or self._premise_editing or self._setting_editing:
+        if (self._sync_in_progress or self._premise_editing or self._setting_editing
+                or self._canon_rules_editing):
             return
 
         label = self.novel_combo.get().strip()
@@ -793,9 +1054,11 @@ class StoryBibleApp:
         if busy:
             self.edit_premise_button.configure(state="disabled")
             self.edit_setting_button.configure(state="disabled")
+            self.edit_canon_rules_button.configure(state="disabled")
         else:
             self._set_premise_controls(editable=False)
             self._set_setting_controls(editable=False)
+            self._set_canon_rules_controls(editable=False)
 
     def _novel_sync_succeeded(self, result, synced_path: Path) -> None:
         self._set_sync_busy(False)
