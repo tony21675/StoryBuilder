@@ -5,7 +5,6 @@ from tkinter import messagebox, ttk
 
 from builder.novel_creator import create_novel_package, suggest_folder_name
 from builder.workspace import NOVEL_ROOT
-from minimal_writer import bind_ctrl_a_select_all
 
 
 class StoryBibleApp:
@@ -45,7 +44,9 @@ class StoryBibleApp:
         self.title_entry.bind("<KeyRelease>", self._suggest_folder_name)
 
         ttk.Label(outer, text="Folder name (optional)").pack(anchor="w")
-        ttk.Entry(outer, textvariable=self.folder_var).pack(fill="x", pady=(4, 3))
+        folder_entry = ttk.Entry(outer, textvariable=self.folder_var)
+        folder_entry.pack(fill="x", pady=(4, 3))
+        folder_entry.bind("<KeyRelease>", self._mark_folder_custom)
         ttk.Label(
             outer,
             text="Leave blank to make a safe folder name from the title.",
@@ -75,6 +76,9 @@ class StoryBibleApp:
         # a custom folder name.
         if not self._folder_manually_edited:
             self.folder_var.set(suggest_folder_name(self.title_var.get()))
+
+    def _mark_folder_custom(self, _event=None) -> None:
+        self._folder_manually_edited = True
 
     def create_novel(self) -> None:
         title = self.title_var.get()
