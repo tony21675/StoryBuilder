@@ -17,7 +17,7 @@ Implementation details:
 - Added \`builder/story_bible_reader.py\`, which reads and validates a Story Bible without modifying it.
 - Added \`tests/test_story_bible_reader.py\` for loading, non-modification, missing files, malformed JSON, and non-object JSON.
 - Updated the app and README to document the new tab and its read-only behavior.
-- Code is being committed on \`redesign/simplified-writing-workflow\`. Automated CI status for the latest commits must be checked before treating this milestone as code-verified.
+- Both automated workflows passed on implementation/handoff commit \`50518e3a31ff3ccb2604c136cf3aecf8741482c3\`: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/40835008109) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/40835008114).
 - **Live UI verification of the viewer is still pending.** The user previously confirmed the Create Novel tab worked on the Surface: title-to-folder suggestions, custom folder name, package creation, and correct \`story_bible.json\` plus \`Manuscript/Chapters/\` structure. The disposable \`~/Documents/MyNovel/My-Test-Folder\` package was removed after that test.
 
 ### Next laptop check
