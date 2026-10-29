@@ -7,7 +7,11 @@ from tkinter import messagebox, ttk
 
 from builder.novel_browser import list_novel_packages
 from builder.novel_creator import create_novel_package, suggest_folder_name
-from builder.story_bible_reader import load_story_bible, save_story_bible_premise
+from builder.story_bible_reader import (
+    load_story_bible,
+    save_story_bible_premise,
+    save_story_bible_text_field,
+)
 from builder.workspace import NOVEL_ROOT
 
 
@@ -34,6 +38,10 @@ class StoryBibleApp:
         self._premise_editing = False
         self._premise_editor_window: tk.Toplevel | None = None
         self._premise_editor_text: tk.Text | None = None
+        self._loaded_setting: str | None = None
+        self._setting_editing = False
+        self._setting_editor_window: tk.Toplevel | None = None
+        self._setting_editor_text: tk.Text | None = None
 
         outer = ttk.Frame(root, padding=12)
         outer.pack(fill="both", expand=True)
@@ -99,7 +107,7 @@ class StoryBibleApp:
 
     def _build_view_tab(self, parent: ttk.Frame) -> None:
         parent.columnconfigure(0, weight=1)
-        parent.rowconfigure(5, weight=1)
+        parent.rowconfigure(6, weight=1)
 
         ttk.Label(
             parent, text="View Story Bible", font=("TkDefaultFont", 16, "bold")
@@ -107,8 +115,8 @@ class StoryBibleApp:
         ttk.Label(
             parent,
             text=(
-                "Load an existing Story Bible below. The first editable field is Premise; "
-                "other fields remain untouched."
+                "Load an existing Story Bible below. Premise and Setting have separate "
+                "editors; other fields remain untouched."
             ),
             wraplength=760,
         ).grid(row=1, column=0, sticky="w", pady=(4, 12))
@@ -155,8 +163,33 @@ class StoryBibleApp:
         )
         self.edit_premise_button.pack(side="left")
 
+        setting_frame = ttk.LabelFrame(parent, text="Setting", padding=8)
+        setting_frame.grid(row=5, column=0, sticky="ew", pady=(0, 10))
+        setting_frame.columnconfigure(0, weight=1)
+        self.setting_text = tk.Text(
+            setting_frame,
+            wrap="word",
+            height=3,
+            state="disabled",
+            undo=False,
+            padx=8,
+            pady=6,
+        )
+        self.setting_text.grid(row=0, column=0, sticky="ew")
+        self.setting_text.bind("<Control-a>", self._select_all_setting)
+        self.setting_text.bind("<Control-A>", self._select_all_setting)
+        self.setting_text.bind("<Control-c>", self._copy_selected_setting)
+        self.setting_text.bind("<Control-C>", self._copy_selected_setting)
+        self.edit_setting_button = ttk.Button(
+            setting_frame,
+            text="Edit Setting",
+            command=self.start_setting_edit,
+            state="disabled",
+        )
+        self.edit_setting_button.grid(row=1, column=0, sticky="w", pady=(8, 0))
+
         viewer_frame = ttk.Frame(parent)
-        viewer_frame.grid(row=5, column=0, sticky="nsew")
+        viewer_frame.grid(row=6, column=0, sticky="nsew")
         viewer_frame.columnconfigure(0, weight=1)
         viewer_frame.rowconfigure(0, weight=1)
 
@@ -187,7 +220,7 @@ class StoryBibleApp:
             anchor="w",
             justify="left",
             wraplength=760,
-        ).grid(row=6, column=0, sticky="ew", pady=(8, 0))
+        ).grid(row=7, column=0, sticky="ew", pady=(8, 0))
 
     def _suggest_folder_name(self, _event=None) -> None:
         if not self._folder_manually_edited:
@@ -272,12 +305,21 @@ class StoryBibleApp:
         premise = data.get("premise", "")
         self._loaded_premise = premise if isinstance(premise, str) else None
         self._set_premise_text(premise if isinstance(premise, str) else "")
+        setting = data.get("setting", "")
+        self._loaded_setting = setting if isinstance(setting, str) else None
+        self._set_setting_text(setting if isinstance(setting, str) else "")
         self._set_story_bible_text(formatted)
         self._set_premise_controls(editable=False)
+        self._set_setting_controls(editable=False)
         if self._loaded_premise is None:
             self.viewer_status_var.set(
                 f"Loaded: {package / 'story_bible.json'}. "
                 "Premise is not text, so premise editing is disabled."
+            )
+        elif self._loaded_setting is None:
+            self.viewer_status_var.set(
+                f"Loaded: {package / 'story_bible.json'}. "
+                "Setting is not text, so setting editing is disabled."
             )
         else:
             self.viewer_status_var.set(f"Loaded read-only: {package / 'story_bible.json'}")
@@ -413,6 +455,154 @@ class StoryBibleApp:
         self.refresh_button.configure(state="normal")
         self.load_button.configure(state="normal")
 
+
+    def start_setting_edit(self) -> None:
+        if self._loaded_novel_path is None or self._loaded_setting is None:
+            self.viewer_status_var.set("Load a Story Bible with a text setting first.")
+            return
+        if self._setting_editing or self._premise_editing:
+            return
+
+        self._setting_editing = True
+        self._set_setting_controls(editable=True)
+        self.novel_combo.configure(state="disabled")
+        self.refresh_button.configure(state="disabled")
+        self.load_button.configure(state="disabled")
+
+        window = tk.Toplevel(self.root)
+        self._setting_editor_window = window
+        window.title("Edit Setting")
+        window.geometry("720x420")
+        window.minsize(540, 320)
+        window.transient(self.root)
+        window.protocol("WM_DELETE_WINDOW", self.cancel_setting_edit)
+
+        frame = ttk.Frame(window, padding=12)
+        frame.pack(fill="both", expand=True)
+        frame.columnconfigure(0, weight=1)
+        frame.rowconfigure(1, weight=1)
+
+        ttk.Label(
+            frame,
+            text=f"Edit the setting for: {self._loaded_novel_path.name}",
+            font=("TkDefaultFont", 11, "bold"),
+        ).grid(row=0, column=0, sticky="w", pady=(0, 8))
+
+        editor_frame = ttk.Frame(frame)
+        editor_frame.grid(row=1, column=0, sticky="nsew")
+        editor_frame.columnconfigure(0, weight=1)
+        editor_frame.rowconfigure(0, weight=1)
+        editor = tk.Text(
+            editor_frame,
+            wrap="word",
+            state="normal",
+            undo=True,
+            padx=8,
+            pady=8,
+        )
+        self._setting_editor_text = editor
+        scrollbar = ttk.Scrollbar(
+            editor_frame, orient="vertical", command=editor.yview
+        )
+        editor.configure(yscrollcommand=scrollbar.set)
+        editor.grid(row=0, column=0, sticky="nsew")
+        scrollbar.grid(row=0, column=1, sticky="ns")
+        editor.insert("1.0", self._loaded_setting)
+        editor.mark_set("insert", "end-1c")
+        editor.bind("<Control-a>", self._select_all_setting_editor)
+        editor.bind("<Control-A>", self._select_all_setting_editor)
+        editor.bind("<Control-c>", self._copy_selected_setting_editor)
+        editor.bind("<Control-C>", self._copy_selected_setting_editor)
+
+        button_row = ttk.Frame(frame)
+        button_row.grid(row=2, column=0, sticky="w", pady=(10, 0))
+        ttk.Button(
+            button_row, text="Save Setting", command=self.save_setting
+        ).pack(side="left", padx=(0, 8))
+        ttk.Button(
+            button_row, text="Cancel Edit", command=self.cancel_setting_edit
+        ).pack(side="left")
+
+        ttk.Label(
+            frame,
+            text="Only the Setting field will be saved. Cancel discards this draft.",
+            foreground="gray",
+        ).grid(row=3, column=0, sticky="w", pady=(8, 0))
+
+        window.grab_set()
+        window.after_idle(editor.focus_set)
+        self.viewer_status_var.set(
+            "Editing setting in a separate window. Save Setting to keep it, "
+            "or Cancel Edit to discard it."
+        )
+
+    def save_setting(self) -> None:
+        if (
+            not self._setting_editing
+            or self._loaded_novel_path is None
+            or self._setting_editor_text is None
+        ):
+            self.viewer_status_var.set("Choose Edit Setting before saving.")
+            return
+
+        new_setting = self._setting_editor_text.get("1.0", "end-1c")
+        try:
+            save_story_bible_text_field(self._loaded_novel_path, "setting", new_setting)
+            data = load_story_bible(self._loaded_novel_path)
+        except (OSError, ValueError, RuntimeError) as exc:
+            self.viewer_status_var.set(f"Setting was not saved:\\n{exc}")
+            return
+
+        self._loaded_setting = new_setting
+        self._set_story_bible_text(json.dumps(data, indent=2, ensure_ascii=False) + "\\n")
+        self._set_setting_text(new_setting)
+        self._finish_setting_edit()
+        self.viewer_status_var.set(
+            f"Saved setting only: {self._loaded_novel_path / 'story_bible.json'}. "
+            "Other Story Bible fields were preserved."
+        )
+
+    def cancel_setting_edit(self) -> None:
+        if not self._setting_editing:
+            return
+        self._finish_setting_edit()
+        self.viewer_status_var.set("Setting edit cancelled; no file changes were made.")
+
+    def _finish_setting_edit(self) -> None:
+        self._setting_editing = False
+        window = self._setting_editor_window
+        self._setting_editor_window = None
+        self._setting_editor_text = None
+        if window is not None:
+            try:
+                if window.winfo_exists():
+                    window.grab_release()
+                    window.destroy()
+            except tk.TclError:
+                pass
+
+        self._set_setting_text(self._loaded_setting or "")
+        self._set_setting_controls(editable=False)
+        self.novel_combo.configure(state="readonly")
+        self.refresh_button.configure(state="normal")
+        self.load_button.configure(state="normal")
+
+    def _set_setting_controls(self, editable: bool) -> None:
+        # The on-page field is always read-only; edits use a dedicated window.
+        has_text_setting = (
+            self._loaded_novel_path is not None and self._loaded_setting is not None
+        )
+        self.edit_setting_button.configure(
+            state="normal" if has_text_setting and not editable else "disabled"
+        )
+
+    def _set_setting_text(self, content: str) -> None:
+        self.setting_text.configure(state="normal")
+        self.setting_text.delete("1.0", "end")
+        self.setting_text.insert("1.0", content)
+        self.setting_text.configure(state="disabled")
+        self.setting_text.tag_remove("sel", "1.0", "end")
+
     def _set_premise_controls(self, editable: bool) -> None:
         self._premise_editing = editable
         # The in-page field is always read-only. Typing happens in a dedicated editor.
@@ -434,12 +624,18 @@ class StoryBibleApp:
     def _reset_loaded_story_bible(self) -> None:
         if self._premise_editing:
             self._finish_premise_edit()
+        if self._setting_editing:
+            self._finish_setting_edit()
         self._loaded_novel_path = None
         self._loaded_novel_label = ""
         self._loaded_premise = None
         self._premise_editing = False
         self._set_premise_text("")
         self._set_premise_controls(editable=False)
+        self._loaded_setting = None
+        self._setting_editing = False
+        self._set_setting_text("")
+        self._set_setting_controls(editable=False)
         if hasattr(self, "novel_combo"):
             self.novel_combo.configure(state="readonly")
         if hasattr(self, "refresh_button"):
@@ -466,6 +662,12 @@ class StoryBibleApp:
     def _copy_selected_premise(self, _event=None):
         return self._copy_selected_text(self.premise_text)
 
+    def _select_all_setting(self, _event=None):
+        return self._select_all_text(self.setting_text)
+
+    def _copy_selected_setting(self, _event=None):
+        return self._copy_selected_text(self.setting_text)
+
     def _select_all_premise_editor(self, _event=None):
         if self._premise_editor_text is None:
             return "break"
@@ -475,6 +677,16 @@ class StoryBibleApp:
         if self._premise_editor_text is None:
             return "break"
         return self._copy_selected_text(self._premise_editor_text)
+
+    def _select_all_setting_editor(self, _event=None):
+        if self._setting_editor_text is None:
+            return "break"
+        return self._select_all_text(self._setting_editor_text)
+
+    def _copy_selected_setting_editor(self, _event=None):
+        if self._setting_editor_text is None:
+            return "break"
+        return self._copy_selected_text(self._setting_editor_text)
 
     def _select_all_text(self, widget: tk.Text):
         widget.tag_add("sel", "1.0", "end-1c")
