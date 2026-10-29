@@ -16,16 +16,16 @@ The first premise-edit implementation enabled a text field inline, but the autho
 - **Save Premise** still changes only `premise` in the latest JSON, preserves unknown/nested fields, writes atomically, preserves permission bits, and refuses a race where the file changes while a save is being prepared. **Cancel Edit** makes no disk write.
 - Added `save_story_bible_premise` in `builder/story_bible_reader.py`; its automated tests verify premise-only updates, preservation of unknown keys and other recent changes, and refusal to overwrite malformed JSON or invalid premise types.
 - The two workflows passed on the premise backend implementation commit `b0f1913c6133f8dc8528b6277a74c0582abf0a72`: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/40835737981) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/40835738033). The dedicated-window UI fix is covered by passing checks: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/40836332104) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/40836332112).
-- The author previously verified the package creator and the read-only viewer on the Surface by creating/removing a disposable test package and pasting the existing `The-Long-Way-Home` Story Bible content. **Live typing/cancel test passed** after the dedicated-window fix: the separate premise editor accepted typing, and the author confirmed it worked after being asked to cancel the edit. This test was intended not to save the real novel. **Live Save Premise verification remains pending.**
-- No actual novel or manuscript file was edited by these code changes. Do not test saving by changing the real `The-Long-Way-Home` premise. Typing in the dedicated popup and Cancel are now verified live. Next, test Save using a disposable package or a separate test file.
+- The author previously verified the package creator and the read-only viewer on the Surface by creating/removing a disposable test package and pasting the existing `The-Long-Way-Home` Story Bible content. **Live typing/cancel test passed** after the dedicated-window fix: the separate premise editor accepted typing, and the author confirmed it worked after being asked to cancel the edit. **Live Save Premise verification also passed** using the ongoing disposable fixture `~/Documents/MyNovel/Story-Bible-Save-Test`. The author entered the test premise and received success; then a `python3` read-only assertion compared the full saved JSON against the exact expected starter object, including the changed premise and every unchanged field. Terminal output: `PASS: Premise saved correctly; every other Story Bible field is unchanged.`
+- No real novel or manuscript was changed during this milestone. The test package `Story-Bible-Save-Test` is intentionally being retained as an integration-test fixture while more Story Bible fields/features are developed; do not remove it yet or sync/publish it as a real novel. The premise editor has now passed live typing, Cancel, Save, and exact-file verification. Next field editors should reuse the separate-window interaction and retain all unrelated JSON data.
 
 ### Next laptop check
 
-After CI passes, close the currently open Story Bible app, then run:
+To launch the current version after further code changes, close any open Story Bible window, then run:
 
     cd ~/Documents/StoryBuilder && bash start_story_bible.sh
 
-The launcher syncs the current branch before starting the app. In **View Story Bible**, select an existing novel and click **Load Story Bible**, then click **Edit Premise**. Type a few temporary words in the separate popup, then click **Cancel Edit**. Confirm the popup closes and the main premise/JSON remain unchanged. Do not save the real novel's premise as part of this test.
+The launcher syncs the current branch before starting the app. In **View Story Bible**, use `Story-Bible-Save-Test` for any further Save-path testing. It currently contains the confirmed test premise. Do not save test changes to the real `The-Long-Way-Home` Story Bible.
 
 ## Minimal Writer checkpoint
 
