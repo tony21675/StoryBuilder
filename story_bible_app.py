@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import threading
 import tkinter as tk
 from pathlib import Path
 from tkinter import messagebox, ttk
@@ -11,6 +12,11 @@ from builder.story_bible_reader import (
     load_story_bible,
     save_story_bible_premise,
     save_story_bible_text_field,
+)
+from builder.novel_git_sync import (
+    NovelGitSyncError,
+    inspect_novel_repository,
+    sync_novel_repository,
 )
 from builder.workspace import NOVEL_ROOT
 
@@ -42,6 +48,7 @@ class StoryBibleApp:
         self._setting_editing = False
         self._setting_editor_window: tk.Toplevel | None = None
         self._setting_editor_text: tk.Text | None = None
+        self._sync_in_progress = False
 
         outer = ttk.Frame(root, padding=12)
         outer.pack(fill="both", expand=True)
@@ -107,7 +114,7 @@ class StoryBibleApp:
 
     def _build_view_tab(self, parent: ttk.Frame) -> None:
         parent.columnconfigure(0, weight=1)
-        parent.rowconfigure(6, weight=1)
+        parent.rowconfigure(7, weight=1)
 
         ttk.Label(
             parent, text="View Story Bible", font=("TkDefaultFont", 16, "bold")
@@ -138,8 +145,21 @@ class StoryBibleApp:
         )
         self.load_button.grid(row=0, column=2)
 
+        sync_row = ttk.Frame(parent)
+        sync_row.grid(row=4, column=0, sticky="ew", pady=(0, 10))
+        self.sync_button = ttk.Button(
+            sync_row,
+            text="Sync Selected Novel to GitHub",
+            command=self.sync_selected_novel_to_github,
+        )
+        self.sync_button.pack(side="left")
+        ttk.Label(
+            sync_row,
+            text="Syncs this novel's own repository after you review a confirmation.",
+        ).pack(side="left", padx=(10, 0))
+
         premise_frame = ttk.LabelFrame(parent, text="Premise", padding=8)
-        premise_frame.grid(row=4, column=0, sticky="ew", pady=(0, 10))
+        premise_frame.grid(row=5, column=0, sticky="ew", pady=(0, 10))
         premise_frame.columnconfigure(0, weight=1)
         self.premise_text = tk.Text(
             premise_frame,
@@ -164,7 +184,7 @@ class StoryBibleApp:
         self.edit_premise_button.pack(side="left")
 
         setting_frame = ttk.LabelFrame(parent, text="Setting", padding=8)
-        setting_frame.grid(row=5, column=0, sticky="ew", pady=(0, 10))
+        setting_frame.grid(row=6, column=0, sticky="ew", pady=(0, 10))
         setting_frame.columnconfigure(0, weight=1)
         self.setting_text = tk.Text(
             setting_frame,
@@ -189,7 +209,7 @@ class StoryBibleApp:
         self.edit_setting_button.grid(row=1, column=0, sticky="w", pady=(8, 0))
 
         viewer_frame = ttk.Frame(parent)
-        viewer_frame.grid(row=6, column=0, sticky="nsew")
+        viewer_frame.grid(row=7, column=0, sticky="nsew")
         viewer_frame.columnconfigure(0, weight=1)
         viewer_frame.rowconfigure(0, weight=1)
 
@@ -220,7 +240,7 @@ class StoryBibleApp:
             anchor="w",
             justify="left",
             wraplength=760,
-        ).grid(row=7, column=0, sticky="ew", pady=(8, 0))
+        ).grid(row=8, column=0, sticky="ew", pady=(8, 0))
 
     def _suggest_folder_name(self, _event=None) -> None:
         if not self._folder_manually_edited:
@@ -648,6 +668,276 @@ class StoryBibleApp:
             self.refresh_button.configure(state="normal")
         if hasattr(self, "load_button"):
             self.load_button.configure(state="normal")
+
+
+
+    def sync_selected_novel_to_github(self) -> None:
+        """Preview and explicitly confirm syncing only the selected novel repo."""
+        if self._sync_in_progress or self._premise_editing or self._setting_editing:
+            return
+
+        label = self.novel_combo.get().strip()
+        novel_path = self._novel_paths.get(label)
+        if novel_path is None:
+            self.viewer_status_var.set("Choose a novel before syncing.")
+            return
+
+        # The ongoing fixture is deliberately local-only: never publish test data.
+        test_fixture = (Path(NOVEL_ROOT) / "Story-Bible-Save-Test").resolve()
+        if Path(novel_path).resolve() == test_fixture:
+            self.viewer_status_var.set(
+                "Sync blocked: Story-Bible-Save-Test is a local-only test package."
+            )
+            self._show_copyable_dialog(
+                "Test package not syncable",
+                "Story-Bible-Save-Test is the local integration-test fixture. "
+                "It is intentionally kept out of GitHub and must not be synced or "
+                "published as a real novel. Choose one of your real novel packages "
+                "to sync between computers.",
+            )
+            return
+
+        try:
+            preview = inspect_novel_repository(novel_path)
+        except NovelGitSyncError as exc:
+            self.viewer_status_var.set("Novel sync blocked; no Git operation was started.")
+            self._show_copyable_dialog("Cannot sync novel", str(exc))
+            return
+
+        lines = [
+            "Review the target before syncing:",
+            "",
+            f"Novel folder: {preview.repository}",
+            f"Branch: {preview.branch}",
+            f"GitHub remote: {preview.remote_url}",
+            "",
+            "This operates only inside the selected novel's own Git repository.",
+            "It fetches and fast-forwards safely when possible, commits listed local "
+            "changes, and pushes this existing branch. It does not sync StoryBuilder code.",
+            "If local and GitHub histories have diverged, syncing stops without pushing.",
+            "Local-only secret/encrypted assets block syncing.",
+            "",
+        ]
+        if preview.local_commits:
+            lines.append("Local commits ahead of the last fetched origin branch:")
+            shown_commits = preview.local_commits[:10]
+            lines.extend(f"  • {commit}" for commit in shown_commits)
+            if len(preview.local_commits) > len(shown_commits):
+                lines.append(
+                    f"  • …and {len(preview.local_commits) - len(shown_commits)} more commit(s)"
+                )
+            lines.append("")
+
+        if preview.changed_files:
+            lines.append("Local file changes that may be committed and pushed:")
+            shown_files = preview.changed_files[:20]
+            lines.extend(f"  • {path}" for path in shown_files)
+            if len(preview.changed_files) > len(shown_files):
+                lines.append(
+                    f"  • …and {len(preview.changed_files) - len(shown_files)} more file(s)"
+                )
+        else:
+            lines.append(
+                "No uncommitted local file changes were detected. The sync will still "
+                "fetch remote updates and push this branch if needed."
+            )
+        lines.extend(
+            [
+                "",
+                "Before switching computers, sync here, then use Sync Selected Novel "
+                "to GitHub on the other computer to fetch the latest version.",
+                "",
+                "Proceed with syncing this novel?",
+            ]
+        )
+
+        choice = self._show_copyable_dialog(
+            "Confirm novel sync",
+            "\n".join(lines),
+            buttons=("Sync", "Cancel"),
+            default_button="Cancel",
+        )
+        if choice != "Sync":
+            self.viewer_status_var.set("Novel sync cancelled; no Git operation started.")
+            return
+
+        self._set_sync_busy(True)
+        self.viewer_status_var.set(
+            f"Syncing {novel_path.name} to GitHub on branch {preview.branch}…"
+        )
+
+        def work() -> None:
+            try:
+                result = sync_novel_repository(novel_path)
+            except Exception as exc:
+                message = str(exc)
+                self.root.after(
+                    0, lambda message=message: self._novel_sync_failed(message)
+                )
+            else:
+                self.root.after(
+                    0, lambda result=result: self._novel_sync_succeeded(
+                        result, novel_path
+                    )
+                )
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _set_sync_busy(self, busy: bool) -> None:
+        self._sync_in_progress = busy
+        general_state = "disabled" if busy else "normal"
+        self.novel_combo.configure(state="disabled" if busy else "readonly")
+        self.refresh_button.configure(state=general_state)
+        self.load_button.configure(state=general_state)
+        self.sync_button.configure(state=general_state)
+        if busy:
+            self.edit_premise_button.configure(state="disabled")
+            self.edit_setting_button.configure(state="disabled")
+        else:
+            self._set_premise_controls(editable=False)
+            self._set_setting_controls(editable=False)
+
+    def _novel_sync_succeeded(self, result, synced_path: Path) -> None:
+        self._set_sync_busy(False)
+        self.refresh_novels()
+        selected_label = next(
+            (
+                label
+                for label, path in self._novel_paths.items()
+                if Path(path).resolve() == Path(synced_path).resolve()
+            ),
+            None,
+        )
+        if selected_label is not None:
+            self.novel_combo.set(selected_label)
+            self.load_selected_story_bible()
+        self.viewer_status_var.set(result.message)
+
+    def _novel_sync_failed(self, message: str) -> None:
+        self._set_sync_busy(False)
+        self.viewer_status_var.set("Novel sync failed. Check the message before retrying.")
+        self._show_copyable_dialog("Novel sync failed", message)
+
+    def _show_copyable_dialog(
+        self,
+        title: str,
+        message: str,
+        buttons: tuple[str, ...] = ("OK",),
+        default_button: str | None = None,
+    ) -> str:
+        """Show a selectable, scrollable confirmation/error popup."""
+        if not buttons:
+            raise ValueError("At least one dialog button is required.")
+        if default_button not in buttons:
+            default_button = "Cancel" if "Cancel" in buttons else (
+                "No" if "No" in buttons else buttons[0]
+            )
+
+        try:
+            self.root.update_idletasks()
+            screen_width = self.root.winfo_screenwidth()
+            screen_height = self.root.winfo_screenheight()
+        except tk.TclError:
+            screen_width, screen_height = 1024, 768
+
+        long_message = len(message) > 350 or message.count("\n") > 7
+        width = min(860 if long_message else 560, screen_width - 60)
+        height = min(640 if long_message else 260, screen_height - 80)
+        width, height = max(320, width), max(220, height)
+        window = tk.Toplevel(self.root)
+        window.title(title)
+        window.transient(self.root)
+        window.resizable(True, True)
+        window.geometry(
+            f"{width}x{height}+{max(0, (screen_width-width)//2)}"
+            f"+{max(0, (screen_height-height)//2)}"
+        )
+
+        outer = ttk.Frame(window, padding=12)
+        outer.pack(fill="both", expand=True)
+        ttk.Label(
+            outer,
+            text="Message text: select it and press Ctrl+A, then Ctrl+C to copy.",
+        ).pack(anchor="w", pady=(0, 6))
+
+        text_frame = ttk.Frame(outer)
+        text_frame.pack(fill="both", expand=True)
+        text_frame.columnconfigure(0, weight=1)
+        text_frame.rowconfigure(0, weight=1)
+        text_box = tk.Text(text_frame, wrap="word", undo=False, height=8, width=60)
+        text_scroll = ttk.Scrollbar(
+            text_frame, orient="vertical", command=text_box.yview
+        )
+        text_box.configure(yscrollcommand=text_scroll.set)
+        text_box.grid(row=0, column=0, sticky="nsew")
+        text_scroll.grid(row=0, column=1, sticky="ns")
+        text_box.insert("1.0", message)
+        text_box.bind("<Control-a>", lambda event: self._select_all_text(text_box))
+        text_box.bind("<Control-A>", lambda event: self._select_all_text(text_box))
+        text_box.bind("<Control-c>", lambda event: self._copy_selected_text(text_box))
+        text_box.bind("<Control-C>", lambda event: self._copy_selected_text(text_box))
+
+        def protect_read_only_text(event):
+            if event.state & 0x4 and event.keysym.lower() in {"c", "a"}:
+                return None
+            if event.state & 0x4 and event.keysym.lower() in {"v", "x"}:
+                return "break"
+            if event.keysym in {
+                "BackSpace", "Delete", "Insert", "Return", "KP_Enter", "Tab",
+            }:
+                return "break"
+            if event.char and event.char.isprintable():
+                return "break"
+            return None
+
+        text_box.bind("<KeyPress>", protect_read_only_text)
+        text_box.bind("<<Paste>>", lambda _event: "break")
+        text_box.bind("<<Cut>>", lambda _event: "break")
+        text_box.bind("<<Clear>>", lambda _event: "break")
+
+        selected = {"button": default_button}
+
+        def finish(button: str) -> None:
+            selected["button"] = button
+            try:
+                window.grab_release()
+            except tk.TclError:
+                pass
+            window.destroy()
+
+        window.protocol(
+            "WM_DELETE_WINDOW",
+            lambda: finish("Cancel" if "Cancel" in buttons else default_button),
+        )
+        button_row = ttk.Frame(outer)
+        button_row.pack(fill="x", pady=(10, 0))
+        for label in buttons:
+            ttk.Button(
+                button_row, text=label, command=lambda value=label: finish(value)
+            ).pack(side="right", padx=(8, 0))
+
+        window.grab_set()
+        window.wait_window()
+        return selected["button"]
+
+    def _select_all_text(self, widget: tk.Text):
+        widget.tag_add("sel", "1.0", "end-1c")
+        widget.mark_set("insert", "1.0")
+        widget.see("insert")
+        return "break"
+
+    def _copy_selected_text(self, widget: tk.Text):
+        try:
+            selected = widget.get("sel.first", "sel.last")
+        except tk.TclError:
+            return "break"
+        self.root.clipboard_clear()
+        self.root.clipboard_append(selected)
+        try:
+            self.root.update_idletasks()
+        except tk.TclError:
+            pass
+        return "break"
 
     def _set_story_bible_text(self, content: str) -> None:
         self.story_bible_text.configure(state="normal")
