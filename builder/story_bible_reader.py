@@ -8,6 +8,9 @@ from pathlib import Path
 from typing import Any
 
 
+_TEXT_FIELDS = {"premise", "setting"}
+
+
 def _parse_story_bible(content: bytes, bible_path: Path) -> dict[str, Any]:
     try:
         text = content.decode("utf-8")
@@ -36,14 +39,15 @@ def load_story_bible(novel_path: str | Path) -> dict[str, Any]:
     return _parse_story_bible(bible_path.read_bytes(), bible_path)
 
 
-def save_story_bible_premise(novel_path: str | Path, premise: str) -> Path:
-    """Update only the premise in the latest Story Bible, atomically and safely.
-
-    Existing fields are retained. If the source file changes while the save is
-    being prepared, the write is cancelled rather than overwriting that change.
-    """
-    if not isinstance(premise, str):
-        raise ValueError("Premise must be text.")
+def save_story_bible_text_field(
+    novel_path: str | Path, field_name: str, value: str
+) -> Path:
+    """Update one approved text field, preserving all other data atomically."""
+    if field_name not in _TEXT_FIELDS:
+        allowed = ", ".join(sorted(_TEXT_FIELDS))
+        raise ValueError(f"Only these Story Bible text fields can be edited: {allowed}.")
+    if not isinstance(value, str):
+        raise ValueError(f"{field_name.title()} must be text.")
 
     bible_path = Path(novel_path).expanduser() / "story_bible.json"
     if not bible_path.is_file():
@@ -51,7 +55,7 @@ def save_story_bible_premise(novel_path: str | Path, premise: str) -> Path:
 
     original_bytes = bible_path.read_bytes()
     data = _parse_story_bible(original_bytes, bible_path)
-    data["premise"] = premise
+    data[field_name] = value
     output = (json.dumps(data, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
     original_mode = stat.S_IMODE(bible_path.stat().st_mode)
 
@@ -88,3 +92,8 @@ def save_story_bible_premise(novel_path: str | Path, premise: str) -> Path:
                 pass
 
     return bible_path
+
+
+def save_story_bible_premise(novel_path: str | Path, premise: str) -> Path:
+    """Compatibility wrapper for the premise-only editing workflow."""
+    return save_story_bible_text_field(novel_path, "premise", premise)
