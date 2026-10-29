@@ -30,7 +30,7 @@ App #2 now contains the package creator, read-only full-JSON viewer, and separat
 ### Live laptop status and next check
 
 - Premise editing passed live on the Surface, including typing, Cancel, Save, and a full JSON verification against the test package at `~/Documents/MyNovel/Story-Bible-Save-Test`. Its known premise is `This is a temporary save test. Only the premise should change.`.
-- Setting editor sync testing is still pending. The test package should be used to verify saving `A temporary setting-edit test on Mars.`; check that Setting changes but the confirmed test Premise is preserved.
+- **Setting editor live verification passed** on the Surface. The author saved `A temporary setting-edit test on Mars.` to `Story-Bible-Save-Test`, then the read-only `python3` assertion passed: `PASS: Setting saved correctly; premise and title remain unchanged.` This confirms that the saved Setting is exact and the existing Premise and title were preserved.
 - Sync button is code-tested but not yet live-tested. To try it, close any open Story Bible window, then run `cd ~/Documents/StoryBuilder && bash start_story_bible.sh`. Select a real novel with its own configured GitHub repository and click **Sync Selected Novel to GitHub**. First review the confirmation and choose Cancel to test the preview safely. The local-only test fixture should be blocked. Do not sync/publish the test fixture, and do not change the real `The-Long-Way-Home` Story Bible solely for testing.
 
 ## Minimal Writer checkpoint
