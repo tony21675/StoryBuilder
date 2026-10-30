@@ -4,7 +4,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 from builder.novel_creator import create_novel_package
-from builder.story_bible_reader import load_story_bible
+from builder.story_bible_reader import load_story_bible, load_story_bible_character_card
 from story_bible_app import StoryBibleApp
 
 
@@ -50,6 +50,7 @@ class StoryBibleCharacterCardActionTests(unittest.TestCase):
         app._character_card_role_var = FakeValue(role)
         app._character_card_editor_text = FakeEditor(description)
         app._character_card_edit_index = edit_index
+        app._character_card_filename = None
         app.viewer_status_var = FakeStatus()
         app._load_character_cards_from_data = Mock(
             side_effect=lambda data: setattr(
@@ -61,22 +62,29 @@ class StoryBibleCharacterCardActionTests(unittest.TestCase):
         app._finish_character_card_editor = Mock()
         return app
 
-    def test_add_card_keeps_legacy_text_and_writes_name_role_description(self):
+    def test_add_card_creates_a_json_file_and_preserves_legacy_text_note(self):
         with tempfile.TemporaryDirectory() as temporary:
             package = create_novel_package("A Novel", novel_root=temporary)
+            bible_path = Path(package) / "story_bible.json"
+            import json
+            data = load_story_bible(package)
+            data["character_cards"] = ["Older plain-text card."]
+            bible_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
             app = self.make_app(
                 package,
                 name="Mara",
                 role="Pilot",
                 description="A careful flyer.",
             )
+            app._loaded_character_cards = ["Older plain-text card."]
 
             app.save_character_card()
 
             saved = load_story_bible(package)["character_cards"]
             self.assertEqual(saved[0], "Older plain-text card.")
+            self.assertEqual(saved[-1], "Mara.json")
             self.assertEqual(
-                saved[-1],
+                load_story_bible_character_card(package, "Mara.json"),
                 {
                     "name": "Mara",
                     "role": "Pilot",
@@ -84,8 +92,8 @@ class StoryBibleCharacterCardActionTests(unittest.TestCase):
                 },
             )
             app._finish_character_card_editor.assert_called_once()
-            app._refresh_character_cards_manager.assert_called_once_with(2)
-            self.assertIn("Saved character card 'Mara'", app.viewer_status_var.value)
+            app._refresh_character_cards_manager.assert_called_once_with(1)
+            self.assertIn("Created Mara.json", app.viewer_status_var.value)
 
     def test_edit_card_preserves_metadata_and_all_other_story_bible_fields(self):
         with tempfile.TemporaryDirectory() as temporary:
