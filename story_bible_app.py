@@ -69,6 +69,7 @@ class StoryBibleApp:
         self._character_card_editor_text: tk.Text | None = None
         self._character_card_edit_index: int | None = None
         self._sync_in_progress = False
+        self._view_canvas: tk.Canvas | None = None
 
         outer = ttk.Frame(root, padding=12)
         outer.pack(fill="both", expand=True)
@@ -133,6 +134,41 @@ class StoryBibleApp:
         ).pack(fill="x", pady=(14, 0))
 
     def _build_view_tab(self, parent: ttk.Frame) -> None:
+        # Keep the entire tab in one scrollable surface so lower sections are
+        # reachable even when the app window is shorter than the full form.
+        parent.columnconfigure(0, weight=1)
+        parent.rowconfigure(0, weight=1)
+        scroll_frame = ttk.Frame(parent)
+        scroll_frame.grid(row=0, column=0, sticky="nsew")
+        scroll_frame.columnconfigure(0, weight=1)
+        scroll_frame.rowconfigure(0, weight=1)
+
+        canvas = tk.Canvas(scroll_frame, highlightthickness=0, borderwidth=0)
+        scrollbar = ttk.Scrollbar(
+            scroll_frame, orient="vertical", command=canvas.yview
+        )
+        canvas.configure(yscrollcommand=scrollbar.set)
+        canvas.grid(row=0, column=0, sticky="nsew")
+        scrollbar.grid(row=0, column=1, sticky="ns")
+        content = ttk.Frame(canvas)
+        content_window = canvas.create_window(
+            (0, 0), window=content, anchor="nw"
+        )
+        content.bind(
+            "<Configure>",
+            lambda _event: canvas.configure(scrollregion=canvas.bbox("all")),
+        )
+        canvas.bind(
+            "<Configure>",
+            lambda event: canvas.itemconfigure(content_window, width=event.width),
+        )
+        self._view_canvas = canvas
+        self.root.bind_all("<MouseWheel>", self._on_view_mousewheel, add="+")
+        self.root.bind_all("<Button-4>", self._on_view_mousewheel_linux, add="+")
+        self.root.bind_all("<Button-5>", self._on_view_mousewheel_linux, add="+")
+
+        # All tab content is placed inside the canvas window.
+        parent = content
         parent.columnconfigure(0, weight=1)
         parent.rowconfigure(9, weight=1)
 
@@ -321,6 +357,44 @@ class StoryBibleApp:
             justify="left",
             wraplength=760,
         ).grid(row=10, column=0, sticky="ew", pady=(8, 0))
+
+    def _view_canvas_contains_pointer(self, event) -> bool:
+        canvas = self._view_canvas
+        if canvas is None:
+            return False
+        try:
+            left = canvas.winfo_rootx()
+            top = canvas.winfo_rooty()
+            right = left + canvas.winfo_width()
+            bottom = top + canvas.winfo_height()
+        except tk.TclError:
+            return False
+        return left <= event.x_root < right and top <= event.y_root < bottom
+
+    def _on_view_mousewheel(self, event):
+        if not self._view_canvas_contains_pointer(event):
+            return None
+        delta = int(getattr(event, "delta", 0) or 0)
+        if delta == 0:
+            return "break"
+        if abs(delta) >= 120:
+            units = -int(delta / 120)
+        else:
+            units = -1 if delta > 0 else 1
+        self._view_canvas.yview_scroll(units, "units")
+        return "break"
+
+    def _on_view_mousewheel_linux(self, event):
+        if not self._view_canvas_contains_pointer(event):
+            return None
+        if getattr(event, "num", None) == 4:
+            units = -1
+        elif getattr(event, "num", None) == 5:
+            units = 1
+        else:
+            return None
+        self._view_canvas.yview_scroll(units, "units")
+        return "break"
 
     def _suggest_folder_name(self, _event=None) -> None:
         if not self._folder_manually_edited:
