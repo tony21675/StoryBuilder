@@ -3,7 +3,7 @@ from __future__ import annotations
 import copy
 import json
 import tkinter as tk
-from tkinter import ttk
+from tkinter import messagebox, ttk
 from typing import Any, Callable
 
 
@@ -68,6 +68,7 @@ class CharacterCardEditorWindow:
         self.on_save = on_save
         self.on_cancel = on_cancel
         self.entry_vars: dict[str, tk.StringVar] = {}
+        self._name_entry: ttk.Entry | None = None
         self.text_widgets: dict[str, tk.Text] = {}
         self.list_widgets: dict[str, tk.Text] = {}
         self.appearance_vars: dict[str, tk.StringVar] = {}
@@ -156,9 +157,10 @@ class CharacterCardEditorWindow:
         )
         variable = tk.StringVar(self.window, value=self._display_scalar(value))
         self.entry_vars[key] = variable
-        ttk.Entry(parent, textvariable=variable).grid(
-            row=row + 1, column=0, sticky="ew", pady=(2, 5)
-        )
+        entry = ttk.Entry(parent, textvariable=variable)
+        entry.grid(row=row + 1, column=0, sticky="ew", pady=(2, 5))
+        if key == "name":
+            self._name_entry = entry
         self._set_next_row(parent, row + 2)
         return row + 2
 
@@ -258,19 +260,8 @@ class CharacterCardEditorWindow:
         return "break"
 
     def _focus_name(self) -> None:
-        variable = self.entry_vars.get("name")
-        if variable is None:
-            return
-        # The name entry is the first entry in the first tab.
-        for child in self.window.winfo_children():
-            for nested in child.winfo_children():
-                if isinstance(nested, ttk.Notebook):
-                    page = nested.nametowidget(nested.tabs()[0])
-                    for item in page.winfo_children():
-                        for field in item.winfo_children():
-                            if isinstance(field, ttk.Entry):
-                                field.focus_set()
-                                return
+        if self._name_entry is not None:
+            self._name_entry.focus_set()
 
     def _build_basic_tab(self, parent: ttk.Frame) -> None:
         self._add_entry(parent, "name", "Name", self.original.get("name", ""))
@@ -350,6 +341,8 @@ class CharacterCardEditorWindow:
         )
         self.relationships_widget.grid(row=1, column=0, sticky="nsew")
         relationships = self.original.get("relationships", {})
+        parent.columnconfigure(0, weight=1)
+        parent.rowconfigure(1, weight=1)
         if isinstance(relationships, dict):
             lines = []
             for key, value in relationships.items():
@@ -480,7 +473,7 @@ class CharacterCardEditorWindow:
         try:
             data = self.build_card()
         except ValueError as exc:
-            tk.messagebox.showerror("Character Card needs attention", str(exc), parent=self.window)
+            messagebox.showerror("Character Card needs attention", str(exc), parent=self.window)
             return
         self.on_save(data)
 
