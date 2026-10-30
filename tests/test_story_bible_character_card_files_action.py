@@ -29,8 +29,8 @@ class FakeEditor:
     def __init__(self, content):
         self.content = content
 
-    def get(self, _start, _end):
-        return self.content
+    def build_card(self):
+        return dict(self.content)
 
 
 class FakeListbox:
@@ -119,9 +119,13 @@ class StoryBibleCharacterCardFileActionTests(unittest.TestCase):
         try:
             app = self.make_app(package)
             app._character_card_editor_window = object()
-            app._character_card_name_var = FakeValue("Daniel Okafor")
-            app._character_card_role_var = FakeValue("Senior Biologist")
-            app._character_card_editor_text = FakeEditor("A newly updated description.")
+            app._character_card_editor = FakeEditor(
+                {
+                    "name": "Daniel Okafor",
+                    "role": "Senior Biologist",
+                    "description": "A newly updated description.",
+                }
+            )
             app._character_card_edit_index = 0
             app._character_card_filename = "Daniel_Okafor.json"
             app._load_character_cards_from_data = Mock()
