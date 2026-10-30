@@ -172,16 +172,19 @@ def load_story_bible_character_card(
 
 
 def save_story_bible_character_card_file(
-    novel_path: str | Path, filename: str, updated_card: dict[str, Any]
+    novel_path: str | Path,
+    filename: str,
+    updates: dict[str, Any],
+    *,
+    replace: bool = False,
 ) -> Path:
-    """Save the edited card object; the editor carries forward fields it does not expose."""
-    if not isinstance(updated_card, dict):
+    """Update fields safely; replace=True saves a complete edited card object."""
+    if not isinstance(updates, dict):
         raise ValueError("Character Card data must be a plain field collection.")
     try:
-        json.dumps(updated_card, ensure_ascii=False)
+        json.dumps(updates, ensure_ascii=False)
     except (TypeError, ValueError) as exc:
         raise ValueError("Character Card fields must be compatible with normal saved values.") from exc
-    _validate_character_card_updates(updated_card)
     card_path = _resolve_character_card_path(novel_path, filename)
     if not card_path.is_file():
         raise FileNotFoundError(f"Character card file was not found: {card_path.name}")
@@ -192,7 +195,13 @@ def save_story_bible_character_card_file(
         raise ValueError(f"Character card {filename} is not valid JSON text.") from exc
     if not isinstance(original_data, dict):
         raise ValueError(f"Character card {filename} must contain a JSON object.")
-    return _write_json_file_atomically(card_path, original_bytes, updated_card)
+    if replace:
+        data = updates
+    else:
+        data = dict(original_data)
+        data.update(updates)
+    _validate_character_card_updates(data)
+    return _write_json_file_atomically(card_path, original_bytes, data)
 
 
 def create_story_bible_character_card(
