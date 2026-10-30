@@ -401,6 +401,13 @@ class CharacterCardEditorWindow:
         fields_frame.grid(row=1, column=0, sticky="nsew")
         fields_frame.columnconfigure(1, weight=1)
         self.custom_fields_frame = fields_frame
+        ttk.Label(fields_frame, text="Field name").grid(
+            row=0, column=0, sticky="w", padx=(0, 8)
+        )
+        ttk.Label(fields_frame, text="Value").grid(
+            row=0, column=1, sticky="w"
+        )
+        self._next_custom_row = 1
 
         known = set(_STANDARD_FIELDS)
         for key, value in self.original.items():
