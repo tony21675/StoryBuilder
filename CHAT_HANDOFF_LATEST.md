@@ -55,7 +55,7 @@ App #2 now contains the package creator, read-only full-JSON viewer, and separat
 - Wrapped all **View Story Bible** content in a vertically scrollable Canvas with a scrollbar. The embedded content frame resizes to the viewport width and updates the scroll region as sections change size.
 - Mouse-wheel scrolling works throughout the visible tab, including Linux Button-4 / Button-5 and standard MouseWheel events. Wheel events are ignored when the pointer is outside the view or when the tab is not mapped.
 - All controls, editors, character-card manager, and JSON viewer remain inside the same scrollable tab. The Create Novel tab is unchanged.
-- Added `tests/test_story_bible_view_scrolling.py` for wheel direction, high-resolution deltas, off-tab pointer handling, and Linux wheel buttons. CI and live visual verification are pending.
+- Added `tests/test_story_bible_view_scrolling.py` for wheel direction, high-resolution deltas, off-tab pointer handling, and Linux wheel buttons. Both CI workflows passed: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/41140440410) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/41140440452). Live visual verification on the Surface is pending.
 
 ## Minimal Writer checkpoint
 
