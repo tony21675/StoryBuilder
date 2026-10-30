@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import threading
+from typing import Any
 import tkinter as tk
 from pathlib import Path
 from tkinter import messagebox, ttk
@@ -13,6 +14,7 @@ from builder.story_bible_reader import (
     save_story_bible_premise,
     save_story_bible_text_field,
     save_story_bible_canon_rules,
+    save_story_bible_character_cards,
 )
 from builder.novel_git_sync import (
     NovelGitSyncError,
@@ -53,6 +55,19 @@ class StoryBibleApp:
         self._canon_rules_editing = False
         self._canon_rules_editor_window: tk.Toplevel | None = None
         self._canon_rules_editor_text: tk.Text | None = None
+        self._loaded_character_cards: list[dict[str, Any] | str] | None = None
+        self._character_cards_managing = False
+        self._character_cards_manager_window: tk.Toplevel | None = None
+        self._character_cards_manager_listbox: tk.Listbox | None = None
+        self._character_cards_manager_preview: tk.Text | None = None
+        self._character_cards_add_button: ttk.Button | None = None
+        self._character_cards_edit_button: ttk.Button | None = None
+        self._character_cards_remove_button: ttk.Button | None = None
+        self._character_card_editor_window: tk.Toplevel | None = None
+        self._character_card_name_var: tk.StringVar | None = None
+        self._character_card_role_var: tk.StringVar | None = None
+        self._character_card_editor_text: tk.Text | None = None
+        self._character_card_edit_index: int | None = None
         self._sync_in_progress = False
 
         outer = ttk.Frame(root, padding=12)
@@ -119,7 +134,7 @@ class StoryBibleApp:
 
     def _build_view_tab(self, parent: ttk.Frame) -> None:
         parent.columnconfigure(0, weight=1)
-        parent.rowconfigure(8, weight=1)
+        parent.rowconfigure(9, weight=1)
 
         ttk.Label(
             parent, text="View Story Bible", font=("TkDefaultFont", 16, "bold")
@@ -127,8 +142,8 @@ class StoryBibleApp:
         ttk.Label(
             parent,
             text=(
-                "Load an existing Story Bible below. Premise, Setting, and Canon Rules "
-                "have separate editors; other fields remain untouched."
+                "Load an existing Story Bible below. Premise, Setting, Canon Rules, "
+                "and Character Cards have separate editors; other fields remain untouched."
             ),
             wraplength=760,
         ).grid(row=1, column=0, sticky="w", pady=(4, 12))
@@ -243,8 +258,38 @@ class StoryBibleApp:
             foreground="gray",
         ).grid(row=2, column=0, sticky="w", pady=(6, 0))
 
+        character_cards_frame = ttk.LabelFrame(parent, text="Character Cards", padding=8)
+        character_cards_frame.grid(row=8, column=0, sticky="ew", pady=(0, 10))
+        character_cards_frame.columnconfigure(0, weight=1)
+        self.character_cards_text = tk.Text(
+            character_cards_frame,
+            wrap="word",
+            height=3,
+            state="disabled",
+            undo=False,
+            padx=8,
+            pady=6,
+        )
+        self.character_cards_text.grid(row=0, column=0, sticky="ew")
+        self.character_cards_text.bind("<Control-a>", self._select_all_character_cards)
+        self.character_cards_text.bind("<Control-A>", self._select_all_character_cards)
+        self.character_cards_text.bind("<Control-c>", self._copy_selected_character_cards)
+        self.character_cards_text.bind("<Control-C>", self._copy_selected_character_cards)
+        self.edit_character_cards_button = ttk.Button(
+            character_cards_frame,
+            text="Manage Character Cards",
+            command=self.start_character_cards_manager,
+            state="disabled",
+        )
+        self.edit_character_cards_button.grid(row=1, column=0, sticky="w", pady=(8, 0))
+        ttk.Label(
+            character_cards_frame,
+            text="Structured cards have Name, Role, and Description. Older text cards remain unchanged.",
+            foreground="gray",
+        ).grid(row=2, column=0, sticky="w", pady=(6, 0))
+
         viewer_frame = ttk.Frame(parent)
-        viewer_frame.grid(row=8, column=0, sticky="nsew")
+        viewer_frame.grid(row=9, column=0, sticky="nsew")
         viewer_frame.columnconfigure(0, weight=1)
         viewer_frame.rowconfigure(0, weight=1)
 
@@ -275,7 +320,7 @@ class StoryBibleApp:
             anchor="w",
             justify="left",
             wraplength=760,
-        ).grid(row=9, column=0, sticky="ew", pady=(8, 0))
+        ).grid(row=10, column=0, sticky="ew", pady=(8, 0))
 
     def _suggest_folder_name(self, _event=None) -> None:
         if not self._folder_manually_edited:
@@ -367,6 +412,7 @@ class StoryBibleApp:
         self._set_premise_controls(editable=False)
         self._set_setting_controls(editable=False)
         self._load_canon_rules_from_data(data)
+        self._load_character_cards_from_data(data)
         if self._loaded_premise is None:
             self.viewer_status_var.set(
                 f"Loaded: {package / 'story_bible.json'}. "
@@ -382,6 +428,11 @@ class StoryBibleApp:
                 f"Loaded: {package / 'story_bible.json'}. "
                 "Canon Rules contain unsupported or multi-line entries, so editing is disabled."
             )
+        elif self._loaded_character_cards is None:
+            self.viewer_status_var.set(
+                f"Loaded: {package / 'story_bible.json'}. "
+                "Character Cards contain unsupported data, so editing is disabled."
+            )
         else:
             self.viewer_status_var.set(f"Loaded read-only: {package / 'story_bible.json'}")
 
@@ -389,7 +440,8 @@ class StoryBibleApp:
         if self._loaded_novel_path is None or self._loaded_premise is None:
             self.viewer_status_var.set("Load a Story Bible with a text premise first.")
             return
-        if self._premise_editing or self._setting_editing or self._canon_rules_editing:
+        if (self._premise_editing or self._setting_editing or self._canon_rules_editing
+                or self._character_cards_managing):
             return
 
         self._premise_editing = True
@@ -524,7 +576,8 @@ class StoryBibleApp:
         if self._loaded_novel_path is None or self._loaded_setting is None:
             self.viewer_status_var.set("Load a Story Bible with a text setting first.")
             return
-        if self._setting_editing or self._premise_editing or self._canon_rules_editing:
+        if (self._setting_editing or self._premise_editing or self._canon_rules_editing
+                or self._character_cards_managing):
             return
 
         self._setting_editing = True
@@ -695,6 +748,8 @@ class StoryBibleApp:
             self._finish_setting_edit()
         if self._canon_rules_editing:
             self._finish_canon_rules_edit()
+        if self._character_cards_managing:
+            self.close_character_cards_manager()
         self._loaded_novel_path = None
         self._loaded_novel_label = ""
         self._loaded_premise = None
@@ -711,6 +766,11 @@ class StoryBibleApp:
             self._set_canon_rules_text("")
         if hasattr(self, "edit_canon_rules_button"):
             self._set_canon_rules_controls(editable=False)
+        self._loaded_character_cards = None
+        if hasattr(self, "character_cards_text"):
+            self._set_character_cards_preview("Choose a novel and load its Story Bible.")
+        if hasattr(self, "edit_character_cards_button"):
+            self._set_character_cards_controls(editable=False)
         if hasattr(self, "novel_combo"):
             self.novel_combo.configure(state="readonly")
         if hasattr(self, "refresh_button"):
@@ -747,7 +807,8 @@ class StoryBibleApp:
                 "Load a Story Bible with a list of single-line Canon Rules first."
             )
             return
-        if self._canon_rules_editing or self._premise_editing or self._setting_editing:
+        if (self._canon_rules_editing or self._premise_editing or self._setting_editing
+                or self._character_cards_managing):
             return
 
         self._canon_rules_editing = True
@@ -931,10 +992,462 @@ class StoryBibleApp:
             return "break"
         return self._copy_selected_text(self._canon_rules_editor_text)
 
+    def _load_character_cards_from_data(self, data: dict[str, Any]) -> None:
+        value = data.get("character_cards", [])
+        supported = isinstance(value, list)
+        if supported:
+            for card in value:
+                if isinstance(card, str):
+                    continue
+                if not isinstance(card, dict):
+                    supported = False
+                    break
+                name = card.get("name")
+                if not isinstance(name, str) or not name.strip():
+                    supported = False
+                    break
+                if any(
+                    field in card and not isinstance(card[field], str)
+                    for field in ("role", "description")
+                ):
+                    supported = False
+                    break
+
+        self._loaded_character_cards = list(value) if supported else None
+        if not supported:
+            preview = (
+                "Character Cards contain an unsupported structure. Editing is disabled "
+                "to preserve the existing data."
+            )
+        elif not value:
+            preview = "No character cards have been added yet."
+        else:
+            lines = []
+            for index, card in enumerate(value, start=1):
+                if isinstance(card, dict):
+                    role = card.get("role", "").strip()
+                    label = card["name"] + (f" ({role})" if role else "")
+                else:
+                    label = f"Legacy text card {index}"
+                lines.append(f"{index}. {label}")
+            preview = "\n".join(lines)
+            if any(isinstance(card, str) for card in value):
+                preview += "\n\nOlder plain-text cards are preserved as-is."
+        self._set_character_cards_preview(preview)
+        self._set_character_cards_controls(editable=False)
+
+    def _set_character_cards_preview(self, content: str) -> None:
+        self.character_cards_text.configure(state="normal")
+        self.character_cards_text.delete("1.0", "end")
+        self.character_cards_text.insert("1.0", content)
+        self.character_cards_text.configure(state="disabled")
+        self.character_cards_text.tag_remove("sel", "1.0", "end")
+
+    def _set_character_cards_controls(self, editable: bool) -> None:
+        can_manage = (
+            self._loaded_novel_path is not None and self._loaded_character_cards is not None
+        )
+        self.edit_character_cards_button.configure(
+            state="normal" if can_manage and not editable else "disabled"
+        )
+
+    def _select_all_character_cards(self, _event=None):
+        return self._select_all_text(self.character_cards_text)
+
+    def _copy_selected_character_cards(self, _event=None):
+        return self._copy_selected_text(self.character_cards_text)
+
+    def start_character_cards_manager(self) -> None:
+        if self._loaded_novel_path is None or self._loaded_character_cards is None:
+            self.viewer_status_var.set("Load a Story Bible with a supported Character Cards list first.")
+            return
+        if (self._character_cards_managing or self._premise_editing or self._setting_editing
+                or self._canon_rules_editing or self._sync_in_progress):
+            return
+
+        self._character_cards_managing = True
+        self._set_character_cards_controls(editable=True)
+        self.edit_premise_button.configure(state="disabled")
+        self.edit_setting_button.configure(state="disabled")
+        self.edit_canon_rules_button.configure(state="disabled")
+        self.novel_combo.configure(state="disabled")
+        self.refresh_button.configure(state="disabled")
+        self.load_button.configure(state="disabled")
+        self.sync_button.configure(state="disabled")
+
+        window = tk.Toplevel(self.root)
+        self._character_cards_manager_window = window
+        window.title(f"Character Cards: {self._loaded_novel_path.name}")
+        window.geometry("760x560")
+        window.minsize(620, 440)
+        window.transient(self.root)
+        window.protocol("WM_DELETE_WINDOW", self.close_character_cards_manager)
+
+        frame = ttk.Frame(window, padding=12)
+        frame.pack(fill="both", expand=True)
+        frame.columnconfigure(0, weight=1)
+        frame.columnconfigure(1, weight=2)
+        frame.rowconfigure(1, weight=1)
+
+        ttk.Label(
+            frame, text="Character Cards", font=("TkDefaultFont", 14, "bold")
+        ).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 8))
+
+        list_frame = ttk.Frame(frame)
+        list_frame.grid(row=1, column=0, sticky="nsew", padx=(0, 10))
+        list_frame.columnconfigure(0, weight=1)
+        list_frame.rowconfigure(0, weight=1)
+        cards_list = tk.Listbox(list_frame, height=12, exportselection=False)
+        self._character_cards_manager_listbox = cards_list
+        cards_scroll = ttk.Scrollbar(list_frame, orient="vertical", command=cards_list.yview)
+        cards_list.configure(yscrollcommand=cards_scroll.set)
+        cards_list.grid(row=0, column=0, sticky="nsew")
+        cards_scroll.grid(row=0, column=1, sticky="ns")
+        cards_list.bind("<<ListboxSelect>>", self._character_card_selection_changed)
+
+        preview_frame = ttk.LabelFrame(frame, text="Selected Character", padding=8)
+        preview_frame.grid(row=1, column=1, sticky="nsew")
+        preview_frame.columnconfigure(0, weight=1)
+        preview_frame.rowconfigure(0, weight=1)
+        preview = tk.Text(
+            preview_frame, wrap="word", state="disabled", undo=False, padx=8, pady=8
+        )
+        self._character_cards_manager_preview = preview
+        preview_scroll = ttk.Scrollbar(preview_frame, orient="vertical", command=preview.yview)
+        preview.configure(yscrollcommand=preview_scroll.set)
+        preview.grid(row=0, column=0, sticky="nsew")
+        preview_scroll.grid(row=0, column=1, sticky="ns")
+        preview.bind("<Control-a>", lambda _event: self._select_all_text(preview))
+        preview.bind("<Control-A>", lambda _event: self._select_all_text(preview))
+        preview.bind("<Control-c>", lambda _event: self._copy_selected_text(preview))
+        preview.bind("<Control-C>", lambda _event: self._copy_selected_text(preview))
+
+        button_row = ttk.Frame(frame)
+        button_row.grid(row=2, column=0, columnspan=2, sticky="w", pady=(12, 0))
+        self._character_cards_add_button = ttk.Button(
+            button_row, text="Add Character", command=self.add_character_card
+        )
+        self._character_cards_add_button.pack(side="left", padx=(0, 8))
+        self._character_cards_edit_button = ttk.Button(
+            button_row, text="Edit Selected", command=self.edit_character_card,
+            state="disabled",
+        )
+        self._character_cards_edit_button.pack(side="left", padx=(0, 8))
+        self._character_cards_remove_button = ttk.Button(
+            button_row, text="Remove Selected", command=self.remove_character_card,
+            state="disabled",
+        )
+        self._character_cards_remove_button.pack(side="left", padx=(0, 8))
+        ttk.Button(
+            button_row, text="Close", command=self.close_character_cards_manager
+        ).pack(side="left")
+
+        ttk.Label(
+            frame,
+            text=(
+                "Each structured card has a Name, Role, and Description. "
+                "Older plain-text cards are shown but kept unchanged."
+            ),
+            foreground="gray",
+        ).grid(row=3, column=0, columnspan=2, sticky="w", pady=(10, 0))
+
+        self._refresh_character_cards_manager()
+        window.grab_set()
+        self.viewer_status_var.set(
+            "Managing Character Cards. Add, edit, or remove cards explicitly; each save changes only character_cards."
+        )
+
+    def _refresh_character_cards_manager(self, selected_index: int | None = None) -> None:
+        listbox = self._character_cards_manager_listbox
+        if listbox is None or self._loaded_character_cards is None:
+            return
+        listbox.delete(0, "end")
+        for index, card in enumerate(self._loaded_character_cards, start=1):
+            if isinstance(card, dict):
+                role = card.get("role", "").strip()
+                label = card["name"] + (f" ({role})" if role else "")
+            else:
+                label = f"Legacy text card {index}"
+            listbox.insert("end", label)
+
+        if selected_index is not None and self._loaded_character_cards:
+            selected_index = max(0, min(selected_index, len(self._loaded_character_cards) - 1))
+            listbox.selection_set(selected_index)
+            listbox.activate(selected_index)
+            listbox.see(selected_index)
+            self._character_card_selection_changed()
+        else:
+            self._set_character_card_manager_preview("Select a character to view its details.")
+            self._set_character_card_manager_buttons(None)
+
+    def _set_character_card_manager_preview(self, content: str) -> None:
+        preview = self._character_cards_manager_preview
+        if preview is None:
+            return
+        preview.configure(state="normal")
+        preview.delete("1.0", "end")
+        preview.insert("1.0", content)
+        preview.configure(state="disabled")
+        preview.tag_remove("sel", "1.0", "end")
+
+    def _set_character_card_manager_buttons(self, selected_index: int | None) -> None:
+        if self._character_cards_add_button is not None:
+            self._character_cards_add_button.configure(state="normal")
+        can_edit = (
+            selected_index is not None
+            and self._loaded_character_cards is not None
+            and 0 <= selected_index < len(self._loaded_character_cards)
+            and isinstance(self._loaded_character_cards[selected_index], dict)
+        )
+        state = "normal" if can_edit else "disabled"
+        if self._character_cards_edit_button is not None:
+            self._character_cards_edit_button.configure(state=state)
+        if self._character_cards_remove_button is not None:
+            self._character_cards_remove_button.configure(state=state)
+
+    def _character_card_selection_changed(self, _event=None) -> None:
+        listbox = self._character_cards_manager_listbox
+        if listbox is None or self._loaded_character_cards is None:
+            return
+        selection = listbox.curselection()
+        if not selection:
+            self._set_character_card_manager_preview("Select a character to view its details.")
+            self._set_character_card_manager_buttons(None)
+            return
+        index = int(selection[0])
+        card = self._loaded_character_cards[index]
+        if isinstance(card, dict):
+            preview = (
+                f"Name: {card['name']}\n"
+                f"Role: {card.get('role', '')}\n\n"
+                f"Description:\n{card.get('description', '')}"
+            )
+        else:
+            preview = (
+                "This is an older plain-text character card. It is preserved as-is "
+                "and is not editable in this structured editor.\n\n" + card
+            )
+        self._set_character_card_manager_preview(preview)
+        self._set_character_card_manager_buttons(index)
+
+    def add_character_card(self) -> None:
+        self._open_character_card_editor(None)
+
+    def edit_character_card(self) -> None:
+        listbox = self._character_cards_manager_listbox
+        if listbox is None:
+            return
+        selection = listbox.curselection()
+        if not selection:
+            self.viewer_status_var.set("Select a structured character card to edit.")
+            return
+        index = int(selection[0])
+        if self._loaded_character_cards is None or not isinstance(self._loaded_character_cards[index], dict):
+            self.viewer_status_var.set("Older plain-text cards are kept unchanged.")
+            return
+        self._open_character_card_editor(index)
+
+    def _open_character_card_editor(self, edit_index: int | None) -> None:
+        if self._character_card_editor_window is not None or self._loaded_character_cards is None:
+            return
+        self._character_card_edit_index = edit_index
+        existing = self._loaded_character_cards[edit_index] if edit_index is not None else {}
+        self._character_card_name_var = tk.StringVar(self.root, value=existing.get("name", ""))
+        self._character_card_role_var = tk.StringVar(self.root, value=existing.get("role", ""))
+
+        window = tk.Toplevel(self._character_cards_manager_window)
+        self._character_card_editor_window = window
+        window.title("Edit Character" if edit_index is not None else "Add Character")
+        window.geometry("640x540")
+        window.minsize(520, 420)
+        window.transient(self._character_cards_manager_window)
+        window.protocol("WM_DELETE_WINDOW", self.cancel_character_card_edit)
+
+        frame = ttk.Frame(window, padding=12)
+        frame.pack(fill="both", expand=True)
+        frame.columnconfigure(0, weight=1)
+        frame.rowconfigure(5, weight=1)
+        ttk.Label(frame, text="Name").grid(row=0, column=0, sticky="w")
+        name_entry = ttk.Entry(frame, textvariable=self._character_card_name_var)
+        name_entry.grid(row=1, column=0, sticky="ew", pady=(3, 10))
+        ttk.Label(frame, text="Role").grid(row=2, column=0, sticky="w")
+        role_entry = ttk.Entry(frame, textvariable=self._character_card_role_var)
+        role_entry.grid(row=3, column=0, sticky="ew", pady=(3, 10))
+        ttk.Label(frame, text="Description").grid(row=4, column=0, sticky="w")
+
+        description_frame = ttk.Frame(frame)
+        description_frame.grid(row=5, column=0, sticky="nsew")
+        description_frame.columnconfigure(0, weight=1)
+        description_frame.rowconfigure(0, weight=1)
+        editor = tk.Text(description_frame, wrap="word", undo=True, padx=8, pady=8)
+        self._character_card_editor_text = editor
+        editor_scroll = ttk.Scrollbar(description_frame, orient="vertical", command=editor.yview)
+        editor.configure(yscrollcommand=editor_scroll.set)
+        editor.grid(row=0, column=0, sticky="nsew")
+        editor_scroll.grid(row=0, column=1, sticky="ns")
+        if edit_index is not None:
+            editor.insert("1.0", existing.get("description", ""))
+        editor.bind("<Control-a>", lambda _event: self._select_all_text(editor))
+        editor.bind("<Control-A>", lambda _event: self._select_all_text(editor))
+        editor.bind("<Control-c>", lambda _event: self._copy_selected_text(editor))
+        editor.bind("<Control-C>", lambda _event: self._copy_selected_text(editor))
+
+        button_row = ttk.Frame(frame)
+        button_row.grid(row=6, column=0, sticky="w", pady=(10, 0))
+        ttk.Button(button_row, text="Save Character", command=self.save_character_card).pack(side="left", padx=(0, 8))
+        ttk.Button(button_row, text="Cancel Edit", command=self.cancel_character_card_edit).pack(side="left")
+        ttk.Label(
+            frame,
+            text="Name is required. Save Character keeps this card; Cancel discards the draft.",
+            foreground="gray",
+        ).grid(row=7, column=0, sticky="w", pady=(8, 0))
+
+        window.grab_set()
+        window.after_idle(name_entry.focus_set)
+
+    def save_character_card(self) -> None:
+        if (
+            self._character_card_editor_window is None
+            or self._loaded_novel_path is None
+            or self._loaded_character_cards is None
+            or self._character_card_name_var is None
+            or self._character_card_role_var is None
+            or self._character_card_editor_text is None
+        ):
+            self.viewer_status_var.set("Open Add Character or Edit Selected before saving.")
+            return
+        name = self._character_card_name_var.get().strip()
+        if not name:
+            self.viewer_status_var.set("Character was not saved. Enter a name first.")
+            return
+        role = self._character_card_role_var.get().strip()
+        description = self._character_card_editor_text.get("1.0", "end-1c")
+        cards = list(self._loaded_character_cards)
+        new_card = {"name": name, "role": role, "description": description}
+        if self._character_card_edit_index is None:
+            cards.append(new_card)
+            selected_index = len(cards) - 1
+        else:
+            selected_index = self._character_card_edit_index
+            if not 0 <= selected_index < len(cards) or not isinstance(cards[selected_index], dict):
+                self.viewer_status_var.set("Character was not saved. Reload the Character Cards list.")
+                return
+            updated_card = dict(cards[selected_index])
+            updated_card.update(new_card)
+            cards[selected_index] = updated_card
+
+        try:
+            save_story_bible_character_cards(self._loaded_novel_path, cards)
+            data = load_story_bible(self._loaded_novel_path)
+        except (OSError, ValueError, RuntimeError) as exc:
+            self.viewer_status_var.set(f"Character was not saved:\n{exc}")
+            return
+        self._loaded_character_cards = list(data.get("character_cards", []))
+        self._load_character_cards_from_data(data)
+        self._set_story_bible_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+        self._refresh_character_cards_manager(selected_index)
+        self._finish_character_card_editor()
+        self.viewer_status_var.set(
+            f"Saved character card '{name}' only. Other Story Bible fields were preserved."
+        )
+
+    def cancel_character_card_edit(self) -> None:
+        if self._character_card_editor_window is None:
+            return
+        self._finish_character_card_editor()
+        self.viewer_status_var.set("Character edit cancelled; no file changes were made.")
+
+    def _finish_character_card_editor(self) -> None:
+        window = self._character_card_editor_window
+        self._character_card_editor_window = None
+        self._character_card_editor_text = None
+        self._character_card_name_var = None
+        self._character_card_role_var = None
+        self._character_card_edit_index = None
+        if window is not None:
+            try:
+                if window.winfo_exists():
+                    window.grab_release()
+                    window.destroy()
+            except tk.TclError:
+                pass
+        if self._character_cards_manager_window is not None:
+            try:
+                self._character_cards_manager_window.grab_set()
+            except tk.TclError:
+                pass
+        self._character_card_selection_changed()
+
+    def remove_character_card(self) -> None:
+        listbox = self._character_cards_manager_listbox
+        cards = self._loaded_character_cards
+        if listbox is None or cards is None:
+            return
+        selection = listbox.curselection()
+        if not selection:
+            self.viewer_status_var.set("Select a structured character card to remove.")
+            return
+        index = int(selection[0])
+        card = cards[index]
+        if not isinstance(card, dict):
+            self.viewer_status_var.set("Older plain-text cards are kept unchanged.")
+            return
+        name = card["name"]
+        confirmed = messagebox.askyesno(
+            "Remove Character Card",
+            f"Remove '{name}' from this Story Bible? Only this character card will be removed.",
+            parent=self._character_cards_manager_window,
+        )
+        if not confirmed:
+            return
+        updated_cards = list(cards)
+        updated_cards.pop(index)
+        try:
+            save_story_bible_character_cards(self._loaded_novel_path, updated_cards)
+            data = load_story_bible(self._loaded_novel_path)
+        except (OSError, ValueError, RuntimeError) as exc:
+            self.viewer_status_var.set(f"Character card was not removed:\n{exc}")
+            return
+        self._load_character_cards_from_data(data)
+        self._set_story_bible_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+        next_index = min(index, len(updated_cards) - 1) if updated_cards else None
+        self._refresh_character_cards_manager(next_index)
+        self.viewer_status_var.set(
+            f"Removed character card '{name}'. Other Story Bible fields were preserved."
+        )
+
+    def close_character_cards_manager(self) -> None:
+        if self._character_card_editor_window is not None:
+            self.cancel_character_card_edit()
+        window = self._character_cards_manager_window
+        self._character_cards_manager_window = None
+        self._character_cards_manager_listbox = None
+        self._character_cards_manager_preview = None
+        self._character_cards_add_button = None
+        self._character_cards_edit_button = None
+        self._character_cards_remove_button = None
+        self._character_cards_managing = False
+        if window is not None:
+            try:
+                if window.winfo_exists():
+                    window.grab_release()
+                    window.destroy()
+            except tk.TclError:
+                pass
+        self.novel_combo.configure(state="readonly")
+        self.refresh_button.configure(state="normal")
+        self.load_button.configure(state="normal")
+        self.sync_button.configure(state="normal")
+        self._set_premise_controls(editable=False)
+        self._set_setting_controls(editable=False)
+        self._set_canon_rules_controls(editable=False)
+        self._set_character_cards_controls(editable=False)
+
     def sync_selected_novel_to_github(self) -> None:
         """Preview and explicitly confirm syncing only the selected novel repo."""
         if (self._sync_in_progress or self._premise_editing or self._setting_editing
-                or self._canon_rules_editing):
+                or self._canon_rules_editing or self._character_cards_managing
+                or self._character_card_editor_window is not None):
             return
 
         label = self.novel_combo.get().strip()
@@ -1055,10 +1568,12 @@ class StoryBibleApp:
             self.edit_premise_button.configure(state="disabled")
             self.edit_setting_button.configure(state="disabled")
             self.edit_canon_rules_button.configure(state="disabled")
+            self.edit_character_cards_button.configure(state="disabled")
         else:
             self._set_premise_controls(editable=False)
             self._set_setting_controls(editable=False)
             self._set_canon_rules_controls(editable=False)
+            self._set_character_cards_controls(editable=False)
 
     def _novel_sync_succeeded(self, result, synced_path: Path) -> None:
         self._set_sync_busy(False)
