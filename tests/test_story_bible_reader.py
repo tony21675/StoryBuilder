@@ -9,6 +9,7 @@ from builder.story_bible_reader import (
     save_story_bible_premise,
     save_story_bible_text_field,
     save_story_bible_canon_rules,
+    save_story_bible_character_cards,
 )
 
 
@@ -180,5 +181,48 @@ class StoryBibleReaderTests(unittest.TestCase):
                 save_story_bible_canon_rules(package, ["first line\nsecond line"])
             self.assertEqual(bible_path.read_bytes(), original)
 
+    def test_save_character_cards_changes_only_cards_and_preserves_legacy_entries(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            package = create_novel_package("A Novel", novel_root=temporary)
+            bible_path = package / "story_bible.json"
+            original = json.loads(bible_path.read_text(encoding="utf-8"))
+            original["premise"] = "Keep the premise."
+            original["setting"] = "Keep the setting."
+            original["canon_rules"] = ["Keep this rule."]
+            original["custom_field"] = {"nested": ["preserve", "this"]}
+            bible_path.write_text(json.dumps(original, indent=2) + "\n", encoding="utf-8")
+            cards = [
+                "Older plain-text character note.",
+                {"name": "Mara", "role": "Pilot", "description": "A careful flyer.", "custom_id": 17},
+                {"name": "Ilan", "role": "Medic", "description": "Keeps the crew steady."},
+            ]
+
+            save_story_bible_character_cards(package, cards)
+
+            saved = json.loads(bible_path.read_text(encoding="utf-8"))
+            expected = dict(original)
+            expected["character_cards"] = cards
+            self.assertEqual(saved, expected)
+            self.assertEqual(saved["premise"], "Keep the premise.")
+            self.assertEqual(saved["setting"], "Keep the setting.")
+            self.assertEqual(saved["canon_rules"], ["Keep this rule."])
+            self.assertEqual(saved["custom_field"], {"nested": ["preserve", "this"]})
+
+    def test_save_character_cards_rejects_malformed_entries_without_modifying_file(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            package = create_novel_package("A Novel", novel_root=temporary)
+            bible_path = package / "story_bible.json"
+            original = bible_path.read_bytes()
+            invalid_cards = [
+                "not a list",
+                [42],
+                [{"role": "Pilot", "description": "No name."}],
+                [{"name": "Mara", "role": 3, "description": "Bad role."}],
+            ]
+            for cards in invalid_cards:
+                with self.subTest(cards=cards):
+                    with self.assertRaises(ValueError):
+                        save_story_bible_character_cards(package, cards)
+                    self.assertEqual(bible_path.read_bytes(), original)
 if __name__ == "__main__":
     unittest.main()
