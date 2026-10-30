@@ -28,8 +28,8 @@ class FakeEditor:
     def __init__(self, content):
         self.content = content
 
-    def get(self, _start, _end):
-        return self.content
+    def build_card(self):
+        return dict(self.content)
 
 
 class StoryBibleCharacterCardActionTests(unittest.TestCase):
@@ -48,7 +48,9 @@ class StoryBibleCharacterCardActionTests(unittest.TestCase):
         ]
         app._character_card_name_var = FakeValue(name)
         app._character_card_role_var = FakeValue(role)
-        app._character_card_editor_text = FakeEditor(description)
+        app._character_card_editor = FakeEditor(
+            {"name": name, "role": role, "description": description}
+        )
         app._character_card_edit_index = edit_index
         app._character_card_filename = None
         app.viewer_status_var = FakeStatus()
