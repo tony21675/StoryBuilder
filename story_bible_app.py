@@ -15,6 +15,10 @@ from builder.story_bible_reader import (
     save_story_bible_text_field,
     save_story_bible_canon_rules,
     save_story_bible_character_cards,
+    load_story_bible_character_card,
+    save_story_bible_character_card_file,
+    create_story_bible_character_card,
+    remove_story_bible_character_card_reference,
 )
 from builder.novel_git_sync import (
     NovelGitSyncError,
@@ -68,6 +72,7 @@ class StoryBibleApp:
         self._character_card_role_var: tk.StringVar | None = None
         self._character_card_editor_text: tk.Text | None = None
         self._character_card_edit_index: int | None = None
+        self._character_card_filename: str | None = None
         self._sync_in_progress = False
         self._view_canvas: tk.Canvas | None = None
 
@@ -1100,17 +1105,38 @@ class StoryBibleApp:
         else:
             lines = []
             for index, card in enumerate(value, start=1):
-                if isinstance(card, dict):
-                    role = card.get("role", "").strip()
-                    label = card["name"] + (f" ({role})" if role else "")
+                card_data, error, filename = self._get_character_card_data(card)
+                if card_data is not None:
+                    role = card_data.get("role", "")
+                    role = role.strip() if isinstance(role, str) else ""
+                    label = card_data.get("name", filename or f"Character {index}")
+                    label = label + (f" ({role})" if role else "")
+                elif filename:
+                    label = f"{Path(filename).stem} [could not load]"
                 else:
-                    label = f"Legacy text card {index}"
+                    label = f"Legacy text note {index}"
                 lines.append(f"{index}. {label}")
             preview = "\n".join(lines)
-            if any(isinstance(card, str) for card in value):
-                preview += "\n\nOlder plain-text cards are preserved as-is."
+            if any(
+                isinstance(card, str) and Path(card).suffix.lower() != ".json"
+                for card in value
+            ):
+                preview += "\n\nOlder plain-text notes remain unchanged."
         self._set_character_cards_preview(preview)
         self._set_character_cards_controls(editable=False)
+
+    def _get_character_card_data(
+        self, card: dict[str, Any] | str
+    ) -> tuple[dict[str, Any] | None, str | None, str | None]:
+        if isinstance(card, dict):
+            return card, None, None
+        if isinstance(card, str) and Path(card).suffix.lower() == ".json":
+            try:
+                data = load_story_bible_character_card(self._loaded_novel_path, card)
+            except (OSError, ValueError) as exc:
+                return None, str(exc), card
+            return data, None, card
+        return None, None, None
 
     def _set_character_cards_preview(self, content: str) -> None:
         self.character_cards_text.configure(state="normal")
@@ -1269,17 +1295,25 @@ class StoryBibleApp:
     def _set_character_card_manager_buttons(self, selected_index: int | None) -> None:
         if self._character_cards_add_button is not None:
             self._character_cards_add_button.configure(state="normal")
-        can_edit = (
+        can_edit = False
+        can_remove = False
+        if (
             selected_index is not None
             and self._loaded_character_cards is not None
             and 0 <= selected_index < len(self._loaded_character_cards)
-            and isinstance(self._loaded_character_cards[selected_index], dict)
-        )
-        state = "normal" if can_edit else "disabled"
+        ):
+            card = self._loaded_character_cards[selected_index]
+            card_data, _error, filename = self._get_character_card_data(card)
+            can_edit = card_data is not None
+            can_remove = isinstance(card, dict) or filename is not None
         if self._character_cards_edit_button is not None:
-            self._character_cards_edit_button.configure(state=state)
+            self._character_cards_edit_button.configure(
+                state="normal" if can_edit else "disabled"
+            )
         if self._character_cards_remove_button is not None:
-            self._character_cards_remove_button.configure(state=state)
+            self._character_cards_remove_button.configure(
+                state="normal" if can_remove else "disabled"
+            )
 
     def _character_card_selection_changed(self, _event=None) -> None:
         listbox = self._character_cards_manager_listbox
@@ -1292,16 +1326,20 @@ class StoryBibleApp:
             return
         index = int(selection[0])
         card = self._loaded_character_cards[index]
-        if isinstance(card, dict):
+        card_data, error, filename = self._get_character_card_data(card)
+        if card_data is not None:
+            heading = f"Source file: {filename}\n\n" if filename else ""
+            preview = heading + json.dumps(card_data, indent=2, ensure_ascii=False)
+        elif filename:
             preview = (
-                f"Name: {card['name']}\n"
-                f"Role: {card.get('role', '')}\n\n"
-                f"Description:\n{card.get('description', '')}"
+                f"Could not open character file: {filename}\n\n{error or 'Unknown error'}\n\n"
+                "The file and its reference have not been changed. You can remove the reference "
+                "from this Story Bible without deleting the source file."
             )
         else:
             preview = (
-                "This is an older plain-text character card. It is preserved as-is "
-                "and is not editable in this structured editor.\n\n" + card
+                "This is an older plain-text note. It is preserved as-is and is not editable "
+                "as a structured Character Card.\n\n" + str(card)
             )
         self._set_character_card_manager_preview(preview)
         self._set_character_card_manager_buttons(index)
@@ -1315,19 +1353,33 @@ class StoryBibleApp:
             return
         selection = listbox.curselection()
         if not selection:
-            self.viewer_status_var.set("Select a structured character card to edit.")
+            self.viewer_status_var.set("Select a character card to edit.")
             return
         index = int(selection[0])
-        if self._loaded_character_cards is None or not isinstance(self._loaded_character_cards[index], dict):
-            self.viewer_status_var.set("Older plain-text cards are kept unchanged.")
+        if self._loaded_character_cards is None:
             return
-        self._open_character_card_editor(index)
+        card_data, error, filename = self._get_character_card_data(
+            self._loaded_character_cards[index]
+        )
+        if card_data is None:
+            self.viewer_status_var.set(
+                f"Character card could not be opened: {error or 'This is a legacy text note.'}"
+            )
+            return
+        self._open_character_card_editor(index, card_data, filename)
 
-    def _open_character_card_editor(self, edit_index: int | None) -> None:
+    def _open_character_card_editor(
+        self,
+        edit_index: int | None,
+        existing: dict[str, Any] | None = None,
+        filename: str | None = None,
+    ) -> None:
         if self._character_card_editor_window is not None or self._loaded_character_cards is None:
             return
         self._character_card_edit_index = edit_index
-        existing = self._loaded_character_cards[edit_index] if edit_index is not None else {}
+        self._character_card_filename = filename
+        if existing is None:
+            existing = {}
         self._character_card_name_var = tk.StringVar(self.root, value=existing.get("name", ""))
         self._character_card_role_var = tk.StringVar(self.root, value=existing.get("role", ""))
 
@@ -1398,33 +1450,52 @@ class StoryBibleApp:
             return
         role = self._character_card_role_var.get().strip()
         description = self._character_card_editor_text.get("1.0", "end-1c")
-        cards = list(self._loaded_character_cards)
         new_card = {"name": name, "role": role, "description": description}
-        if self._character_card_edit_index is None:
-            cards.append(new_card)
-            selected_index = len(cards) - 1
-        else:
-            selected_index = self._character_card_edit_index
-            if not 0 <= selected_index < len(cards) or not isinstance(cards[selected_index], dict):
-                self.viewer_status_var.set("Character was not saved. Reload the Character Cards list.")
-                return
-            updated_card = dict(cards[selected_index])
-            updated_card.update(new_card)
-            cards[selected_index] = updated_card
+        selected_index = self._character_card_edit_index
 
         try:
-            save_story_bible_character_cards(self._loaded_novel_path, cards)
-            data = load_story_bible(self._loaded_novel_path)
+            if selected_index is None:
+                filename = create_story_bible_character_card(
+                    self._loaded_novel_path, new_card
+                )
+                data = load_story_bible(self._loaded_novel_path)
+                selected_index = len(data.get("character_cards", [])) - 1
+                result_message = (
+                    f"Created {filename}. The new Character Card is stored as its own JSON file."
+                )
+            elif self._character_card_filename is not None:
+                save_story_bible_character_card_file(
+                    self._loaded_novel_path, self._character_card_filename, new_card
+                )
+                data = load_story_bible(self._loaded_novel_path)
+                result_message = (
+                    f"Saved '{name}' to {self._character_card_filename}. "
+                    "Other character details were preserved."
+                )
+            else:
+                cards = list(self._loaded_character_cards)
+                if not 0 <= selected_index < len(cards) or not isinstance(cards[selected_index], dict):
+                    self.viewer_status_var.set(
+                        "Character was not saved. Reload the Character Cards list."
+                    )
+                    return
+                updated_card = dict(cards[selected_index])
+                updated_card.update(new_card)
+                cards[selected_index] = updated_card
+                save_story_bible_character_cards(self._loaded_novel_path, cards)
+                data = load_story_bible(self._loaded_novel_path)
+                result_message = f"Saved character card '{name}'."
         except (OSError, ValueError, RuntimeError) as exc:
             self.viewer_status_var.set(f"Character was not saved:\n{exc}")
             return
+
         self._loaded_character_cards = list(data.get("character_cards", []))
         self._load_character_cards_from_data(data)
         self._set_story_bible_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
         self._refresh_character_cards_manager(selected_index)
         self._finish_character_card_editor()
         self.viewer_status_var.set(
-            f"Saved character card '{name}' only. Other Story Bible fields were preserved."
+            result_message + " Other Story Bible fields were preserved."
         )
 
     def cancel_character_card_edit(self) -> None:
@@ -1440,6 +1511,7 @@ class StoryBibleApp:
         self._character_card_name_var = None
         self._character_card_role_var = None
         self._character_card_edit_index = None
+        self._character_card_filename = None
         if window is not None:
             try:
                 if window.winfo_exists():
@@ -1457,39 +1529,60 @@ class StoryBibleApp:
     def remove_character_card(self) -> None:
         listbox = self._character_cards_manager_listbox
         cards = self._loaded_character_cards
-        if listbox is None or cards is None:
+        if listbox is None or cards is None or self._loaded_novel_path is None:
             return
         selection = listbox.curselection()
         if not selection:
-            self.viewer_status_var.set("Select a structured character card to remove.")
+            self.viewer_status_var.set("Select a character card to remove.")
             return
         index = int(selection[0])
         card = cards[index]
-        if not isinstance(card, dict):
-            self.viewer_status_var.set("Older plain-text cards are kept unchanged.")
+        card_data, error, filename = self._get_character_card_data(card)
+        if card_data is None and filename is None:
+            self.viewer_status_var.set("Older plain-text notes are kept unchanged.")
             return
-        name = card["name"]
+        name = (
+            card_data.get("name", filename or "Character")
+            if card_data is not None else Path(filename).stem
+        )
+        if filename is not None:
+            prompt = (
+                f"Remove '{name}' from this Story Bible? The reference will be removed, "
+                f"but the source file {filename} will remain in the novel folder."
+            )
+        else:
+            prompt = f"Remove '{name}' from this Story Bible?"
         confirmed = messagebox.askyesno(
-            "Remove Character Card",
-            f"Remove '{name}' from this Story Bible? Only this character card will be removed.",
-            parent=self._character_cards_manager_window,
+            "Remove Character Card", prompt, parent=self._character_cards_manager_window
         )
         if not confirmed:
             return
-        updated_cards = list(cards)
-        updated_cards.pop(index)
         try:
-            save_story_bible_character_cards(self._loaded_novel_path, updated_cards)
-            data = load_story_bible(self._loaded_novel_path)
+            if filename is not None:
+                remove_story_bible_character_card_reference(
+                    self._loaded_novel_path, index, filename
+                )
+                data = load_story_bible(self._loaded_novel_path)
+                result_message = (
+                    f"Removed the reference to '{name}'. The file {filename} was kept."
+                )
+            else:
+                updated_cards = list(cards)
+                updated_cards.pop(index)
+                save_story_bible_character_cards(self._loaded_novel_path, updated_cards)
+                data = load_story_bible(self._loaded_novel_path)
+                result_message = f"Removed character card '{name}'."
         except (OSError, ValueError, RuntimeError) as exc:
             self.viewer_status_var.set(f"Character card was not removed:\n{exc}")
             return
+        self._loaded_character_cards = list(data.get("character_cards", []))
         self._load_character_cards_from_data(data)
         self._set_story_bible_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
-        next_index = min(index, len(updated_cards) - 1) if updated_cards else None
+        next_cards = self._loaded_character_cards or []
+        next_index = min(index, len(next_cards) - 1) if next_cards else None
         self._refresh_character_cards_manager(next_index)
         self.viewer_status_var.set(
-            f"Removed character card '{name}'. Other Story Bible fields were preserved."
+            result_message + " Other Story Bible fields were preserved."
         )
 
     def close_character_cards_manager(self) -> None:
