@@ -8,7 +8,28 @@
     "version": {"type": "string"},
     "status": {"type": "string"},
     "premise": {"type": "string"},
-    "character_cards": {"type": "array", "items": {"type": "string"}}
+    "character_cards": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "string",
+            "description": "Legacy plain-text character card, kept unchanged."
+          },
+          {
+            "type": "object",
+            "description": "Structured character card created by Story Bible.",
+            "properties": {
+              "name": {"type": "string", "minLength": 1},
+              "role": {"type": "string"},
+              "description": {"type": "string"}
+            },
+            "required": ["name"],
+            "additionalProperties": true
+          }
+        ]
+      }
+    }
   },
   "required": ["story_format_version", "title", "character_cards"]
 }
