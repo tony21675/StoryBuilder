@@ -8,6 +8,7 @@ from pathlib import Path
 from tkinter import messagebox, ttk
 
 from builder.novel_browser import list_novel_packages
+from builder.character_card_editor import CharacterCardEditorWindow
 from builder.novel_creator import create_novel_package, suggest_folder_name
 from builder.story_bible_reader import (
     load_story_bible,
@@ -73,6 +74,7 @@ class StoryBibleApp:
         self._character_card_editor_text: tk.Text | None = None
         self._character_card_edit_index: int | None = None
         self._character_card_filename: str | None = None
+        self._character_card_editor: CharacterCardEditorWindow | None = None
         self._sync_in_progress = False
         self._view_canvas: tk.Canvas | None = None
 
@@ -1383,85 +1385,45 @@ class StoryBibleApp:
             return
         self._character_card_edit_index = edit_index
         self._character_card_filename = filename
-        if existing is None:
-            existing = {}
-        self._character_card_name_var = tk.StringVar(self.root, value=existing.get("name", ""))
-        self._character_card_role_var = tk.StringVar(self.root, value=existing.get("role", ""))
+        title = "Edit Character" if edit_index is not None else "Add Character"
+        editor = CharacterCardEditorWindow(
+            parent=self._character_cards_manager_window,
+            existing=existing or {},
+            title=title,
+            on_save=self.save_character_card,
+            on_cancel=self.cancel_character_card_edit,
+        )
+        self._character_card_editor = editor
+        self._character_card_editor_window = editor.window
 
-        window = tk.Toplevel(self._character_cards_manager_window)
-        self._character_card_editor_window = window
-        window.title("Edit Character" if edit_index is not None else "Add Character")
-        window.geometry("640x540")
-        window.minsize(520, 420)
-        window.transient(self._character_cards_manager_window)
-        window.protocol("WM_DELETE_WINDOW", self.cancel_character_card_edit)
-
-        frame = ttk.Frame(window, padding=12)
-        frame.pack(fill="both", expand=True)
-        frame.columnconfigure(0, weight=1)
-        frame.rowconfigure(5, weight=1)
-        ttk.Label(frame, text="Name").grid(row=0, column=0, sticky="w")
-        name_entry = ttk.Entry(frame, textvariable=self._character_card_name_var)
-        name_entry.grid(row=1, column=0, sticky="ew", pady=(3, 10))
-        ttk.Label(frame, text="Role").grid(row=2, column=0, sticky="w")
-        role_entry = ttk.Entry(frame, textvariable=self._character_card_role_var)
-        role_entry.grid(row=3, column=0, sticky="ew", pady=(3, 10))
-        ttk.Label(frame, text="Description").grid(row=4, column=0, sticky="w")
-
-        description_frame = ttk.Frame(frame)
-        description_frame.grid(row=5, column=0, sticky="nsew")
-        description_frame.columnconfigure(0, weight=1)
-        description_frame.rowconfigure(0, weight=1)
-        editor = tk.Text(description_frame, wrap="word", undo=True, padx=8, pady=8)
-        self._character_card_editor_text = editor
-        editor_scroll = ttk.Scrollbar(description_frame, orient="vertical", command=editor.yview)
-        editor.configure(yscrollcommand=editor_scroll.set)
-        editor.grid(row=0, column=0, sticky="nsew")
-        editor_scroll.grid(row=0, column=1, sticky="ns")
-        if edit_index is not None:
-            editor.insert("1.0", existing.get("description", ""))
-        editor.bind("<Control-a>", lambda _event: self._select_all_text(editor))
-        editor.bind("<Control-A>", lambda _event: self._select_all_text(editor))
-        editor.bind("<Control-c>", lambda _event: self._copy_selected_text(editor))
-        editor.bind("<Control-C>", lambda _event: self._copy_selected_text(editor))
-
-        button_row = ttk.Frame(frame)
-        button_row.grid(row=6, column=0, sticky="w", pady=(10, 0))
-        ttk.Button(button_row, text="Save Character", command=self.save_character_card).pack(side="left", padx=(0, 8))
-        ttk.Button(button_row, text="Cancel Edit", command=self.cancel_character_card_edit).pack(side="left")
-        ttk.Label(
-            frame,
-            text="Name is required. Save Character keeps this card; Cancel discards the draft.",
-            foreground="gray",
-        ).grid(row=7, column=0, sticky="w", pady=(8, 0))
-
-        window.grab_set()
-        window.after_idle(name_entry.focus_set)
-
-    def save_character_card(self) -> None:
+    def save_character_card(self, card_data: dict[str, Any] | None = None) -> None:
         if (
             self._character_card_editor_window is None
             or self._loaded_novel_path is None
             or self._loaded_character_cards is None
-            or self._character_card_name_var is None
-            or self._character_card_role_var is None
-            or self._character_card_editor_text is None
         ):
             self.viewer_status_var.set("Open Add Character or Edit Selected before saving.")
             return
-        name = self._character_card_name_var.get().strip()
+        if card_data is None:
+            if self._character_card_editor is None:
+                self.viewer_status_var.set("Character editor is not available.")
+                return
+            try:
+                card_data = self._character_card_editor.build_card()
+            except ValueError as exc:
+                self.viewer_status_var.set(f"Character was not saved: {exc}")
+                return
+
+        selected_index = self._character_card_edit_index
+        name = str(card_data.get("name", "")).strip()
         if not name:
             self.viewer_status_var.set("Character was not saved. Enter a name first.")
             return
-        role = self._character_card_role_var.get().strip()
-        description = self._character_card_editor_text.get("1.0", "end-1c")
-        new_card = {"name": name, "role": role, "description": description}
-        selected_index = self._character_card_edit_index
 
         try:
             if selected_index is None:
                 filename = create_story_bible_character_card(
-                    self._loaded_novel_path, new_card
+                    self._loaded_novel_path, card_data
                 )
                 data = load_story_bible(self._loaded_novel_path)
                 selected_index = len(data.get("character_cards", [])) - 1
@@ -1470,7 +1432,7 @@ class StoryBibleApp:
                 )
             elif self._character_card_filename is not None:
                 save_story_bible_character_card_file(
-                    self._loaded_novel_path, self._character_card_filename, new_card
+                    self._loaded_novel_path, self._character_card_filename, card_data
                 )
                 data = load_story_bible(self._loaded_novel_path)
                 result_message = (
@@ -1479,24 +1441,27 @@ class StoryBibleApp:
                 )
             else:
                 cards = list(self._loaded_character_cards)
-                if not 0 <= selected_index < len(cards) or not isinstance(cards[selected_index], dict):
+                if (
+                    not 0 <= selected_index < len(cards)
+                    or not isinstance(cards[selected_index], dict)
+                ):
                     self.viewer_status_var.set(
                         "Character was not saved. Reload the Character Cards list."
                     )
                     return
                 updated_card = dict(cards[selected_index])
-                updated_card.update(new_card)
+                updated_card.update(card_data)
                 cards[selected_index] = updated_card
                 save_story_bible_character_cards(self._loaded_novel_path, cards)
                 data = load_story_bible(self._loaded_novel_path)
                 result_message = f"Saved character card '{name}'."
         except (OSError, ValueError, RuntimeError) as exc:
-            self.viewer_status_var.set(f"Character was not saved:\n{exc}")
+            self.viewer_status_var.set(f"Character was not saved:\\n{exc}")
             return
 
         self._loaded_character_cards = list(data.get("character_cards", []))
         self._load_character_cards_from_data(data)
-        self._set_story_bible_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+        self._set_story_bible_text(json.dumps(data, indent=2, ensure_ascii=False) + "\\n")
         self._refresh_character_cards_manager(selected_index)
         self._finish_character_card_editor()
         self.viewer_status_var.set(
@@ -1512,6 +1477,7 @@ class StoryBibleApp:
     def _finish_character_card_editor(self) -> None:
         window = self._character_card_editor_window
         self._character_card_editor_window = None
+        self._character_card_editor = None
         self._character_card_editor_text = None
         self._character_card_name_var = None
         self._character_card_role_var = None
