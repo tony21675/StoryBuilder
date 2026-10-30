@@ -119,13 +119,15 @@ class StoryBibleCharacterCardFileActionTests(unittest.TestCase):
         try:
             app = self.make_app(package)
             app._character_card_editor_window = object()
-            app._character_card_editor = FakeEditor(
+            updated_card = dict(expected)
+            updated_card.update(
                 {
                     "name": "Daniel Okafor",
                     "role": "Senior Biologist",
                     "description": "A newly updated description.",
                 }
             )
+            app._character_card_editor = FakeEditor(updated_card)
             app._character_card_edit_index = 0
             app._character_card_filename = "Daniel_Okafor.json"
             app._load_character_cards_from_data = Mock()
