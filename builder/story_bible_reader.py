@@ -172,15 +172,18 @@ def load_story_bible_character_card(
 
 
 def save_story_bible_character_card_file(
-    novel_path: str | Path, filename: str, updates: dict[str, str]
+    novel_path: str | Path, filename: str, updates: dict[str, Any]
 ) -> Path:
-    """Update Name, Role, and Description in a referenced card, preserving every other key."""
-    if not isinstance(updates, dict) or set(updates) - {"name", "role", "description"}:
-        raise ValueError("Only Name, Role, and Description can be edited here.")
-    for key, value in updates.items():
-        if not isinstance(value, str):
-            raise ValueError(f"Character card {key.title()} must be text.")
-    if "name" in updates and not updates["name"].strip():
+    """Update supplied character fields while preserving all other JSON keys."""
+    if not isinstance(updates, dict):
+        raise ValueError("Character Card data must be a JSON object.")
+    try:
+        json.dumps(updates, ensure_ascii=False)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Character Card data must contain JSON-compatible values.") from exc
+    if "name" in updates and (
+        not isinstance(updates["name"], str) or not updates["name"].strip()
+    ):
         raise ValueError("Character card needs a non-empty name.")
     card_path = _resolve_character_card_path(novel_path, filename)
     if not card_path.is_file():
@@ -198,18 +201,20 @@ def save_story_bible_character_card_file(
 
 
 def create_story_bible_character_card(
-    novel_path: str | Path, card: dict[str, str]
+    novel_path: str | Path, card: dict[str, Any]
 ) -> str:
-    """Create a root-level character JSON file and add its filename to Story Bible."""
-    if not isinstance(card, dict) or set(card) - {"name", "role", "description"}:
-        raise ValueError("A new Character Card may contain only Name, Role, and Description.")
-    if any(not isinstance(value, str) for value in card.values()):
-        raise ValueError("Character Card fields must be text.")
-    normalized = {
-        "name": card.get("name", "").strip(),
-        "role": card.get("role", "").strip(),
-        "description": card.get("description", ""),
-    }
+    """Create a root-level character JSON file with optional fields and reference it."""
+    if not isinstance(card, dict):
+        raise ValueError("A new Character Card must be a JSON object.")
+    try:
+        json.dumps(card, ensure_ascii=False)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Character Card fields must contain JSON-compatible values.") from exc
+    normalized = dict(card)
+    name = normalized.get("name")
+    if not isinstance(name, str) or not name.strip():
+        raise ValueError("Character card needs a non-empty name.")
+    normalized["name"] = name.strip()
     _validate_character_card_updates(normalized)
     root = Path(novel_path).expanduser().resolve()
     bible_path = root / "story_bible.json"
