@@ -30,6 +30,8 @@ class StoryBibleSyncActionTests(unittest.TestCase):
         app._premise_editing = False
         app._setting_editing = False
         app._canon_rules_editing = False
+        app._character_cards_managing = False
+        app._character_card_editor_window = None
         app.novel_combo = FakeCombo(label)
         app._novel_paths = {label: Path(package)}
         app.viewer_status_var = FakeStatus()
