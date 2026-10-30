@@ -1265,11 +1265,16 @@ class StoryBibleApp:
             return
         listbox.delete(0, "end")
         for index, card in enumerate(self._loaded_character_cards, start=1):
-            if isinstance(card, dict):
-                role = card.get("role", "").strip()
-                label = card["name"] + (f" ({role})" if role else "")
+            card_data, _error, filename = self._get_character_card_data(card)
+            if card_data is not None:
+                role = card_data.get("role", "")
+                role = role.strip() if isinstance(role, str) else ""
+                label = card_data.get("name", filename or f"Character {index}")
+                label = label + (f" ({role})" if role else "")
+            elif filename:
+                label = f"{Path(filename).stem} [unavailable]"
             else:
-                label = f"Legacy text card {index}"
+                label = f"Legacy text note {index}"
             listbox.insert("end", label)
 
         if selected_index is not None and self._loaded_character_cards:
