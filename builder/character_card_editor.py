@@ -370,22 +370,40 @@ class CharacterCardEditorWindow:
     ) -> None:
         if self.relationships_frame is None:
             return
-        row = len(self.relationship_rows)
+        row = ttk.Frame(self.relationships_frame)
+        row.grid(
+            row=len(self.relationship_rows), column=0, sticky="ew", pady=4
+        )
+        row.columnconfigure(1, weight=1)
         name_var = tk.StringVar(self.window, value=character_name)
         description_var = tk.StringVar(self.window, value=description)
-        ttk.Label(self.relationships_frame, text="Character").grid(
-            row=row, column=0, sticky="w", padx=(0, 8), pady=4
+        ttk.Label(row, text="Character").grid(
+            row=0, column=0, sticky="w", padx=(0, 8)
         )
-        ttk.Entry(self.relationships_frame, textvariable=name_var).grid(
-            row=row, column=1, sticky="ew", padx=(0, 8), pady=4
+        ttk.Entry(row, textvariable=name_var, width=20).grid(
+            row=0, column=1, sticky="ew", padx=(0, 8)
         )
-        ttk.Label(self.relationships_frame, text="Relationship").grid(
-            row=row, column=2, sticky="w", padx=(0, 8), pady=4
+        ttk.Label(row, text="Relationship").grid(
+            row=0, column=2, sticky="w", padx=(0, 8)
         )
-        ttk.Entry(
-            self.relationships_frame, textvariable=description_var, width=34
-        ).grid(row=row, column=3, sticky="ew", pady=4)
-        self.relationship_rows.append((name_var, description_var, self.relationships_frame))
+        ttk.Entry(row, textvariable=description_var, width=34).grid(
+            row=0, column=3, sticky="ew", padx=(0, 8)
+        )
+        ttk.Button(
+            row,
+            text="Remove",
+            command=lambda target=row: self._remove_relationship_row(target),
+        ).grid(row=0, column=4)
+        self.relationship_rows.append((name_var, description_var, row))
+
+    def _remove_relationship_row(self, row_frame: ttk.Frame) -> None:
+        self.relationship_rows = [
+            item for item in self.relationship_rows if item[2] is not row_frame
+        ]
+        row_frame.destroy()
+        for index, (_name, _description, frame) in enumerate(self.relationship_rows):
+            frame.grid_configure(row=index)
+
 
     def _build_additional_tab(self, parent: ttk.Frame) -> None:
         ttk.Label(
