@@ -93,6 +93,27 @@ def save_story_bible_canon_rules(novel_path: str | Path, rules: list[str]) -> Pa
         raise ValueError("Each Canon Rule must be a single line.")
     return _save_story_bible_field(novel_path, "canon_rules", rules)
 
+def save_story_bible_character_cards(
+    novel_path: str | Path, cards: list[dict[str, Any] | str]
+) -> Path:
+    """Replace character_cards while preserving legacy string entries and card metadata."""
+    if not isinstance(cards, list):
+        raise ValueError("Character Cards must be a list.")
+    for index, card in enumerate(cards, start=1):
+        if isinstance(card, str):
+            continue
+        if not isinstance(card, dict):
+            raise ValueError(f"Character Card {index} must be a text entry or an object.")
+        name = card.get("name")
+        if not isinstance(name, str) or not name.strip():
+            raise ValueError(f"Character Card {index} needs a non-empty name.")
+        for field_name in ("role", "description"):
+            if field_name in card and not isinstance(card[field_name], str):
+                raise ValueError(
+                    f"Character Card {index} {field_name.title()} must be text."
+                )
+    return _save_story_bible_field(novel_path, "character_cards", cards)
+
 def save_story_bible_premise(novel_path: str | Path, premise: str) -> Path:
     """Compatibility wrapper for the premise-only editing workflow."""
     return save_story_bible_text_field(novel_path, "premise", premise)
