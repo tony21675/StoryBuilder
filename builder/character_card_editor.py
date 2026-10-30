@@ -225,7 +225,7 @@ class CharacterCardEditorWindow:
         if value is None:
             return ""
         if isinstance(value, (dict, list)):
-            return json.dumps(value, ensure_ascii=False)
+            return CharacterCardEditorWindow._human_readable_value(value)
         return str(value)
 
     @staticmethod
@@ -234,12 +234,15 @@ class CharacterCardEditorWindow:
             return ""
         if isinstance(value, str):
             return value
-        return json.dumps(value, indent=2, ensure_ascii=False)
+        return CharacterCardEditorWindow._human_readable_value(value)
 
     @staticmethod
     def _display_list(value: Any) -> str:
         if isinstance(value, list):
-            return "\n".join(str(item) for item in value)
+            return "\n".join(
+                CharacterCardEditorWindow._human_readable_value(item)
+                for item in value
+            )
         if isinstance(value, str):
             return value
         return ""
@@ -503,15 +506,16 @@ class CharacterCardEditorWindow:
         if age_text:
             try:
                 result["age"] = int(age_text)
-            except ValueError as exc:
-                raise ValueError("Age must be a whole number, or left blank.") from exc
+            except ValueError:
+                # Keep age flexible (for example, "early thirties" is valid text).
+                result["age"] = age_text
         elif "age" in self.original:
             result["age"] = ""
 
         for key in _TEXT_FIELDS:
-            value = self.text_widgets[key].get("1.0", "end-1c")
-            if value.strip() or key in self.original:
-                result[key] = value.strip()
+            value = self.text_widgets[key].get("1.0", "end-1c").strip()
+            if value or key in self.original:
+                result[key] = value
 
         for key in _LIST_FIELDS:
             items = [
@@ -522,10 +526,12 @@ class CharacterCardEditorWindow:
             if items or key in self.original:
                 result[key] = items
 
-        appearance = copy.deepcopy(self.original_appearance)
-        if isinstance(appearance, str):
-            appearance = {"notes": appearance}
-        if not isinstance(appearance, dict):
+        original_appearance = self.original_appearance
+        if isinstance(original_appearance, str):
+            appearance = {"notes": original_appearance}
+        elif isinstance(original_appearance, dict):
+            appearance = copy.deepcopy(original_appearance)
+        else:
             appearance = {}
         for key, variable in self.appearance_vars.items():
             value = variable.get().strip()
@@ -533,46 +539,84 @@ class CharacterCardEditorWindow:
                 appearance[key] = value
             elif key in appearance:
                 appearance[key] = ""
-        if appearance or "appearance" in self.original:
+        if (
+            isinstance(original_appearance, str)
+            and appearance.get("notes", "") == original_appearance
+            and all(
+                not appearance.get(key)
+                for key in _APPEARANCE_FIELDS
+                if key != "notes"
+            )
+        ):
+            result["appearance"] = original_appearance
+        elif appearance or "appearance" in self.original:
             result["appearance"] = appearance
 
-        relationship_lines = self.relationships_widget.get("1.0", "end-1c").splitlines()
         relationships: dict[str, Any] = {}
-        for line in relationship_lines:
-            if not line.strip():
+        original_relationships = self.original.get("relationships", {})
+        for name_var, description_var, _frame in self.relationship_rows:
+            character_name = name_var.get().strip()
+            description = description_var.get().strip()
+            if not character_name and not description:
                 continue
-            key, separator, value = line.partition(":")
-            if not separator or not key.strip():
+            if not character_name:
                 raise ValueError(
-                    "Each relationship must use the format Character Name: description."
+                    "Enter a character name for each relationship, or remove the blank row."
                 )
-            raw_value = value.strip()
-            try:
-                parsed_value = json.loads(raw_value)
-            except json.JSONDecodeError:
-                parsed_value = raw_value
-            relationships[key.strip()] = parsed_value
+            if not description:
+                continue
+            if (
+                isinstance(original_relationships, dict)
+                and character_name in original_relationships
+                and self._display_text(original_relationships[character_name]).strip()
+                == description
+            ):
+                relationships[character_name] = copy.deepcopy(
+                    original_relationships[character_name]
+                )
+            else:
+                relationships[character_name] = description
         if relationships or "relationships" in self.original:
             result["relationships"] = relationships
 
-        custom_text = self.custom_fields_widget.get("1.0", "end-1c").strip()
-        try:
-            custom = json.loads(custom_text or "{}")
-        except json.JSONDecodeError as exc:
-            raise ValueError(
-                f"Additional Fields must be a valid JSON object (line {exc.lineno}, column {exc.colno})."
-            ) from exc
-        if not isinstance(custom, dict):
-            raise ValueError("Additional Fields must be a JSON object.")
-        if set(custom) & _STANDARD_FIELDS:
-            raise ValueError(
-                "Additional Fields cannot replace standard character fields. "
-                "Use the matching tab instead."
-            )
-        for key in set(self.original) - _STANDARD_FIELDS:
-            result.pop(key, None)
-        result.update(custom)
+        custom_names: set[str] = set()
+        for item in self.custom_field_rows:
+            key = item["key"].get().strip()
+            value = item["value"].get().strip()
+            original_key = item["original_key"]
+            if item["removed"]:
+                if original_key:
+                    result.pop(original_key, None)
+                continue
+            if not key and not value:
+                continue
+            if not key:
+                raise ValueError(
+                    "Give each custom field a name, or leave the whole row blank."
+                )
+            if key in _STANDARD_FIELDS:
+                raise ValueError(
+                    f"'{key}' is already a standard Character Card field. "
+                    "Use its section instead."
+                )
+            if key in custom_names:
+                raise ValueError(f"The custom field '{key}' appears more than once.")
+            custom_names.add(key)
+            if original_key and original_key != key:
+                result.pop(original_key, None)
+            if item["nested"]:
+                result[key] = copy.deepcopy(item["original_value"])
+            else:
+                original_value = item["original_value"]
+                if item["original"] and value == self._display_scalar(original_value):
+                    result[key] = copy.deepcopy(original_value)
+                elif value:
+                    result[key] = value
+                elif item["original"]:
+                    result[key] = ""
+
         return result
+
 
     def save(self) -> None:
         try:
