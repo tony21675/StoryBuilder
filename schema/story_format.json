@@ -14,15 +14,61 @@
         "oneOf": [
           {
             "type": "string",
-            "description": "Legacy plain-text character card, kept unchanged."
+            "description": "A filename or legacy plain-text entry kept unchanged."
           },
           {
             "type": "object",
-            "description": "Structured character card created by Story Bible.",
+            "description": "A structured card. Only name is required; all other information is optional.",
             "properties": {
               "name": {"type": "string", "minLength": 1},
               "role": {"type": "string"},
-              "description": {"type": "string"}
+              "age": {"type": ["integer", "string"]},
+              "gender": {"type": "string"},
+              "pronouns": {"type": "string"},
+              "relationship_status": {"type": "string"},
+              "occupation": {"type": "string"},
+              "status": {"type": "string"},
+              "description": {"type": "string"},
+              "background": {"type": "string"},
+              "personality": {"type": "array", "items": {"type": "string"}},
+              "hobbies": {"type": "array", "items": {"type": "string"}},
+              "skills": {"type": "array", "items": {"type": "string"}},
+              "strengths": {"type": "array", "items": {"type": "string"}},
+              "weaknesses": {"type": "array", "items": {"type": "string"}},
+              "goals": {"type": "array", "items": {"type": "string"}},
+              "future_story_role": {"type": "array", "items": {"type": "string"}},
+              "social": {"type": "array", "items": {"type": "string"}},
+              "appearance": {
+                "oneOf": [
+                  {"type": "string"},
+                  {
+                    "type": "object",
+                    "properties": {
+                      "height": {"type": "string"},
+                      "build": {"type": "string"},
+                      "hair": {"type": "string"},
+                      "eyes": {"type": "string"},
+                      "style": {"type": "string"},
+                      "notes": {"type": "string"}
+                    },
+                    "additionalProperties": true
+                  }
+                ]
+              },
+              "relationships": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "school": {
+                "oneOf": [
+                  {"type": "string"},
+                  {
+                    "type": "object",
+                    "properties": {"performance": {"type": "string"}},
+                    "additionalProperties": true
+                  }
+                ]
+              }
             },
             "required": ["name"],
             "additionalProperties": true
