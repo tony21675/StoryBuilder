@@ -84,10 +84,8 @@ class CharacterCardEditorBuildTests(unittest.TestCase):
 
     def test_name_is_the_only_required_field(self):
         editor = self.make_editor()
-
-        saved = editor.build_card()
-
         editor.entry_vars["name"] = FakeValue("Mara")
+
         saved = editor.build_card()
         self.assertEqual(saved, {"name": "Mara"})
         self.assertNotIn("age", saved)
