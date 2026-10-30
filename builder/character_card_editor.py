@@ -72,8 +72,11 @@ class CharacterCardEditorWindow:
         self.text_widgets: dict[str, tk.Text] = {}
         self.list_widgets: dict[str, tk.Text] = {}
         self.appearance_vars: dict[str, tk.StringVar] = {}
-        self.relationships_widget: tk.Text | None = None
-        self.custom_fields_widget: tk.Text | None = None
+        self.relationship_rows: list[tuple[tk.StringVar, tk.StringVar, ttk.Frame]] = []
+        self.relationships_frame: ttk.Frame | None = None
+        self.custom_fields_frame: ttk.Frame | None = None
+        self.custom_field_rows: list[dict[str, Any]] = []
+        self._next_custom_row = 0
 
         self.window = tk.Toplevel(parent)
         self.window.title(title)
@@ -149,10 +152,16 @@ class CharacterCardEditorWindow:
         return content
 
     def _add_entry(
-        self, parent: ttk.Frame, key: str, label: str, value: Any = ""
+        self,
+        parent: ttk.Frame,
+        key: str,
+        label: str,
+        value: Any = "",
+        required: bool = False,
     ) -> int:
         row = self._next_row(parent)
-        ttk.Label(parent, text=f"{label} (optional)").grid(
+        suffix = " (required)" if required else " (optional)"
+        ttk.Label(parent, text=f"{label}{suffix}").grid(
             row=row, column=0, sticky="w", pady=(5, 0)
         )
         variable = tk.StringVar(self.window, value=self._display_scalar(value))
@@ -264,7 +273,7 @@ class CharacterCardEditorWindow:
             self._name_entry.focus_set()
 
     def _build_basic_tab(self, parent: ttk.Frame) -> None:
-        self._add_entry(parent, "name", "Name", self.original.get("name", ""))
+        self._add_entry(parent, "name", "Name", self.original.get("name", ""), required=True)
         self._add_entry(parent, "role", "Role", self.original.get("role", ""))
         self._add_entry(parent, "age", "Age", self.original.get("age", ""))
         self._add_entry(parent, "gender", "Gender", self.original.get("gender", ""))
@@ -332,54 +341,150 @@ class CharacterCardEditorWindow:
     def _build_relationships_tab(self, parent: ttk.Frame) -> None:
         ttk.Label(
             parent,
-            text="One relationship per line: Character Name: description. "
-            "You can leave this section empty.",
+            text="Add a row for each person. Both boxes are ordinary text; no special punctuation is needed.",
             wraplength=650,
-        ).grid(row=0, column=0, sticky="w", pady=(0, 6))
-        self.relationships_widget = tk.Text(
-            parent, height=18, wrap="word", undo=True, padx=8, pady=6
+        ).grid(row=0, column=0, sticky="w", pady=(0, 8))
+        rows_frame = ttk.Frame(parent)
+        rows_frame.grid(row=1, column=0, sticky="nsew")
+        rows_frame.columnconfigure(1, weight=2)
+        self.relationships_frame = rows_frame
+
+        existing = self.original.get("relationships", {})
+        if isinstance(existing, dict):
+            for character_name, description in existing.items():
+                self._add_relationship_row(
+                    str(character_name), self._display_text(description)
+                )
+        elif isinstance(existing, str) and existing.strip():
+            self._add_relationship_row("General", existing)
+
+        ttk.Button(
+            parent, text="Add Relationship", command=self._add_relationship_row
+        ).grid(row=2, column=0, sticky="w", pady=(8, 0))
+
+    def _add_relationship_row(
+        self, character_name: str = "", description: str = ""
+    ) -> None:
+        if self.relationships_frame is None:
+            return
+        row = len(self.relationship_rows)
+        name_var = tk.StringVar(self.window, value=character_name)
+        description_var = tk.StringVar(self.window, value=description)
+        ttk.Label(self.relationships_frame, text="Character").grid(
+            row=row, column=0, sticky="w", padx=(0, 8), pady=4
         )
-        self.relationships_widget.grid(row=1, column=0, sticky="nsew")
-        relationships = self.original.get("relationships", {})
-        parent.columnconfigure(0, weight=1)
-        parent.rowconfigure(1, weight=1)
-        if isinstance(relationships, dict):
-            lines = []
-            for key, value in relationships.items():
-                if isinstance(value, str):
-                    display = value
-                else:
-                    display = json.dumps(value, ensure_ascii=False)
-                lines.append(f"{key}: {display}")
-            self.relationships_widget.insert("1.0", "\n".join(lines))
-        elif isinstance(relationships, str):
-            self.relationships_widget.insert("1.0", relationships)
-        self._bind_copy(self.relationships_widget)
-        self._set_next_row(parent, 2)
+        ttk.Entry(self.relationships_frame, textvariable=name_var).grid(
+            row=row, column=1, sticky="ew", padx=(0, 8), pady=4
+        )
+        ttk.Label(self.relationships_frame, text="Relationship").grid(
+            row=row, column=2, sticky="w", padx=(0, 8), pady=4
+        )
+        ttk.Entry(
+            self.relationships_frame, textvariable=description_var, width=34
+        ).grid(row=row, column=3, sticky="ew", pady=4)
+        self.relationship_rows.append((name_var, description_var, self.relationships_frame))
 
     def _build_additional_tab(self, parent: ttk.Frame) -> None:
         ttk.Label(
             parent,
             text=(
-                "Optional custom or less-common fields. Existing data is shown here and "
-                "preserved unless you change this JSON object."
+                "Add any information that does not fit the other sections. "
+                "Use plain field names and ordinary text values. Existing special or nested "
+                "information is shown in readable form and kept unchanged."
             ),
             wraplength=650,
-        ).grid(row=0, column=0, sticky="w", pady=(0, 6))
+        ).grid(row=0, column=0, sticky="w", pady=(0, 8))
+        fields_frame = ttk.Frame(parent)
+        fields_frame.grid(row=1, column=0, sticky="nsew")
+        fields_frame.columnconfigure(1, weight=1)
+        self.custom_fields_frame = fields_frame
+
         known = set(_STANDARD_FIELDS)
-        custom = {key: value for key, value in self.original.items() if key not in known}
-        self.custom_fields_widget = tk.Text(
-            parent, height=22, wrap="none", undo=True, padx=8, pady=6
+        for key, value in self.original.items():
+            if key in known:
+                continue
+            self._add_custom_field_row(key, value, original=True)
+
+        ttk.Button(
+            parent, text="Add Custom Field", command=self._add_custom_field_row
+        ).grid(row=2, column=0, sticky="w", pady=(8, 0))
+
+    def _add_custom_field_row(
+        self, key: str = "", value: Any = "", *, original: bool = False
+    ) -> None:
+        if self.custom_fields_frame is None:
+            return
+        row_frame = ttk.Frame(self.custom_fields_frame)
+        row_frame.grid(
+            row=self._next_custom_row, column=0, sticky="ew", pady=(3, 5)
         )
-        custom_scroll = ttk.Scrollbar(parent, orient="vertical", command=self.custom_fields_widget.yview)
-        self.custom_fields_widget.configure(yscrollcommand=custom_scroll.set)
-        self.custom_fields_widget.grid(row=1, column=0, sticky="nsew")
-        custom_scroll.grid(row=1, column=1, sticky="ns")
-        self.custom_fields_widget.insert(
-            "1.0", json.dumps(custom, indent=2, ensure_ascii=False)
+        row_frame.columnconfigure(1, weight=1)
+        key_var = tk.StringVar(self.window, value=key)
+        entry = ttk.Entry(row_frame, textvariable=key_var, width=22)
+        entry.grid(row=0, column=0, sticky="ew", padx=(0, 8))
+        value_var = tk.StringVar(self.window)
+        nested = isinstance(value, (dict, list))
+        if nested:
+            display = self._human_readable_value(value)
+            ttk.Label(
+                row_frame,
+                text=display,
+                justify="left",
+                wraplength=470,
+            ).grid(row=0, column=1, sticky="w")
+            value_var.set("")
+        else:
+            value_var.set(self._display_scalar(value))
+            ttk.Entry(row_frame, textvariable=value_var).grid(
+                row=0, column=1, sticky="ew"
+            )
+        remove_button = ttk.Button(
+            row_frame,
+            text="Remove",
+            command=lambda target=row_frame: self._remove_custom_field_row(target),
         )
-        self._bind_copy(self.custom_fields_widget)
-        self._set_next_row(parent, 2)
+        remove_button.grid(row=0, column=2, padx=(8, 0))
+        self.custom_field_rows.append(
+            {
+                "key": key_var,
+                "value": value_var,
+                "nested": nested,
+                "original": original,
+                "frame": row_frame,
+                "entry": entry,
+                "original_value": copy.deepcopy(value),
+                "removed": False,
+            }
+        )
+        self._next_custom_row += 1
+
+    def _remove_custom_field_row(self, frame: ttk.Frame) -> None:
+        for item in self.custom_field_rows:
+            if item["frame"] is frame:
+                item["removed"] = True
+                frame.destroy()
+                break
+
+    @classmethod
+    def _human_readable_value(cls, value: Any, indent: int = 0) -> str:
+        prefix = " " * indent
+        if isinstance(value, dict):
+            lines = []
+            for key, nested in value.items():
+                if isinstance(nested, (dict, list)):
+                    lines.append(f"{prefix}{str(key).replace('_', ' ').title()}:")
+                    lines.append(cls._human_readable_value(nested, indent + 2))
+                else:
+                    lines.append(
+                        f"{prefix}{str(key).replace('_', ' ').title()}: {cls._display_scalar(nested)}"
+                    )
+            return "\\n".join(lines)
+        if isinstance(value, list):
+            return "\\n".join(
+                f"{prefix}• {cls._human_readable_value(item, indent)}"
+                for item in value
+            )
+        return f"{prefix}{cls._display_scalar(value)}"
 
     def build_card(self) -> dict[str, Any]:
         name = self.entry_vars["name"].get().strip()
