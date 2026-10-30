@@ -39,6 +39,8 @@ _STANDARD_FIELDS = {
     *_LIST_FIELDS,
     "appearance",
     "relationships",
+    "school",
+    "school_performance",
 }
 _TAB_FIELDS = {
     "Basic Information": {"name", "age", *_STRING_FIELDS[:6]},
@@ -336,6 +338,15 @@ class CharacterCardEditorWindow:
             parent, "knowledge_rule", "Knowledge Rules",
             self.original.get("knowledge_rule", ""), 3,
         )
+        school = self.original.get("school", {})
+        if isinstance(school, str):
+            school = {"performance": school}
+        if not isinstance(school, dict):
+            school = {}
+        self._add_entry(
+            parent, "school_performance", "School Performance",
+            school.get("performance", ""),
+        )
         self._add_entry(
             parent, "nickname_from_tony", "Nickname / How Others Address Them",
             self.original.get("nickname_from_tony", ""),
@@ -576,6 +587,26 @@ class CharacterCardEditorWindow:
             result["appearance"] = original_appearance
         elif appearance or "appearance" in self.original:
             result["appearance"] = appearance
+
+        original_school = self.original.get("school", {})
+        if isinstance(original_school, str):
+            school = {"performance": original_school}
+        elif isinstance(original_school, dict):
+            school = copy.deepcopy(original_school)
+        else:
+            school = {}
+        school_performance = self.entry_vars["school_performance"].get().strip()
+        if school_performance or "performance" in school:
+            school["performance"] = school_performance
+        if school or "school" in self.original:
+            if (
+                isinstance(original_school, str)
+                and school.get("performance", "") == original_school
+                and len(school) == 1
+            ):
+                result["school"] = original_school
+            else:
+                result["school"] = school
 
         relationships: dict[str, Any] = {}
         original_relationships = self.original.get("relationships", {})
