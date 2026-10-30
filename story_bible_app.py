@@ -1432,7 +1432,10 @@ class StoryBibleApp:
                 )
             elif self._character_card_filename is not None:
                 save_story_bible_character_card_file(
-                    self._loaded_novel_path, self._character_card_filename, card_data
+                    self._loaded_novel_path,
+                    self._character_card_filename,
+                    card_data,
+                    replace=True,
                 )
                 data = load_story_bible(self._loaded_novel_path)
                 result_message = (
