@@ -52,6 +52,16 @@ App #2 now contains the package creator, read-only full-JSON viewer, and separat
 - Next: on the Surface, open **The-Long-Way-Home** and **Taken_at_Dusk** and confirm an existing JSON filename entry displays its actual card contents. Keep those real cards read-only during this check. Use only `Story-Bible-Save-Test` for add/edit/remove testing, then verify Premise, Setting, Canon Rules, and all unrelated data are unchanged. Keep the fixture local-only and do not delete it yet.
 - Next: run CI, then test on the Surface using only `Story-Bible-Save-Test`: add a temporary card and Cancel; add and Save a separate card; edit it; then test Remove using its confirmation. Verify Premise, Setting, Canon Rules, and all other fields remain unchanged. Keep the test package local-only and do not delete it yet.
 
+### Expanded plain-English Character Card editor (October 30, 2026)
+
+- Replaced the three-field editor with a scrollable tabbed form: **Basic Information**, **Appearance**, **Background & Personality**, **Skills & Story**, **Relationships**, and **Additional Fields**.
+- **Name is the only required field.** Age accepts a number or descriptive text. All other fields are optional; newly created cards contain only the information entered. Empty optional fields are not invented or filled with defaults.
+- Common details use labeled text boxes. Lists use one item per line. Relationships use separate Character and Relationship boxes with Add / Remove row actions. Custom scalar details use Field Name and Value rows. No user-facing JSON editing, commas, or brackets are required.
+- Common existing fields are mapped into the editor, including school performance. Nested and unknown information is displayed in readable form and preserved when left alone; unrecognized structured values are not rewritten from a simplified view.
+- The editor writes JSON behind the scenes. Existing card files are carried forward while form changes are applied; the file-only save supports a full edited object with atomic replacement and a changed-on-disk check. New cards accept optional JSON-compatible fields but require a non-empty name.
+- Added unit tests verifying Name-only cards, optional/worded ages, preservation of nested data, relationship rows, readable custom fields, and intentional removal of custom fields. CI results for the current code are pending.
+- Next: live-test only in `Story-Bible-Save-Test`. Open **Manage Character Cards**, add a card with only Name, Save, reopen and fill a few optional fields, edit a relationship and a custom field, then Cancel another draft. Verify Premise, Setting, Canon Rules, and all other package data stayed intact. Keep this package local-only; do not sync or delete it.
+
 ### Story Bible whole-tab scrolling improvement (October 30, 2026)
 
 - Wrapped all **View Story Bible** content in a vertically scrollable Canvas with a scrollbar. The embedded content frame resizes to the viewport width and updates the scroll region as sections change size.
