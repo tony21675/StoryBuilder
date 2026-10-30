@@ -50,6 +50,13 @@ App #2 now contains the package creator, read-only full-JSON viewer, and separat
 - The dedicated save function updates only `character_cards` through the existing atomic-write and changed-on-disk guard. Automated tests cover list-only updates, legacy-card preservation, extra metadata, unrelated Story Bible fields, malformed entries, and editor Save / Cancel behavior. Both CI workflows passed on commit `5e5ab71743d563c100ea03301efac291f5c62db5`: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/41139426226) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/41139426367). Live UI verification is pending.
 - Next: run CI, then test on the Surface using only `Story-Bible-Save-Test`: add a temporary card and Cancel; add and Save a separate card; edit it; then test Remove using its confirmation. Verify Premise, Setting, Canon Rules, and all other fields remain unchanged. Keep the test package local-only and do not delete it yet.
 
+### Story Bible whole-tab scrolling improvement (October 30, 2026)
+
+- Wrapped all **View Story Bible** content in a vertically scrollable Canvas with a scrollbar. The embedded content frame resizes to the viewport width and updates the scroll region as sections change size.
+- Mouse-wheel scrolling works throughout the visible tab, including Linux Button-4 / Button-5 and standard MouseWheel events. Wheel events are ignored when the pointer is outside the view or when the tab is not mapped.
+- All controls, editors, character-card manager, and JSON viewer remain inside the same scrollable tab. The Create Novel tab is unchanged.
+- Added `tests/test_story_bible_view_scrolling.py` for wheel direction, high-resolution deltas, off-tab pointer handling, and Linux wheel buttons. CI and live visual verification are pending.
+
 ## Minimal Writer checkpoint
 
 - Repository: `~/Documents/StoryBuilder`, GitHub `tony21675/StoryBuilder`, working branch `redesign/simplified-writing-workflow`.
