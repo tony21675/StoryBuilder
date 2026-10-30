@@ -31,10 +31,18 @@ class CharacterCardEditorBuildTests(unittest.TestCase):
         original = copy.deepcopy(original or {})
         editor = object.__new__(CharacterCardEditorWindow)
         editor.original = original
+        school = original.get("school", {})
+        if isinstance(school, str):
+            school = {"performance": school}
+        if not isinstance(school, dict):
+            school = {}
         editor.entry_vars = {
             key: FakeValue(str(original.get(key, "")))
             for key in (*_STRING_FIELDS, "age", "name")
         }
+        editor.entry_vars["school_performance"] = FakeValue(
+            str(school.get("performance", ""))
+        )
         editor.text_widgets = {
             key: FakeText(str(original.get(key, "")))
             for key in _TEXT_FIELDS
