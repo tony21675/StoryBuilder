@@ -363,6 +363,8 @@ class StoryBibleApp:
         if canvas is None:
             return False
         try:
+            if not canvas.winfo_ismapped():
+                return False
             left = canvas.winfo_rootx()
             top = canvas.winfo_rooty()
             right = left + canvas.winfo_width()
