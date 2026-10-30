@@ -87,7 +87,6 @@ class CharacterCardEditorBuildTests(unittest.TestCase):
 
         saved = editor.build_card()
 
-        self.assertEqual(saved, {"name": ""}) if False else None
         editor.entry_vars["name"] = FakeValue("Mara")
         saved = editor.build_card()
         self.assertEqual(saved, {"name": "Mara"})
@@ -164,6 +163,30 @@ class CharacterCardEditorBuildTests(unittest.TestCase):
                 "Ryan": "Good friend and crewmate.",
             },
         )
+
+    def test_nested_information_is_presented_without_json_brackets(self):
+        display = CharacterCardEditorWindow._human_readable_value(
+            {
+                "school": {"performance": "Does okay."},
+                "interests": ["Reading", "Music"],
+            }
+        )
+
+        self.assertIn("School:", display)
+        self.assertIn("Performance: Does okay.", display)
+        self.assertIn("Reading", display)
+        self.assertNotIn("{", display)
+        self.assertNotIn("}", display)
+        self.assertNotIn('"', display)
+
+    def test_removing_a_custom_field_removes_only_that_field(self):
+        original = {"name": "Mara", "private_note": "Remove me"}
+        editor = self.make_editor(original)
+        editor.custom_field_rows[0]["removed"] = True
+
+        saved = editor.build_card()
+
+        self.assertEqual(saved, {"name": "Mara"})
 
     def test_custom_field_names_and_values_are_plain_text_not_json(self):
         editor = self.make_editor({"name": "Mara"})
