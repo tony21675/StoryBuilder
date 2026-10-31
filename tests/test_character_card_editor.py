@@ -110,6 +110,19 @@ class CharacterCardEditorBuildTests(unittest.TestCase):
         editor.entry_vars["age"] = FakeValue("32")
         self.assertEqual(editor.build_card()["age"], 32)
 
+    def test_legacy_pronouns_are_hidden_but_preserved(self):
+        editor = self.make_editor({"name": "Mara", "pronouns": "she/her"})
+
+        self.assertNotIn("pronouns", editor.entry_vars)
+        self.assertIn("pronouns", _STANDARD_FIELDS)
+        self.assertFalse(
+            any(row["key"].get() == "pronouns" for row in editor.custom_field_rows)
+        )
+        self.assertEqual(
+            editor.build_card(),
+            {"name": "Mara", "pronouns": "she/her"},
+        )
+
     def test_edit_preserves_existing_nested_fields_and_custom_data(self):
         original = {
             "name": "Daniel Okafor",
