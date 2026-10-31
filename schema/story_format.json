@@ -24,7 +24,7 @@
               "role": {"type": "string"},
               "age": {"type": ["integer", "string"]},
               "gender": {"type": "string"},
-              "pronouns": {"type": "string"},
+              "pronouns": {"type": "string", "description": "Legacy compatibility field; retained in existing cards but no longer shown in the editor."},
               "relationship_status": {"type": "string"},
               "occupation": {"type": "string"},
               "status": {"type": "string"},
