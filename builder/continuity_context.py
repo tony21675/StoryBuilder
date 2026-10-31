@@ -265,7 +265,7 @@ def select_relevant_locations(
         is_primary = bool(primary and normalized_name == primary)
         is_named_in_scene = bool(
             re.search(
-                r"(?<!\\w)" + re.escape(name) + r"(?!\\w)",
+                r"(?<!\w)" + re.escape(name) + r"(?!\w)",
                 query_text,
                 flags=re.IGNORECASE,
             )
