@@ -148,4 +148,4 @@ App #2 now contains the package creator, read-only full-JSON viewer, and separat
 - The author confirmed the complete five-step UI test passed in the local-only `Story-Bible-Save-Test`: Add then Cancel, Add and Save, Edit and Save, and Remove with confirmation.
 - Real novel character data was not used for these write tests. The test fixture remains local-only and must not be synced or deleted until Story Bible feature development is complete.
 - Next live check: open `The Long Way Home` and `Taken_at_Dusk` in Story Bible, open Manage Character Cards, and select an existing JSON filename entry to confirm its actual character details display. Keep this check read-only; do not edit real novel cards.
-
+- **Read-only real-novel card display verified on October 31, 2026:** the author opened Zoe Bennett's `Zoe_Bennett.json` in The Long Way Home. The manager displayed the actual JSON content, including basic fields, appearance/background, personality and skills lists, and relationships. No edit or save was performed. The equivalent check in `Taken_at_Dusk` remains next.
