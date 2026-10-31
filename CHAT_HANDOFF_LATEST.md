@@ -1,6 +1,6 @@
 # StoryBuilder handoff, current checkpoint
 
-Date: October 29, 2026
+Date: October 30, 2026
 
 ## Current direction
 
@@ -67,7 +67,17 @@ App #2 now contains the package creator, read-only full-JSON viewer, and separat
 - Add, edit, rename, and remove are explicit actions. Removing an entry removes only that location from the Story Bible; there are no separate source files. Saving changes only locations, uses the existing atomic-write / changed-on-disk protection, and preserves Premise, Setting, Canon Rules, Character Cards, and unknown top-level data. Unsupported location shapes remain untouched and disable the manager.
 - Added automated tests for field-only storage, preservation of nested/custom details, optional fields, duplicate names, cancel, rename, removal, and automatically pre-filling an existing location's required Name field.
 - Both CI workflows passed on commit `6a87ed077582b3a5de5820c6147d86a38cecd7d1`: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/41153174530), with **525 passed and 75 subtests passed**, and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/41153174510), with **525 tests passed**.
-- Live UI verification is still pending. Next: pull the redesign branch on the Surface and test Add / Edit / Rename / Remove using only `Story-Bible-Save-Test`. Verify the other Story Bible sections remain unchanged; keep the fixture local-only.
+- **Live UI verification passed on the Surface on October 30, 2026:** the author confirmed the Locations manager test worked. Continue to use only `Story-Bible-Save-Test` for future add/edit/remove checks; keep it local-only and never sync it.
+
+### Minimal Writer: scene-aware saved location context (October 30, 2026)
+
+- Added exact-name selection in `builder.continuity_context.select_relevant_locations`. The helper includes locations named in the active writing text and preserves legacy string descriptions and structured entries. Matching is case-insensitive and uses complete names, not fuzzy or partial matches.
+- The active app is `minimal_writer.py`, launched by `start.sh`. It now reads only the selected novel's `locations` field from `story_bible.json` when preparing **Write**, **Continue**, or AI revision prompts. It does not edit the Story Bible or read character cards / current-state files.
+- **Write** matches against the new prompt. **Continue** matches against the prompt plus the visible passage, so a scene that starts at one house and later visits another can load both. AI revision matches the selected passage. Only matching saved entries are appended as a readable location-reference section; the status line lists included location names.
+- If no full location name matches, the prompt is unchanged. If the selected novel has no readable Story Bible locations, ordinary writing continues without location context. The location loader does not modify package files.
+- Added `tests/test_writer_location_context.py` for exact matching, exclusion of unrelated locations, legacy / structured entries, prompt formatting, read-only Story Bible access, and Write / Continue integration.
+- Both CI workflows passed on commit `c92ac1f3ad2e74dd3ea067750abfbf3ee371233b`: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/41154778485), with **536 passed and 75 subtests passed**, and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/41154778391).
+- **Live Minimal Writer verification is pending.** On the Surface, run `cd ~/Documents/StoryBuilder && ./start.sh` to sync the branch and open Minimal Writer. Select only `Story-Bible-Save-Test`, add two temporary location entries with distinct descriptions, and use both full names in the writing prompt. Confirm the status line lists both names; then try a prompt naming only one and confirm only that location is listed. Keep the fixture local-only and do not sync it.
 
 ### Story Bible whole-tab scrolling improvement (October 30, 2026)
 
