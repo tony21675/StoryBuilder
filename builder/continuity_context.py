@@ -237,6 +237,44 @@ def build_scene_relevance_query(
     return "\n".join(part.strip() for part in parts if part and part.strip())
 
 
+
+def select_relevant_locations(
+    locations: dict[str, Any],
+    primary_location: str,
+    query: str,
+) -> dict[str, Any]:
+    """Return saved locations named by the active scene, without changing storage.
+
+    The primary location is included by exact, case-insensitive name match.
+    Other locations are included only when their complete names appear in the
+    scene-specific query. This deliberately avoids fuzzy or partial-name matches.
+    """
+    if not isinstance(locations, dict):
+        return {}
+
+    primary = " ".join(str(primary_location or "").casefold().split())
+    query_text = str(query or "")
+    selected: dict[str, Any] = {}
+
+    for raw_name, details in locations.items():
+        name = str(raw_name or "").strip()
+        if not name or not isinstance(details, (str, dict)):
+            continue
+
+        normalized_name = " ".join(name.casefold().split())
+        is_primary = bool(primary and normalized_name == primary)
+        is_named_in_scene = bool(
+            re.search(
+                r"(?<!\\w)" + re.escape(name) + r"(?!\\w)",
+                query_text,
+                flags=re.IGNORECASE,
+            )
+        )
+        if is_primary or is_named_in_scene:
+            selected[name] = details
+
+    return selected
+
 def build_historical_relevance_query(
     direction: str,
     scene_idea: str = "",
