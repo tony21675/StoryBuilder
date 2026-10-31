@@ -1760,7 +1760,8 @@ class StoryBibleApp:
         """Preview and explicitly confirm syncing only the selected novel repo."""
         if (self._sync_in_progress or self._premise_editing or self._setting_editing
                 or self._canon_rules_editing or self._character_cards_managing
-                or self._locations_managing or self._character_card_editor_window is not None):
+                or getattr(self, "_locations_managing", False)
+                or self._character_card_editor_window is not None):
             return
 
         label = self.novel_combo.get().strip()
