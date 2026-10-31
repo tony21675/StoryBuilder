@@ -11,6 +11,7 @@ from builder.writer_engine import GenerationInterrupted, WriterEngine
 from builder.workspace import MODELS_DIR, NOVEL_ROOT
 from builder.continuity_context import select_relevant_locations
 from builder.story_bible_reader import load_story_bible_locations
+from builder.odt_document import markdown_to_rich_text, read_document, save_document
 from builder.novel_browser import list_novel_packages, list_scene_chapters, list_scene_files
 from builder.novel_git_sync import (
     NovelGitSyncError,
@@ -268,6 +269,55 @@ def save_text_document(path: str | Path, text: str) -> Path:
     return target
 
 
+def text_widget_to_markdown(widget: tk.Text) -> str:
+    """Serialize editor text and its bold/italic tags back to portable Markdown."""
+    plain = widget.get("1.0", "end-1c")
+    tag_names = getattr(widget, "tag_names", None)
+    if not callable(tag_names) or not plain:
+        return plain
+
+    output: list[str] = []
+    offset = 0
+    while offset < len(plain):
+        if plain[offset] == "\n":
+            output.append("\n")
+            offset += 1
+            continue
+
+        try:
+            tags = set(tag_names(f"1.0 + {offset} chars"))
+        except tk.TclError:
+            return plain
+        bold = "sb_bold" in tags or "sb_bold_italic" in tags
+        italic = "sb_italic" in tags or "sb_bold_italic" in tags
+        style = "bold_italic" if bold and italic else "bold" if bold else "italic" if italic else None
+
+        end = offset + 1
+        while end < len(plain) and plain[end] != "\n":
+            try:
+                next_tags = set(tag_names(f"1.0 + {end} chars"))
+            except tk.TclError:
+                return plain
+            next_bold = "sb_bold" in next_tags or "sb_bold_italic" in next_tags
+            next_italic = "sb_italic" in next_tags or "sb_bold_italic" in next_tags
+            next_style = (
+                "bold_italic" if next_bold and next_italic
+                else "bold" if next_bold
+                else "italic" if next_italic
+                else None
+            )
+            if next_style != style:
+                break
+            end += 1
+
+        value = plain[offset:end]
+        marker = "***" if style == "bold_italic" else "**" if style == "bold" else "*" if style == "italic" else ""
+        output.append(f"{marker}{value}{marker}" if marker else value)
+        offset = end
+
+    return "".join(output)
+
+
 class MinimalWriterApp:
     """A small local-model writing window, with no story-management pipeline."""
 
@@ -443,6 +493,15 @@ class MinimalWriterApp:
             outer, height=22, wrap="word", undo=True, font=("TkDefaultFont", 11)
         )
         self.output_box.pack(fill="both", expand=True, pady=(4, 8))
+        self.output_box.tag_configure(
+            "sb_bold", font=("TkDefaultFont", 11, "bold")
+        )
+        self.output_box.tag_configure(
+            "sb_italic", font=("TkDefaultFont", 11, "italic")
+        )
+        self.output_box.tag_configure(
+            "sb_bold_italic", font=("TkDefaultFont", 11, "bold", "italic")
+        )
         bind_ctrl_a_select_all(self.output_box)
         self.output_box.bind("<<Modified>>", self._on_output_modified)
         self.output_box.edit_modified(False)
@@ -703,7 +762,17 @@ class MinimalWriterApp:
             return False
         start = self.output_box.index(self._revision_start_mark)
         self.output_box.delete(self._revision_start_mark, self._revision_end_mark)
-        self.output_box.insert(start, proposed_text)
+        plain, spans = markdown_to_rich_text(proposed_text)
+        self.output_box.insert(start, plain)
+        inserted_end = self.output_box.index(f"{start} + {len(plain)} chars")
+        for tag in ("sb_bold", "sb_italic", "sb_bold_italic"):
+            self.output_box.tag_remove(tag, start, inserted_end)
+        for span_start, span_end, style in spans:
+            self.output_box.tag_add(
+                f"sb_{style}",
+                f"{start} + {span_start} chars",
+                f"{start} + {span_end} chars",
+            )
         self.output_box.mark_set("insert", start)
         self.output_box.see("insert")
         self.output_box.edit_modified(False)
@@ -967,8 +1036,8 @@ class MinimalWriterApp:
             return
 
         try:
-            text = read_text_document(source)
-        except (OSError, UnicodeError) as exc:
+            text = read_document(source)
+        except (OSError, UnicodeError, ValueError) as exc:
             self._showerror("Could not load scene", str(exc))
             return
 
@@ -1325,6 +1394,8 @@ class MinimalWriterApp:
         self.writing = False
         self.loaded_model = None
         self.stop_requested = False
+        partial_text = self._output_text()
+        self._set_output_text(partial_text)
         self.status_var.set(
             "Writing stopped. Partial text is kept. Load the model again to continue."
         )
@@ -1349,11 +1420,26 @@ class MinimalWriterApp:
         self._showerror("Writing failed", message)
 
     def _output_text(self) -> str:
-        return self.output_box.get("1.0", "end-1c")
+        return text_widget_to_markdown(self.output_box)
 
     def _set_output_text(self, text: str) -> None:
+        plain, spans = markdown_to_rich_text(text)
         self.output_box.delete("1.0", "end")
-        self.output_box.insert("1.0", text)
+        self.output_box.insert("1.0", plain)
+        for tag in ("sb_bold", "sb_italic", "sb_bold_italic"):
+            try:
+                self.output_box.tag_remove(tag, "1.0", "end")
+            except (AttributeError, tk.TclError):
+                pass
+        for start, end, style in spans:
+            try:
+                self.output_box.tag_add(
+                    f"sb_{style}",
+                    f"1.0 + {start} chars",
+                    f"1.0 + {end} chars",
+                )
+            except (AttributeError, tk.TclError):
+                pass
         self.output_box.edit_modified(False)
         self._update_document_title()
 
@@ -1385,8 +1471,11 @@ class MinimalWriterApp:
         if self.busy:
             return
         options = {
-            "title": "Open text",
-            "filetypes": [("Text files", "*.txt"), ("All files", "*.*")],
+            "title": "Open document",
+            "filetypes": [
+                ("LibreOffice Writer documents", "*.odt"),
+                ("Plain text documents", "*.txt"),
+            ],
         }
         if self.current_file is not None:
             options["initialdir"] = str(self.current_file.parent)
@@ -1395,9 +1484,9 @@ class MinimalWriterApp:
             return
 
         try:
-            text = read_text_document(filename)
-        except (OSError, UnicodeError) as exc:
-            self._showerror("Could not open text", str(exc))
+            text = read_document(filename)
+        except (OSError, UnicodeError, ValueError) as exc:
+            self._showerror("Could not open document", str(exc))
             return
 
         if not self._confirm_save_pending_changes():
@@ -1420,15 +1509,19 @@ class MinimalWriterApp:
     def save_output_as(self) -> bool:
         if self.busy:
             return False
+        source_path = self.current_file or self.selected_scene_source
+        default_name = (
+            source_path.with_suffix(".odt").name
+            if source_path is not None else "draft.odt"
+        )
         options = {
-            "title": "Save text as",
-            "defaultextension": ".txt",
-            "filetypes": [("Text files", "*.txt"), ("All files", "*.*")],
-            "initialfile": (
-                self.current_file.name if self.current_file
-                else self.selected_scene_source.name if self.selected_scene_source
-                else "draft.txt"
-            ),
+            "title": "Save document as",
+            "defaultextension": ".odt",
+            "filetypes": [
+                ("LibreOffice Writer documents", "*.odt"),
+                ("Plain text documents", "*.txt"),
+            ],
+            "initialfile": default_name,
         }
         if self.current_file is not None:
             options["initialdir"] = str(self.current_file.parent)
@@ -1495,9 +1588,9 @@ class MinimalWriterApp:
 
         text = self._output_text()
         try:
-            saved_path = save_text_document(target, text)
-        except (OSError, UnicodeError) as exc:
-            self._showerror("Could not save scene", str(exc))
+            saved_path = save_document(target, text)
+        except (OSError, UnicodeError, ValueError) as exc:
+            self._showerror("Could not save scene document", str(exc))
             return False
 
         # Do not attach the ordinary Save button to the manuscript target.
@@ -1514,9 +1607,9 @@ class MinimalWriterApp:
     def _save_to_path(self, path: str | Path) -> bool:
         text = self._output_text()
         try:
-            saved_path = save_text_document(path, text)
-        except (OSError, UnicodeError) as exc:
-            self._showerror("Could not save text", str(exc))
+            saved_path = save_document(path, text)
+        except (OSError, UnicodeError, ValueError) as exc:
+            self._showerror("Could not save document", str(exc))
             return False
 
         self.current_file = saved_path
