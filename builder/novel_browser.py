@@ -7,7 +7,10 @@ from builder.workspace import NOVEL_ROOT, find_novel_packages
 
 
 _CHAPTER_RE = re.compile(r"^Chapter_(\d+)$", re.IGNORECASE)
-_SCENE_RE = re.compile(r"^Chapter_(\d+)_Section_(\d+)\.txt$", re.IGNORECASE)
+_SCENE_RE = re.compile(
+    r"^Chapter_(\d+)_Section_(\d+)\.(odt|txt)$",
+    re.IGNORECASE,
+)
 
 
 def list_novel_packages(novel_root: str | Path | None = None) -> list[Path]:
@@ -38,10 +41,11 @@ def list_scene_chapters(novel_path: str | Path) -> list[int]:
 
 
 def list_scene_files(novel_path: str | Path, chapter_number: int) -> list[tuple[int, Path]]:
-    """List accepted scene text files for one chapter, ordered by scene number.
+    """List accepted scene documents, preferring ODT over a matching legacy TXT.
 
-    Supporting before/after state JSON files and other files are deliberately
-    excluded. This browser only reads a scene's plain-text manuscript file.
+    Supporting before/after state JSON files, drafts, and other files are
+    deliberately excluded. If both formats exist for a scene, only the ODT
+    version is shown so the browser never presents duplicate scene entries.
     """
     target = int(chapter_number)
     chapter_path = next(
@@ -51,13 +55,17 @@ def list_scene_files(novel_path: str | Path, chapter_number: int) -> list[tuple[
     if chapter_path is None:
         return []
 
-    scenes: list[tuple[int, Path]] = []
+    scenes: dict[int, Path] = {}
     try:
         for child in chapter_path.iterdir():
             match = _SCENE_RE.fullmatch(child.name)
-            if child.is_file() and match and int(match.group(1)) == target:
-                scenes.append((int(match.group(2)), child))
+            if not child.is_file() or not match or int(match.group(1)) != target:
+                continue
+            scene_number = int(match.group(2))
+            existing = scenes.get(scene_number)
+            if existing is None or child.suffix.casefold() == ".odt":
+                scenes[scene_number] = child
     except OSError:
         return []
 
-    return sorted(scenes, key=lambda item: (item[0], item[1].name.casefold()))
+    return sorted(scenes.items(), key=lambda item: (item[0], item[1].name.casefold()))

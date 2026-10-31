@@ -32,7 +32,9 @@ class NovelBrowserTests(unittest.TestCase):
 
             for filename in (
                 "Chapter_01_Section_10.txt",
+                "Chapter_01_Section_10.odt",
                 "Chapter_01_Section_02.txt",
+                "Chapter_01_Section_03.odt",
                 "Chapter_01_Section_01_before_state.json",
                 "notes.txt",
             ):
@@ -47,7 +49,8 @@ class NovelBrowserTests(unittest.TestCase):
                 [(number, path.name) for number, path in list_scene_files(novel, 1)],
                 [
                     (2, "Chapter_01_Section_02.txt"),
-                    (10, "Chapter_01_Section_10.txt"),
+                    (3, "Chapter_01_Section_03.odt"),
+                    (10, "Chapter_01_Section_10.odt"),
                 ],
             )
             self.assertEqual(

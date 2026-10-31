@@ -949,7 +949,7 @@ class MinimalWriterApp:
         else:
             self.scene_var.set("")
             self.status_var.set(
-                f"No saved scene text files found for {self.chapter_var.get() or 'this chapter'}. "
+                f"No saved scene documents found for {self.chapter_var.get() or 'this chapter'}. "
                 "You can still use the Writer normally."
             )
         self._update_controls()

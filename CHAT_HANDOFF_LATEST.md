@@ -110,3 +110,11 @@ App #2 now contains the package creator, read-only full-JSON viewer, and separat
 - Preserve accepted manuscripts. Do not blindly switch or delete Git branches. StoryBuilder should eventually have only `main` after a deliberate merge/cleanup; each novel repo should have its own branch.
 - Keep all app text areas and popups selectable so Ctrl+A/Ctrl+C work; avoid cluttering the UI with many copy buttons.
 - Model preference: retain Gemma 4 E4B as the current general-purpose writer. The author is separately exploring a second model for explicit adult erotica featuring consenting adults. Do not download/replace models or change model setup without discussion.
+
+
+### Minimal Writer: LibreOffice ODT support (October 30, 2026)
+- Added standard-library ODT read/write support. The Writer can open ODT and UTF-8 TXT documents, defaults Save As to ODT, and preserves legacy TXT behavior.
+- ODT import reads paragraphs and bold/italic character styles. Markdown-style bold / italic output is rendered using real editor font tags without visible asterisks; save/export writes actual ODT text styles. TXT saves retain the Markdown markers for portability.
+- Scene browsing now accepts `Chapter_##_Section_##.odt` and legacy `.txt`. When both exist, ODT is preferred and duplicate entries are hidden. Draft filenames and state JSON files remain excluded.
+- Added tests for ODT package structure, Markdown formatting conversion, read/write dispatch, malformed ODT handling, and ODT scene preference.
+- Live desktop/surface UI verification is still required after pulling this commit. Do not convert or remove existing GitHub manuscript TXT files until the author confirms the ODT feature works locally.

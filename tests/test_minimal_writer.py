@@ -15,6 +15,7 @@ from minimal_writer import (
     write_from_prompt,
     bind_ctrl_a_select_all,
     select_all_text,
+    text_widget_to_markdown,
 )
 
 
@@ -67,6 +68,28 @@ class FakePromptBox:
 
     def get(self, _start, _end):
         return self.text
+
+
+class FakeStyledOutputBox:
+    def __init__(self, text, bold_ranges=(), italic_ranges=(), combined_ranges=()):
+        self.text = text
+        self.bold_ranges = bold_ranges
+        self.italic_ranges = italic_ranges
+        self.combined_ranges = combined_ranges
+
+    def get(self, _start, _end):
+        return self.text
+
+    def tag_names(self, index):
+        offset = int(index.split("+", 1)[1].strip().split()[0])
+        tags = []
+        if any(start <= offset < end for start, end in self.bold_ranges):
+            tags.append("sb_bold")
+        if any(start <= offset < end for start, end in self.italic_ranges):
+            tags.append("sb_italic")
+        if any(start <= offset < end for start, end in self.combined_ranges):
+            tags.append("sb_bold_italic")
+        return tuple(tags)
 
 
 class ImmediateThread:
@@ -696,6 +719,27 @@ class MinimalWriterTests(unittest.TestCase):
 
         self.assertEqual(saved_path, path.resolve())
         self.assertEqual(reopened, original)
+
+    def test_editor_serializes_real_bold_and_italic_tags_to_markdown(self):
+        widget = FakeStyledOutputBox(
+            "A bold phrase and italic words.",
+            bold_ranges=((2, 13),),
+            italic_ranges=((18, 30),),
+        )
+        self.assertEqual(
+            text_widget_to_markdown(widget),
+            "A **bold phrase** and *italic words*.",
+        )
+
+    def test_editor_serializes_combined_bold_italic_tags(self):
+        widget = FakeStyledOutputBox(
+            "An emphasized phrase.",
+            combined_ranges=((3, 20),),
+        )
+        self.assertEqual(
+            text_widget_to_markdown(widget),
+            "An ***emphasized phrase***.",
+        )
 
     def test_save_does_not_add_or_remove_a_trailing_newline(self):
         original = "A sentence without a final newline."
