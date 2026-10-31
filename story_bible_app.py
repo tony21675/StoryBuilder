@@ -1419,6 +1419,31 @@ class StoryBibleApp:
             return
         self._open_character_card_editor(index, card_data, filename)
 
+    def _character_names_for_editor(self) -> list[str]:
+        """Load names from the selected novel's referenced character cards."""
+        if self._loaded_novel_path is None or self._loaded_character_cards is None:
+            return []
+        names: dict[str, str] = {}
+        for card in self._loaded_character_cards:
+            if isinstance(card, dict):
+                card_data = card
+            elif isinstance(card, str) and Path(card).suffix.lower() == ".json":
+                try:
+                    card_data = load_story_bible_character_card(
+                        self._loaded_novel_path, card
+                    )
+                except (OSError, ValueError):
+                    continue
+            else:
+                # Legacy free-text notes do not have a reliable separate character name.
+                continue
+
+            name = card_data.get("name")
+            if isinstance(name, str) and name.strip():
+                label = name.strip()
+                names.setdefault(label.casefold(), label)
+        return sorted(names.values(), key=str.casefold)
+
     def _open_character_card_editor(
         self,
         edit_index: int | None,
@@ -1436,6 +1461,7 @@ class StoryBibleApp:
             title=title,
             on_save=self.save_character_card,
             on_cancel=self.cancel_character_card_edit,
+            character_names=self._character_names_for_editor(),
         )
         self._character_card_editor = editor
         self._character_card_editor_window = editor.window

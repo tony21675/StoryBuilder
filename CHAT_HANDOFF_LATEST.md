@@ -150,3 +150,10 @@ App #2 now contains the package creator, read-only full-JSON viewer, and separat
 - Next live check: open `The Long Way Home` and `Taken_at_Dusk` in Story Bible, open Manage Character Cards, and select an existing JSON filename entry to confirm its actual character details display. Keep this check read-only; do not edit real novel cards.
 - **Read-only real-novel card display verified on October 31, 2026:** the author opened Zoe Bennett's `Zoe_Bennett.json` in The Long Way Home. The manager displayed the actual JSON content, including basic fields, appearance/background, personality and skills lists, and relationships. No edit or save was performed. The equivalent check in `Taken_at_Dusk` remains next.
 - **Read-only real-novel card display verified on October 31, 2026:** the author opened Jessica's `Jessica.json` in Taken_at_Dusk. The manager displayed the complete saved character content, including her multi-paragraph background, nested appearance object, all six relationship entries, and knowledge rule. No edit or save was performed. Together with the Zoe Bennett check in The Long Way Home, this completes the existing-card display check in both real novels.
+
+### Character Card relationship-name dropdown (October 31, 2026)
+
+- The Relationships tab in the existing per-character editor now uses an editable dropdown for each relationship's Character field. Options are gathered from the selected novel's referenced JSON character cards and any embedded structured cards, then trimmed, de-duplicated case-insensitively, and sorted alphabetically.
+- The dropdown remains editable, so names that are not yet represented by a Character Card can still be typed. Existing relationship names/descriptions remain populated as before, including legacy names not present in the current card list.
+- No novel data is changed by opening the editor. Regression tests cover name loading from file-backed and embedded cards, ignoring legacy notes or missing files, passing options to the editor, and option normalization.
+- Live UI verification is pending.

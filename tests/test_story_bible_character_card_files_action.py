@@ -83,6 +83,51 @@ class StoryBibleCharacterCardFileActionTests(unittest.TestCase):
         app.viewer_status_var = FakeStatus()
         return app
 
+    def test_character_name_options_use_referenced_card_files_and_embedded_cards(self):
+        temporary, package, _expected = self.make_package()
+        try:
+            (Path(package) / "Zoe_Bennett.json").write_text(
+                json.dumps({"name": "Zoe Bennett", "role": "Communications"}),
+                encoding="utf-8",
+            )
+            app = self.make_app(package)
+            app._loaded_character_cards = [
+                "Daniel_Okafor.json",
+                "Zoe_Bennett.json",
+                {"name": "Maya Chen", "role": "Medic"},
+                "Older plain-text note.",
+                "Missing.json",
+            ]
+
+            self.assertEqual(
+                app._character_names_for_editor(),
+                ["Daniel Okafor", "Maya Chen", "Zoe Bennett"],
+            )
+        finally:
+            temporary.cleanup()
+
+    def test_opening_editor_passes_available_character_names(self):
+        temporary, package, _expected = self.make_package()
+        try:
+            (Path(package) / "Zoe_Bennett.json").write_text(
+                json.dumps({"name": "Zoe Bennett"}),
+                encoding="utf-8",
+            )
+            app = self.make_app(package)
+            app._character_cards_manager_window = object()
+            app._character_card_editor_window = None
+            with patch("story_bible_app.CharacterCardEditorWindow") as editor_class:
+                editor_class.return_value.window = object()
+                app._open_character_card_editor(None)
+
+            editor_class.assert_called_once()
+            self.assertEqual(
+                editor_class.call_args.kwargs["character_names"],
+                ["Daniel Okafor", "Zoe Bennett"],
+            )
+        finally:
+            temporary.cleanup()
+
     def test_opening_referenced_card_displays_its_full_json_details(self):
         temporary, package, expected = self.make_package()
         try:

@@ -55,6 +55,18 @@ _TAB_FIELDS = {
 }
 
 
+def _normalize_character_names(names: list[str] | tuple[str, ...] | None) -> tuple[str, ...]:
+    """Return unique, non-empty character names in case-insensitive alphabetical order."""
+    unique: dict[str, str] = {}
+    for name in names or ():
+        if not isinstance(name, str):
+            continue
+        label = name.strip()
+        if label:
+            unique.setdefault(label.casefold(), label)
+    return tuple(sorted(unique.values(), key=str.casefold))
+
+
 class CharacterCardEditorWindow:
     """Optional-field character editor that preserves unrecognized JSON data."""
 
@@ -65,8 +77,10 @@ class CharacterCardEditorWindow:
         title: str,
         on_save: Callable[[dict[str, Any]], None],
         on_cancel: Callable[[], None],
+        character_names: list[str] | tuple[str, ...] | None = None,
     ) -> None:
         self.original = copy.deepcopy(existing or {})
+        self.character_names = _normalize_character_names(character_names)
         self.on_save = on_save
         self.on_cancel = on_cancel
         self.entry_vars: dict[str, tk.StringVar] = {}
@@ -354,7 +368,10 @@ class CharacterCardEditorWindow:
     def _build_relationships_tab(self, parent: ttk.Frame) -> None:
         ttk.Label(
             parent,
-            text="Add a row for each person. Both boxes are ordinary text; no special punctuation is needed.",
+            text=(
+                "Choose a saved character from the dropdown, or type a name for someone "
+                "who does not have a Character Card yet. Describe the relationship in plain English."
+            ),
             wraplength=650,
         ).grid(row=0, column=0, sticky="w", pady=(0, 8))
         rows_frame = ttk.Frame(parent)
@@ -390,9 +407,13 @@ class CharacterCardEditorWindow:
         ttk.Label(row, text="Character").grid(
             row=0, column=0, sticky="w", padx=(0, 8)
         )
-        ttk.Entry(row, textvariable=name_var, width=20).grid(
-            row=0, column=1, sticky="ew", padx=(0, 8)
-        )
+        ttk.Combobox(
+            row,
+            textvariable=name_var,
+            values=self.character_names,
+            width=20,
+            state="normal",
+        ).grid(row=0, column=1, sticky="ew", padx=(0, 8))
         ttk.Label(row, text="Relationship").grid(
             row=0, column=2, sticky="w", padx=(0, 8)
         )

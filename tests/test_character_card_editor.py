@@ -7,6 +7,7 @@ from builder.character_card_editor import (
     _STRING_FIELDS,
     _TEXT_FIELDS,
     _STANDARD_FIELDS,
+    _normalize_character_names,
 )
 
 
@@ -24,6 +25,19 @@ class FakeText:
 
     def get(self, _start, _end):
         return self.value
+
+
+class CharacterNameOptionsTests(unittest.TestCase):
+    def test_names_are_trimmed_deduplicated_and_sorted_case_insensitively(self):
+        self.assertEqual(
+            _normalize_character_names(
+                [" Zoe Bennett ", "chloe", "Maya", "CHLOE", "", "  ", None]
+            ),
+            ("chloe", "Maya", "Zoe Bennett"),
+        )
+
+    def test_missing_character_names_produces_empty_options(self):
+        self.assertEqual(_normalize_character_names(None), ())
 
 
 class CharacterCardEditorBuildTests(unittest.TestCase):
