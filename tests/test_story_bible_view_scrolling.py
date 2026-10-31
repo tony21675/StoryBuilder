@@ -1,3 +1,5 @@
+import ast
+import inspect
 import unittest
 from types import SimpleNamespace
 
@@ -32,6 +34,34 @@ class FakeCanvas:
 
 
 class StoryBibleViewScrollingTests(unittest.TestCase):
+    def test_status_message_has_its_own_row_below_json_viewer(self):
+        source = inspect.getsource(StoryBibleApp._build_view_tab)
+        tree = ast.parse(source)
+        grid_rows = {}
+
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            if not isinstance(node.func, ast.Attribute) or node.func.attr != "grid":
+                continue
+            receiver = node.func.value
+            if not isinstance(receiver, ast.Name):
+                continue
+            row = next(
+                (
+                    keyword.value.value
+                    for keyword in node.keywords
+                    if keyword.arg == "row"
+                    and isinstance(keyword.value, ast.Constant)
+                ),
+                None,
+            )
+            if row is not None:
+                grid_rows[receiver.id] = row
+
+        self.assertEqual(grid_rows.get("viewer_frame"), 10)
+        self.assertEqual(grid_rows.get("status_label"), 11)
+
     def make_app(self):
         app = object.__new__(StoryBibleApp)
         app._view_canvas = FakeCanvas()

@@ -392,13 +392,14 @@ class StoryBibleApp:
         self.story_bible_text.bind("<Control-c>", self._copy_selected_story_bible)
         self.story_bible_text.bind("<Control-C>", self._copy_selected_story_bible)
 
-        ttk.Label(
+        status_label = ttk.Label(
             parent,
             textvariable=self.viewer_status_var,
             anchor="w",
             justify="left",
             wraplength=760,
-        ).grid(row=10, column=0, sticky="ew", pady=(8, 0))
+        )
+        status_label.grid(row=11, column=0, sticky="ew", pady=(8, 0))
 
     def _view_canvas_contains_pointer(self, event) -> bool:
         canvas = self._view_canvas

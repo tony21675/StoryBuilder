@@ -129,3 +129,9 @@ App #2 now contains the package creator, read-only full-JSON viewer, and separat
 - Added regression assertions in `tests/test_odt_document.py`. Both CI workflows passed on StoryBuilder commit `9fffb5c058c014c8418b9796cb8f4ae7ba85f85b`: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/41160468204) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/41160468155).
 - Regenerated all 17 ODT copies in `tony21675/MyNovel` (commit `48dfec60767715b6f6fe479faa4646b1de5d90d0`) and all 10 in `tony21675/The-Long-Way-Home` (commit `a2f1255262aa03c56203e32bc7a7a37ab6f3dd9a`) from the unchanged TXT originals. Repository comparisons confirmed no TXT files or other novel content changed; only the ODT copies and each novel's handoff/readme changed.
 - ZIP package structure, entry CRCs, and paragraph-style application were checked on samples from both repositories. **Live LibreOffice visual verification of the corrected spacing is still pending.**
+
+### Story Bible status-bar layout correction (October 31, 2026)
+
+- Live scrolling test exposed the status message overlapping the JSON viewer because both widgets were gridded in row 10 of the scrollable content frame.
+- Moved the status label to row 11, keeping the JSON viewer in row 10. Added a regression test that inspects the View Story Bible layout and verifies the two widgets occupy separate rows.
+- Novel data is not changed. Live visual retest is pending.
