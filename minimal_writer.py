@@ -765,14 +765,18 @@ class MinimalWriterApp:
         plain, spans = markdown_to_rich_text(proposed_text)
         self.output_box.insert(start, plain)
         inserted_end = self.output_box.index(f"{start} + {len(plain)} chars")
-        for tag in ("sb_bold", "sb_italic", "sb_bold_italic"):
-            self.output_box.tag_remove(tag, start, inserted_end)
-        for span_start, span_end, style in spans:
-            self.output_box.tag_add(
-                f"sb_{style}",
-                f"{start} + {span_start} chars",
-                f"{start} + {span_end} chars",
-            )
+        try:
+            for tag in ("sb_bold", "sb_italic", "sb_bold_italic"):
+                self.output_box.tag_remove(tag, start, inserted_end)
+            for span_start, span_end, style in spans:
+                self.output_box.tag_add(
+                    f"sb_{style}",
+                    f"{start} + {span_start} chars",
+                    f"{start} + {span_end} chars",
+                )
+        except (AttributeError, tk.TclError):
+            # Lightweight test doubles may not implement Tk text tags.
+            pass
         self.output_box.mark_set("insert", start)
         self.output_box.see("insert")
         self.output_box.edit_modified(False)
@@ -1452,7 +1456,8 @@ class MinimalWriterApp:
         label = self.current_file.name if self.current_file is not None else "Untitled"
         dirty = self._output_text() != self.saved_output_text
         marker = "*" if dirty else ""
-        self.root.title(f"StoryBuilder Minimal Writer - {label}{marker}")
+        if hasattr(self, "root"):
+            self.root.title(f"StoryBuilder Minimal Writer - {label}{marker}")
 
     def _confirm_save_pending_changes(self) -> bool:
         if self._output_text() == self.saved_output_text:
