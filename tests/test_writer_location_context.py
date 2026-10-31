@@ -178,7 +178,8 @@ class MinimalWriterLocationIntegrationTests(unittest.TestCase):
 
             MinimalWriterApp.write(app)
 
-            generated_prompt, mode = app._begin_generation.call_args.args
+            generated_prompt = app._begin_generation.call_args.args[0]
+            mode = app._begin_generation.call_args.kwargs["mode"]
             self.assertIn("The kitchen has a broad island.", generated_prompt)
             self.assertNotIn("A small blue house near the park.", generated_prompt)
             self.assertEqual(mode, "write")
@@ -204,7 +205,8 @@ class MinimalWriterLocationIntegrationTests(unittest.TestCase):
 
             MinimalWriterApp.continue_writing(app)
 
-            generated_prompt, mode = app._begin_generation.call_args.args
+            generated_prompt = app._begin_generation.call_args.args[0]
+            mode = app._begin_generation.call_args.kwargs["mode"]
             self.assertIn("The kitchen has a broad island.", generated_prompt)
             self.assertIn("A small blue house near the park.", generated_prompt)
             self.assertEqual(

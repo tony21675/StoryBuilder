@@ -1129,7 +1129,11 @@ class MinimalWriterApp:
             return
 
         prompt = build_continue_prompt(existing_text)
-        scene_idea = self.prompt_box.get("1.0", "end-1c")
+        prompt_box = getattr(self, "prompt_box", None)
+        scene_idea = (
+            prompt_box.get("1.0", "end-1c")
+            if prompt_box is not None else ""
+        )
         prompt = self._prepare_location_context(
             prompt,
             "\n".join(part for part in (scene_idea, existing_text) if part),
@@ -1139,8 +1143,12 @@ class MinimalWriterApp:
     def _prepare_location_context(self, prompt: str, supporting_text: str = "") -> str:
         """Read the selected novel's locations and attach only exact scene matches."""
         self.last_location_context_names = []
-        novel_name = self.novel_var.get().strip()
-        novel_path = self.novel_packages.get(novel_name)
+        novel_var = getattr(self, "novel_var", None)
+        novel_packages = getattr(self, "novel_packages", {})
+        if novel_var is None or not isinstance(novel_packages, dict):
+            return prompt
+        novel_name = novel_var.get().strip()
+        novel_path = novel_packages.get(novel_name)
         if novel_path is None:
             return prompt
 
