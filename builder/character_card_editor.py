@@ -10,7 +10,6 @@ from typing import Any, Callable
 _STRING_FIELDS = (
     "role",
     "gender",
-    "pronouns",
     "relationship_status",
     "occupation",
     "status",
@@ -34,6 +33,7 @@ _APPEARANCE_FIELDS = ("height", "build", "hair", "eyes", "style", "notes")
 _STANDARD_FIELDS = {
     "name",
     "age",
+    "pronouns",  # Legacy cards retain this key, but the editor does not expose it.
     *_STRING_FIELDS,
     *_TEXT_FIELDS,
     *_LIST_FIELDS,
@@ -282,7 +282,6 @@ class CharacterCardEditorWindow:
         self._add_entry(parent, "role", "Role", self.original.get("role", ""))
         self._add_entry(parent, "age", "Age", self.original.get("age", ""))
         self._add_entry(parent, "gender", "Gender", self.original.get("gender", ""))
-        self._add_entry(parent, "pronouns", "Pronouns", self.original.get("pronouns", ""))
         self._add_entry(
             parent, "relationship_status", "Relationship Status",
             self.original.get("relationship_status", ""),
