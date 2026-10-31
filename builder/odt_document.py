@@ -254,7 +254,11 @@ def _build_content_xml(markdown: str) -> bytes:
             )
             block = heading_match.group(2)
         else:
-            paragraph = ET.SubElement(office_text, _q("text", "p"))
+            paragraph = ET.SubElement(
+                office_text,
+                _q("text", "p"),
+                {_q("text", "style-name"): "SB_Paragraph"},
+            )
 
         lines = block.split("\n")
         for index, line in enumerate(lines):
@@ -275,6 +279,22 @@ def _build_styles_xml() -> bytes:
         styles,
         _q("style", "default-style"),
         {_q("style", "family"): "paragraph"},
+    )
+    paragraph_style = ET.SubElement(
+        styles,
+        _q("style", "style"),
+        {
+            _q("style", "name"): "SB_Paragraph",
+            _q("style", "family"): "paragraph",
+        },
+    )
+    ET.SubElement(
+        paragraph_style,
+        _q("style", "paragraph-properties"),
+        {
+            _q("fo", "margin-bottom"): "0.12in",
+            _q("fo", "line-height"): "120%",
+        },
     )
     automatic = ET.SubElement(root, _q("office", "automatic-styles"))
     page_layout = ET.SubElement(
