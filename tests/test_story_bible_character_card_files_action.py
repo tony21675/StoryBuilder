@@ -114,6 +114,10 @@ class StoryBibleCharacterCardFileActionTests(unittest.TestCase):
                 encoding="utf-8",
             )
             app = self.make_app(package)
+            app._loaded_character_cards = [
+                "Daniel_Okafor.json",
+                "Zoe_Bennett.json",
+            ]
             app._character_cards_manager_window = object()
             app._character_card_editor_window = None
             with patch("story_bible_app.CharacterCardEditorWindow") as editor_class:
