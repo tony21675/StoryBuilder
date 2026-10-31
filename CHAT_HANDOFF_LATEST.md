@@ -134,4 +134,5 @@ App #2 now contains the package creator, read-only full-JSON viewer, and separat
 
 - Live scrolling test exposed the status message overlapping the JSON viewer because both widgets were gridded in row 10 of the scrollable content frame.
 - Moved the status label to row 11, keeping the JSON viewer in row 10. Added a regression test that inspects the View Story Bible layout and verifies the two widgets occupy separate rows.
-- Novel data is not changed. Live visual retest is pending.
+- Live verification completed on October 31, 2026: user confirmed the status label is now below the JSON viewer and no longer overlaps it. No novel data was changed.
+- The first CI attempt exposed an indentation issue in the AST-based regression test, not the application code. The test now uses `textwrap.dedent` before parsing; rerunning both workflows.

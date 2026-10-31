@@ -1,5 +1,6 @@
 import ast
 import inspect
+import textwrap
 import unittest
 from types import SimpleNamespace
 
@@ -36,7 +37,7 @@ class FakeCanvas:
 class StoryBibleViewScrollingTests(unittest.TestCase):
     def test_status_message_has_its_own_row_below_json_viewer(self):
         source = inspect.getsource(StoryBibleApp._build_view_tab)
-        tree = ast.parse(source)
+        tree = ast.parse(textwrap.dedent(source))
         grid_rows = {}
 
         for node in ast.walk(tree):
