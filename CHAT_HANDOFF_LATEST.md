@@ -59,8 +59,10 @@ App #2 now contains the package creator, read-only full-JSON viewer, and separat
 - Common details use labeled text boxes. Lists use one item per line. Relationships use separate Character and Relationship boxes with Add / Remove row actions. Custom scalar details use Field Name and Value rows. No user-facing JSON editing, commas, or brackets are required.
 - Common existing fields are mapped into the editor, including school performance. Nested and unknown information is displayed in readable form and preserved when left alone; unrecognized structured values are not rewritten from a simplified view.
 - The editor writes JSON behind the scenes. Existing card files are carried forward while form changes are applied; the file-only save supports a full edited object with atomic replacement and a changed-on-disk check. New cards accept optional JSON-compatible fields but require a non-empty name.
-- Added unit tests verifying Name-only cards, optional/worded ages, preservation of nested data, relationship rows, readable custom fields, and intentional removal of custom fields. CI results for the current code are pending.
-- Next: live-test only in `Story-Bible-Save-Test`. Open **Manage Character Cards**, add a card with only Name, Save, reopen and fill a few optional fields, edit a relationship and a custom field, then Cancel another draft. Verify Premise, Setting, Canon Rules, and all other package data stayed intact. Keep this package local-only; do not sync or delete it.
+- Added unit tests verifying Name-only cards, optional/worded ages, preservation of nested data, relationship rows, readable custom fields, and intentional removal of custom fields.
+- **Live UI check confirmed by the author on October 30, 2026:** the expanded plain-English Character Card editor looks good. The author requested removal of the unused Pronouns field.
+- **Pronouns removed from the editor.** Existing cards that already contain a `pronouns` value keep it unchanged when edited; the legacy key is hidden rather than moved into Additional Fields or deleted. The schema retains the property for backward compatibility.
+- Regression test verifies that Pronouns is absent from editable form fields and existing values survive a save unchanged. CI for this small follow-up is pending.
 
 ### Story Bible whole-tab scrolling improvement (October 30, 2026)
 
