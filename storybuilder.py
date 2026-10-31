@@ -62,7 +62,6 @@ from builder.continuity_context import (
     context_size_report,
     estimate_tokens_from_chars,
     select_active_character_knowledge,
-    select_relevant_locations,
     select_relevant_records,
 )
 from builder.writer_context_budget import (
@@ -1949,18 +1948,12 @@ class StoryBuilderApp(tk.Tk):
         )
         if not isinstance(guidance_entry, dict):
             guidance_entry = {}
-        scene_idea = str(guidance_entry.get("scene_idea", "") or "").strip()
         scene_plan_text = "\n".join([
-            scene_idea,
+            str(guidance_entry.get("scene_idea", "") or ""),
             str(guidance_entry.get("direction", "") or ""),
             str(guidance_entry.get("end_condition", "") or ""),
         ]).strip()
         continuity_focus = str(guidance_entry.get("continuity_focus", "") or "").strip()
-        # An explicit Scene Header location is authoritative for this scene,
-        # even when the saved starting-state snapshot still names an earlier place.
-        scene_header_location = extract_scene_header_metadata(scene_idea).get("location", "")
-        if str(scene_header_location or "").strip():
-            primary_location = str(scene_header_location).strip()
         context_query = build_scene_relevance_query(
             scene_cast_names,
             primary_location,
@@ -2014,19 +2007,6 @@ class StoryBuilderApp(tk.Tk):
             "scene_state.json",
             json.dumps(scene_state, indent=2, ensure_ascii=False),
         ))
-
-        # Persist every location in the Story Bible, but pass only the active
-        # scene's opening place and other places explicitly named by the author.
-        scene_locations = select_relevant_locations(
-            self.package.story_bible.get("locations", {}),
-            primary_location,
-            "\n".join(part for part in (scene_idea, continuity_focus) if part),
-        )
-        if scene_locations:
-            files.append((
-                "scene_locations.json",
-                json.dumps(scene_locations, indent=2, ensure_ascii=False),
-            ))
 
         working_notes = normalize_writer_notes(
             getattr(self.package, "writer_notes", {})
@@ -3149,9 +3129,6 @@ Do not repeat completed events, scenes, or reports as if they were happening for
 Keep danger and consequences proportionate to the situation. Show the warning signs, time, resources, and transitions needed for important outcomes to feel credible. Do not jump from a minor problem to catastrophe without setup or resolve a serious problem without a believable path. Respect the active novel's established geography, travel, communications, available resources, and physical constraints.
 
 Separate observation, theory, and confirmation. Characters may speculate, disagree, test ideas, and make mistakes, but the prose must not quietly turn a hypothesis into an established fact. Keep unresolved questions unresolved. Do not invent hidden motives or causal links between separate events unless the story's evidence supports them.
-
-LOCATION REFERENCE
-When scene_locations.json is supplied, it contains saved details only for places selected as relevant to this scene. Keep each place's layout and details attached to that named location. When the scene moves between supplied places, make the transition clear; never transfer one home's layout or details to another. If no matching saved location is supplied, do not invent saved facts about it.
 
 SHAPE AND VOICE
 Write a complete scene with a natural flow of opening, development, and consequence. Every concrete story commitment named in the original Scene Idea must happen on-page, including specific dialogue or nicknames, relationship milestones, and planned emotional turns. Include the important movements named in the idea without mechanically checking off incidental wording. If the scene spans several phases or time, carry it through that arc instead of stopping after the first prominent action. Honor an explicit endpoint or hard stop; do not end too early or cross the boundary into a later scene. If no endpoint is specified, choose the most satisfying natural stopping point.

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import threading
 import tkinter as tk
 from pathlib import Path
@@ -8,6 +9,8 @@ from tkinter.scrolledtext import ScrolledText
 
 from builder.writer_engine import GenerationInterrupted, WriterEngine
 from builder.workspace import MODELS_DIR, NOVEL_ROOT
+from builder.continuity_context import select_relevant_locations
+from builder.story_bible_reader import load_story_bible_locations
 from builder.novel_browser import list_novel_packages, list_scene_chapters, list_scene_files
 from builder.novel_git_sync import (
     NovelGitSyncError,
@@ -180,6 +183,46 @@ def build_continue_prompt(existing_text: str) -> str:
     return f"{CONTINUE_PROMPT}\n\nPassage ending for context:\n{passage_ending}"
 
 
+def build_location_context_prompt(
+    prompt: str,
+    locations: dict,
+    supporting_text: str = "",
+) -> tuple[str, list[str]]:
+    """Append only saved locations whose complete names appear in scene text."""
+    query = "\n".join(
+        part for part in (str(prompt or ""), str(supporting_text or "")) if part
+    )
+    selected = select_relevant_locations(locations, "", query)
+    if not selected:
+        return str(prompt or ""), []
+
+    lines = [
+        "SAVED LOCATION REFERENCES FOR THIS SCENE",
+        "Use these details only for the places named below. Keep each place's details separate.",
+    ]
+    for name, details in selected.items():
+        lines.append(f"\n[{name}]")
+        if isinstance(details, str):
+            if details.strip():
+                lines.append(f"Description: {details.strip()}")
+            continue
+
+        for key, value in details.items():
+            if value is None or value == "":
+                continue
+            label = str(key).replace("_", " ").strip().capitalize()
+            if isinstance(value, (dict, list)):
+                rendered = json.dumps(value, ensure_ascii=False, indent=2)
+                lines.append(f"{label}:\n" + "\n".join(
+                    f"  {line}" for line in rendered.splitlines()
+                ))
+            else:
+                lines.append(f"{label}: {value}")
+
+    context = "\n".join(lines)
+    return f"{str(prompt or '').rstrip()}\n\n{context}", list(selected)
+
+
 def build_revision_prompt(selected_text: str, instruction: str) -> str:
     """Ask the model to revise only the selected passage, following the author's instruction."""
     return (
@@ -237,6 +280,7 @@ class MinimalWriterApp:
         self.selected_scene_source: Path | None = None
         self.saved_output_text = ""
         self.novel_packages: dict[str, Path] = {}
+        self.last_location_context_names: list[str] = []
         self.chapter_numbers: dict[str, int] = {}
         self.scene_files: dict[str, Path] = {}
         self.busy = False
@@ -531,6 +575,7 @@ class MinimalWriterApp:
                     )
                     return
                 prompt = build_revision_prompt(selected_text, instruction)
+                prompt = self._prepare_location_context(prompt, selected_text)
                 dialog.destroy()
                 self._begin_revision_generation(prompt)
             else:
@@ -1065,6 +1110,7 @@ class MinimalWriterApp:
             self._showinfo("Add a prompt", "Enter what you want the model to write.")
             return
 
+        prompt = self._prepare_location_context(prompt)
         self._begin_generation(prompt, mode="write")
 
     def continue_writing(self) -> None:
@@ -1082,7 +1128,36 @@ class MinimalWriterApp:
             )
             return
 
-        self._begin_generation(build_continue_prompt(existing_text), mode="continue")
+        prompt = build_continue_prompt(existing_text)
+        scene_idea = self.prompt_box.get("1.0", "end-1c")
+        prompt = self._prepare_location_context(
+            prompt,
+            "\n".join(part for part in (scene_idea, existing_text) if part),
+        )
+        self._begin_generation(prompt, mode="continue")
+
+    def _prepare_location_context(self, prompt: str, supporting_text: str = "") -> str:
+        """Read the selected novel's locations and attach only exact scene matches."""
+        self.last_location_context_names = []
+        novel_name = self.novel_var.get().strip()
+        novel_path = self.novel_packages.get(novel_name)
+        if novel_path is None:
+            return prompt
+
+        try:
+            locations = load_story_bible_locations(novel_path)
+        except (OSError, UnicodeError, ValueError):
+            # Story Bible context is optional: an absent or malformed file must
+            # never prevent ordinary writing or modify the novel package.
+            return prompt
+
+        enriched, names = build_location_context_prompt(
+            prompt,
+            locations,
+            supporting_text=supporting_text,
+        )
+        self.last_location_context_names = names
+        return enriched
 
     def new_session(self) -> None:
         """Clear model conversation context while preserving the visible draft."""
@@ -1152,7 +1227,12 @@ class MinimalWriterApp:
         self.writing = True
         self.stop_requested = False
         action = "Continuing" if mode == "continue" else "Writing"
-        self.status_var.set(f"{action} with {self.loaded_model.name}…")
+        location_names = getattr(self, "last_location_context_names", [])
+        location_note = (
+            f" Saved locations: {', '.join(location_names)}."
+            if location_names else ""
+        )
+        self.status_var.set(f"{action} with {self.loaded_model.name}…{location_note}")
         self._update_controls()
 
         def stream_delta(chunk: str) -> None:
@@ -1215,7 +1295,14 @@ class MinimalWriterApp:
         self.writing = False
         model_name = self.loaded_model.name if self.loaded_model else "model"
         action = "continuing" if self._generation_mode == "continue" else "writing"
-        self.status_var.set(f"Finished {action} with {model_name}. Edit the output or save it.")
+        location_names = getattr(self, "last_location_context_names", [])
+        location_note = (
+            f" Location context: {', '.join(location_names)}."
+            if location_names else ""
+        )
+        self.status_var.set(
+            f"Finished {action} with {model_name}.{location_note} Edit the output or save it."
+        )
         self._update_controls()
 
     def _write_stopped(self) -> None:
