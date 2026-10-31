@@ -315,6 +315,42 @@ def save_story_bible_character_cards(
                 )
     return _save_story_bible_field(novel_path, "character_cards", cards)
 
+
+def load_story_bible_locations(novel_path: str | Path) -> dict[str, Any]:
+    """Load the name-keyed locations collection without modifying it."""
+    data = load_story_bible(novel_path)
+    locations = data.get("locations", {})
+    if not isinstance(locations, dict):
+        raise ValueError("Story Bible locations must be an object keyed by location name.")
+    for name, details in locations.items():
+        if not isinstance(name, str) or not name.strip():
+            raise ValueError("Each location needs a non-empty name.")
+        if not isinstance(details, (dict, str)):
+            raise ValueError(
+                f"Location '{name}' must contain an object or legacy text description."
+            )
+    return locations
+
+
+def save_story_bible_locations(
+    novel_path: str | Path, locations: dict[str, Any]
+) -> Path:
+    """Replace only the name-keyed locations object, preserving all other Story Bible data."""
+    if not isinstance(locations, dict):
+        raise ValueError("Locations must be an object keyed by location name.")
+    for name, details in locations.items():
+        if not isinstance(name, str) or not name.strip():
+            raise ValueError("Each location needs a non-empty name.")
+        if not isinstance(details, (dict, str)):
+            raise ValueError(
+                f"Location '{name}' must contain an object or legacy text description."
+            )
+    try:
+        json.dumps(locations, ensure_ascii=False)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Location details must contain JSON-compatible values.") from exc
+    return _save_story_bible_field(novel_path, "locations", locations)
+
 def save_story_bible_premise(novel_path: str | Path, premise: str) -> Path:
     """Compatibility wrapper for the premise-only editing workflow."""
     return save_story_bible_text_field(novel_path, "premise", premise)

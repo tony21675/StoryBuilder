@@ -8,6 +8,29 @@
     "version": {"type": "string"},
     "status": {"type": "string"},
     "premise": {"type": "string"},
+    "locations": {
+      "type": "object",
+      "description": "A collection keyed by location name. Location names are the object keys; all location details are optional.",
+      "additionalProperties": {
+        "oneOf": [
+          {
+            "type": "string",
+            "description": "Legacy description text retained for compatibility."
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {"type": "string"},
+              "description": {"type": "string"},
+              "geography": {"type": "string"},
+              "climate": {"type": "string"},
+              "notable_details": {"type": "string"}
+            },
+            "additionalProperties": true
+          }
+        ]
+      }
+    },
     "character_cards": {
       "type": "array",
       "items": {

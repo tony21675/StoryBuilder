@@ -9,6 +9,7 @@ from tkinter import messagebox, ttk
 
 from builder.novel_browser import list_novel_packages
 from builder.character_card_editor import CharacterCardEditorWindow
+from builder.location_manager import LocationManagerWindow
 from builder.novel_creator import create_novel_package, suggest_folder_name
 from builder.story_bible_reader import (
     load_story_bible,
@@ -20,6 +21,7 @@ from builder.story_bible_reader import (
     save_story_bible_character_card_file,
     create_story_bible_character_card,
     remove_story_bible_character_card_reference,
+    load_story_bible_locations,
 )
 from builder.novel_git_sync import (
     NovelGitSyncError,
@@ -75,6 +77,9 @@ class StoryBibleApp:
         self._character_card_edit_index: int | None = None
         self._character_card_filename: str | None = None
         self._character_card_editor: CharacterCardEditorWindow | None = None
+        self._loaded_locations: dict[str, Any] | None = None
+        self._locations_managing = False
+        self._locations_manager: LocationManagerWindow | None = None
         self._sync_in_progress = False
         self._view_canvas: tk.Canvas | None = None
 
@@ -177,7 +182,7 @@ class StoryBibleApp:
         # All tab content is placed inside the canvas window.
         parent = content
         parent.columnconfigure(0, weight=1)
-        parent.rowconfigure(9, weight=1)
+        parent.rowconfigure(10, weight=1)
 
         ttk.Label(
             parent, text="View Story Bible", font=("TkDefaultFont", 16, "bold")
@@ -331,8 +336,38 @@ class StoryBibleApp:
             foreground="gray",
         ).grid(row=2, column=0, sticky="w", pady=(6, 0))
 
+        locations_frame = ttk.LabelFrame(parent, text="Locations", padding=8)
+        locations_frame.grid(row=9, column=0, sticky="ew", pady=(0, 10))
+        locations_frame.columnconfigure(0, weight=1)
+        self.locations_text = tk.Text(
+            locations_frame,
+            wrap="word",
+            height=3,
+            state="disabled",
+            undo=False,
+            padx=8,
+            pady=6,
+        )
+        self.locations_text.grid(row=0, column=0, sticky="ew")
+        self.locations_text.bind("<Control-a>", self._select_all_locations)
+        self.locations_text.bind("<Control-A>", self._select_all_locations)
+        self.locations_text.bind("<Control-c>", self._copy_selected_locations)
+        self.locations_text.bind("<Control-C>", self._copy_selected_locations)
+        self.manage_locations_button = ttk.Button(
+            locations_frame,
+            text="Manage Locations",
+            command=self.start_locations_manager,
+            state="disabled",
+        )
+        self.manage_locations_button.grid(row=1, column=0, sticky="w", pady=(8, 0))
+        ttk.Label(
+            locations_frame,
+            text="Name is required. Type, description, geography, climate, and additional details are optional.",
+            foreground="gray",
+        ).grid(row=2, column=0, sticky="w", pady=(6, 0))
+
         viewer_frame = ttk.Frame(parent)
-        viewer_frame.grid(row=9, column=0, sticky="nsew")
+        viewer_frame.grid(row=10, column=0, sticky="nsew")
         viewer_frame.columnconfigure(0, weight=1)
         viewer_frame.rowconfigure(0, weight=1)
 
@@ -496,6 +531,7 @@ class StoryBibleApp:
         self._set_setting_controls(editable=False)
         self._load_canon_rules_from_data(data)
         self._load_character_cards_from_data(data)
+        self._load_locations_from_data(data)
         if self._loaded_premise is None:
             self.viewer_status_var.set(
                 f"Loaded: {package / 'story_bible.json'}. "
@@ -524,7 +560,7 @@ class StoryBibleApp:
             self.viewer_status_var.set("Load a Story Bible with a text premise first.")
             return
         if (self._premise_editing or self._setting_editing or self._canon_rules_editing
-                or self._character_cards_managing):
+                or self._character_cards_managing or self._locations_managing):
             return
 
         self._premise_editing = True
@@ -660,7 +696,7 @@ class StoryBibleApp:
             self.viewer_status_var.set("Load a Story Bible with a text setting first.")
             return
         if (self._setting_editing or self._premise_editing or self._canon_rules_editing
-                or self._character_cards_managing):
+                or self._character_cards_managing or self._locations_managing):
             return
 
         self._setting_editing = True
@@ -833,6 +869,8 @@ class StoryBibleApp:
             self._finish_canon_rules_edit()
         if self._character_cards_managing:
             self.close_character_cards_manager()
+        if self._locations_manager is not None:
+            self._locations_manager.close()
         self._loaded_novel_path = None
         self._loaded_novel_label = ""
         self._loaded_premise = None
@@ -850,6 +888,11 @@ class StoryBibleApp:
         if hasattr(self, "edit_canon_rules_button"):
             self._set_canon_rules_controls(editable=False)
         self._loaded_character_cards = None
+        self._loaded_locations = None
+        if hasattr(self, "locations_text"):
+            self._set_locations_preview("Choose a novel and load its Story Bible.")
+        if hasattr(self, "manage_locations_button"):
+            self._set_locations_controls()
         if hasattr(self, "character_cards_text"):
             self._set_character_cards_preview("Choose a novel and load its Story Bible.")
         if hasattr(self, "edit_character_cards_button"):
@@ -891,7 +934,7 @@ class StoryBibleApp:
             )
             return
         if (self._canon_rules_editing or self._premise_editing or self._setting_editing
-                or self._character_cards_managing):
+                or self._character_cards_managing or self._locations_managing):
             return
 
         self._canon_rules_editing = True
@@ -1166,7 +1209,7 @@ class StoryBibleApp:
             self.viewer_status_var.set("Load a Story Bible with a supported Character Cards list first.")
             return
         if (self._character_cards_managing or self._premise_editing or self._setting_editing
-                or self._canon_rules_editing or self._sync_in_progress):
+                or self._canon_rules_editing or self._locations_managing or self._sync_in_progress):
             return
 
         self._character_cards_managing = True
@@ -1585,12 +1628,139 @@ class StoryBibleApp:
         self._set_setting_controls(editable=False)
         self._set_canon_rules_controls(editable=False)
         self._set_character_cards_controls(editable=False)
+        self._set_locations_controls()
+
+
+    def _load_locations_from_data(self, data: dict[str, Any]) -> None:
+        try:
+            self._loaded_locations = load_story_bible_locations(
+                self._loaded_novel_path
+            )
+        except (OSError, ValueError):
+            self._loaded_locations = None
+            preview = (
+                "Locations cannot be managed because this Story Bible uses an "
+                "unsupported format. Its saved data has been left untouched."
+            )
+        else:
+            if not self._loaded_locations:
+                preview = "No locations have been added yet."
+            else:
+                lines = []
+                for name, details in self._loaded_locations.items():
+                    location_type = (
+                        details.get("type", "") if isinstance(details, dict) else ""
+                    )
+                    if isinstance(location_type, str) and location_type.strip():
+                        lines.append(f"{name} ({location_type.strip()})")
+                    else:
+                        lines.append(name)
+                preview = "\n".join(lines)
+        self._set_locations_preview(preview)
+        self._set_locations_controls()
+
+    def _set_locations_preview(self, content: str) -> None:
+        preview = getattr(self, "locations_text", None)
+        if preview is None:
+            return
+        preview.configure(state="normal")
+        preview.delete("1.0", "end")
+        preview.insert("1.0", content)
+        preview.configure(state="disabled")
+        preview.tag_remove("sel", "1.0", "end")
+
+    def _set_locations_controls(self) -> None:
+        button = getattr(self, "manage_locations_button", None)
+        if button is None:
+            return
+        can_manage = (
+            self._loaded_novel_path is not None
+            and self._loaded_locations is not None
+            and not self._locations_managing
+        )
+        button.configure(state="normal" if can_manage else "disabled")
+
+    def start_locations_manager(self) -> None:
+        if self._loaded_novel_path is None or self._loaded_locations is None:
+            self.viewer_status_var.set(
+                "Load a Story Bible with a supported Locations object first."
+            )
+            return
+        if (
+            self._locations_managing or self._character_cards_managing
+            or self._premise_editing or self._setting_editing
+            or self._canon_rules_editing or self._sync_in_progress
+        ):
+            return
+        self._locations_managing = True
+        self._set_locations_controls()
+        self.edit_premise_button.configure(state="disabled")
+        self.edit_setting_button.configure(state="disabled")
+        self.edit_canon_rules_button.configure(state="disabled")
+        self._set_character_cards_controls(editable=True)
+        self.novel_combo.configure(state="disabled")
+        self.refresh_button.configure(state="disabled")
+        self.load_button.configure(state="disabled")
+        self.sync_button.configure(state="disabled")
+        self._locations_manager = LocationManagerWindow(
+            parent=self.root,
+            novel_path=self._loaded_novel_path,
+            locations=self._loaded_locations,
+            on_saved=self._locations_saved,
+            on_close=self._locations_manager_closed,
+        )
+        self.viewer_status_var.set(
+            "Managing Locations. Changes are saved explicitly and only affect the Locations section."
+        )
+
+    def _locations_saved(self, data: dict[str, Any]) -> None:
+        self._loaded_locations = dict(data.get("locations", {}))
+        self._set_story_bible_text(
+            json.dumps(data, indent=2, ensure_ascii=False) + "\n"
+        )
+        if self._loaded_locations:
+            lines = []
+            for name, details in self._loaded_locations.items():
+                location_type = (
+                    details.get("type", "") if isinstance(details, dict) else ""
+                )
+                lines.append(
+                    f"{name} ({location_type})"
+                    if isinstance(location_type, str) and location_type.strip()
+                    else name
+                )
+            preview = "\n".join(lines)
+        else:
+            preview = "No locations have been added yet."
+        self._set_locations_preview(preview)
+        self.viewer_status_var.set(
+            "Saved Locations. Other Story Bible data was preserved."
+        )
+
+    def _locations_manager_closed(self) -> None:
+        self._locations_manager = None
+        self._locations_managing = False
+        self.novel_combo.configure(state="readonly")
+        self.refresh_button.configure(state="normal")
+        self.load_button.configure(state="normal")
+        self.sync_button.configure(state="normal")
+        self._set_premise_controls(editable=False)
+        self._set_setting_controls(editable=False)
+        self._set_canon_rules_controls(editable=False)
+        self._set_character_cards_controls(editable=False)
+        self._set_locations_controls()
+
+    def _select_all_locations(self, _event=None):
+        return self._select_all_text(self.locations_text)
+
+    def _copy_selected_locations(self, _event=None):
+        return self._copy_selected_text(self.locations_text)
 
     def sync_selected_novel_to_github(self) -> None:
         """Preview and explicitly confirm syncing only the selected novel repo."""
         if (self._sync_in_progress or self._premise_editing or self._setting_editing
                 or self._canon_rules_editing or self._character_cards_managing
-                or self._character_card_editor_window is not None):
+                or self._locations_managing or self._character_card_editor_window is not None):
             return
 
         label = self.novel_combo.get().strip()
