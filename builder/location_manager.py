@@ -231,6 +231,8 @@ class LocationManagerWindow:
             on_save=self.save_location,
             on_cancel=self.cancel_edit,
         )
+        if original_name is not None:
+            self.editor.name_var.set(original_name)
         self.editor_window = self.editor.window
 
     def save_location(self, name: str, details: dict[str, Any]) -> None:

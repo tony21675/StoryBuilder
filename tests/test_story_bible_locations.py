@@ -114,6 +114,20 @@ class LocationManagerActionTests(unittest.TestCase):
         manager._refresh = Mock()
         return manager
 
+    def test_editing_existing_location_prefills_its_required_name(self):
+        manager = object.__new__(LocationManagerWindow)
+        manager.editor_window = None
+        manager.window = object()
+        fake_editor = type(
+            "FakeEditor",
+            (),
+            {"window": object(), "name_var": type("NameVar", (), {"set": Mock()})()},
+        )()
+        with patch("builder.location_manager.LocationEditorWindow", return_value=fake_editor):
+            manager._open_editor("Mars Outpost", {"description": "A base."})
+        fake_editor.name_var.set.assert_called_once_with("Mars Outpost")
+        self.assertEqual(manager.editor_window, fake_editor.window)
+
     def test_add_location_with_optional_fields_left_blank(self):
         temporary, package, original = LocationStorageTests().make_package()
         try:
