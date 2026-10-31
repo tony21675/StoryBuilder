@@ -62,7 +62,8 @@ App #2 now contains the package creator, read-only full-JSON viewer, and separat
 - Added unit tests verifying Name-only cards, optional/worded ages, preservation of nested data, relationship rows, readable custom fields, and intentional removal of custom fields.
 - **Live UI check confirmed by the author on October 30, 2026:** the expanded plain-English Character Card editor looks good. The author requested removal of the unused Pronouns field.
 - **Pronouns removed from the editor.** Existing cards that already contain a `pronouns` value keep it unchanged when edited; the legacy key is hidden rather than moved into Additional Fields or deleted. The schema retains the property for backward compatibility.
-- Regression test verifies that Pronouns is absent from editable form fields and existing values survive a save unchanged. CI for this small follow-up is pending.
+- Regression test verifies that Pronouns is absent from editable form fields and existing values survive a save unchanged. Both CI workflows passed on commit `ab2232973c6f72f6f6b3b0be897069247ca9ac70`: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/41150756923) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/41150756988).
+- **Proposed next milestone: Locations manager.** The existing Story Bible format already has a top-level `locations` object; The Long Way Home currently has that object empty. A small add / edit / remove manager could follow the same plain-English approach as Character Cards, with Name required, other details optional, and existing/unknown data preserved. This is a proposal only; no location editor or novel-data change has been made.
 
 ### Story Bible whole-tab scrolling improvement (October 30, 2026)
 
