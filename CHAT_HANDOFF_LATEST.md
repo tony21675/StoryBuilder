@@ -143,3 +143,9 @@ App #2 now contains the package creator, read-only full-JSON viewer, and separat
 - Use the separate Story Bible app, launched with `cd ~/Documents/StoryBuilder && bash start_story_bible.sh`. Do not use `./start.sh`, which opens Minimal Writer.
 - Select only the local-only `Story-Bible-Save-Test` package. Test Add Character then Cancel, add and Save a new card with only Name plus one optional field, edit/save it, then Remove Selected and confirm. Verify the Story Bible still has the same Premise, Setting, Canon Rules, Locations, and unrelated entries. Never sync the test fixture. Keep real novel character cards read-only during this check.
 - After the test, inspect the fixture's card files and Story Bible for exact results. Do not delete the fixture until Story Bible feature testing is complete.
+### Character Cards live workflow passed (October 31, 2026)
+
+- The author confirmed the complete five-step UI test passed in the local-only `Story-Bible-Save-Test`: Add then Cancel, Add and Save, Edit and Save, and Remove with confirmation.
+- Real novel character data was not used for these write tests. The test fixture remains local-only and must not be synced or deleted until Story Bible feature development is complete.
+- Next live check: open `The Long Way Home` and `Taken_at_Dusk` in Story Bible, open Manage Character Cards, and select an existing JSON filename entry to confirm its actual character details display. Keep this check read-only; do not edit real novel cards.
+
