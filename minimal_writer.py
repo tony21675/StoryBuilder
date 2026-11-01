@@ -1298,8 +1298,6 @@ class MinimalWriterApp:
         self._update_controls()
 
     def _prepare_scene_failed(self, message: str) -> None:
-        self.busy = False
-    def _prepare_scene_failed(self, message: str) -> None:
         self._preparing_scene = False
         self.busy = False
         self.writing = False
@@ -1315,8 +1313,6 @@ class MinimalWriterApp:
         self._update_controls()
         self._showerror("Scene preparation failed", message)
 
-    def _prepare_scene_stopped(self) -> None:
-        self.busy = False
     def _prepare_scene_stopped(self) -> None:
         self._preparing_scene = False
         self.busy = False
