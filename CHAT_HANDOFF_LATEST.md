@@ -172,7 +172,7 @@ App #2 now contains the package creator, read-only full-JSON viewer, and separat
 - Added palette regression tests, including the dark-surface/light-field contrast and child-window palette inheritance.
 - Code change commit: `e7d75dd22dce42ccaa12aea6bedb7c2606f2740a`.
 - Both GitHub workflows completed after this commit. Compilation and launcher syntax checks passed; the unit suites each hit one unrelated pre-existing test-harness error in `test_blank_name_does_not_save_or_close_the_editor`, where the test calls a real Tk message box with a fake root object. The same failure is present on parent commit `c0fb66c32352f0e3aea8d59b9af7b448ec9a4c88`, before the palette changes. The Python test workflow reported 564 passed and 75 subtests passed, with that one failure. The new dark/light palette tests passed.
-- Live visual verification on Tony's laptop is still pending. After syncing the StoryBuilder branch, close and relaunch both apps to see the palette.
+- Live visual verification completed November 1, 2026: the author confirmed the softer palette looks better in both Minimal Writer and Story Bible.
 
 ## Future standalone apps (October 31, 2026)
 
@@ -181,3 +181,13 @@ App #2 now contains the package creator, read-only full-JSON viewer, and separat
 - Full scope, boundaries, preferences, and restart checklist: [`FUTURE_APPS_ON_HOLD.md`](FUTURE_APPS_ON_HOLD.md).
 - A matching parking handoff has also been added to the `LocalStoryChat` repository. Its existing v7 app remains unchanged; it is reference material only, not an automatic decision to turn it into the new generic chat app.
 - No repository has yet been created for App 4. Create its dedicated repository only when the author decides to start that project.
+
+
+## Live Character Card save verification (November 1, 2026)
+
+- The author tested the Jessica Character Card save in the real `Taken_at_Dusk` novel after syncing and launching Story Bible.
+- The updated Role saved successfully, and the main Story Bible screen refreshed to show the saved value. This confirms the full live save-and-refresh path, not just the automated tests.
+- GitHub issue [#51, Jessica card not saving](https://github.com/tony21675/StoryBuilder/issues/51) is resolved and closed.
+- No other novel cards or story data were changed as part of this verification.
+- The earlier Character Card save-failure section's "live verification pending" note is superseded by this result.
+- Next Story Bible live check: verify the editable Character Relationship dropdown in the local-only `Story-Bible-Save-Test`. Do not sync or publish that fixture.
