@@ -215,6 +215,37 @@ class CharacterCardEditorBuildTests(unittest.TestCase):
         expected["new_note"] = "Has a dry sense of humor."
         self.assertEqual(saved, expected)
 
+    def test_multiline_story_fields_are_collected_from_text_widgets(self):
+        original = {
+            "name": "Jessica",
+            "role": "Chloe's mother",
+            "story_role": "Original story role.",
+            "protective_nature": "Original protective nature.",
+            "knowledge_rule": "Original knowledge rule.",
+            "nickname_from_tony": "Jess",
+        }
+        editor = self.make_editor(original)
+        editor.text_widgets["story_role"] = FakeText(
+            "Updated story role with\\na second line."
+        )
+        editor.text_widgets["protective_nature"] = FakeText(
+            "Updated protective nature."
+        )
+        editor.text_widgets["knowledge_rule"] = FakeText(
+            "Updated knowledge rule."
+        )
+        editor.entry_vars["nickname_from_tony"] = FakeValue("Jessie")
+
+        saved = editor.build_card()
+
+        self.assertEqual(
+            saved["story_role"], "Updated story role with\\na second line."
+        )
+        self.assertEqual(saved["protective_nature"], "Updated protective nature.")
+        self.assertEqual(saved["knowledge_rule"], "Updated knowledge rule.")
+        self.assertEqual(saved["nickname_from_tony"], "Jessie")
+        self.assertEqual(saved["role"], "Chloe's mother")
+
     def test_relationship_rows_use_plain_text_and_add_new_relationship(self):
         editor = self.make_editor(
             {"name": "Mara", "relationships": {"Elena": "trusted commander"}}
