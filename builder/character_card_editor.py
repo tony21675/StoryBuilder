@@ -515,6 +515,7 @@ class CharacterCardEditorWindow:
         self.custom_field_rows.append(
             {
                 "key": key_var,
+                "original_key": key if original else None,
                 "value": value_var,
                 "nested": nested,
                 "original": original,
@@ -668,7 +669,7 @@ class CharacterCardEditorWindow:
         for item in self.custom_field_rows:
             key = item["key"].get().strip()
             value = item["value"].get().strip()
-            original_key = item["original_key"]
+            original_key = item.get("original_key")
             if item["removed"]:
                 if original_key:
                     result.pop(original_key, None)
@@ -717,6 +718,18 @@ class CharacterCardEditorWindow:
             self.save_status_var.set(f"Save stopped: {exc}")
             messagebox.showerror(
                 "Character Card needs attention", str(exc), parent=self.window
+            )
+            self.save_button.configure(state="normal")
+            return
+        except Exception as exc:
+            self.save_status_var.set(f"Could not prepare the Character Card for saving: {exc}")
+            messagebox.showerror(
+                "Character Card could not be prepared",
+                (
+                    f"The editor hit an unexpected problem while collecting the form data:\\n{exc}\\n\\n"
+                    "Your changes are still in this window. Nothing further was saved."
+                ),
+                parent=self.window,
             )
             self.save_button.configure(state="normal")
             return
