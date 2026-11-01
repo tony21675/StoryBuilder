@@ -186,16 +186,18 @@ class StoryBibleApp:
             creative_frame, text="Intended Audience", padding=6
         )
         audience_frame.pack(fill="x", pady=(8, 0))
+        audience_choices_frame = ttk.Frame(audience_frame)
+        audience_choices_frame.pack(fill="x")
         for audience in AUDIENCE_OPTIONS:
             ttk.Radiobutton(
-                audience_frame,
+                audience_choices_frame,
                 text=audience,
                 value=audience,
                 variable=self.create_audience_var,
                 command=self._update_create_explicit_control,
             ).pack(side="left", padx=(0, 14))
         ttk.Radiobutton(
-            audience_frame,
+            audience_choices_frame,
             text="Not specified",
             value="",
             variable=self.create_audience_var,
@@ -802,16 +804,18 @@ class StoryBibleApp:
             frame, text="Intended Audience", padding=8
         )
         audience_frame.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(10, 0))
+        audience_choices_frame = ttk.Frame(audience_frame)
+        audience_choices_frame.pack(fill="x")
         for name in AUDIENCE_OPTIONS:
             ttk.Radiobutton(
-                audience_frame,
+                audience_choices_frame,
                 text=name,
                 value=name,
                 variable=self._creative_direction_editor_audience_var,
                 command=self._update_editor_explicit_control,
             ).pack(side="left", padx=(0, 14))
         ttk.Radiobutton(
-            audience_frame,
+            audience_choices_frame,
             text="Not specified",
             value="",
             variable=self._creative_direction_editor_audience_var,
