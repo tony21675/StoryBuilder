@@ -1503,29 +1503,48 @@ class StoryBibleApp:
         self._character_card_editor = editor
         self._character_card_editor_window = editor.window
 
-    def save_character_card(self, card_data: dict[str, Any] | None = None) -> None:
+    def save_character_card(self, card_data: dict[str, Any] | None = None) -> bool:
+        editor_window = self._character_card_editor_window
         if (
-            self._character_card_editor_window is None
+            editor_window is None
             or self._loaded_novel_path is None
             or self._loaded_character_cards is None
         ):
-            self.viewer_status_var.set("Open Add Character or Edit Selected before saving.")
-            return
+            error = "Open Add Character or Edit Selected before saving."
+            self.viewer_status_var.set(error)
+            messagebox.showerror(
+                "Character was not saved",
+                error,
+                parent=editor_window or self._character_cards_manager_window,
+            )
+            return False
+
         if card_data is None:
             if self._character_card_editor is None:
-                self.viewer_status_var.set("Character editor is not available.")
-                return
+                error = "Character editor is not available."
+                self.viewer_status_var.set(error)
+                messagebox.showerror(
+                    "Character was not saved", error, parent=editor_window
+                )
+                return False
             try:
                 card_data = self._character_card_editor.build_card()
             except ValueError as exc:
                 self.viewer_status_var.set(f"Character was not saved: {exc}")
-                return
+                messagebox.showerror(
+                    "Character was not saved", str(exc), parent=editor_window
+                )
+                return False
 
         selected_index = self._character_card_edit_index
         name = str(card_data.get("name", "")).strip()
         if not name:
-            self.viewer_status_var.set("Character was not saved. Enter a name first.")
-            return
+            error = "Character was not saved. Enter a name first."
+            self.viewer_status_var.set(error)
+            messagebox.showerror(
+                "Character was not saved", error, parent=editor_window
+            )
+            return False
 
         try:
             if selected_index is None:
@@ -1571,10 +1590,12 @@ class StoryBibleApp:
                     not 0 <= selected_index < len(cards)
                     or not isinstance(cards[selected_index], dict)
                 ):
-                    self.viewer_status_var.set(
-                        "Character was not saved. Reload the Character Cards list."
+                    error = "Character was not saved. Reload the Character Cards list."
+                    self.viewer_status_var.set(error)
+                    messagebox.showerror(
+                        "Character was not saved", error, parent=editor_window
                     )
-                    return
+                    return False
                 updated_card = dict(cards[selected_index])
                 updated_card.update(card_data)
                 cards[selected_index] = updated_card
@@ -1595,29 +1616,28 @@ class StoryBibleApp:
             error = f"Character was not saved:\n{exc}"
             self.viewer_status_var.set(error)
             messagebox.showerror(
-                "Character was not saved",
-                str(exc),
-                parent=self._character_card_editor_window,
+                "Character was not saved", str(exc), parent=editor_window
             )
-            return
+            return False
         except Exception as exc:
             error = f"Character was not saved because of an unexpected error:\n{exc}"
             self.viewer_status_var.set(error)
             messagebox.showerror(
-                "Character was not saved",
-                error,
-                parent=self._character_card_editor_window,
+                "Character was not saved", error, parent=editor_window
             )
-            return
+            return False
 
         self._loaded_character_cards = list(data.get("character_cards", []))
         self._load_character_cards_from_data(data)
-        self._set_story_bible_text(json.dumps(data, indent=2, ensure_ascii=False) + "\\n")
+        self._set_story_bible_text(
+            json.dumps(data, indent=2, ensure_ascii=False) + "\n"
+        )
         self._refresh_character_cards_manager(selected_index)
         self._finish_character_card_editor()
         self.viewer_status_var.set(
             result_message + " Other Story Bible fields were preserved."
         )
+        return True
 
     def cancel_character_card_edit(self) -> None:
         if self._character_card_editor_window is None:
