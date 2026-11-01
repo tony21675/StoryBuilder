@@ -338,6 +338,7 @@ class MinimalWriterApp:
         self.last_location_context_names: list[str] = []
         self._scene_preparation_destination = (1, 1)
         self._scene_preparation_original_prompt = ""
+        self._preparing_scene = False
         self.chapter_numbers: dict[str, int] = {}
         self.scene_files: dict[str, Path] = {}
         self.busy = False
@@ -1226,6 +1227,7 @@ class MinimalWriterApp:
 
         self._scene_preparation_destination = (target_chapter, target_scene)
         self._scene_preparation_original_prompt = existing_prompt
+        self._preparing_scene = True
         self.busy = True
         self.writing = True
         self.stop_requested = False
@@ -1259,6 +1261,7 @@ class MinimalWriterApp:
         current_prompt = self.prompt_box.get("1.0", "end-1c")
         original_prompt = getattr(self, "_scene_preparation_original_prompt", "")
         if current_prompt != original_prompt:
+            self._preparing_scene = False
             self.busy = False
             self.writing = False
             self.stop_requested = False
@@ -1269,6 +1272,7 @@ class MinimalWriterApp:
             self._update_controls()
             return
         if not suggestion.strip():
+            self._preparing_scene = False
             self.busy = False
             self.writing = False
             self.stop_requested = False
@@ -1282,6 +1286,7 @@ class MinimalWriterApp:
 
         self.prompt_box.delete("1.0", "end")
         self.prompt_box.insert("1.0", suggestion.strip())
+        self._preparing_scene = False
         self.busy = False
         self.writing = False
         self.stop_requested = False
@@ -1293,6 +1298,9 @@ class MinimalWriterApp:
         self._update_controls()
 
     def _prepare_scene_failed(self, message: str) -> None:
+        self.busy = False
+    def _prepare_scene_failed(self, message: str) -> None:
+        self._preparing_scene = False
         self.busy = False
         self.writing = False
         self.stop_requested = False
@@ -1308,6 +1316,9 @@ class MinimalWriterApp:
         self._showerror("Scene preparation failed", message)
 
     def _prepare_scene_stopped(self) -> None:
+        self.busy = False
+    def _prepare_scene_stopped(self) -> None:
+        self._preparing_scene = False
         self.busy = False
         self.writing = False
         self.loaded_model = None
@@ -1827,7 +1838,11 @@ class MinimalWriterApp:
         stopping = self.stop_requested
         self.stop_button.configure(
             state="normal" if self.busy and self.writing and not stopping else "disabled",
-            text="Stopping…" if stopping else "Stop Writing",
+            text=(
+                "Stopping…" if stopping
+                else "Stop Preparing" if getattr(self, "_preparing_scene", False)
+                else "Stop Writing"
+            ),
         )
 
     def close(self) -> None:
