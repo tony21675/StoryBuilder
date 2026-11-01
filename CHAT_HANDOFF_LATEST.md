@@ -213,3 +213,11 @@ App #2 now contains the package creator, read-only full-JSON viewer, and separat
 - Design direction: create a concise, editable scene starter based on the story's current position and only the continuity that matters to the next scene. It should give the model a situation and direction, not a rigid beat sheet or long checklist. The author remains free to edit the prompt before pressing **Write**.
 - Do not dump the entire Story Bible, character cards, state files, or a long list of writing rules into the generation prompt. Prefer selective relevant context and let the prose breathe.
 - This is a design note only. Prepare Scene is not implemented, and no application code or novel data was changed.
+
+
+### Prepare Scene destination behavior agreed (November 1, 2026)
+
+- Default behavior: Prepare Scene starts from the currently selected chapter/scene and proposes the next scene.
+- The author can override the destination by selecting a different chapter and scene in the existing selectors before preparing.
+- Prepare Scene only fills the existing **What should I write?** box with a concise, editable scene starter. It does not generate prose, save manuscript files, advance story state, or silently change the selected novel.
+- This confirms the destination behavior for the planned feature; implementation remains pending.
