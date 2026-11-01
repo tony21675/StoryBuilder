@@ -149,7 +149,7 @@ App #2 now contains the package creator, read-only full-JSON viewer, and separat
 - The dropdown remains editable, so names that are not yet represented by a Character Card can still be typed. Existing relationship names/descriptions remain populated as before, including legacy names not present in the current card list.
 - No novel data is changed by opening the editor. Regression tests cover name loading from file-backed and embedded cards, ignoring legacy notes or missing files, passing options to the editor, and option normalization.
 - Both automated workflows passed on commit `b318bc1b81a07300f63f094ad3597c9decde097b`: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/41252999168) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/41252999165). The first StoryBuilder run exposed only a test fixture omission (Zoe's file was not listed in `character_cards`); the fixture was corrected to match the real data model.
-- Live UI verification is pending. Check the dropdown in the local-only Story-Bible-Save-Test first; do not save or alter real novel cards during the visual test.
+- Live UI verification completed November 1, 2026: the author confirmed the dropdown lists existing character names and remains editable for names not in the list. The test used the local-only Story-Bible-Save-Test; no test-fixture or real novel data was saved or changed.
 
 ### Story Bible Character Card save failure diagnosis and fix (October 31, 2026)
 
@@ -191,3 +191,9 @@ App #2 now contains the package creator, read-only full-JSON viewer, and separat
 - No other novel cards or story data were changed as part of this verification.
 - The earlier Character Card save-failure section's "live verification pending" note is superseded by this result.
 - Next Story Bible live check: verify the editable Character Relationship dropdown in the local-only `Story-Bible-Save-Test`. Do not sync or publish that fixture.
+
+
+## Character Relationship dropdown live verification (November 1, 2026)
+
+- The author confirmed the Character field in the Relationships tab displays available existing character names and still permits free-text entry for a name that is not in the list.
+- This completes the live UI verification for the Character Relationship dropdown. No character data was saved or changed during the test.
