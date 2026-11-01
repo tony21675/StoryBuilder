@@ -1,5 +1,6 @@
 import copy
 import unittest
+from unittest.mock import patch
 
 from builder.character_card_editor import (
     CharacterCardEditorWindow,
