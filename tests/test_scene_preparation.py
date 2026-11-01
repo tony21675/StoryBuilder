@@ -289,25 +289,31 @@ class MinimalWriterPrepareSceneTests(unittest.TestCase):
                 json.dumps({"title": "Test Novel", "premise": "Keep going."}),
                 encoding="utf-8",
             )
-            source = root / "Chapter_01_Section_07.txt"
-            source.write_text("The last line of the selected scene.", encoding="utf-8")
-            app = self.make_app(root)
+            source = root / "Chapter_01_Section_10.txt"
+            source.write_text("The last line of Scene 10.", encoding="utf-8")
+            app = self.make_app(root, existing_prompt="An old prompt.")
             app.chapter_var = _FakeVariable("Chapter 01")
             app.chapter_numbers = {"Chapter 01": 1}
-            app.scene_var = _FakeVariable("Scene 07")
-            app.scene_files = {"Scene 07": source}
+            app.scene_var = _FakeVariable("Scene 10")
+            app.scene_files = {"Scene 10": source}
 
-            with patch("minimal_writer.write_from_prompt", return_value="Begin with the morning after.") as generate, \
+            with patch("minimal_writer.write_from_prompt", return_value="Begin with the next morning.") as generate, \
                  patch("minimal_writer.threading.Thread", _ImmediateThread):
                 MinimalWriterApp.prepare_scene(app)
 
-            self.assertEqual(app._scene_preparation_destination, (1, 8))
-            self.assertIn("Chapter 01, Scene 08", generate.call_args.args[1])
-            self.assertIn("The last line of the selected scene.", generate.call_args.args[1])
-            self.assertEqual(app.prompt_box.value, "Begin with the morning after.")
+            self.assertEqual(app._scene_preparation_destination, (1, 11))
+            self.assertIn("Chapter 01, Scene 11", generate.call_args.args[1])
+            self.assertIn("The last line of Scene 10.", generate.call_args.args[1])
+            self.assertEqual(app.prompt_box.value, "Begin with the next morning.")
             self.assertEqual(app.chapter_var.get(), "Chapter 01")
-            self.assertEqual(app.scene_var.get(), "Scene 08")
-            self.assertIn("Scene 08", app.scene_picker.values)
+            self.assertEqual(app.scene_var.get(), "Scene 11")
+            self.assertIn("Scene 11", app.scene_picker.values)
+            self.assertNotIn("Scene 11", app.scene_files)
+            confirmation = app._askyesno.call_args.args
+            self.assertEqual(confirmation[0], "Replace prompt box text?")
+            self.assertIn("preparing Chapter 01, Scene 11", confirmation[1])
+            self.assertIn("ONLY the text in the What should it write? box", confirmation[1])
+            self.assertIn("will NOT overwrite, save, or modify", confirmation[1])
 
     def test_cancel_keeps_existing_prompt_and_does_not_call_model(self):
         with tempfile.TemporaryDirectory() as temp:
