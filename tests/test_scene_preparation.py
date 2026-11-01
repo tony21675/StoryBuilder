@@ -273,5 +273,35 @@ class MinimalWriterPrepareSceneTests(unittest.TestCase):
             self.assertFalse(app.busy)
 
 
+class _DeferredThread:
+    instances = []
+
+    def __init__(self, target, daemon=None):
+        self.target = target
+        self.__class__.instances.append(self)
+
+    def start(self):
+        return None
+
+
+    def test_prompt_edits_made_during_preparation_are_not_overwritten(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "Test Novel"
+            root.mkdir()
+            (root / "story_bible.json").write_text("{}", encoding="utf-8")
+            app = self.make_app(root)
+            _DeferredThread.instances.clear()
+
+            with patch("minimal_writer.write_from_prompt", return_value="Generated suggestion."), \
+                 patch("minimal_writer.threading.Thread", _DeferredThread):
+                MinimalWriterApp.prepare_scene(app)
+                app.prompt_box.value = "My newer edits."
+                _DeferredThread.instances[-1].target()
+
+            self.assertEqual(app.prompt_box.value, "My newer edits.")
+            self.assertFalse(app.busy)
+            self.assertFalse(app.writing)
+            self.assertIn("Your edits were kept", app.status_var.set.call_args.args[0])
+
 if __name__ == "__main__":
     unittest.main()
