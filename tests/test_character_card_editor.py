@@ -50,6 +50,19 @@ class FakeButton:
         self.states.append(kwargs.get("state"))
 
 
+class FakeFrame:
+    def grid(self, *_args, **_kwargs):
+        pass
+
+    def columnconfigure(self, *_args, **_kwargs):
+        pass
+
+
+class FakeWidget:
+    def grid(self, *_args, **_kwargs):
+        pass
+
+
 class CharacterNameOptionsTests(unittest.TestCase):
     def test_names_are_trimmed_deduplicated_and_sorted_case_insensitively(self):
         self.assertEqual(
@@ -269,6 +282,47 @@ class CharacterCardEditorBuildTests(unittest.TestCase):
         editor.save_status_var = FakeValue("")
         editor.on_save = callback
         return editor
+
+    def test_custom_field_initializer_records_original_key(self):
+        editor = object.__new__(CharacterCardEditorWindow)
+        editor.custom_fields_frame = FakeFrame()
+        editor.window = object()
+        editor._next_custom_row = 1
+        editor.custom_field_rows = []
+
+        with (
+            patch("builder.character_card_editor.ttk.Frame", side_effect=lambda *_args, **_kwargs: FakeFrame()),
+            patch("builder.character_card_editor.tk.StringVar", side_effect=lambda *_args, value="", **_kwargs: FakeValue(value)),
+            patch("builder.character_card_editor.ttk.Entry", side_effect=lambda *_args, **_kwargs: FakeWidget()),
+            patch("builder.character_card_editor.ttk.Button", side_effect=lambda *_args, **_kwargs: FakeWidget()),
+        ):
+            editor._add_custom_field_row("private_note", "Keep this detail", original=True)
+
+        self.assertEqual(editor.custom_field_rows[0]["original_key"], "private_note")
+
+    def test_build_card_tolerates_older_custom_field_rows_without_original_key(self):
+        editor = self.make_editor({"name": "Mara", "private_note": "Keep this detail"})
+        editor.custom_field_rows[0].pop("original_key")
+
+        saved = editor.build_card()
+
+        self.assertEqual(saved["private_note"], "Keep this detail")
+
+    def test_unexpected_form_build_error_is_shown_in_character_editor(self):
+        editor = self.prepare_save(self.make_editor(), lambda _card: self.fail("save callback must not run"))
+
+        def fail_to_build():
+            raise KeyError("original_key")
+
+        editor.build_card = fail_to_build
+        with patch("builder.character_card_editor.messagebox.showerror") as showerror:
+            editor.save()
+
+        showerror.assert_called_once()
+        self.assertIs(showerror.call_args.kwargs["parent"], editor.window)
+        self.assertIn("original_key", showerror.call_args.args[1])
+        self.assertIn("original_key", editor.save_status_var.get())
+        self.assertEqual(editor.save_button.states[-1], "normal")
 
     def test_unexpected_save_callback_error_is_shown_in_character_editor(self):
         editor = self.prepare_save(
