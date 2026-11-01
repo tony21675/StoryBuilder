@@ -337,6 +337,7 @@ class MinimalWriterApp:
         self.novel_packages: dict[str, Path] = {}
         self.last_location_context_names: list[str] = []
         self._scene_preparation_destination = (1, 1)
+        self._scene_preparation_original_prompt = ""
         self.chapter_numbers: dict[str, int] = {}
         self.scene_files: dict[str, Path] = {}
         self.busy = False
@@ -1224,6 +1225,7 @@ class MinimalWriterApp:
             return
 
         self._scene_preparation_destination = (target_chapter, target_scene)
+        self._scene_preparation_original_prompt = existing_prompt
         self.busy = True
         self.writing = True
         self.stop_requested = False
@@ -1253,6 +1255,18 @@ class MinimalWriterApp:
     def _prepare_scene_succeeded(self, suggestion: str) -> None:
         if self.stop_requested:
             self._prepare_scene_stopped()
+            return
+        current_prompt = self.prompt_box.get("1.0", "end-1c")
+        original_prompt = getattr(self, "_scene_preparation_original_prompt", "")
+        if current_prompt != original_prompt:
+            self.busy = False
+            self.writing = False
+            self.stop_requested = False
+            self.status_var.set(
+                "The prompt was edited while Scene Preparation was running. "
+                "Your edits were kept; prepare again if you still need a suggestion."
+            )
+            self._update_controls()
             return
         if not suggestion.strip():
             self.busy = False
