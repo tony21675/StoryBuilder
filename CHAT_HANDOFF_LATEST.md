@@ -197,3 +197,10 @@ App #2 now contains the package creator, read-only full-JSON viewer, and separat
 
 - The author confirmed the Character field in the Relationships tab displays available existing character names and still permits free-text entry for a name that is not in the list.
 - This completes the live UI verification for the Character Relationship dropdown. No character data was saved or changed during the test.
+
+
+## Minimal Writer: Prepare Scene is not implemented (November 1, 2026)
+
+- Checked the current `minimal_writer.py` on `redesign/simplified-writing-workflow`. The Writer currently has controls for Write, Continue, New Session, Stop Writing, loading/saving scenes, and revising selected text, but no Prepare Scene button or associated action.
+- GitHub issue [#50](https://github.com/tony21675/StoryBuilder/issues/50) contains only the note "prepare Scene button" and an older screenshot, with no comments or defined behavior. It is an unfinished feature note, not a broken existing button.
+- Do not implement it until the author and assistant agree what "Prepare Scene" should do and how it should fit the simplified writing workflow. No application code or novel data was changed during this check.
