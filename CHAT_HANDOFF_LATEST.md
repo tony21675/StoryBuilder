@@ -204,3 +204,12 @@ App #2 now contains the package creator, read-only full-JSON viewer, and separat
 - Checked the current `minimal_writer.py` on `redesign/simplified-writing-workflow`. The Writer currently has controls for Write, Continue, New Session, Stop Writing, loading/saving scenes, and revising selected text, but no Prepare Scene button or associated action.
 - GitHub issue [#50](https://github.com/tony21675/StoryBuilder/issues/50) contains only the note "prepare Scene button" and an older screenshot, with no comments or defined behavior. It is an unfinished feature note, not a broken existing button.
 - Do not implement it until the author and assistant agree what "Prepare Scene" should do and how it should fit the simplified writing workflow. No application code or novel data was changed during this check.
+
+
+## Minimal Writer: Prepare Scene feature intent (November 1, 2026)
+
+- The author clarified the intended purpose of the planned **Prepare Scene** feature: it should set up the next scene by placing a suggested starting direction into the existing **What should I write?** text box.
+- The author liked the earlier scene-preparation workflow, but the old approach overwhelmed the model with too many rules and an excessively large prompt. The goal is to retain the useful scene setup while restoring room for model creativity.
+- Design direction: create a concise, editable scene starter based on the story's current position and only the continuity that matters to the next scene. It should give the model a situation and direction, not a rigid beat sheet or long checklist. The author remains free to edit the prompt before pressing **Write**.
+- Do not dump the entire Story Bible, character cards, state files, or a long list of writing rules into the generation prompt. Prefer selective relevant context and let the prose breathe.
+- This is a design note only. Prepare Scene is not implemented, and no application code or novel data was changed.
