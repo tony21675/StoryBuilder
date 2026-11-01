@@ -188,6 +188,17 @@ class _ImmediateThread:
         self.target()
 
 
+class _DeferredThread:
+    instances = []
+
+    def __init__(self, target, daemon=None):
+        self.target = target
+        self.__class__.instances.append(self)
+
+    def start(self):
+        return None
+
+
 class MinimalWriterPrepareSceneTests(unittest.TestCase):
     def make_app(self, novel_path, *, existing_prompt=""):
         app = object.__new__(MinimalWriterApp)
@@ -273,15 +284,6 @@ class MinimalWriterPrepareSceneTests(unittest.TestCase):
             self.assertFalse(app.busy)
 
 
-class _DeferredThread:
-    instances = []
-
-    def __init__(self, target, daemon=None):
-        self.target = target
-        self.__class__.instances.append(self)
-
-    def start(self):
-        return None
 
 
     def test_prompt_edits_made_during_preparation_are_not_overwritten(self):
@@ -302,6 +304,7 @@ class _DeferredThread:
             self.assertFalse(app.busy)
             self.assertFalse(app.writing)
             self.assertIn("Your edits were kept", app.status_var.set.call_args.args[0])
+
 
 if __name__ == "__main__":
     unittest.main()
