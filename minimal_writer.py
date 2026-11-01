@@ -15,6 +15,7 @@ from builder.story_bible_reader import load_story_bible_locations
 from builder.scene_preparation import (
     build_scene_preparation_prompt,
     next_scene_coordinates,
+    scene_number_from_label,
 )
 from builder.odt_document import markdown_to_rich_text, read_document, save_document
 from builder.novel_browser import list_novel_packages, list_scene_chapters, list_scene_files
@@ -338,6 +339,7 @@ class MinimalWriterApp:
         self.last_location_context_names: list[str] = []
         self._scene_preparation_destination = (1, 1)
         self._scene_preparation_original_prompt = ""
+        self._scene_preparation_novel_path: Path | None = None
         self._preparing_scene = False
         self.chapter_numbers: dict[str, int] = {}
         self.scene_files: dict[str, Path] = {}
@@ -1201,9 +1203,11 @@ class MinimalWriterApp:
             return
 
         chapter_number = self.chapter_numbers.get(self.chapter_var.get().strip())
-        source_scene = self.scene_files.get(self.scene_var.get().strip())
+        selected_scene_label = self.scene_var.get().strip()
+        selected_scene_number = scene_number_from_label(selected_scene_label)
+        source_scene = self.scene_files.get(selected_scene_label)
         target_chapter, target_scene = next_scene_coordinates(
-            chapter_number, source_scene
+            chapter_number, source_scene, selected_scene_number
         )
         try:
             planning_prompt = build_scene_preparation_prompt(
@@ -1226,6 +1230,7 @@ class MinimalWriterApp:
             return
 
         self._scene_preparation_destination = (target_chapter, target_scene)
+        self._scene_preparation_novel_path = novel_path
         self._scene_preparation_original_prompt = existing_prompt
         self._preparing_scene = True
         self.busy = True
@@ -1286,16 +1291,50 @@ class MinimalWriterApp:
 
         self.prompt_box.delete("1.0", "end")
         self.prompt_box.insert("1.0", suggestion.strip())
+        chapter_number, scene_number = self._scene_preparation_destination
+        self._select_scene_destination(
+            chapter_number, scene_number, self._scene_preparation_novel_path
+        )
         self._preparing_scene = False
         self.busy = False
         self.writing = False
         self.stop_requested = False
-        chapter_number, scene_number = self._scene_preparation_destination
         self.status_var.set(
             f"Prepared Chapter {chapter_number:02d}, Scene {scene_number:02d}. "
             "Edit the suggestion, then press Write."
         )
         self._update_controls()
+
+    def _select_scene_destination(
+        self, chapter_number: int, scene_number: int, novel_path: Path | None
+    ) -> None:
+        """Show a prepared destination even when its chapter or scene is not saved yet."""
+        chapter_label = f"Chapter {int(chapter_number):02d}"
+        scene_label = f"Scene {int(scene_number):02d}"
+
+        chapter_numbers = dict(getattr(self, "chapter_numbers", {}))
+        chapter_numbers[chapter_label] = int(chapter_number)
+        self.chapter_numbers = chapter_numbers
+        chapter_labels = sorted(
+            chapter_numbers,
+            key=lambda label: (chapter_numbers[label], label.casefold()),
+        )
+        self.chapter_picker.configure(values=chapter_labels)
+        self.chapter_var.set(chapter_label)
+
+        saved_scenes = (
+            list_scene_files(novel_path, chapter_number)
+            if novel_path is not None else []
+        )
+        self.scene_files = {
+            f"Scene {number:02d}": path for number, path in saved_scenes
+        }
+        scene_numbers = sorted(
+            {number for number, _path in saved_scenes} | {int(scene_number)}
+        )
+        scene_labels = [f"Scene {number:02d}" for number in scene_numbers]
+        self.scene_picker.configure(values=scene_labels)
+        self.scene_var.set(scene_label)
 
     def _prepare_scene_failed(self, message: str) -> None:
         self._preparing_scene = False
@@ -1788,7 +1827,11 @@ class MinimalWriterApp:
             self.chapter_picker.configure(state="readonly" if idle else "disabled")
             self.scene_picker.configure(state="readonly" if idle else "disabled")
             self.load_scene_button.configure(
-                state="normal" if idle and bool(self.scene_files) else "disabled"
+                state=(
+                    "normal"
+                    if idle and self.scene_var.get().strip() in self.scene_files
+                    else "disabled"
+                )
             )
             self.sync_novel_button.configure(
                 state=(
@@ -1826,7 +1869,7 @@ class MinimalWriterApp:
                 "normal"
                 if idle
                 and self.selected_scene_source is not None
-                and bool(self.scene_files)
+                and self.scene_var.get().strip() in self.scene_files
                 else "disabled"
             )
         )
