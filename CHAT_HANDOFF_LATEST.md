@@ -199,11 +199,11 @@ App #2 now contains the package creator, read-only full-JSON viewer, and separat
 - This completes the live UI verification for the Character Relationship dropdown. No character data was saved or changed during the test.
 
 
-## Minimal Writer: Prepare Scene is not implemented (November 1, 2026)
+## Minimal Writer: Prepare Scene discovery (November 1, 2026)
 
 - Checked the current `minimal_writer.py` on `redesign/simplified-writing-workflow`. The Writer currently has controls for Write, Continue, New Session, Stop Writing, loading/saving scenes, and revising selected text, but no Prepare Scene button or associated action.
 - GitHub issue [#50](https://github.com/tony21675/StoryBuilder/issues/50) contains only the note "prepare Scene button" and an older screenshot, with no comments or defined behavior. It is an unfinished feature note, not a broken existing button.
-- Do not implement it until the author and assistant agree what "Prepare Scene" should do and how it should fit the simplified writing workflow. No application code or novel data was changed during this check.
+- At discovery time, implementation was intentionally deferred until the author clarified the intended workflow. The subsequent design and implementation are recorded below.
 
 
 ## Minimal Writer: Prepare Scene feature intent (November 1, 2026)
@@ -221,3 +221,21 @@ App #2 now contains the package creator, read-only full-JSON viewer, and separat
 - The author can override the destination by selecting a different chapter and scene in the existing selectors before preparing.
 - Prepare Scene only fills the existing **What should I write?** box with a concise, editable scene starter. It does not generate prose, save manuscript files, advance story state, or silently change the selected novel.
 - This confirms the destination behavior for the planned feature; implementation remains pending.
+
+
+## Minimal Writer: Prepare Scene implemented, awaiting live verification (November 1, 2026)
+
+- Added a **Prepare Scene** button beside the existing **What should it write?** prompt box. It is enabled only when a local model is loaded and a novel is selected.
+- For a novel with no saved scenes, the default target is Chapter 01, Scene 01. For an existing selected scene, the default target is the next scene after that selection. The selected chapter/scene dropdowns let the author anchor preparation elsewhere.
+- The button asks the loaded local model for a short, flexible scene starter and puts the result into the existing prompt box. The author can edit it before pressing Write. This is a planning turn, not scene prose.
+- Context is intentionally compact: Story Bible title, premise, setting, a matching current-state summary/location/cast/up to three open questions, and only the ending of the selected saved scene. It does not send the full Story Bible, canon rules, character cards, clue collections, or unrelated state.
+- Context files and scene documents are read only. Prepare Scene does not create scene folders/files, save manuscript text, edit the Story Bible, update current_state.json, or alter novel selection.
+- Existing prompt text is protected: if the box is non-empty, the author must confirm replacement. Cancelling keeps it. If the author edits the box while preparation is running, the returned suggestion is discarded so those newer edits are not overwritten. An empty result, failure, or Stop also leaves the existing prompt untouched.
+- While preparing, the Writer shows a preparation status and the stop control reads **Stop Preparing**. Stopping uses the existing interrupt behavior, so the model must be loaded again afterward.
+- Added 13 tests for empty-novel opening scene preparation, selected-scene advancement, ODT/TXT scene paths, relevant and mismatched current-state matching, compact context selection, read-only file behavior, cancellation, and prompt-edit preservation.
+- Both automated workflows compiled the app and tests successfully. All 13 new tests passed. The complete suites ran 578 tests with 577 passing and one unrelated known Story Bible test-harness error: `test_blank_name_does_not_save_or_close_the_editor` creates a fake root that lacks Tk's `.tk` attribute before calling a real messagebox. This same failure was already present before the Prepare Scene changes. Runs: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/41352026062) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/41352025968).
+- Implementation and test commits are on `redesign/simplified-writing-workflow`; latest commit at this handoff update is `a9ff5de1605ac8c1b911a1abadac2f66d82cb20f`.
+- Live verification is pending on the author's machine:
+  1. Use the local-only `Story-Bible-Save-Test` with no saved scenes. Prepare Scene should create a Chapter 01, Scene 01 starter.
+  2. Select `The-Long-Way-Home`, Chapter 01, Scene 10. Prepare Scene should target Scene 11 and use the saved Scene 10 ending plus the matching Scene 11 current-state context.
+  3. Review only. Do not press Write, Save, or sync during these checks. Issue [#50](https://github.com/tony21675/StoryBuilder/issues/50) remains open until the live behavior is confirmed.
