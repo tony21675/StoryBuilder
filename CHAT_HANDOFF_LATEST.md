@@ -250,3 +250,13 @@ App #2 now contains the package creator, read-only full-JSON viewer, and separat
 - Expanded the regression test to reproduce the author's exact Scene 10 → Scene 11 case, assert the target appears in the selectors, confirm Scene 11 has no file until written/saved, and check the safety wording. All 15 scene-preparation tests pass.
 - Both CI workflows compile successfully and all new Prepare Scene tests pass. The full suite remains at 579 passed with one unrelated known Story Bible test-harness error: `test_blank_name_does_not_save_or_close_the_editor` uses a fake root without Tk's `.tk` attribute for a real messagebox. Runs for commit `ad9ccc76be43ac1e959f2f4e17ea33d30452522b`: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/41354159634), [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/41354159706).
 - Live verification is pending again. Ask the author to relaunch/sync the Writer, then repeat Scene 10 → Prepare Scene. Expected: popup identifies Scene 10 as the source and Scene 11 as the destination; after accepting and successful generation, selectors show Chapter 01 / Scene 11. Do not press Write, Save, or sync during this check. Keep issue [#50](https://github.com/tony21675/StoryBuilder/issues/50) open until confirmation.
+
+## Prepare Scene live verification completed (November 1, 2026)
+
+- The author retested the corrected workflow in Minimal Writer using **The-Long-Way-Home**, Chapter 01, Scene 10.
+- After confirming prompt-box replacement, Prepare Scene successfully generated a starter for the next scene and advanced the selectors to **Chapter 01 / Scene 11**.
+- This confirms the corrected existing-story path works live: Scene 10 remains the source context, Scene 11 is the prepared destination, and the new scene starter is placed in the editable writing prompt rather than written to the manuscript.
+- No accepted Scene 10 prose was overwritten, and Prepare Scene did not save new manuscript prose.
+- The earlier empty-novel check had already confirmed that a starter can be generated for a novel with no saved scenes. The later selector correction is covered by automated tests; the author's latest live retest specifically confirmed Scene 10 → Scene 11.
+- All 15 Prepare Scene regression tests pass. The full CI suite still has the one unrelated Story Bible fake-root Tk messagebox harness error documented above; do not describe the full suite as completely green.
+- GitHub issue [#50](https://github.com/tony21675/StoryBuilder/issues/50) is now closed as completed.
