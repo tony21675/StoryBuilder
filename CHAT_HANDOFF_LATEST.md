@@ -170,4 +170,6 @@ App #2 now contains the package creator, read-only full-JSON viewer, and separat
 - Applied the palette at app startup. Story Bible's launcher now defaults to the same dark mode as Minimal Writer; either launcher still honors an explicit `STORYBUILDER_THEME=light` override.
 - Classic Tk Text, Listbox, Canvas, Entry, Scrollbar, dialog, editor, character-card, and location widgets inherit the palette. Muted labels and character-save errors use contrast-appropriate colors.
 - Added palette regression tests, including the dark-surface/light-field contrast and child-window palette inheritance.
-- Code changes are committed together in one feature commit. Automated CI and live visual verification on Tony's laptop are still pending; the author should restart both apps after syncing to see the new palette.
+- Code change commit: `e7d75dd22dce42ccaa12aea6bedb7c2606f2740a`.
+- Both GitHub workflows completed after this commit. Compilation and launcher syntax checks passed; the unit suites each hit one unrelated pre-existing test-harness error in `test_blank_name_does_not_save_or_close_the_editor`, where the test calls a real Tk message box with a fake root object. The same failure is present on parent commit `c0fb66c32352f0e3aea8d59b9af7b448ec9a4c88`, before the palette changes. The Python test workflow reported 564 passed and 75 subtests passed, with that one failure. The new dark/light palette tests passed.
+- Live visual verification on Tony's laptop is still pending. After syncing the StoryBuilder branch, close and relaunch both apps to see the palette.
