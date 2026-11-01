@@ -12,6 +12,10 @@ from builder.writer_engine import GenerationInterrupted, WriterEngine
 from builder.workspace import MODELS_DIR, NOVEL_ROOT
 from builder.continuity_context import select_relevant_locations
 from builder.story_bible_reader import load_story_bible_locations
+from builder.scene_preparation import (
+    build_scene_preparation_prompt,
+    next_scene_coordinates,
+)
 from builder.odt_document import markdown_to_rich_text, read_document, save_document
 from builder.novel_browser import list_novel_packages, list_scene_chapters, list_scene_files
 from builder.novel_git_sync import (
@@ -332,6 +336,7 @@ class MinimalWriterApp:
         self.saved_output_text = ""
         self.novel_packages: dict[str, Path] = {}
         self.last_location_context_names: list[str] = []
+        self._scene_preparation_destination = (1, 1)
         self.chapter_numbers: dict[str, int] = {}
         self.scene_files: dict[str, Path] = {}
         self.busy = False
@@ -434,7 +439,13 @@ class MinimalWriterApp:
             text="Uploads only the selected novel repository, not StoryBuilder code.",
         ).pack(side="left", padx=(10, 0))
 
-        ttk.Label(outer, text="What should it write?").pack(anchor="w")
+        prompt_header = ttk.Frame(outer)
+        prompt_header.pack(fill="x")
+        ttk.Label(prompt_header, text="What should it write?").pack(side="left", anchor="w")
+        self.prepare_scene_button = ttk.Button(
+            prompt_header, text="Prepare Scene", command=self.prepare_scene
+        )
+        self.prepare_scene_button.pack(side="right")
         self.prompt_box = ScrolledText(
             outer, height=8, wrap="word", undo=True, font=("TkDefaultFont", 11)
         )
@@ -1173,6 +1184,126 @@ class MinimalWriterApp:
         self._update_controls()
         self._showerror("Novel sync failed", message)
 
+    def prepare_scene(self) -> None:
+        """Ask the loaded local model for a concise starter in the prompt box."""
+        if self.busy:
+            return
+        if self.loaded_model is None:
+            self._showinfo("Load a model", "Load a model before preparing a scene.")
+            return
+
+        novel_name = self.novel_var.get().strip()
+        novel_path = self.novel_packages.get(novel_name)
+        if novel_path is None:
+            self._showinfo("Choose a novel", "Select a novel before preparing a scene.")
+            return
+
+        chapter_number = self.chapter_numbers.get(self.chapter_var.get().strip())
+        source_scene = self.scene_files.get(self.scene_var.get().strip())
+        target_chapter, target_scene = next_scene_coordinates(
+            chapter_number, source_scene
+        )
+        try:
+            planning_prompt = build_scene_preparation_prompt(
+                novel_path,
+                novel_name,
+                target_chapter,
+                target_scene,
+                source_scene_path=source_scene,
+            )
+        except (OSError, UnicodeError, ValueError) as exc:
+            self._showerror("Could not prepare scene", str(exc))
+            return
+
+        existing_prompt = self.prompt_box.get("1.0", "end-1c")
+        if existing_prompt.strip() and not self._askyesno(
+            "Replace writing prompt?",
+            "Prepare Scene will replace the text currently in What should it write? "
+            "The existing text will stay untouched if you cancel. Continue?",
+        ):
+            return
+
+        self._scene_preparation_destination = (target_chapter, target_scene)
+        self.busy = True
+        self.writing = True
+        self.stop_requested = False
+        self.status_var.set(
+            f"Preparing Chapter {target_chapter:02d}, Scene {target_scene:02d} "
+            f"for {novel_name}…"
+        )
+        self._update_controls()
+
+        def work() -> None:
+            try:
+                suggestion = write_from_prompt(self.engine, planning_prompt).strip()
+            except GenerationInterrupted:
+                self.root.after(0, self._prepare_scene_stopped)
+            except Exception as exc:
+                message = str(exc)
+                self.root.after(
+                    0, lambda message=message: self._prepare_scene_failed(message)
+                )
+            else:
+                self.root.after(
+                    0, lambda suggestion=suggestion: self._prepare_scene_succeeded(suggestion)
+                )
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _prepare_scene_succeeded(self, suggestion: str) -> None:
+        if self.stop_requested:
+            self._prepare_scene_stopped()
+            return
+        if not suggestion.strip():
+            self.busy = False
+            self.writing = False
+            self.stop_requested = False
+            self.status_var.set("Scene preparation returned no suggestion. Your prompt was kept.")
+            self._update_controls()
+            self._showerror(
+                "No scene suggestion",
+                "The model returned an empty suggestion. The existing prompt was not changed.",
+            )
+            return
+
+        self.prompt_box.delete("1.0", "end")
+        self.prompt_box.insert("1.0", suggestion.strip())
+        self.busy = False
+        self.writing = False
+        self.stop_requested = False
+        chapter_number, scene_number = self._scene_preparation_destination
+        self.status_var.set(
+            f"Prepared Chapter {chapter_number:02d}, Scene {scene_number:02d}. "
+            "Edit the suggestion, then press Write."
+        )
+        self._update_controls()
+
+    def _prepare_scene_failed(self, message: str) -> None:
+        self.busy = False
+        self.writing = False
+        self.stop_requested = False
+        try:
+            child = getattr(self.engine, "child", None)
+            still_loaded = child is not None and child.isalive()
+        except Exception:
+            still_loaded = False
+        if not still_loaded:
+            self.loaded_model = None
+        self.status_var.set("Scene preparation failed. Your existing prompt was kept.")
+        self._update_controls()
+        self._showerror("Scene preparation failed", message)
+
+    def _prepare_scene_stopped(self) -> None:
+        self.busy = False
+        self.writing = False
+        self.loaded_model = None
+        self.stop_requested = False
+        self.status_var.set(
+            "Scene preparation stopped. Your existing prompt was kept. "
+            "Load the model again before continuing."
+        )
+        self._update_controls()
+
     def write(self) -> None:
         if self.busy:
             return
@@ -1646,6 +1777,17 @@ class MinimalWriterApp:
                 )
             )
         self.load_button.configure(state="normal" if idle else "disabled")
+        if hasattr(self, "prepare_scene_button"):
+            has_selected_novel = (
+                self.novel_var.get().strip() in self.novel_packages
+            )
+            self.prepare_scene_button.configure(
+                state=(
+                    "normal"
+                    if idle and self.loaded_model is not None and has_selected_novel
+                    else "disabled"
+                )
+            )
         self.write_button.configure(
             state="normal" if idle and self.loaded_model is not None else "disabled"
         )
