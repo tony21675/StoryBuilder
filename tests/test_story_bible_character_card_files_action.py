@@ -179,13 +179,17 @@ class StoryBibleCharacterCardFileActionTests(unittest.TestCase):
             app._character_card_editor = FakeEditor(updated_card)
             app._character_card_edit_index = 0
             app._character_card_filename = "Daniel_Okafor.json"
-            app._load_character_cards_from_data = Mock()
+            app._set_character_cards_preview = Mock()
+            app._set_character_cards_controls = Mock()
             app._set_story_bible_text = Mock()
             app._refresh_character_cards_manager = Mock()
             app._finish_character_card_editor = Mock()
 
-            app.save_character_card()
+            save_succeeded = app.save_character_card()
 
+            self.assertTrue(save_succeeded)
+            refreshed_preview = app._set_character_cards_preview.call_args.args[0]
+            self.assertIn("Daniel Okafor (Senior Biologist)", refreshed_preview)
             saved = load_story_bible_character_card(package, "Daniel_Okafor.json")
             self.assertEqual(saved["role"], "Senior Biologist")
             self.assertEqual(saved["description"], "A newly updated description.")
@@ -219,8 +223,9 @@ class StoryBibleCharacterCardFileActionTests(unittest.TestCase):
                 ),
                 patch("story_bible_app.messagebox.showerror") as showerror,
             ):
-                app.save_character_card()
+                save_succeeded = app.save_character_card()
 
+            self.assertFalse(save_succeeded)
             showerror.assert_called_once()
             self.assertIs(showerror.call_args.kwargs["parent"], editor_window)
             self.assertIn("permission denied", showerror.call_args.args[1])
