@@ -292,9 +292,9 @@ class MinimalWriterPrepareSceneTests(unittest.TestCase):
             source = root / "Chapter_01_Section_07.txt"
             source.write_text("The last line of the selected scene.", encoding="utf-8")
             app = self.make_app(root)
-            app.chapter_var = SimpleNamespace(get=lambda: "Chapter 01")
+            app.chapter_var = _FakeVariable("Chapter 01")
             app.chapter_numbers = {"Chapter 01": 1}
-            app.scene_var = SimpleNamespace(get=lambda: "Scene 07")
+            app.scene_var = _FakeVariable("Scene 07")
             app.scene_files = {"Scene 07": source}
 
             with patch("minimal_writer.write_from_prompt", return_value="Begin with the morning after.") as generate, \
