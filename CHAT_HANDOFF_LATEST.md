@@ -1,6 +1,6 @@
 # StoryBuilder handoff, current checkpoint
 
-Date: October 30, 2026
+Date: November 1, 2026
 
 ## Current direction
 
@@ -42,15 +42,15 @@ App #2 now contains the package creator, read-only full-JSON viewer, and separat
 - Automated tests cover changing only the Canon Rules array, preserving Premise / Setting / unknown fields, and rejecting malformed values without modifying the file. The editor action tests also verify that blank lines are ignored on Save and Cancel never writes. Both CI workflows passed on commit `342563c5e84365df1fe5a97724a1e0ea532b96ef`: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/40958955346) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/40958955267). Live UI verification passed on the Surface. The author confirmed the Save and Cancel flow worked, the Canon Rules preview updated, and the other Story Bible data remained intact. Keep Story-Bible-Save-Test local-only until Story Bible feature development is complete.
 - The author confirmed the live Canon Rules Save / Cancel flow worked on the Surface and the preview updated while other Story Bible fields remained intact. Keep `Story-Bible-Save-Test` local-only until Story Bible feature development is complete.
 
-### Next Story Bible milestone: Character Cards manager
+### Completed Story Bible milestone: Character Cards manager
 
 - Added a compact Character Cards preview and **Manage Character Cards** window with a selectable list, full detail preview, and **Add Character**, **Edit Selected**, and **Remove Selected** actions. Removing a card requires explicit confirmation.
 - **Corrected the storage model to match the existing novels.** Their `story_bible.json` files store character filenames such as `Daniel_Okafor.json`; each character's actual data is a separate JSON file in the novel package root. The manager now loads those files and displays the full JSON content instead of treating the filename as a plain-text card.
 - **Edit Selected** updates only Name, Role, and Description in the referenced character file while preserving every other key and nested value. **Add Character** creates a separate JSON file and adds its filename to `character_cards`. **Remove Selected** removes only the Story Bible reference and leaves the source JSON file in place. Older non-JSON string notes remain visible but read-only. Embedded structured card objects remain supported for backward compatibility.
 - The reader validates that referenced card filenames are root-level JSON files inside the selected novel folder; paths cannot traverse outside the package. File saves use atomic replacement and stop if the source changes while the save is being prepared. No existing novel card file is migrated or rewritten just by loading the manager.
-- Automated tests cover opening existing referenced JSON cards, editing only the basic fields while preserving age/personality/skills/custom data, creating separate files, handling duplicate names, safe path validation, and removing a reference without deleting its file. Both CI workflows passed on commit `87760d39588a29bc3b184ed577bed0a982ce73f5`: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/41141717908) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/41141717989). The expanded plain-English editor layout was visually checked on the Surface. The complete Add / Save / Edit / Remove workflow still needs a live end-to-end check in the local-only test package.
-- Next: on the Surface, open **The-Long-Way-Home** and **Taken_at_Dusk** and confirm an existing JSON filename entry displays its actual card contents. Keep those real cards read-only during this check. Use only `Story-Bible-Save-Test` for add/edit/remove testing, then verify Premise, Setting, Canon Rules, and all unrelated data are unchanged. Keep the fixture local-only and do not delete it yet.
-- Next: run CI, then test on the Surface using only `Story-Bible-Save-Test`: add a temporary card and Cancel; add and Save a separate card; edit it; then test Remove using its confirmation. Verify Premise, Setting, Canon Rules, and all other fields remain unchanged. Keep the test package local-only and do not delete it yet.
+- Automated tests cover opening existing referenced JSON cards, editing only selected fields while preserving age/personality/skills/custom data, creating separate files, handling duplicate names, safe path validation, and removing a reference without deleting its source file. Both CI workflows passed on commit `87760d39588a29bc3b184ed577bed0a982ce73f5`: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/41141717908) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/41141717989).
+- **Live testing is complete.** Existing file-backed cards displayed correctly in **The Long Way Home** and **Taken at Dusk**. The full Add / Cancel, Add / Save, Edit / Save, and Remove / Confirm workflow passed in the local-only `Story-Bible-Save-Test`. The Relationship character-name dropdown also passed, including free-text entry for names not already in the list. The Jessica save-and-refresh path was verified in `Taken_at_Dusk`. See the dated Character Cards integration notes below for details.
+- Keep `Story-Bible-Save-Test` local-only. Do not sync or publish it, and do not delete it until Story Bible development is complete.
 
 ### Expanded plain-English Character Card editor (October 30, 2026)
 
@@ -190,7 +190,6 @@ App #2 now contains the package creator, read-only full-JSON viewer, and separat
 - GitHub issue [#51, Jessica card not saving](https://github.com/tony21675/StoryBuilder/issues/51) is resolved and closed.
 - No other novel cards or story data were changed as part of this verification.
 - The earlier Character Card save-failure section's "live verification pending" note is superseded by this result.
-- Next Story Bible live check: verify the editable Character Relationship dropdown in the local-only `Story-Bible-Save-Test`. Do not sync or publish that fixture.
 
 
 ## Character Relationship dropdown live verification (November 1, 2026)
