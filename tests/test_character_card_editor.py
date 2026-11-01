@@ -19,6 +19,9 @@ class FakeValue:
     def get(self):
         return self.value
 
+    def set(self, value):
+        self.value = value
+
 
 class FakeText:
     def __init__(self, value):
