@@ -8,6 +8,7 @@ from unittest.mock import Mock, patch
 from builder.scene_preparation import (
     build_scene_preparation_prompt,
     next_scene_coordinates,
+    scene_number_from_label,
 )
 from minimal_writer import MinimalWriterApp
 
@@ -149,6 +150,16 @@ class ScenePreparationDestinationTests(unittest.TestCase):
     def test_empty_selected_chapter_defaults_to_its_first_scene(self):
         self.assertEqual(next_scene_coordinates(3, None), (3, 1))
 
+    def test_selected_scene_label_without_a_saved_file_advances(self):
+        self.assertEqual(next_scene_coordinates(1, None, 1), (1, 2))
+        self.assertEqual(next_scene_coordinates(3, None, 12), (3, 13))
+
+    def test_scene_number_is_read_from_selector_label(self):
+        self.assertEqual(scene_number_from_label("Scene 01"), 1)
+        self.assertEqual(scene_number_from_label("Scene 12"), 12)
+        self.assertIsNone(scene_number_from_label(""))
+        self.assertIsNone(scene_number_from_label("Not a scene"))
+
     def test_selected_text_scene_advances_to_the_next_scene(self):
         self.assertEqual(
             next_scene_coordinates(
@@ -164,6 +175,26 @@ class ScenePreparationDestinationTests(unittest.TestCase):
             ),
             (2, 5),
         )
+
+
+class _FakePicker:
+    def __init__(self):
+        self.values = []
+
+    def configure(self, **kwargs):
+        if "values" in kwargs:
+            self.values = list(kwargs["values"])
+
+
+class _FakeVariable:
+    def __init__(self, value=""):
+        self.value = value
+
+    def get(self):
+        return self.value
+
+    def set(self, value):
+        self.value = value
 
 
 class _FakeTextBox:
@@ -210,9 +241,11 @@ class MinimalWriterPrepareSceneTests(unittest.TestCase):
         app.root = SimpleNamespace(after=lambda _delay, callback: callback())
         app.novel_var = SimpleNamespace(get=lambda: "Test Novel")
         app.novel_packages = {"Test Novel": Path(novel_path)}
-        app.chapter_var = SimpleNamespace(get=lambda: "")
+        app.chapter_var = _FakeVariable()
         app.chapter_numbers = {}
-        app.scene_var = SimpleNamespace(get=lambda: "")
+        app.chapter_picker = _FakePicker()
+        app.scene_var = _FakeVariable()
+        app.scene_picker = _FakePicker()
         app.scene_files = {}
         app.prompt_box = _FakeTextBox(existing_prompt)
         app.status_var = SimpleNamespace(set=Mock())
@@ -239,6 +272,11 @@ class MinimalWriterPrepareSceneTests(unittest.TestCase):
 
             self.assertEqual(app.prompt_box.value, "A quiet arrival sets the story in motion.")
             self.assertEqual(app._scene_preparation_destination, (1, 1))
+            self.assertEqual(app.chapter_var.get(), "Chapter 01")
+            self.assertEqual(app.chapter_picker.values, ["Chapter 01"])
+            self.assertEqual(app.scene_var.get(), "Scene 01")
+            self.assertEqual(app.scene_picker.values, ["Scene 01"])
+            self.assertEqual(app.scene_files, {})
             self.assertIn("Chapter 01, Scene 01", generate.call_args.args[1])
             self.assertFalse(app.busy)
             self.assertFalse(app.writing)
@@ -267,6 +305,9 @@ class MinimalWriterPrepareSceneTests(unittest.TestCase):
             self.assertIn("Chapter 01, Scene 08", generate.call_args.args[1])
             self.assertIn("The last line of the selected scene.", generate.call_args.args[1])
             self.assertEqual(app.prompt_box.value, "Begin with the morning after.")
+            self.assertEqual(app.chapter_var.get(), "Chapter 01")
+            self.assertEqual(app.scene_var.get(), "Scene 08")
+            self.assertIn("Scene 08", app.scene_picker.values)
 
     def test_cancel_keeps_existing_prompt_and_does_not_call_model(self):
         with tempfile.TemporaryDirectory() as temp:
