@@ -20,6 +20,12 @@ class ScenePreparationPromptTests(unittest.TestCase):
             "title": "Quiet Harbor",
             "premise": "A small coastal town faces an unexpected change.",
             "setting": "A working harbor in the present day.",
+            "creative_direction": {
+                "genres": ["Mystery", "Comedy"],
+                "moods": ["Cozy", "Humorous"],
+                "audience": "Adult",
+                "explicit_adult_content": False,
+            },
             "canon_rules": ["A very long rule that must not be sent to the planner."],
             "character_cards": ["Private_Detail.json"],
         }
@@ -53,6 +59,10 @@ class ScenePreparationPromptTests(unittest.TestCase):
             self.assertIn("A working harbor in the present day.", prompt)
             self.assertNotIn("A very long rule", prompt)
             self.assertNotIn("Private_Detail.json", prompt)
+            self.assertIn("Genres: Mystery, Comedy", prompt)
+            self.assertIn("Mood and tone: Cozy, Humorous", prompt)
+            self.assertIn("Intended audience: Adult", prompt)
+            self.assertIn("not a checklist", prompt)
             self.assertFalse((root / "Manuscript").exists())
             self.assertFalse((root / "current_state.json").exists())
 

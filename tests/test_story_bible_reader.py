@@ -9,6 +9,7 @@ from builder.story_bible_reader import (
     save_story_bible_premise,
     save_story_bible_text_field,
     save_story_bible_canon_rules,
+    save_story_bible_creative_direction,
     save_story_bible_character_cards,
 )
 
@@ -146,6 +147,49 @@ class StoryBibleReaderTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "Only these Story Bible text fields"):
                 save_story_bible_text_field(package, "title", "Should not be editable here.")
 
+            self.assertEqual(bible_path.read_bytes(), original)
+
+    def test_save_creative_direction_changes_only_its_section(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            package = create_novel_package("The Long Way Home", novel_root=temporary)
+            bible_path = package / "story_bible.json"
+            original = json.loads(bible_path.read_text(encoding="utf-8"))
+            original["premise"] = "Preserve the premise."
+            original["canon_rules"] = ["Preserve this rule."]
+            original["custom_field"] = {"nested": ["leave", "alone"]}
+            bible_path.write_text(json.dumps(original, indent=2), encoding="utf-8")
+            profile = {
+                "genres": ["Science Fiction", "Mystery"],
+                "moods": ["Tense", "Humorous"],
+                "audience": "Adult",
+                "explicit_adult_content": True,
+            }
+
+            save_story_bible_creative_direction(package, profile)
+
+            saved = json.loads(bible_path.read_text(encoding="utf-8"))
+            expected = dict(original)
+            expected["creative_direction"] = profile
+            self.assertEqual(saved, expected)
+            self.assertEqual(saved["premise"], "Preserve the premise.")
+            self.assertEqual(saved["canon_rules"], ["Preserve this rule."])
+            self.assertEqual(saved["custom_field"], {"nested": ["leave", "alone"]})
+
+    def test_save_creative_direction_rejects_explicit_content_for_non_adult_audience(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            package = create_novel_package("A Novel", novel_root=temporary)
+            bible_path = package / "story_bible.json"
+            original = bible_path.read_bytes()
+            with self.assertRaisesRegex(ValueError, "only be selected for an Adult"):
+                save_story_bible_creative_direction(
+                    package,
+                    {
+                        "genres": [],
+                        "moods": [],
+                        "audience": "Young Adult",
+                        "explicit_adult_content": True,
+                    },
+                )
             self.assertEqual(bible_path.read_bytes(), original)
 
     def test_save_canon_rules_changes_only_the_rules_array(self):

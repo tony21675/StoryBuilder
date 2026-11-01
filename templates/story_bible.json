@@ -5,6 +5,12 @@
   "status": "active",
   "premise": "",
   "setting": "",
+  "creative_direction": {
+    "genres": [],
+    "moods": [],
+    "audience": "",
+    "explicit_adult_content": false
+  },
   "canon_rules": [],
   "character_cards": [],
   "relationships": {},

@@ -7,6 +7,8 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from builder.creative_direction import normalize_creative_direction
+
 
 _TEXT_FIELDS = {"premise", "setting"}
 
@@ -83,6 +85,14 @@ def save_story_bible_text_field(novel_path: str | Path, field_name: str, value: 
     if not isinstance(value, str):
         raise ValueError(f"{field_name.title()} must be text.")
     return _save_story_bible_field(novel_path, field_name, value)
+
+
+def save_story_bible_creative_direction(
+    novel_path: str | Path, creative_direction: dict[str, Any]
+) -> Path:
+    """Replace only the Creative Direction section with validated selections."""
+    normalized = normalize_creative_direction(creative_direction)
+    return _save_story_bible_field(novel_path, "creative_direction", normalized)
 
 
 def save_story_bible_canon_rules(novel_path: str | Path, rules: list[str]) -> Path:

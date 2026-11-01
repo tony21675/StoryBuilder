@@ -35,8 +35,30 @@ class NovelCreatorTests(unittest.TestCase):
             self.assertEqual(story_bible["story_format_version"], "1.0")
             self.assertEqual(story_bible["premise"], "")
             self.assertEqual(story_bible["setting"], "")
+            self.assertEqual(
+                story_bible["creative_direction"],
+                {"genres": [], "moods": [], "audience": "", "explicit_adult_content": False},
+            )
             self.assertEqual(story_bible["canon_rules"], [])
             self.assertEqual(story_bible["character_cards"], [])
+
+    def test_saves_multiple_genres_moods_audience_and_explicit_content(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            profile = {
+                "genres": ["Science Fiction", "Mystery", "Comedy"],
+                "moods": ["Tense", "Humorous"],
+                "audience": "Adult",
+                "explicit_adult_content": True,
+            }
+            package = create_novel_package(
+                "Mars Mystery",
+                novel_root=temporary,
+                creative_direction=profile,
+            )
+            story_bible = json.loads(
+                (package / "story_bible.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(story_bible["creative_direction"], profile)
 
     def test_uses_custom_folder_name_without_changing_novel_title(self):
         with tempfile.TemporaryDirectory() as temporary:

@@ -11,7 +11,8 @@ from builder.appearance import apply_application_appearance
 from builder.writer_engine import GenerationInterrupted, WriterEngine
 from builder.workspace import MODELS_DIR, NOVEL_ROOT
 from builder.continuity_context import select_relevant_locations
-from builder.story_bible_reader import load_story_bible_locations
+from builder.story_bible_reader import load_story_bible
+from builder.creative_direction import build_creative_direction_prompt
 from builder.scene_preparation import (
     build_scene_preparation_prompt,
     next_scene_coordinates,
@@ -1413,7 +1414,7 @@ class MinimalWriterApp:
         self._begin_generation(prompt, mode="continue")
 
     def _prepare_location_context(self, prompt: str, supporting_text: str = "") -> str:
-        """Read the selected novel's locations and attach only exact scene matches."""
+        """Attach the selected novel's creative direction and relevant saved locations."""
         self.last_location_context_names = []
         novel_var = getattr(self, "novel_var", None)
         novel_packages = getattr(self, "novel_packages", {})
@@ -1425,15 +1426,22 @@ class MinimalWriterApp:
             return prompt
 
         try:
-            locations = load_story_bible_locations(novel_path)
+            story_bible = load_story_bible(novel_path)
         except (OSError, UnicodeError, ValueError):
             # Story Bible context is optional: an absent or malformed file must
             # never prevent ordinary writing or modify the novel package.
             return prompt
 
+        creative_note = build_creative_direction_prompt(
+            story_bible.get("creative_direction")
+        )
+        if creative_note:
+            prompt = f"{str(prompt).rstrip()}\n\n{creative_note}"
+
+        locations = story_bible.get("locations", {})
         enriched, names = build_location_context_prompt(
             prompt,
-            locations,
+            locations if isinstance(locations, dict) else {},
             supporting_text=supporting_text,
         )
         self.last_location_context_names = names

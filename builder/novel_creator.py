@@ -6,6 +6,7 @@ import shutil
 from pathlib import Path
 
 from builder.workspace import NOVEL_ROOT
+from builder.creative_direction import normalize_creative_direction
 
 
 def suggest_folder_name(title: str) -> str:
@@ -32,6 +33,8 @@ def create_novel_package(
     title: str,
     folder_name: str | None = None,
     novel_root: str | Path | None = None,
+    *,
+    creative_direction: dict | None = None,
 ) -> Path:
     """Create a new empty novel package the Minimal Writer can discover.
 
@@ -40,6 +43,7 @@ def create_novel_package(
     directory is created, only that newly created directory is removed.
     """
     clean_title = str(title).strip()
+    profile = normalize_creative_direction(creative_direction)
     if not clean_title:
         raise ValueError("Enter a title for the new novel.")
 
@@ -68,6 +72,7 @@ def create_novel_package(
             "status": "active",
             "premise": "",
             "setting": "",
+            "creative_direction": profile,
             "canon_rules": [],
             "character_cards": [],
             "relationships": {},

@@ -7,6 +7,7 @@ from typing import Any
 
 from builder.odt_document import read_document
 from builder.story_bible_reader import load_story_bible
+from builder.creative_direction import build_creative_direction_prompt
 
 
 _SCENE_FILENAME_RE = re.compile(
@@ -125,6 +126,11 @@ def build_scene_preparation_prompt(
         sections.append(f"Premise: {premise}")
     if setting:
         sections.append(f"Setting: {setting}")
+    creative_note = build_creative_direction_prompt(
+        story_bible.get("creative_direction")
+    )
+    if creative_note:
+        sections.append(creative_note)
 
     if include_state:
         situation = _clean_text(current_state.get("current_situation"))

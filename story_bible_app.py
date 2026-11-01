@@ -11,10 +11,19 @@ from builder.novel_browser import list_novel_packages
 from builder.character_card_editor import CharacterCardEditorWindow
 from builder.location_manager import LocationManagerWindow
 from builder.novel_creator import create_novel_package, suggest_folder_name
+from builder.creative_direction import (
+    AUDIENCE_OPTIONS,
+    DEFAULT_CREATIVE_DIRECTION,
+    GENRE_OPTIONS,
+    MOOD_OPTIONS,
+    format_creative_direction_preview,
+    normalize_creative_direction,
+)
 from builder.story_bible_reader import (
     load_story_bible,
     save_story_bible_premise,
     save_story_bible_text_field,
+    save_story_bible_creative_direction,
     save_story_bible_canon_rules,
     save_story_bible_character_cards,
     load_story_bible_character_card,
@@ -45,6 +54,14 @@ class StoryBibleApp:
 
         self.title_var = tk.StringVar()
         self.folder_var = tk.StringVar()
+        self.create_genre_vars = {
+            genre: tk.BooleanVar(value=False) for genre in GENRE_OPTIONS
+        }
+        self.create_mood_vars = {
+            mood: tk.BooleanVar(value=False) for mood in MOOD_OPTIONS
+        }
+        self.create_audience_var = tk.StringVar(value="")
+        self.create_explicit_adult_content_var = tk.BooleanVar(value=False)
         self.create_status_var = tk.StringVar(
             value="Ready. Creating a package will not overwrite existing files."
         )
@@ -58,6 +75,13 @@ class StoryBibleApp:
         self._premise_editor_window: tk.Toplevel | None = None
         self._premise_editor_text: tk.Text | None = None
         self._loaded_setting: str | None = None
+        self._loaded_creative_direction = dict(DEFAULT_CREATIVE_DIRECTION)
+        self._creative_direction_editing = False
+        self._creative_direction_editor_window: tk.Toplevel | None = None
+        self._creative_direction_editor_genre_vars: dict[str, tk.BooleanVar] = {}
+        self._creative_direction_editor_mood_vars: dict[str, tk.BooleanVar] = {}
+        self._creative_direction_editor_audience_var: tk.StringVar | None = None
+        self._creative_direction_editor_explicit_var: tk.BooleanVar | None = None
         self._setting_editing = False
         self._setting_editor_window: tk.Toplevel | None = None
         self._setting_editor_text: tk.Text | None = None
@@ -133,7 +157,66 @@ class StoryBibleApp:
         root_entry = ttk.Entry(parent)
         root_entry.insert(0, str(NOVEL_ROOT))
         root_entry.configure(state="readonly")
-        root_entry.pack(fill="x", pady=(4, 14))
+        root_entry.pack(fill="x", pady=(4, 10))
+
+        creative_frame = ttk.LabelFrame(
+            parent, text="Genre & Mood (optional)", padding=8
+        )
+        creative_frame.pack(fill="x", pady=(0, 10))
+        creative_columns = ttk.Frame(creative_frame)
+        creative_columns.pack(fill="x")
+        creative_columns.columnconfigure(0, weight=1)
+        creative_columns.columnconfigure(1, weight=1)
+
+        genre_frame = ttk.LabelFrame(creative_columns, text="Genre", padding=6)
+        genre_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
+        for index, genre in enumerate(GENRE_OPTIONS):
+            ttk.Checkbutton(
+                genre_frame, text=genre, variable=self.create_genre_vars[genre]
+            ).grid(row=index // 2, column=index % 2, sticky="w", padx=(0, 8), pady=1)
+
+        mood_frame = ttk.LabelFrame(creative_columns, text="Mood & Tone", padding=6)
+        mood_frame.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
+        for index, mood in enumerate(MOOD_OPTIONS):
+            ttk.Checkbutton(
+                mood_frame, text=mood, variable=self.create_mood_vars[mood]
+            ).grid(row=index // 2, column=index % 2, sticky="w", padx=(0, 8), pady=1)
+
+        audience_frame = ttk.LabelFrame(
+            creative_frame, text="Intended Audience", padding=6
+        )
+        audience_frame.pack(fill="x", pady=(8, 0))
+        for audience in AUDIENCE_OPTIONS:
+            ttk.Radiobutton(
+                audience_frame,
+                text=audience,
+                value=audience,
+                variable=self.create_audience_var,
+                command=self._update_create_explicit_control,
+            ).pack(side="left", padx=(0, 14))
+        ttk.Radiobutton(
+            audience_frame,
+            text="Not specified",
+            value="",
+            variable=self.create_audience_var,
+            command=self._update_create_explicit_control,
+        ).pack(side="left", padx=(0, 14))
+        self.create_explicit_adult_checkbox = ttk.Checkbutton(
+            audience_frame,
+            text="Explicit Adult Content (consenting adults only)",
+            variable=self.create_explicit_adult_content_var,
+            state="disabled",
+        )
+        self.create_explicit_adult_checkbox.pack(anchor="w", pady=(4, 0))
+        ttk.Label(
+            creative_frame,
+            text=(
+                "These choices guide the novel's overall flavor, not every scene. "
+                "Leave anything blank when you are undecided."
+            ),
+            foreground=self.colors["muted"],
+            wraplength=740,
+        ).pack(anchor="w", pady=(6, 0))
 
         self.create_button = ttk.Button(
             parent, text="Create Novel Package", command=self.create_novel
@@ -185,7 +268,7 @@ class StoryBibleApp:
         # All tab content is placed inside the canvas window.
         parent = content
         parent.columnconfigure(0, weight=1)
-        parent.rowconfigure(10, weight=1)
+        parent.rowconfigure(11, weight=1)
 
         ttk.Label(
             parent, text="View Story Bible", font=("TkDefaultFont", 16, "bold")
@@ -279,8 +362,33 @@ class StoryBibleApp:
         )
         self.edit_setting_button.grid(row=1, column=0, sticky="w", pady=(8, 0))
 
+        creative_direction_frame = ttk.LabelFrame(
+            parent, text="Genre & Mood", padding=8
+        )
+        creative_direction_frame.grid(row=7, column=0, sticky="ew", pady=(0, 10))
+        creative_direction_frame.columnconfigure(0, weight=1)
+        self.creative_direction_text = tk.Text(
+            creative_direction_frame,
+            wrap="word",
+            height=3,
+            state="disabled",
+            undo=False,
+            padx=8,
+            pady=6,
+        )
+        self.creative_direction_text.grid(row=0, column=0, sticky="ew")
+        self.edit_creative_direction_button = ttk.Button(
+            creative_direction_frame,
+            text="Edit Genre & Mood",
+            command=self.start_creative_direction_edit,
+            state="disabled",
+        )
+        self.edit_creative_direction_button.grid(
+            row=1, column=0, sticky="w", pady=(8, 0)
+        )
+
         canon_rules_frame = ttk.LabelFrame(parent, text="Canon Rules", padding=8)
-        canon_rules_frame.grid(row=7, column=0, sticky="ew", pady=(0, 10))
+        canon_rules_frame.grid(row=8, column=0, sticky="ew", pady=(0, 10))
         canon_rules_frame.columnconfigure(0, weight=1)
         self.canon_rules_text = tk.Text(
             canon_rules_frame,
@@ -310,7 +418,7 @@ class StoryBibleApp:
         ).grid(row=2, column=0, sticky="w", pady=(6, 0))
 
         character_cards_frame = ttk.LabelFrame(parent, text="Character Cards", padding=8)
-        character_cards_frame.grid(row=8, column=0, sticky="ew", pady=(0, 10))
+        character_cards_frame.grid(row=9, column=0, sticky="ew", pady=(0, 10))
         character_cards_frame.columnconfigure(0, weight=1)
         self.character_cards_text = tk.Text(
             character_cards_frame,
@@ -340,7 +448,7 @@ class StoryBibleApp:
         ).grid(row=2, column=0, sticky="w", pady=(6, 0))
 
         locations_frame = ttk.LabelFrame(parent, text="Locations", padding=8)
-        locations_frame.grid(row=9, column=0, sticky="ew", pady=(0, 10))
+        locations_frame.grid(row=10, column=0, sticky="ew", pady=(0, 10))
         locations_frame.columnconfigure(0, weight=1)
         self.locations_text = tk.Text(
             locations_frame,
@@ -370,7 +478,7 @@ class StoryBibleApp:
         ).grid(row=2, column=0, sticky="w", pady=(6, 0))
 
         viewer_frame = ttk.Frame(parent)
-        viewer_frame.grid(row=10, column=0, sticky="nsew")
+        viewer_frame.grid(row=11, column=0, sticky="nsew")
         viewer_frame.columnconfigure(0, weight=1)
         viewer_frame.rowconfigure(0, weight=1)
 
@@ -402,7 +510,7 @@ class StoryBibleApp:
             justify="left",
             wraplength=760,
         )
-        status_label.grid(row=11, column=0, sticky="ew", pady=(8, 0))
+        status_label.grid(row=12, column=0, sticky="ew", pady=(8, 0))
 
     def _view_canvas_contains_pointer(self, event) -> bool:
         canvas = self._view_canvas
@@ -458,8 +566,22 @@ class StoryBibleApp:
             self.create_status_var.set("Enter a title for the new novel.")
             self.title_entry.focus_set()
             return
+        creative_direction = {
+            "genres": [
+                name for name, variable in self.create_genre_vars.items()
+                if variable.get()
+            ],
+            "moods": [
+                name for name, variable in self.create_mood_vars.items()
+                if variable.get()
+            ],
+            "audience": self.create_audience_var.get(),
+            "explicit_adult_content": self.create_explicit_adult_content_var.get(),
+        }
         try:
-            package_path = create_novel_package(title, folder)
+            package_path = create_novel_package(
+                title, folder, creative_direction=creative_direction
+            )
         except (OSError, ValueError) as exc:
             self.create_status_var.set("Novel package was not created.")
             messagebox.showerror("Could not create novel", str(exc), parent=self.root)
@@ -473,7 +595,25 @@ class StoryBibleApp:
         self.title_var.set("")
         self.folder_var.set("")
         self._folder_manually_edited = False
+        self._reset_create_creative_direction()
         self.title_entry.focus_set()
+
+    def _update_create_explicit_control(self) -> None:
+        adult_selected = self.create_audience_var.get() == "Adult"
+        self.create_explicit_adult_checkbox.configure(
+            state="normal" if adult_selected else "disabled"
+        )
+        if not adult_selected:
+            self.create_explicit_adult_content_var.set(False)
+
+    def _reset_create_creative_direction(self) -> None:
+        for variable in self.create_genre_vars.values():
+            variable.set(False)
+        for variable in self.create_mood_vars.values():
+            variable.set(False)
+        self.create_audience_var.set("")
+        self.create_explicit_adult_content_var.set(False)
+        self._update_create_explicit_control()
 
     def refresh_novels(self) -> None:
         packages = list_novel_packages(NOVEL_ROOT)
@@ -530,6 +670,7 @@ class StoryBibleApp:
         setting = data.get("setting", "")
         self._loaded_setting = setting if isinstance(setting, str) else None
         self._set_setting_text(setting if isinstance(setting, str) else "")
+        self._load_creative_direction_from_data(data)
         self._set_story_bible_text(formatted)
         self._set_premise_controls(editable=False)
         self._set_setting_controls(editable=False)
@@ -558,6 +699,249 @@ class StoryBibleApp:
             )
         else:
             self.viewer_status_var.set(f"Loaded read-only: {package / 'story_bible.json'}")
+
+    def _load_creative_direction_from_data(self, data: dict[str, Any]) -> None:
+        self._loaded_creative_direction = normalize_creative_direction(
+            data.get("creative_direction"), strict=False
+        )
+        self._set_creative_direction_preview(
+            format_creative_direction_preview(self._loaded_creative_direction)
+        )
+        self._set_creative_direction_controls()
+
+    def _set_creative_direction_preview(self, content: str) -> None:
+        self.creative_direction_text.configure(state="normal")
+        self.creative_direction_text.delete("1.0", "end")
+        self.creative_direction_text.insert("1.0", content)
+        self.creative_direction_text.configure(state="disabled")
+        self.creative_direction_text.tag_remove("sel", "1.0", "end")
+
+    def _set_creative_direction_controls(self) -> None:
+        enabled = self._loaded_novel_path is not None and not self._creative_direction_editing
+        self.edit_creative_direction_button.configure(
+            state="normal" if enabled else "disabled"
+        )
+
+    def start_creative_direction_edit(self) -> None:
+        if self._loaded_novel_path is None:
+            self.viewer_status_var.set("Load a Story Bible before editing Genre & Mood.")
+            return
+        if (
+            self._creative_direction_editing
+            or self._premise_editing
+            or self._setting_editing
+            or self._canon_rules_editing
+            or self._character_cards_managing
+            or self._locations_managing
+            or self._sync_in_progress
+        ):
+            return
+
+        self._creative_direction_editing = True
+        self._set_creative_direction_controls()
+        self.novel_combo.configure(state="disabled")
+        self.refresh_button.configure(state="disabled")
+        self.load_button.configure(state="disabled")
+
+        window = tk.Toplevel(self.root)
+        self._creative_direction_editor_window = window
+        window.title("Edit Genre & Mood")
+        window.geometry("760x580")
+        window.minsize(620, 480)
+        window.transient(self.root)
+        window.protocol("WM_DELETE_WINDOW", self.cancel_creative_direction_edit)
+
+        frame = ttk.Frame(window, padding=12)
+        frame.pack(fill="both", expand=True)
+        frame.columnconfigure(0, weight=1)
+        frame.columnconfigure(1, weight=1)
+
+        ttk.Label(
+            frame,
+            text=f"Creative direction for: {self._loaded_novel_path.name}",
+            font=("TkDefaultFont", 11, "bold"),
+        ).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 8))
+
+        current = normalize_creative_direction(
+            self._loaded_creative_direction, strict=False
+        )
+        self._creative_direction_editor_genre_vars = {
+            name: tk.BooleanVar(value=name in current["genres"])
+            for name in GENRE_OPTIONS
+        }
+        self._creative_direction_editor_mood_vars = {
+            name: tk.BooleanVar(value=name in current["moods"])
+            for name in MOOD_OPTIONS
+        }
+        self._creative_direction_editor_audience_var = tk.StringVar(
+            value=current["audience"]
+        )
+        self._creative_direction_editor_explicit_var = tk.BooleanVar(
+            value=current["explicit_adult_content"]
+        )
+
+        genres_frame = ttk.LabelFrame(frame, text="Genre", padding=8)
+        genres_frame.grid(row=1, column=0, sticky="nsew", padx=(0, 6))
+        for index, name in enumerate(GENRE_OPTIONS):
+            ttk.Checkbutton(
+                genres_frame,
+                text=name,
+                variable=self._creative_direction_editor_genre_vars[name],
+            ).grid(row=index // 2, column=index % 2, sticky="w", padx=(0, 8), pady=2)
+
+        moods_frame = ttk.LabelFrame(frame, text="Mood & Tone", padding=8)
+        moods_frame.grid(row=1, column=1, sticky="nsew", padx=(6, 0))
+        for index, name in enumerate(MOOD_OPTIONS):
+            ttk.Checkbutton(
+                moods_frame,
+                text=name,
+                variable=self._creative_direction_editor_mood_vars[name],
+            ).grid(row=index // 2, column=index % 2, sticky="w", padx=(0, 8), pady=2)
+
+        audience_frame = ttk.LabelFrame(
+            frame, text="Intended Audience", padding=8
+        )
+        audience_frame.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(10, 0))
+        for name in AUDIENCE_OPTIONS:
+            ttk.Radiobutton(
+                audience_frame,
+                text=name,
+                value=name,
+                variable=self._creative_direction_editor_audience_var,
+                command=self._update_editor_explicit_control,
+            ).pack(side="left", padx=(0, 14))
+        ttk.Radiobutton(
+            audience_frame,
+            text="Not specified",
+            value="",
+            variable=self._creative_direction_editor_audience_var,
+            command=self._update_editor_explicit_control,
+        ).pack(side="left", padx=(0, 14))
+        self.creative_direction_explicit_checkbox = ttk.Checkbutton(
+            audience_frame,
+            text="Explicit Adult Content (consenting adults only)",
+            variable=self._creative_direction_editor_explicit_var,
+            state="normal" if current["audience"] == "Adult" else "disabled",
+        )
+        self.creative_direction_explicit_checkbox.pack(anchor="w", pady=(4, 0))
+        self._update_editor_explicit_control()
+
+        ttk.Label(
+            frame,
+            text=(
+                "These selections guide the overall flavor, not every scene. "
+                "Explicit Adult Content is available only when the intended audience is Adult."
+            ),
+            foreground=self.colors["muted"],
+            wraplength=720,
+        ).grid(row=3, column=0, columnspan=2, sticky="w", pady=(8, 0))
+
+        button_row = ttk.Frame(frame)
+        button_row.grid(row=4, column=0, columnspan=2, sticky="w", pady=(12, 0))
+        ttk.Button(
+            button_row, text="Save Genre & Mood", command=self.save_creative_direction_edit
+        ).pack(side="left", padx=(0, 8))
+        ttk.Button(
+            button_row, text="Cancel Edit", command=self.cancel_creative_direction_edit
+        ).pack(side="left")
+
+        window.grab_set()
+        window.after_idle(lambda: window.focus_set())
+        self.viewer_status_var.set(
+            "Editing Genre & Mood. Save to keep the selections, or Cancel to discard them."
+        )
+
+    def _update_editor_explicit_control(self) -> None:
+        if (
+            self._creative_direction_editor_audience_var is None
+            or self._creative_direction_editor_explicit_var is None
+            or not hasattr(self, "creative_direction_explicit_checkbox")
+        ):
+            return
+        adult_selected = self._creative_direction_editor_audience_var.get() == "Adult"
+        self.creative_direction_explicit_checkbox.configure(
+            state="normal" if adult_selected else "disabled"
+        )
+        if not adult_selected:
+            self._creative_direction_editor_explicit_var.set(False)
+
+    def save_creative_direction_edit(self) -> None:
+        if (
+            not self._creative_direction_editing
+            or self._loaded_novel_path is None
+            or self._creative_direction_editor_audience_var is None
+            or self._creative_direction_editor_explicit_var is None
+        ):
+            self.viewer_status_var.set("Choose Edit Genre & Mood before saving.")
+            return
+
+        profile = {
+            "genres": [
+                name for name, variable in self._creative_direction_editor_genre_vars.items()
+                if variable.get()
+            ],
+            "moods": [
+                name for name, variable in self._creative_direction_editor_mood_vars.items()
+                if variable.get()
+            ],
+            "audience": self._creative_direction_editor_audience_var.get(),
+            "explicit_adult_content": self._creative_direction_editor_explicit_var.get(),
+        }
+        try:
+            save_story_bible_creative_direction(self._loaded_novel_path, profile)
+            data = load_story_bible(self._loaded_novel_path)
+        except (OSError, ValueError, RuntimeError) as exc:
+            error = f"Genre & Mood was not saved:\n{exc}"
+            self.viewer_status_var.set(error)
+            messagebox.showerror(
+                "Genre & Mood was not saved", str(exc),
+                parent=self._creative_direction_editor_window,
+            )
+            return
+        except Exception as exc:
+            error = f"Genre & Mood was not saved because of an unexpected error:\n{exc}"
+            self.viewer_status_var.set(error)
+            messagebox.showerror(
+                "Genre & Mood was not saved", error,
+                parent=self._creative_direction_editor_window,
+            )
+            return
+
+        self._load_creative_direction_from_data(data)
+        self._set_story_bible_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+        self._finish_creative_direction_edit()
+        self.viewer_status_var.set(
+            f"Saved Genre & Mood only: {self._loaded_novel_path / 'story_bible.json'}. "
+            "Other Story Bible fields were preserved."
+        )
+
+    def cancel_creative_direction_edit(self) -> None:
+        if not self._creative_direction_editing:
+            return
+        self._finish_creative_direction_edit()
+        self.viewer_status_var.set(
+            "Genre & Mood edit cancelled; no file changes were made."
+        )
+
+    def _finish_creative_direction_edit(self) -> None:
+        self._creative_direction_editing = False
+        window = self._creative_direction_editor_window
+        self._creative_direction_editor_window = None
+        self._creative_direction_editor_genre_vars = {}
+        self._creative_direction_editor_mood_vars = {}
+        self._creative_direction_editor_audience_var = None
+        self._creative_direction_editor_explicit_var = None
+        if window is not None:
+            try:
+                if window.winfo_exists():
+                    window.grab_release()
+                    window.destroy()
+            except tk.TclError:
+                pass
+        self._set_creative_direction_controls()
+        self.novel_combo.configure(state="readonly")
+        self.refresh_button.configure(state="normal")
+        self.load_button.configure(state="normal")
 
     def start_premise_edit(self) -> None:
         if self._loaded_novel_path is None or self._loaded_premise is None:
@@ -897,6 +1281,8 @@ class StoryBibleApp:
             self.close_character_cards_manager()
         if self._locations_manager is not None:
             self._locations_manager.close()
+        if self._creative_direction_editing:
+            self._finish_creative_direction_edit()
         self._loaded_novel_path = None
         self._loaded_novel_label = ""
         self._loaded_premise = None
@@ -907,6 +1293,10 @@ class StoryBibleApp:
         self._setting_editing = False
         self._set_setting_text("")
         self._set_setting_controls(editable=False)
+        self._loaded_creative_direction = dict(DEFAULT_CREATIVE_DIRECTION)
+        if hasattr(self, "creative_direction_text"):
+            self._set_creative_direction_preview("Choose a novel and load its Story Bible.")
+            self._set_creative_direction_controls()
         self._loaded_canon_rules = None
         self._canon_rules_editing = False
         if hasattr(self, "canon_rules_text"):
