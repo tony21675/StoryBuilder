@@ -7,6 +7,7 @@ from pathlib import Path
 from tkinter import filedialog, ttk
 from tkinter.scrolledtext import ScrolledText
 
+from builder.appearance import apply_application_appearance
 from builder.writer_engine import GenerationInterrupted, WriterEngine
 from builder.workspace import MODELS_DIR, NOVEL_ROOT
 from builder.continuity_context import select_relevant_locations
@@ -351,6 +352,7 @@ class MinimalWriterApp:
         root.geometry("1080x820")
         root.minsize(760, 600)
         root.protocol("WM_DELETE_WINDOW", self.close)
+        apply_application_appearance(root)
 
         self.model_var = tk.StringVar()
         self.status_var = tk.StringVar(value="Choose a model, then load it.")

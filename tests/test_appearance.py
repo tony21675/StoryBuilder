@@ -6,6 +6,7 @@ from builder.appearance import (
     LIGHT_PALETTE,
     detect_system_appearance,
     get_appearance_palette,
+    get_widget_appearance_palette,
 )
 
 
@@ -103,3 +104,33 @@ class AppearanceDetectionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+
+class AppearancePaletteTests(unittest.TestCase):
+    def test_dark_palette_uses_near_black_surfaces_and_soft_gray_fields(self):
+        palette = get_appearance_palette("dark")
+
+        self.assertEqual(palette["window"], "#080808")
+        self.assertEqual(palette["panel"], "#151515")
+        self.assertEqual(palette["field"], "#D8D8D8")
+        self.assertEqual(palette["field_text"], "#191919")
+        self.assertNotEqual(palette["field"], "#FFFFFF")
+
+    def test_light_palette_also_avoids_pure_white_editing_fields(self):
+        palette = get_appearance_palette("light")
+
+        self.assertNotEqual(palette["field"], "#FFFFFF")
+        self.assertEqual(palette["field_text"], palette["text"])
+
+    def test_child_windows_reuse_the_appearance_selected_by_the_root(self):
+        class FakeRoot:
+            _storybuilder_appearance_mode = "dark"
+
+        class FakeWidget:
+            def _root(self):
+                return FakeRoot()
+
+        palette = get_widget_appearance_palette(FakeWidget())
+
+        self.assertEqual(palette, DARK_PALETTE)

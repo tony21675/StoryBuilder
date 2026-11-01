@@ -28,6 +28,7 @@ from builder.novel_git_sync import (
     inspect_novel_repository,
     sync_novel_repository,
 )
+from builder.appearance import apply_application_appearance, get_appearance_palette
 from builder.workspace import NOVEL_ROOT
 
 
@@ -36,6 +37,8 @@ class StoryBibleApp:
 
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
+        self.appearance_mode = apply_application_appearance(root)
+        self.colors = get_appearance_palette(self.appearance_mode)
         self.root.title("Story Bible")
         self.root.geometry("840x740")
         self.root.minsize(700, 600)
@@ -123,7 +126,7 @@ class StoryBibleApp:
         ttk.Label(
             parent,
             text="Leave blank to make a safe folder name from the title.",
-            foreground="gray",
+            foreground=self.colors["muted"],
         ).pack(anchor="w", pady=(0, 14))
 
         ttk.Label(parent, text="Novel library").pack(anchor="w")
@@ -303,7 +306,7 @@ class StoryBibleApp:
         ttk.Label(
             canon_rules_frame,
             text="One rule per line. Blank lines are ignored.",
-            foreground="gray",
+            foreground=self.colors["muted"],
         ).grid(row=2, column=0, sticky="w", pady=(6, 0))
 
         character_cards_frame = ttk.LabelFrame(parent, text="Character Cards", padding=8)
@@ -333,7 +336,7 @@ class StoryBibleApp:
         ttk.Label(
             character_cards_frame,
             text="Structured cards have Name, Role, and Description. Older text cards remain unchanged.",
-            foreground="gray",
+            foreground=self.colors["muted"],
         ).grid(row=2, column=0, sticky="w", pady=(6, 0))
 
         locations_frame = ttk.LabelFrame(parent, text="Locations", padding=8)
@@ -363,7 +366,7 @@ class StoryBibleApp:
         ttk.Label(
             locations_frame,
             text="Name is required. Type, description, geography, climate, and additional details are optional.",
-            foreground="gray",
+            foreground=self.colors["muted"],
         ).grid(row=2, column=0, sticky="w", pady=(6, 0))
 
         viewer_frame = ttk.Frame(parent)
@@ -627,7 +630,7 @@ class StoryBibleApp:
         ttk.Label(
             frame,
             text="Only the Premise field will be saved. Cancel discards this draft.",
-            foreground="gray",
+            foreground=self.colors["muted"],
         ).grid(row=3, column=0, sticky="w", pady=(8, 0))
 
         window.grab_set()
@@ -774,7 +777,7 @@ class StoryBibleApp:
         ttk.Label(
             frame,
             text="Only the Setting field will be saved. Cancel discards this draft.",
-            foreground="gray",
+            foreground=self.colors["muted"],
         ).grid(row=3, column=0, sticky="w", pady=(8, 0))
 
         window.grab_set()
@@ -1027,7 +1030,7 @@ class StoryBibleApp:
         ttk.Label(
             frame,
             text="Only the canon_rules list will be saved. Cancel discards this draft.",
-            foreground="gray",
+            foreground=self.colors["muted"],
         ).grid(row=3, column=0, sticky="w", pady=(8, 0))
 
         window.grab_set()
@@ -1333,7 +1336,7 @@ class StoryBibleApp:
                 "Each structured card has a Name, Role, and Description. "
                 "Older plain-text cards are shown but kept unchanged."
             ),
-            foreground="gray",
+            foreground=self.colors["muted"],
         ).grid(row=3, column=0, columnspan=2, sticky="w", pady=(10, 0))
 
         self._refresh_character_cards_manager()

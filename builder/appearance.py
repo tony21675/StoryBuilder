@@ -9,25 +9,28 @@ _CommandRunner = Callable[..., Any]
 
 
 DARK_PALETTE = {
-    "window": "#1F2228",
-    "panel": "#262A31",
-    "panel_alt": "#303540",
-    "field": "#191C21",
-    "text": "#E4E7ED",
-    "muted": "#B6BDC8",
-    "disabled": "#858D9A",
-    "border": "#454C58",
-    "selection": "#3C557A",
-    "accent": "#527FB8",
-    "accent_text": "#FFFFFF",
-    "trough": "#171A1F",
+    "window": "#080808",
+    "panel": "#151515",
+    "panel_alt": "#222222",
+    "field": "#D8D8D8",
+    "field_text": "#191919",
+    "text": "#E2E2E2",
+    "muted": "#B8B8B8",
+    "disabled": "#858585",
+    "border": "#3D3D3D",
+    "selection": "#AFC0D2",
+    "accent": "#4C6685",
+    "accent_text": "#F1F1F1",
+    "trough": "#050505",
+    "error": "#F2A0A0",
 }
 
 LIGHT_PALETTE = {
     "window": "#F1F3F6",
     "panel": "#E7EAF0",
     "panel_alt": "#DDE2EA",
-    "field": "#FFFFFF",
+    "field": "#E7E9ED",
+    "field_text": "#252A32",
     "text": "#252A32",
     "muted": "#525B68",
     "disabled": "#818997",
@@ -36,6 +39,7 @@ LIGHT_PALETTE = {
     "accent": "#416EAD",
     "accent_text": "#FFFFFF",
     "trough": "#D3D9E2",
+    "error": "#A32C2C",
 }
 
 
@@ -130,12 +134,28 @@ def get_appearance_palette(appearance: str) -> dict[str, str]:
     return dict(DARK_PALETTE)
 
 
+def get_widget_appearance_palette(widget: Any) -> dict[str, str]:
+    """Get the palette selected by the app root for a child window or widget."""
+    try:
+        root = widget._root()
+        mode = getattr(root, "_storybuilder_appearance_mode", None)
+    except Exception:
+        mode = None
+    if mode not in {"dark", "light"}:
+        mode = detect_system_appearance()
+    return get_appearance_palette(mode)
+
+
 def apply_application_appearance(root: Any, appearance: str | None = None) -> str:
     """Apply a comfortable light/dark palette to Tk and ttk widgets."""
     mode = str(appearance or detect_system_appearance()).casefold()
     if mode not in {"dark", "light"}:
         mode = "dark"
     colors = get_appearance_palette(mode)
+    try:
+        root._storybuilder_appearance_mode = mode
+    except Exception:
+        pass
 
     try:
         root.configure(background=colors["window"])
@@ -148,19 +168,19 @@ def apply_application_appearance(root: Any, appearance: str | None = None) -> st
         "*background": colors["window"],
         "*foreground": colors["text"],
         "*Text.background": colors["field"],
-        "*Text.foreground": colors["text"],
-        "*Text.insertBackground": colors["text"],
+        "*Text.foreground": colors["field_text"],
+        "*Text.insertBackground": colors["field_text"],
         "*Text.selectBackground": colors["selection"],
-        "*Text.selectForeground": colors["text"],
+        "*Text.selectForeground": colors["field_text"],
         "*Entry.background": colors["field"],
-        "*Entry.foreground": colors["text"],
-        "*Entry.insertBackground": colors["text"],
+        "*Entry.foreground": colors["field_text"],
+        "*Entry.insertBackground": colors["field_text"],
         "*Entry.selectBackground": colors["selection"],
-        "*Entry.selectForeground": colors["text"],
+        "*Entry.selectForeground": colors["field_text"],
         "*Listbox.background": colors["field"],
-        "*Listbox.foreground": colors["text"],
+        "*Listbox.foreground": colors["field_text"],
         "*Listbox.selectBackground": colors["selection"],
-        "*Listbox.selectForeground": colors["text"],
+        "*Listbox.selectForeground": colors["field_text"],
         "*Menu.background": colors["panel"],
         "*Menu.foreground": colors["text"],
         "*Menu.activeBackground": colors["selection"],
@@ -168,6 +188,11 @@ def apply_application_appearance(root: Any, appearance: str | None = None) -> st
         "*Menu.disabledForeground": colors["disabled"],
         "*Canvas.background": colors["window"],
         "*Canvas.highlightBackground": colors["window"],
+        "*Text.disabledForeground": colors["field_text"],
+        "*Entry.disabledForeground": colors["field_text"],
+        "*Scrollbar.background": colors["panel_alt"],
+        "*Scrollbar.activeBackground": colors["selection"],
+        "*Scrollbar.troughColor": colors["trough"],
         "*Toplevel.background": colors["window"],
     }
     for option, value in defaults.items():
@@ -222,18 +247,18 @@ def apply_application_appearance(root: Any, appearance: str | None = None) -> st
         style.configure(
             "TEntry",
             fieldbackground=colors["field"],
-            foreground=colors["text"],
+            foreground=colors["field_text"],
             background=colors["field"],
             bordercolor=colors["border"],
             lightcolor=colors["panel_alt"],
             darkcolor=colors["panel"],
             selectbackground=colors["selection"],
-            selectforeground=colors["text"],
+            selectforeground=colors["field_text"],
         )
         style.configure(
             "TCombobox",
             fieldbackground=colors["field"],
-            foreground=colors["text"],
+            foreground=colors["field_text"],
             background=colors["panel_alt"],
             arrowcolor=colors["text"],
             bordercolor=colors["border"],
@@ -241,9 +266,9 @@ def apply_application_appearance(root: Any, appearance: str | None = None) -> st
         style.map(
             "TCombobox",
             fieldbackground=[("readonly", colors["field"]), ("focus", colors["field"])],
-            foreground=[("readonly", colors["text"]), ("disabled", colors["disabled"])],
+            foreground=[("readonly", colors["field_text"]), ("disabled", colors["disabled"])],
             selectbackground=[("readonly", colors["selection"])],
-            selectforeground=[("readonly", colors["text"])],
+            selectforeground=[("readonly", colors["field_text"])],
             background=[("active", colors["selection"])],
         )
         style.configure(
@@ -289,13 +314,13 @@ def apply_application_appearance(root: Any, appearance: str | None = None) -> st
             "Treeview",
             background=colors["field"],
             fieldbackground=colors["field"],
-            foreground=colors["text"],
+            foreground=colors["field_text"],
             bordercolor=colors["border"],
         )
         style.map(
             "Treeview",
             background=[("selected", colors["selection"])],
-            foreground=[("selected", colors["text"])],
+            foreground=[("selected", colors["field_text"])],
         )
         style.configure("Treeview.Heading", background=colors["panel_alt"], foreground=colors["text"])
         style.configure("TSeparator", background=colors["border"])
@@ -306,7 +331,7 @@ def apply_application_appearance(root: Any, appearance: str | None = None) -> st
             bordercolor=colors["border"],
         )
         style.configure("TScale", background=colors["window"], troughcolor=colors["trough"])
-        style.configure("TSpinbox", fieldbackground=colors["field"], foreground=colors["text"])
+        style.configure("TSpinbox", fieldbackground=colors["field"], foreground=colors["field_text"])
     except Exception:
         # Appearance styling should never prevent the app from opening.
         pass

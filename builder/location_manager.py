@@ -7,6 +7,7 @@ from typing import Any, Callable
 import tkinter as tk
 from tkinter import messagebox, ttk
 
+from builder.appearance import get_widget_appearance_palette
 from builder.location_editor import LocationEditorWindow
 from builder.story_bible_reader import (
     load_story_bible,
@@ -26,6 +27,7 @@ class LocationManagerWindow:
         on_close: Callable[[], None],
     ) -> None:
         self.novel_path = Path(novel_path)
+        self.colors = get_widget_appearance_palette(parent)
         self.locations = copy.deepcopy(locations)
         self.on_saved = on_saved
         self.on_close = on_close
@@ -105,7 +107,7 @@ class LocationManagerWindow:
                 "Name is required. All other details are optional. Editing changes only "
                 "the selected location; removing a location removes only its Story Bible entry."
             ),
-            foreground="gray",
+            foreground=self.colors["muted"],
             wraplength=700,
         ).grid(row=3, column=0, columnspan=2, sticky="w", pady=(10, 0))
 

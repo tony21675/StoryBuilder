@@ -8,4 +8,5 @@ echo "Synchronizing StoryBuilder with GitHub..."
 bash "$SCRIPT_DIR/sync.sh" start
 
 echo "Starting Story Bible..."
+export STORYBUILDER_THEME="${STORYBUILDER_THEME:-dark}"
 exec python3 "$SCRIPT_DIR/story_bible_app.py"

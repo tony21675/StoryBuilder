@@ -6,6 +6,8 @@ from typing import Any, Callable
 import tkinter as tk
 from tkinter import ttk
 
+from builder.appearance import get_widget_appearance_palette
+
 
 _ENTRY_FIELDS = {
     "type": "Type",
@@ -31,6 +33,7 @@ class LocationEditorWindow:
         on_cancel: Callable[[], None],
     ) -> None:
         self.original = copy.deepcopy(existing or {})
+        self.colors = get_widget_appearance_palette(parent)
         self.on_save = on_save
         self.on_cancel = on_cancel
         self.entry_vars: dict[str, tk.StringVar] = {}
@@ -128,7 +131,7 @@ class LocationEditorWindow:
         ttk.Label(
             outer,
             text="Only this location will be saved. All details except Name are optional.",
-            foreground="gray",
+            foreground=self.colors["muted"],
         ).grid(row=2, column=0, sticky="w", pady=(8, 0))
 
         self.window.grab_set()

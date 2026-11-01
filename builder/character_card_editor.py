@@ -6,6 +6,8 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 from typing import Any, Callable
 
+from builder.appearance import get_widget_appearance_palette
+
 
 _STRING_FIELDS = (
     "role",
@@ -86,6 +88,7 @@ class CharacterCardEditorWindow:
         character_names: list[str] | tuple[str, ...] | None = None,
     ) -> None:
         self.original = copy.deepcopy(existing or {})
+        self.colors = get_widget_appearance_palette(parent)
         self.character_names = _normalize_character_names(character_names)
         self.on_save = on_save
         self.on_cancel = on_cancel
@@ -141,13 +144,13 @@ class CharacterCardEditorWindow:
         ttk.Label(
             outer,
             textvariable=self.save_status_var,
-            foreground="#9b2c2c",
+            foreground=self.colors["error"],
             wraplength=760,
         ).grid(row=2, column=0, sticky="w", pady=(8, 0))
         ttk.Label(
             outer,
             text="Only Name is required. All other fields are optional and may be left blank.",
-            foreground="gray",
+            foreground=self.colors["muted"],
         ).grid(row=3, column=0, sticky="w", pady=(4, 0))
 
         self.window.grab_set()

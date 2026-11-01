@@ -161,3 +161,13 @@ App #2 now contains the package creator, read-only full-JSON viewer, and separat
 - Regression tests now cover real custom-field row initialization, legacy row fallback, form-build exceptions, the multiline story fields (including a two-line value), immediate Save feedback, callback result handling, visible modal errors, file read-back mismatch, and confirmation that a changed Role appears in the main-page summary after a temporary-package file save.
 - All code and tests are committed on `redesign/simplified-writing-workflow`. Latest code/test commit: `17fabd7dd69d6ced04e5811724c45797adaaa6cf`. GitHub's combined commit-status endpoint did not return CI status entries, so CI remains unverified. Do not describe the workflows as passed until their runs are confirmed.
 - Live verification is still pending. The author has restarted Story Bible after the first save-feedback changes, but the latest field-classification correction was committed afterward and requires another launch through `bash start_story_bible.sh` to pull. Preserve the unsaved Jessica Role text before closing the editor. Use only the local-only `Story-Bible-Save-Test` for the first save test; never sync the fixture or edit real novel cards during this check.
+
+## Latest milestone: Unified dark palette and softer writing surfaces (October 31, 2026)
+
+- Connected the existing appearance system to both Minimal Writer and Story Bible. Neither app had been applying the shared Tk/ttk palette, which left native widgets using bright desktop defaults.
+- Updated the dark palette to use near-black window and panel surfaces, dark charcoal buttons/tabs, and soft light-gray editable fields with dark text. This keeps long writing areas readable without the stark white glare.
+- Also softened the light-mode field surface from pure white to light gray and added separate field-text and error colors so text remains legible on both palettes.
+- Applied the palette at app startup. Story Bible's launcher now defaults to the same dark mode as Minimal Writer; either launcher still honors an explicit `STORYBUILDER_THEME=light` override.
+- Classic Tk Text, Listbox, Canvas, Entry, Scrollbar, dialog, editor, character-card, and location widgets inherit the palette. Muted labels and character-save errors use contrast-appropriate colors.
+- Added palette regression tests, including the dark-surface/light-field contrast and child-window palette inheritance.
+- Code changes are committed together in one feature commit. Automated CI and live visual verification on Tony's laptop are still pending; the author should restart both apps after syncing to see the new palette.
