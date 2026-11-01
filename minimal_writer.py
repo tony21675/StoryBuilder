@@ -1223,9 +1223,15 @@ class MinimalWriterApp:
 
         existing_prompt = self.prompt_box.get("1.0", "end-1c")
         if existing_prompt.strip() and not self._askyesno(
-            "Replace writing prompt?",
-            "Prepare Scene will replace the text currently in What should it write? "
-            "The existing text will stay untouched if you cancel. Continue?",
+            "Replace prompt box text?",
+            (
+                f"You selected {self.chapter_var.get().strip() or f'Chapter {target_chapter:02d}'}, "
+                f"{selected_scene_label or 'no saved scene'}. Prepare Scene is preparing "
+                f"Chapter {target_chapter:02d}, Scene {target_scene:02d}.\n\n"
+                "This will replace ONLY the text in the What should it write? box. "
+                "It will NOT overwrite, save, or modify the selected scene or any manuscript file.\n\n"
+                "Your existing prompt text will stay untouched if you cancel. Continue?"
+            ),
         ):
             return
 
