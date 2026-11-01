@@ -199,6 +199,75 @@ class StoryBibleCharacterCardFileActionTests(unittest.TestCase):
         finally:
             temporary.cleanup()
 
+    def test_file_card_save_failure_is_shown_over_editor_and_keeps_editor_open(self):
+        temporary, package, expected = self.make_package()
+        try:
+            app = self.make_app(package)
+            editor_window = object()
+            updated_card = dict(expected)
+            updated_card["role"] = "Senior Biologist"
+            app._character_card_editor_window = editor_window
+            app._character_card_editor = FakeEditor(updated_card)
+            app._character_card_edit_index = 0
+            app._character_card_filename = "Daniel_Okafor.json"
+            app._finish_character_card_editor = Mock()
+
+            with (
+                patch(
+                    "story_bible_app.save_story_bible_character_card_file",
+                    side_effect=OSError("permission denied"),
+                ),
+                patch("story_bible_app.messagebox.showerror") as showerror,
+            ):
+                app.save_character_card()
+
+            showerror.assert_called_once()
+            self.assertIs(showerror.call_args.kwargs["parent"], editor_window)
+            self.assertIn("permission denied", showerror.call_args.args[1])
+            self.assertIn("permission denied", app.viewer_status_var.value)
+            self.assertIs(app._character_card_editor_window, editor_window)
+            app._finish_character_card_editor.assert_not_called()
+            self.assertEqual(
+                load_story_bible_character_card(package, "Daniel_Okafor.json")["role"],
+                "Biologist",
+            )
+        finally:
+            temporary.cleanup()
+
+    def test_file_card_save_readback_mismatch_is_reported_and_editor_stays_open(self):
+        temporary, package, expected = self.make_package()
+        try:
+            app = self.make_app(package)
+            editor_window = object()
+            updated_card = dict(expected)
+            updated_card["role"] = "Senior Biologist"
+            app._character_card_editor_window = editor_window
+            app._character_card_editor = FakeEditor(updated_card)
+            app._character_card_edit_index = 0
+            app._character_card_filename = "Daniel_Okafor.json"
+            app._finish_character_card_editor = Mock()
+
+            with (
+                patch(
+                    "story_bible_app.save_story_bible_character_card_file",
+                    return_value=Path(package) / "Daniel_Okafor.json",
+                ),
+                patch("story_bible_app.messagebox.showerror") as showerror,
+            ):
+                app.save_character_card()
+
+            showerror.assert_called_once()
+            self.assertIs(showerror.call_args.kwargs["parent"], editor_window)
+            self.assertIn("verification failed", showerror.call_args.args[1].lower())
+            self.assertIs(app._character_card_editor_window, editor_window)
+            app._finish_character_card_editor.assert_not_called()
+            self.assertEqual(
+                load_story_bible_character_card(package, "Daniel_Okafor.json")["role"],
+                "Biologist",
+            )
+        finally:
+            temporary.cleanup()
+
     def test_remove_drops_file_reference_but_keeps_character_file(self):
         temporary, package, expected = self.make_package()
         try:
