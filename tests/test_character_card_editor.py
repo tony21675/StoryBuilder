@@ -28,6 +28,25 @@ class FakeText:
         return self.value
 
 
+class FakeWindow:
+    def __init__(self):
+        self.exists = True
+
+    def update_idletasks(self):
+        pass
+
+    def winfo_exists(self):
+        return self.exists
+
+
+class FakeButton:
+    def __init__(self):
+        self.states = []
+
+    def configure(self, **kwargs):
+        self.states.append(kwargs.get("state"))
+
+
 class CharacterNameOptionsTests(unittest.TestCase):
     def test_names_are_trimmed_deduplicated_and_sorted_case_insensitively(self):
         self.assertEqual(
@@ -240,11 +259,19 @@ class CharacterCardEditorBuildTests(unittest.TestCase):
 
         self.assertEqual(saved["favorite_food"], "Fresh peaches")
 
-    def test_unexpected_save_callback_error_is_shown_in_character_editor(self):
-        editor = self.make_editor()
+    def prepare_save(self, editor, callback):
         editor.entry_vars["name"] = FakeValue("Mara")
-        editor.window = object()
-        editor.on_save = lambda _card: (_ for _ in ()).throw(RuntimeError("callback failed"))
+        editor.window = FakeWindow()
+        editor.save_button = FakeButton()
+        editor.save_status_var = FakeValue("")
+        editor.on_save = callback
+        return editor
+
+    def test_unexpected_save_callback_error_is_shown_in_character_editor(self):
+        editor = self.prepare_save(
+            self.make_editor(),
+            lambda _card: (_ for _ in ()).throw(RuntimeError("callback failed")),
+        )
 
         with patch("builder.character_card_editor.messagebox.showerror") as showerror:
             editor.save()
@@ -252,6 +279,32 @@ class CharacterCardEditorBuildTests(unittest.TestCase):
         showerror.assert_called_once()
         self.assertIs(showerror.call_args.kwargs["parent"], editor.window)
         self.assertIn("callback failed", showerror.call_args.args[1])
+        self.assertIn("callback failed", editor.save_status_var.get())
+        self.assertEqual(editor.save_button.states[-1], "normal")
+
+    def test_false_save_callback_result_is_visible_inside_editor(self):
+        editor = self.prepare_save(self.make_editor(), lambda _card: False)
+
+        with patch("builder.character_card_editor.messagebox.showerror"):
+            editor.save()
+
+        self.assertIn("Save did not complete", editor.save_status_var.get())
+        self.assertEqual(editor.save_button.states[-1], "normal")
+
+    def test_save_click_shows_progress_and_keeps_button_disabled_until_callback_returns(self):
+        editor = self.prepare_save(self.make_editor(), lambda _card: False)
+        seen = []
+
+        def fail_after_progress(_card):
+            seen.append(editor.save_status_var.get())
+            seen.append(editor.save_button.states[-1])
+            return False
+
+        editor.on_save = fail_after_progress
+        with patch("builder.character_card_editor.messagebox.showerror"):
+            editor.save()
+
+        self.assertEqual(seen, ["Save button clicked. Saving character...", "disabled"])
 
 
 if __name__ == "__main__":
