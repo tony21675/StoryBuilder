@@ -651,7 +651,18 @@ class StoryBibleApp:
             save_story_bible_premise(self._loaded_novel_path, new_premise)
             data = load_story_bible(self._loaded_novel_path)
         except (OSError, ValueError, RuntimeError) as exc:
-            self.viewer_status_var.set(f"Premise was not saved:\n{exc}")
+            error = f"Premise was not saved:\n{exc}"
+            self.viewer_status_var.set(error)
+            messagebox.showerror(
+                "Premise was not saved", str(exc), parent=self._premise_editor_window
+            )
+            return
+        except Exception as exc:
+            error = f"Premise was not saved because of an unexpected error:\n{exc}"
+            self.viewer_status_var.set(error)
+            messagebox.showerror(
+                "Premise was not saved", error, parent=self._premise_editor_window
+            )
             return
 
         self._loaded_premise = new_premise
@@ -787,7 +798,18 @@ class StoryBibleApp:
             save_story_bible_text_field(self._loaded_novel_path, "setting", new_setting)
             data = load_story_bible(self._loaded_novel_path)
         except (OSError, ValueError, RuntimeError) as exc:
-            self.viewer_status_var.set(f"Setting was not saved:\n{exc}")
+            error = f"Setting was not saved:\n{exc}"
+            self.viewer_status_var.set(error)
+            messagebox.showerror(
+                "Setting was not saved", str(exc), parent=self._setting_editor_window
+            )
+            return
+        except Exception as exc:
+            error = f"Setting was not saved because of an unexpected error:\n{exc}"
+            self.viewer_status_var.set(error)
+            messagebox.showerror(
+                "Setting was not saved", error, parent=self._setting_editor_window
+            )
             return
 
         self._loaded_setting = new_setting
@@ -1033,7 +1055,22 @@ class StoryBibleApp:
             save_story_bible_canon_rules(self._loaded_novel_path, new_rules)
             data = load_story_bible(self._loaded_novel_path)
         except (OSError, ValueError, RuntimeError) as exc:
-            self.viewer_status_var.set(f"Canon Rules were not saved:\n{exc}")
+            error = f"Canon Rules were not saved:\n{exc}"
+            self.viewer_status_var.set(error)
+            messagebox.showerror(
+                "Canon Rules were not saved",
+                str(exc),
+                parent=self._canon_rules_editor_window,
+            )
+            return
+        except Exception as exc:
+            error = f"Canon Rules were not saved because of an unexpected error:\n{exc}"
+            self.viewer_status_var.set(error)
+            messagebox.showerror(
+                "Canon Rules were not saved",
+                error,
+                parent=self._canon_rules_editor_window,
+            )
             return
 
         premise = data.get("premise", "")
@@ -1496,6 +1533,14 @@ class StoryBibleApp:
                     self._loaded_novel_path, card_data
                 )
                 data = load_story_bible(self._loaded_novel_path)
+                saved_card = load_story_bible_character_card(
+                    self._loaded_novel_path, filename
+                )
+                if saved_card != card_data:
+                    raise RuntimeError(
+                        f"Save verification failed for {filename}. The saved card does not "
+                        "match the values entered. Your editor is still open."
+                    )
                 selected_index = len(data.get("character_cards", [])) - 1
                 result_message = (
                     f"Created {filename}. The new Character Card is stored as its own JSON file."
@@ -1507,6 +1552,14 @@ class StoryBibleApp:
                     card_data,
                     replace=True,
                 )
+                saved_card = load_story_bible_character_card(
+                    self._loaded_novel_path, self._character_card_filename
+                )
+                if saved_card != card_data:
+                    raise RuntimeError(
+                        f"Save verification failed for {self._character_card_filename}. "
+                        "The saved card does not match the values entered. Your editor is still open."
+                    )
                 data = load_story_bible(self._loaded_novel_path)
                 result_message = (
                     f"Saved '{name}' to {self._character_card_filename}. "
@@ -1527,9 +1580,34 @@ class StoryBibleApp:
                 cards[selected_index] = updated_card
                 save_story_bible_character_cards(self._loaded_novel_path, cards)
                 data = load_story_bible(self._loaded_novel_path)
+                saved_cards = data.get("character_cards", [])
+                if (
+                    not isinstance(saved_cards, list)
+                    or not 0 <= selected_index < len(saved_cards)
+                    or saved_cards[selected_index] != updated_card
+                ):
+                    raise RuntimeError(
+                        "Save verification failed. The saved Character Card does not match "
+                        "the values entered. Your editor is still open."
+                    )
                 result_message = f"Saved character card '{name}'."
         except (OSError, ValueError, RuntimeError) as exc:
-            self.viewer_status_var.set(f"Character was not saved:\\n{exc}")
+            error = f"Character was not saved:\n{exc}"
+            self.viewer_status_var.set(error)
+            messagebox.showerror(
+                "Character was not saved",
+                str(exc),
+                parent=self._character_card_editor_window,
+            )
+            return
+        except Exception as exc:
+            error = f"Character was not saved because of an unexpected error:\n{exc}"
+            self.viewer_status_var.set(error)
+            messagebox.showerror(
+                "Character was not saved",
+                error,
+                parent=self._character_card_editor_window,
+            )
             return
 
         self._loaded_character_cards = list(data.get("character_cards", []))
