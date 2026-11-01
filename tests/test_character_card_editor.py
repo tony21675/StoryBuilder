@@ -239,6 +239,19 @@ class CharacterCardEditorBuildTests(unittest.TestCase):
 
         self.assertEqual(saved["favorite_food"], "Fresh peaches")
 
+    def test_unexpected_save_callback_error_is_shown_in_character_editor(self):
+        editor = self.make_editor()
+        editor.entry_vars["name"] = FakeValue("Mara")
+        editor.window = object()
+        editor.on_save = lambda _card: (_ for _ in ()).throw(RuntimeError("callback failed"))
+
+        with patch("builder.character_card_editor.messagebox.showerror") as showerror:
+            editor.save()
+
+        showerror.assert_called_once()
+        self.assertIs(showerror.call_args.kwargs["parent"], editor.window)
+        self.assertIn("callback failed", showerror.call_args.args[1])
+
 
 if __name__ == "__main__":
     unittest.main()
