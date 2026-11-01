@@ -75,7 +75,7 @@ class CharacterCardEditorWindow:
         parent: tk.Misc,
         existing: dict[str, Any] | None,
         title: str,
-        on_save: Callable[[dict[str, Any]], None],
+        on_save: Callable[[dict[str, Any]], bool | None],
         on_cancel: Callable[[], None],
         character_names: list[str] | tuple[str, ...] | None = None,
     ) -> None:
