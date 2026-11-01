@@ -16,16 +16,26 @@ _SCENE_FILENAME_RE = re.compile(
 _PREVIOUS_SCENE_CHARS = 2200
 
 
+def scene_number_from_label(label: str | None) -> int | None:
+    """Read the number from a visible Scene NN selector label."""
+    match = re.fullmatch(r"Scene\\s+(\\d+)", str(label or "").strip(), re.IGNORECASE)
+    return int(match.group(1)) if match else None
+
+
 def next_scene_coordinates(
     selected_chapter: int | None,
     selected_scene_path: str | Path | None,
+    selected_scene_number: int | None = None,
 ) -> tuple[int, int]:
     """Return the next scene after the selected scene, or the opening scene."""
+    chapter = max(1, int(selected_chapter or 1))
     if selected_scene_path is not None:
         match = _SCENE_FILENAME_RE.fullmatch(Path(selected_scene_path).name)
         if match:
             return int(match.group(1)), int(match.group(2)) + 1
-    return max(1, int(selected_chapter or 1)), 1
+    if selected_scene_number is not None and int(selected_scene_number) >= 1:
+        return chapter, int(selected_scene_number) + 1
+    return chapter, 1
 
 
 def _read_current_state(novel_path: Path) -> dict[str, Any]:
