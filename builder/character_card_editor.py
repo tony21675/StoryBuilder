@@ -101,6 +101,8 @@ class CharacterCardEditorWindow:
         self.window.transient(parent)
         self.window.protocol("WM_DELETE_WINDOW", self.cancel)
 
+        self.save_status_var = tk.StringVar(self.window, value="")
+
         outer = ttk.Frame(self.window, padding=12)
         outer.pack(fill="both", expand=True)
         outer.columnconfigure(0, weight=1)
@@ -125,15 +127,22 @@ class CharacterCardEditorWindow:
 
         action_row = ttk.Frame(outer)
         action_row.grid(row=1, column=0, sticky="w", pady=(10, 0))
-        ttk.Button(action_row, text="Save Character", command=self.save).pack(
-            side="left", padx=(0, 8)
+        self.save_button = ttk.Button(
+            action_row, text="Save Character", command=self.save
         )
+        self.save_button.pack(side="left", padx=(0, 8))
         ttk.Button(action_row, text="Cancel Edit", command=self.cancel).pack(side="left")
+        ttk.Label(
+            outer,
+            textvariable=self.save_status_var,
+            foreground="#9b2c2c",
+            wraplength=760,
+        ).grid(row=2, column=0, sticky="w", pady=(8, 0))
         ttk.Label(
             outer,
             text="Only Name is required. All other fields are optional and may be left blank.",
             foreground="gray",
-        ).grid(row=2, column=0, sticky="w", pady=(8, 0))
+        ).grid(row=3, column=0, sticky="w", pady=(4, 0))
 
         self.window.grab_set()
         self.window.after_idle(self._focus_name)
@@ -695,23 +704,58 @@ class CharacterCardEditorWindow:
 
 
     def save(self) -> None:
+        self.save_status_var.set("Save button clicked. Saving character...")
+        self.save_button.configure(state="disabled")
+        try:
+            self.window.update_idletasks()
+        except tk.TclError:
+            pass
+
         try:
             data = self.build_card()
         except ValueError as exc:
-            messagebox.showerror("Character Card needs attention", str(exc), parent=self.window)
+            self.save_status_var.set(f"Save stopped: {exc}")
+            messagebox.showerror(
+                "Character Card needs attention", str(exc), parent=self.window
+            )
+            self.save_button.configure(state="normal")
             return
+
         try:
-            self.on_save(data)
+            result = self.on_save(data)
         except Exception as exc:
+            message = (
+                f"The save action stopped unexpectedly:\n{exc}\n\n"
+                "The card may or may not have been written. Check the Character "
+                "Cards list before trying again."
+            )
+            self.save_status_var.set(f"Save failed: {exc}")
             messagebox.showerror(
                 "Character save action encountered an error",
-                (
-                    f"The save action stopped unexpectedly:\n{exc}\n\n"
-                    "The card may or may not have been written. Check the Character "
-                    "Cards list before trying again."
-                ),
+                message,
                 parent=self.window,
             )
+            self.save_button.configure(state="normal")
+            return
+
+        try:
+            editor_still_open = bool(self.window.winfo_exists())
+        except tk.TclError:
+            editor_still_open = False
+        if not editor_still_open:
+            return
+
+        if result is False:
+            if self.save_status_var.get().startswith("Save button clicked"):
+                self.save_status_var.set(
+                    "Save did not complete. Check the error message and correct the issue."
+                )
+        else:
+            self.save_status_var.set(
+                "The save action returned without closing this editor. "
+                "The changes have not been confirmed."
+            )
+        self.save_button.configure(state="normal")
 
     def cancel(self) -> None:
         self.on_cancel()
