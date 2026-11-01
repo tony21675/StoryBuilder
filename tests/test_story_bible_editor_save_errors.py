@@ -32,7 +32,7 @@ class StoryBibleEditorSaveErrorTests(unittest.TestCase):
         showerror.assert_called_once()
         self.assertIs(showerror.call_args.kwargs["parent"], parent)
         self.assertIn(message, showerror.call_args.args[1])
-        
+    
     def test_premise_save_failure_is_shown_in_premise_editor(self):
         app = self.make_app()
         editor = object()
@@ -73,7 +73,7 @@ class StoryBibleEditorSaveErrorTests(unittest.TestCase):
         editor = object()
         app._canon_rules_editing = True
         app._canon_rules_editor_window = editor
-        app._canon_rules_editor_text = FakeText("Rule one\\nRule two")
+        app._canon_rules_editor_text = FakeText("Rule one\nRule two")
 
         with (
             patch(
