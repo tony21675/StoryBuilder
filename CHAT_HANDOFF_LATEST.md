@@ -173,3 +173,11 @@ App #2 now contains the package creator, read-only full-JSON viewer, and separat
 - Code change commit: `e7d75dd22dce42ccaa12aea6bedb7c2606f2740a`.
 - Both GitHub workflows completed after this commit. Compilation and launcher syntax checks passed; the unit suites each hit one unrelated pre-existing test-harness error in `test_blank_name_does_not_save_or_close_the_editor`, where the test calls a real Tk message box with a fake root object. The same failure is present on parent commit `c0fb66c32352f0e3aea8d59b9af7b448ec9a4c88`, before the palette changes. The Python test workflow reported 564 passed and 75 subtests passed, with that one failure. The new dark/light palette tests passed.
 - Live visual verification on Tony's laptop is still pending. After syncing the StoryBuilder branch, close and relaunch both apps to see the palette.
+
+## Future standalone apps (October 31, 2026)
+
+- App 3 (a simple, independent local-model chat window) and App 4 (a local DIY vape recipe and inventory studio) are explicitly **on hold** until the author considers Minimal Writer and Story Bible finished.
+- Neither app is to be implemented as part of StoryBuilder. Both are intended to become independent projects with their own data and desktop launchers.
+- Full scope, boundaries, preferences, and restart checklist: [`FUTURE_APPS_ON_HOLD.md`](FUTURE_APPS_ON_HOLD.md).
+- A matching parking handoff has also been added to the `LocalStoryChat` repository. Its existing v7 app remains unchanged; it is reference material only, not an automatic decision to turn it into the new generic chat app.
+- No repository has yet been created for App 4. Create its dedicated repository only when the author decides to start that project.
