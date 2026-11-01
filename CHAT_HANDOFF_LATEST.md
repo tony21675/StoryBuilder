@@ -138,18 +138,10 @@ App #2 now contains the package creator, read-only full-JSON viewer, and separat
 - The first CI attempt exposed an indentation issue in the AST-based regression test, not the application code. The test now uses `textwrap.dedent` before parsing. Both workflows passed on StoryBuilder commit `3f63372388a784303ce3a9a817ff8125444dcd6b`: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/41250915497) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/41250915570).
 
 
-## Current next step: Character Cards live workflow
+## Character Cards integration checks (October 31, 2026)
 
-- Use the separate Story Bible app, launched with `cd ~/Documents/StoryBuilder && bash start_story_bible.sh`. Do not use `./start.sh`, which opens Minimal Writer.
-- Select only the local-only `Story-Bible-Save-Test` package. Test Add Character then Cancel, add and Save a new card with only Name plus one optional field, edit/save it, then Remove Selected and confirm. Verify the Story Bible still has the same Premise, Setting, Canon Rules, Locations, and unrelated entries. Never sync the test fixture. Keep real novel character cards read-only during this check.
-- After the test, inspect the fixture's card files and Story Bible for exact results. Do not delete the fixture until Story Bible feature testing is complete.
-### Character Cards live workflow passed (October 31, 2026)
-
-- The author confirmed the complete five-step UI test passed in the local-only `Story-Bible-Save-Test`: Add then Cancel, Add and Save, Edit and Save, and Remove with confirmation.
-- Real novel character data was not used for these write tests. The test fixture remains local-only and must not be synced or deleted until Story Bible feature development is complete.
-- Next live check: open `The Long Way Home` and `Taken_at_Dusk` in Story Bible, open Manage Character Cards, and select an existing JSON filename entry to confirm its actual character details display. Keep this check read-only; do not edit real novel cards.
-- **Read-only real-novel card display verified on October 31, 2026:** the author opened Zoe Bennett's `Zoe_Bennett.json` in The Long Way Home. The manager displayed the actual JSON content, including basic fields, appearance/background, personality and skills lists, and relationships. No edit or save was performed. The equivalent check in `Taken_at_Dusk` remains next.
-- **Read-only real-novel card display verified on October 31, 2026:** the author opened Jessica's `Jessica.json` in Taken_at_Dusk. The manager displayed the complete saved character content, including her multi-paragraph background, nested appearance object, all six relationship entries, and knowledge rule. No edit or save was performed. Together with the Zoe Bennett check in The Long Way Home, this completes the existing-card display check in both real novels.
+- The complete add/cancel, add/save, edit/save, and remove/confirm workflow passed in the local-only `Story-Bible-Save-Test`. The fixture remains local-only and must never be synced or deleted until Story Bible development is complete.
+- Read-only display of real file-backed cards passed in both novels: Zoe Bennett's `Zoe_Bennett.json` in The Long Way Home and Jessica's `Jessica.json` in Taken_at_Dusk. Both previews showed their actual saved JSON details. Neither real card was edited during those display checks.
 
 ### Character Card relationship-name dropdown (October 31, 2026)
 
@@ -158,3 +150,12 @@ App #2 now contains the package creator, read-only full-JSON viewer, and separat
 - No novel data is changed by opening the editor. Regression tests cover name loading from file-backed and embedded cards, ignoring legacy notes or missing files, passing options to the editor, and option normalization.
 - Both automated workflows passed on commit `b318bc1b81a07300f63f094ad3597c9decde097b`: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/41252999168) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/41252999165). The first StoryBuilder run exposed only a test fixture omission (Zoe's file was not listed in `character_cards`); the fixture was corrected to match the real data model.
 - Live UI verification is pending. Check the dropdown in the local-only Story-Bible-Save-Test first; do not save or alter real novel cards during the visual test.
+
+### Story Bible modal save-error handling (October 31, 2026)
+
+- Audit found that failed saves in the Character Card, Premise, Setting, and Canon Rules modal editors only wrote an error to the status line in the main Story Bible window. Because the editor is modal and in front of that window, the user could not see why Save appeared to do nothing.
+- Save failures now display a foreground error dialog attached to the active editor, while retaining the draft and keeping the editor open. Expected file/validation errors and unexpected exceptions are both surfaced. The Character Card editor also guards its save callback so an unhandled callback exception is not silently lost. The Locations editor already displayed errors in its own window and needed no change.
+- Character Card saves now read the saved data back from disk and compare it with the submitted card before the editor closes. This verification covers new file-backed cards, edits to existing file-backed cards, and embedded structured cards. A mismatch produces an error and leaves the editor open.
+- Added regression tests for file-write failure visibility, read-back mismatch, unexpected Character Card callback errors, and failure dialogs in the Premise, Setting, and Canon Rules editors.
+- Code and tests are committed on `redesign/simplified-writing-workflow`; latest commit at this handoff update: `2d16d43fd57726b9e9e6af9d0f9318f05f103b83`. GitHub's combined commit-status endpoint returned no status entries, so CI completion has not yet been verified in this handoff. Do not describe the workflows as passed until their runs are confirmed.
+- Live UI verification remains pending. The author still has Jessica's editor open with the current in-memory draft; do not restart Story Bible or discard that window until the author has decided how to preserve the draft. After safeguarding it, pull the branch and verify the new error feedback using only the local test fixture first.
