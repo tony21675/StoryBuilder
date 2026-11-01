@@ -18,7 +18,7 @@ _PREVIOUS_SCENE_CHARS = 2200
 
 def scene_number_from_label(label: str | None) -> int | None:
     """Read the number from a visible Scene NN selector label."""
-    match = re.fullmatch(r"Scene\\s+(\\d+)", str(label or "").strip(), re.IGNORECASE)
+    match = re.fullmatch(r"Scene\s+(\d+)", str(label or "").strip(), re.IGNORECASE)
     return int(match.group(1)) if match else None
 
 
