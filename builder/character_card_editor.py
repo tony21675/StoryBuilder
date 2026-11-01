@@ -13,12 +13,15 @@ _STRING_FIELDS = (
     "relationship_status",
     "occupation",
     "status",
+    "nickname_from_tony",
+)
+_TEXT_FIELDS = (
+    "description",
+    "background",
     "story_role",
     "protective_nature",
     "knowledge_rule",
-    "nickname_from_tony",
 )
-_TEXT_FIELDS = ("description", "background")
 _LIST_FIELDS = (
     "personality",
     "hobbies",
@@ -43,9 +46,12 @@ _STANDARD_FIELDS = {
     "school_performance",
 }
 _TAB_FIELDS = {
-    "Basic Information": {"name", "age", *_STRING_FIELDS[:6]},
+    "Basic Information": {
+        "name", "age", "role", "gender", "relationship_status",
+        "occupation", "status",
+    },
     "Appearance": {"appearance"},
-    "Background & Personality": {*_TEXT_FIELDS, "personality", "hobbies"},
+    "Background & Personality": {"description", "background", "personality", "hobbies"},
     "Skills & Story": {
         "skills", "strengths", "weaknesses", "goals", "future_story_role",
         "social", "story_role", "protective_nature", "knowledge_rule",
