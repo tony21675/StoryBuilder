@@ -700,7 +700,18 @@ class CharacterCardEditorWindow:
         except ValueError as exc:
             messagebox.showerror("Character Card needs attention", str(exc), parent=self.window)
             return
-        self.on_save(data)
+        try:
+            self.on_save(data)
+        except Exception as exc:
+            messagebox.showerror(
+                "Character save action encountered an error",
+                (
+                    f"The save action stopped unexpectedly:\n{exc}\n\n"
+                    "The card may or may not have been written. Check the Character "
+                    "Cards list before trying again."
+                ),
+                parent=self.window,
+            )
 
     def cancel(self) -> None:
         self.on_cancel()
