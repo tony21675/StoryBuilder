@@ -226,7 +226,7 @@ class CharacterCardEditorBuildTests(unittest.TestCase):
         }
         editor = self.make_editor(original)
         editor.text_widgets["story_role"] = FakeText(
-            "Updated story role with\\na second line."
+            "Updated story role with\na second line."
         )
         editor.text_widgets["protective_nature"] = FakeText(
             "Updated protective nature."
@@ -239,7 +239,7 @@ class CharacterCardEditorBuildTests(unittest.TestCase):
         saved = editor.build_card()
 
         self.assertEqual(
-            saved["story_role"], "Updated story role with\\na second line."
+            saved["story_role"], "Updated story role with\na second line."
         )
         self.assertEqual(saved["protective_nature"], "Updated protective nature.")
         self.assertEqual(saved["knowledge_rule"], "Updated knowledge rule.")
