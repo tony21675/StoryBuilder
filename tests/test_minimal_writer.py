@@ -201,6 +201,37 @@ class FakeStatus:
 
 
 class MinimalWriterTests(unittest.TestCase):
+    def test_manual_draft_check_is_advisory_and_preserves_output_text(self):
+        app = MinimalWriterApp.__new__(MinimalWriterApp)
+        app.busy = False
+        original = "He reached for the switch, but"
+        app.output_box = FakeOutputBox(original)
+        app.status_var = FakeStatus()
+        shown = []
+        app._showinfo = lambda title, message: shown.append((title, message))
+
+        app.check_draft()
+
+        self.assertEqual(app._output_text(), original)
+        self.assertEqual(len(shown), 1)
+        self.assertEqual(shown[0][0], "Draft Check")
+        self.assertIn("Possible abrupt ending", shown[0][1])
+        self.assertIn("advisory only", shown[0][1])
+        self.assertIn("No text was changed", app.status_var.value)
+
+    def test_manual_draft_check_does_nothing_while_writer_is_busy(self):
+        app = MinimalWriterApp.__new__(MinimalWriterApp)
+        app.busy = True
+        app.output_box = FakeOutputBox("A draft that must remain unchanged.")
+        app.status_var = FakeStatus()
+        shown = []
+        app._showinfo = lambda title, message: shown.append((title, message))
+
+        app.check_draft()
+
+        self.assertEqual(shown, [])
+        self.assertEqual(app._output_text(), "A draft that must remain unchanged.")
+
     def test_ctrl_a_is_bound_and_selects_all_text(self):
         widget = FakeSelectableText()
         bind_ctrl_a_select_all(widget)
