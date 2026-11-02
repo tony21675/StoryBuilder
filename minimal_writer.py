@@ -20,6 +20,7 @@ from builder.scene_preparation import (
 )
 from builder.odt_document import markdown_to_rich_text, read_document, save_document
 from builder.novel_browser import list_novel_packages, list_scene_chapters, list_scene_files
+from builder.prose_health import analyze_draft, format_draft_health_report
 from builder.novel_git_sync import (
     NovelGitSyncError,
     inspect_novel_repository,
@@ -507,6 +508,13 @@ class MinimalWriterApp:
             output_header, text="Revise Selection", command=self.revise_selection
         )
         self.revise_selection_button.pack(side="right")
+        self.check_draft_button = ttk.Button(
+            output_header,
+            text="Check Draft",
+            command=self.check_draft,
+            state="disabled",
+        )
+        self.check_draft_button.pack(side="right", padx=(0, 8))
         self.output_box = ScrolledText(
             outer, height=22, wrap="word", undo=True, font=("TkDefaultFont", 11)
         )
@@ -1653,11 +1661,42 @@ class MinimalWriterApp:
                 pass
         self.output_box.edit_modified(False)
         self._update_document_title()
+        self._update_check_draft_control()
 
     def _on_output_modified(self, _event=None) -> None:
         if self.output_box.edit_modified():
             self.output_box.edit_modified(False)
             self._update_document_title()
+            self._update_check_draft_control()
+
+    def _update_check_draft_control(self) -> None:
+        button = getattr(self, "check_draft_button", None)
+        if button is None:
+            return
+        has_draft = bool(self._output_text().strip()) if hasattr(self, "output_box") else False
+        button.configure(
+            state="normal" if not getattr(self, "busy", False) and has_draft else "disabled"
+        )
+
+    def check_draft(self) -> None:
+        """Run a manual, advisory check against the current Output text only."""
+        if getattr(self, "busy", False):
+            return
+        original = self._output_text()
+        if not original.strip():
+            self.status_var.set("There is no draft text to check.")
+            self._update_check_draft_control()
+            return
+
+        findings = analyze_draft(original)
+        report = format_draft_health_report(findings)
+        count = len(findings)
+        self.status_var.set(
+            "Draft check complete: "
+            + (f"{count} possible finding(s)." if count else "no obvious mechanical issues found.")
+            + " No text was changed."
+        )
+        self._showinfo("Draft Check", report)
 
     def _update_document_title(self) -> None:
         label = self.current_file.name if self.current_file is not None else "Untitled"
@@ -1888,6 +1927,7 @@ class MinimalWriterApp:
             )
         )
         self.revise_selection_button.configure(state="normal" if idle else "disabled")
+        self._update_check_draft_control()
         stopping = self.stop_requested
         self.stop_button.configure(
             state="normal" if self.busy and self.writing and not stopping else "disabled",
