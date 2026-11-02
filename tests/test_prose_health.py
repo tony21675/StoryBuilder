@@ -51,6 +51,14 @@ class ProseHealthTests(unittest.TestCase):
         self.assertTrue(any(f.category == "Possible abrupt ending" for f in analyze_draft("He reached for the switch, but")))
         self.assertTrue(any(f.category == "Possible truncation" for f in analyze_draft("She opened the panel (")))
 
+    def test_detects_story_sentence_cut_off_at_between(self):
+        text = (
+            "The easy amusement vanished as she recognized the warning. "
+            "That was the difference between"
+        )
+        findings = analyze_draft(text)
+        self.assertTrue(any(f.category == "Possible abrupt ending" for f in findings))
+
     def test_detects_ai_preamble_and_closing_but_not_natural_dialogue(self):
         opening = analyze_draft("Certainly! Here is your scene.\n\nAris entered the room.")
         closing = analyze_draft("Aris left the room.\n\nI hope you enjoy the story!")
