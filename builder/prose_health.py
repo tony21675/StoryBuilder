@@ -30,7 +30,7 @@ _AI_END = re.compile(
 _CONNECTORS = {
     "and", "but", "because", "although", "though", "while", "when", "if", "as",
     "that", "which", "who", "whom", "whose", "where", "to", "with", "of", "for",
-    "from", "in", "on", "at", "by", "into", "onto", "the", "a", "an", "his",
+    "from", "in", "on", "at", "by", "between", "into", "onto", "the", "a", "an", "his",
     "her", "their", "its", "our", "your", "my",
 }
 _STOP = {
