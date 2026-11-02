@@ -24,7 +24,7 @@ _AI_START = re.compile(
 )
 _AI_END = re.compile(
     r"(?:i hope you (?:enjoy|like) (?:the )?(?:scene|story|draft)|"
-    r"let me know if you(?:'d| would) like|hope this helps|happy writing)[.!\\s]*$",
+    r"let me know if you(?:'d| would) like|hope this helps|happy writing)[.!\s]*$",
     re.I,
 )
 _CONNECTORS = {
@@ -157,7 +157,7 @@ def analyze_draft(text: str) -> list[DraftFinding]:
     final_line = next((line.strip() for line in reversed(stripped.splitlines()) if line.strip()), "")
     final_words = _words(final_line)
     final_char = stripped[-1]
-    if final_words and final_words[-1] in _CONNECTORS and final_char not in ".!?\\\"”’)]}…":
+    if final_words and final_words[-1] in _CONNECTORS and final_char not in ".!?\"”’)]}…":
         findings.append(DraftFinding(
             "Possible abrupt ending",
             "The final line ends with a word that often introduces unfinished text.",
@@ -223,7 +223,7 @@ def format_draft_health_report(findings: list[DraftFinding]) -> str:
     """Format results for the Writer's selectable, copyable review dialog."""
     if not findings:
         return (
-            "No obvious mechanical issues found.\\n\\n"
+            "No obvious mechanical issues found.\n\n"
             "This check looks for a few common text problems. It does not judge story quality, "
             "continuity, or whether a stylistic choice is intentional."
         )
@@ -236,4 +236,4 @@ def format_draft_health_report(findings: list[DraftFinding]) -> str:
         if finding.excerpt:
             lines.append(f'Excerpt: "{finding.excerpt}"')
     lines.extend(["", "This check does not judge story quality or continuity. Repetition can be intentional."])
-    return "\\n".join(lines)
+    return "\n".join(lines)
