@@ -277,3 +277,13 @@ App #2 now contains the package creator, read-only full-JSON viewer, and separat
 - **Live Writer sample reviewed on November 1, 2026:** with the local test novel loaded, the author generated an opening scene about a supposedly decommissioned research-station console emitting an unexplained signal. The prose showed science-fiction setting, mystery hook, tension, and dry humor without forcing every influence into every beat. This is qualitatively consistent with the chosen direction, but a single sample does not independently prove which saved profile values reached the prompt. Preserve this distinction until the test package's saved creative_direction is checked against the Writer's actual prompt/trace or a controlled comparison is made.
 
 - **Live save/reload verification passed on November 1, 2026:** after leaving the editor and reopening Story Bible, the author reloaded `Story-Bible-Save-Test` and confirmed all selected Genre, Mood, Audience, and Explicit Adult Content values remained selected in the preview/editor. This confirms the saved profile persisted. Combined with the successful live Create Novel controls, the representative Writer sample, and automated prompt-integration tests for Write, Continue, AI revision, and Prepare Scene, the creative-direction feature's planned verification is complete. The local test package remains local-only and must not be synced or published.
+
+## Next discussed feature: Manual Prose-Health Check (November 2, 2026)
+
+- The author agreed to explore a lightweight Prose-Health Check for the current unaccepted Writer draft.
+- **Trigger: manual only.** The author explicitly chose option A: checks run only when the author clicks **Check Draft**. Do not run automatically after Write or Continue.
+- Initial candidate checks: exact duplicate sentences/paragraphs, unusually repeated phrases close together, likely truncation/abrupt ending, and leftover AI preamble/commentary.
+- Findings must be advisory warnings, never pass/fail gates. Do not block accepting a draft, change prose, or automatically invoke revision. The author decides whether to ignore a finding or use the existing selected-passage revision workflow.
+- Prefer lightweight deterministic local checks first; avoid extra model calls and keep the feature usable on the author's laptop.
+- Repetition detection must be conservative because repetition can be intentional in fiction. Do not flag ordinary stylistic repetition as an error.
+- **Design agreement only.** No application code has been changed. Before implementation, inspect the current Writer UI and relevant test structure, propose the smallest UI/result behavior, and confirm the remaining acceptance criteria with the author.
