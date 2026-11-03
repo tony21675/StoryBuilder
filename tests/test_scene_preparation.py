@@ -139,6 +139,31 @@ class ScenePreparationPromptTests(unittest.TestCase):
             self.assertEqual((root / "current_state.json").read_bytes(), original_state)
             self.assertEqual(source.read_bytes(), original_scene)
 
+    def test_story_time_anchor_is_available_when_saved_state_position_is_older(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "Novel"
+            state = {
+                "chapter": 1,
+                "scene": 1,
+                "status": "story_start",
+                "time_of_day": "Day 1, 16:00 (4:00 PM), late afternoon at the Mars outpost.",
+                "current_situation": "This old opening situation must not be treated as current.",
+                "scene_cast": [],
+            }
+            earlier_activity = "The crew finished dinner and started a board game.\\n"
+            scene_text = earlier_activity + ("The game continued with friendly conversation. " * 65)
+            source = self.make_novel(root, current_state=state, scene_text=scene_text)
+
+            prompt = build_scene_preparation_prompt(
+                root, "Novel", 1, 11, source_scene_path=source
+            )
+
+            self.assertIn("Latest saved in-story time: Day 1, 16:00", prompt)
+            self.assertIn("finished dinner and started a board game", prompt)
+            self.assertNotIn("This old opening situation must not be treated as current.", prompt)
+            self.assertIn("one coherent, specific scene direction", prompt)
+            self.assertLess(len(scene_text), 6000)
+
     def test_unrelated_current_state_is_not_added_to_selected_scene_prompt(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp) / "Novel"
