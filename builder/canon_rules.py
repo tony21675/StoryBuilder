@@ -19,7 +19,7 @@ def build_canon_rules_prompt(value: Any) -> str:
         return ""
 
     return (
-        "CANON RULES (established story facts and author direction)\\n"
-        "Follow these established story facts and author directions unless the author changes them:\\n"
-        + "\\n".join(f"- {rule}" for rule in rules)
+        "CANON RULES (established story facts and author direction)\n"
+        "Follow these established story facts and author directions unless the author changes them:\n"
+        + "\n".join(f"- {rule}" for rule in rules)
     )
