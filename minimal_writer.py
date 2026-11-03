@@ -1453,6 +1453,7 @@ class MinimalWriterApp:
             state_path = Path(novel_path) / "current_state.json"
             current_state = json.loads(state_path.read_text(encoding="utf-8"))
             if isinstance(current_state, dict):
+                cast_names = []
                 scene_cast = current_state.get("scene_cast", [])
                 if isinstance(scene_cast, list):
                     cast_names = [
