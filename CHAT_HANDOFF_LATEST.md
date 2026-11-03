@@ -51,7 +51,9 @@ Date: November 3, 2026
 - Integrated the same guidance into Prepare Scene and Minimal Writer's shared Write / Continue context builder. It is broad guidance, not a checklist, and does not change Story Bible storage or add a new UI setting.
 - No manuscript prose, current_state.json, character cards, or novel-package files were changed.
 - The guidance deliberately contains no Mars-specific food assumptions. For The Long Way Home, shelf-stable protein ingredients or nutrient paste can be part of the pantry, while future food choices can also include suitable protein crops or other supplies. Do not make paste the only possible protein source or turn food logistics into a forced plot point.
-- Added tests/test_story_craft.py to check the guidance itself and its delivery to both Prepare Scene and Write / Continue. Confirm test results before treating the change as validated.
+- Added tests/test_story_craft.py to check the guidance itself and its delivery to both Prepare Scene and Write / Continue.
+- Validation on commit 87e71d3f721c0fcc71131a66641c63a06ff04cad: Python CI reports 630 passed, 1 failed, and 77 subtests passed. All three new scene-craft tests pass; the sole failure is the already-known unrelated Tkinter harness issue in test_blank_name_does_not_save_or_close_the_editor (fake root lacks .tk). The unittest workflow reports the same single pre-existing Tk error. CI runs: https://github.com/tony21675/StoryBuilder/actions/runs/41628292642 and https://github.com/tony21675/StoryBuilder/actions/runs/41628292540.
+- The implementation is ready for a local live test. Close Minimal Writer and run cd ~/Documents/StoryBuilder && ./start.sh to pull the development branch, then load the model and try Prepare Scene.
 
 ## Current novel: The Long Way Home
 
