@@ -1,0 +1,113 @@
+from __future__ import annotations
+
+import re
+from pathlib import Path
+from typing import Any
+
+from builder.story_bible_reader import load_story_bible_character_card
+
+
+def _clean(value: Any, limit: int = 180) -> str:
+    if value is None or isinstance(value, (dict, list)):
+        return ""
+    text = " ".join(str(value).split())
+    if len(text) > limit:
+        return text[: limit - 1].rstrip() + "…"
+    return text
+
+
+def _list_text(value: Any, limit: int = 8) -> str:
+    if isinstance(value, str):
+        return _clean(value, 300)
+    if isinstance(value, list):
+        items = [_clean(item, 90) for item in value]
+        return ", ".join(item for item in items[:limit] if item)
+    return ""
+
+
+def _relationships_text(value: Any) -> str:
+    if isinstance(value, dict):
+        entries = []
+        for name, description in list(value.items())[:8]:
+            rendered = _clean(description, 140)
+            if rendered:
+                entries.append(f"{_clean(name, 80)}: {rendered}")
+        return "; ".join(entries)
+    return _clean(value, 300)
+
+
+def _name_is_mentioned(name: str, text: str) -> bool:
+    if not name.strip():
+        return False
+    return bool(
+        re.search(
+            rf"(?<![\w]){re.escape(name.strip())}(?![\w])",
+            text,
+            flags=re.IGNORECASE,
+        )
+    )
+
+
+def build_character_card_context_prompt(
+    novel_path: str | Path,
+    story_bible: dict[str, Any],
+    prompt: str,
+    *,
+    supporting_text: str = "",
+    include_all: bool = False,
+) -> str:
+    """Append concise references for named characters without changing novel files."""
+    entries = story_bible.get("character_cards", [])
+    if not isinstance(entries, list) or not entries:
+        return str(prompt or "")
+
+    query = "\n".join(
+        part for part in (str(prompt or ""), str(supporting_text or "")) if part
+    )
+    selected: list[dict[str, Any]] = []
+    for entry in entries:
+        if isinstance(entry, dict):
+            card = entry
+        elif isinstance(entry, str) and entry.strip():
+            try:
+                card = load_story_bible_character_card(novel_path, entry.strip())
+            except (OSError, UnicodeError, ValueError):
+                continue
+        else:
+            continue
+
+        name = _clean(card.get("name"), 100)
+        if not name or (not include_all and not _name_is_mentioned(name, query)):
+            continue
+        selected.append(card)
+
+    if not selected:
+        return str(prompt or "")
+
+    lines = [
+        "CHARACTER REFERENCES",
+        "These are established background facts, not plot instructions. Keep relationships and any attraction consistent with them; ordinary friendship need not be romantic.",
+    ]
+    for card in selected:
+        name = _clean(card.get("name"), 100)
+        lines.append(f"\n[{name}]")
+        for field, label in (
+            ("role", "Role"),
+            ("age", "Age"),
+            ("gender", "Gender"),
+            ("sexual_orientation", "Sexual orientation"),
+            ("relationship_status", "Relationship status"),
+        ):
+            value = _clean(card.get(field), 160)
+            if value:
+                lines.append(f"{label}: {value}")
+        personality = _list_text(card.get("personality"))
+        if personality:
+            lines.append(f"Personality: {personality}")
+        relationships = _relationships_text(card.get("relationships"))
+        if relationships:
+            lines.append(f"Established relationships: {relationships}")
+
+    context = "\n".join(lines)
+    prefix = str(prompt or "").rstrip()
+    return f"{prefix}\n\n{context}" if prefix else context
