@@ -56,7 +56,8 @@ class CharacterCardContextTests(unittest.TestCase):
         self.assertIn("Personality: shy, thoughtful", prompt)
         self.assertIn("Maya: close friend; feels like a sister", prompt)
         self.assertNotIn("[Chloe]", prompt)
-        self.assertIn("ordinary friendship need not be romantic", prompt)
+        self.assertIn("Do not invent romantic or sexual attraction", prompt)
+        self.assertIn("friendship, teasing, and affection can remain platonic", prompt)
 
     def test_all_cards_can_be_included_for_opening_scene_preparation(self):
         with tempfile.TemporaryDirectory() as temp:
