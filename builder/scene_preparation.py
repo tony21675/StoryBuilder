@@ -214,7 +214,7 @@ def build_scene_preparation_prompt(
             "Use the timeline anchor and the previous scene to maintain the passage of time. Do not invent a mystery, danger, anomaly, or interruption merely to create a hook; let new developments arise from the established story and the author's direction.",
             "Prepare a compact, editable writing direction in exactly two labeled parts: 'Scene direction:' followed by two to four concise sentences describing what should happen next, and 'Natural endpoint:' followed by one sentence describing a clear, natural point where this scene should stop.",
             "Choose an endpoint that fits the proposed scene and leaves the next scene free to begin with the next activity. Do not force a cliffhanger, prescribe every beat, or make the endpoint generic. The writer should stop when this endpoint is reached rather than continuing into the next activity.",
-            "Do not write finished scene prose, dialogue, or a beat-by-beat outline. Leave room for the story and characters to develop naturally. Return only the two labeled parts and a brief final instruction that the labels are guidance, not manuscript text, and that the scene should end at the stated endpoint.",
+            "Do not write finished scene prose, dialogue, or a beat-by-beat outline. Leave room for the story and characters to develop naturally. Return only the two labeled parts followed by this exact instruction: 'Write natural manuscript prose only; do not repeat these labels, and stop at the natural endpoint.'",
         ]
     )
     return "\n\n".join(sections)
