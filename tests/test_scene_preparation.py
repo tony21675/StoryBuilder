@@ -28,7 +28,7 @@ class ScenePreparationPromptTests(unittest.TestCase):
                 "audience": "Adult",
                 "explicit_adult_content": False,
             },
-            "canon_rules": ["A very long rule that must not be sent to the planner."],
+            "canon_rules": ["The harbor pilot does not leave the harbor during winter storms."],
             "character_cards": ["Mara.json", "Jonah.json", "Private_Detail.json"],
         }
         (root / "story_bible.json").write_text(
@@ -76,8 +76,9 @@ class ScenePreparationPromptTests(unittest.TestCase):
             self.assertIn("Chapter 01, Scene 01", prompt)
             self.assertIn("Treat this as the novel's opening scene", prompt)
             self.assertIn("A small coastal town faces an unexpected change.", prompt)
+            self.assertIn("CANON RULES", prompt)
             self.assertIn("A working harbor in the present day.", prompt)
-            self.assertNotIn("A very long rule", prompt)
+            self.assertIn("The harbor pilot does not leave the harbor during winter storms.", prompt)
             self.assertNotIn("Private_Detail.json", prompt)
             self.assertIn("Genres: Mystery, Comedy", prompt)
             self.assertIn("Mood and tone: Cozy, Humorous", prompt)
@@ -133,7 +134,7 @@ class ScenePreparationPromptTests(unittest.TestCase):
             self.assertNotIn("[Private Detail]", prompt)
             self.assertNotIn("This should not be copied", prompt)
             self.assertNotIn("Private knowledge should stay out", prompt)
-            self.assertNotIn("A very long rule", prompt)
+            self.assertIn("The harbor pilot does not leave the harbor during winter storms.", prompt)
             self.assertEqual((root / "story_bible.json").read_bytes(), original_bible)
             self.assertEqual((root / "current_state.json").read_bytes(), original_state)
             self.assertEqual(source.read_bytes(), original_scene)
