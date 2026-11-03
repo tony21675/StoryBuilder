@@ -89,7 +89,7 @@ class ScenePreparationPromptTests(unittest.TestCase):
             self.assertIn("STORY OPENING AND PACING", prompt)
             self.assertIn("not a fixed scene count", prompt.lower())
             self.assertIn("For an ensemble, this may take several scenes", prompt)
-            self.assertIn("do not artificially delay", prompt.lower())
+            self.assertIn("artificially delay an urgent conflict", prompt.lower())
             self.assertFalse((root / "Manuscript").exists())
             self.assertFalse((root / "current_state.json").exists())
 

@@ -286,7 +286,7 @@ class MinimalWriterTests(unittest.TestCase):
         self.assertIn("STORY OPENING AND PACING", prompt)
         self.assertIn("\n\nSTORY OPENING AND PACING", prompt)
         self.assertIn("not a fixed scene count", prompt.lower())
-        self.assertIn("do not artificially delay", prompt.lower())
+        self.assertIn("artificially delay an urgent conflict", prompt.lower())
 
     def test_writer_context_uses_saved_current_scene_cast(self):
         with tempfile.TemporaryDirectory() as temporary:

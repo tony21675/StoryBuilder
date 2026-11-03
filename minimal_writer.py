@@ -1435,15 +1435,15 @@ class MinimalWriterApp:
         if novel_path is None:
             return prompt
 
-        pacing_note = build_story_opening_pacing_prompt()
-        prompt = f"{str(prompt).rstrip()}\n\n{pacing_note}"
-
         try:
             story_bible = load_story_bible(novel_path)
         except (OSError, UnicodeError, ValueError):
             # Story Bible context is optional: an absent or malformed file must
             # never prevent ordinary writing or modify the novel package.
             return prompt
+
+        pacing_note = build_story_opening_pacing_prompt()
+        prompt = f"{str(prompt).rstrip()}\n\n{pacing_note}"
 
         creative_note = build_creative_direction_prompt(
             story_bible.get("creative_direction")
