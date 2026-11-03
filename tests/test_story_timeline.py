@@ -23,8 +23,8 @@ class StoryTimelinePromptTests(unittest.TestCase):
     def test_long_time_description_is_bounded(self):
         prompt = build_story_timeline_prompt("D" * 500)
 
-        self.assertLess(len(prompt), 600)
-        self.assertIn("...", prompt)
+        self.assertIn("D" * 177 + "...", prompt)
+        self.assertNotIn("D" * 178, prompt)
 
 
 if __name__ == "__main__":
