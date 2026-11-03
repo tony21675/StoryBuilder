@@ -1,5 +1,10 @@
 # StoryBuilder handoff, current checkpoint
 
+**Canonical handoff:** This is the sole current session and writing-workflow handoff. Use it for the current project checkpoint; older handoff copies are historical and are not competing sources of current status.
+
+**Scene review:** The former trace/validator workflow has been scrapped. Do not look for saved traces. Review scenes directly from the prose the author shares.
+
+
 Date: November 3, 2026
 
 ## Project and workflow
