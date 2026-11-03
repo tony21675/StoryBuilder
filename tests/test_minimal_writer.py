@@ -1,6 +1,8 @@
+import json
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from minimal_writer import (
@@ -231,6 +233,56 @@ class MinimalWriterTests(unittest.TestCase):
 
         self.assertEqual(shown, [])
         self.assertEqual(app._output_text(), "A draft that must remain unchanged.")
+
+    def test_writer_context_includes_only_named_character_card_facts(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            bible = {
+                "creative_direction": {},
+                "locations": {},
+                "character_cards": ["Tiffany.json", "Maya.json", "Chloe.json"],
+            }
+            (root / "story_bible.json").write_text(
+                json.dumps(bible), encoding="utf-8"
+            )
+            cards = {
+                "Tiffany.json": {
+                    "name": "Tiffany", "role": "student", "gender": "female",
+                    "sexual_orientation": "Straight",
+                    "personality": ["shy", "thoughtful"],
+                    "relationships": {"Maya": "like a sister"},
+                },
+                "Maya.json": {
+                    "name": "Maya", "role": "student", "gender": "female",
+                    "sexual_orientation": "Bisexual",
+                    "personality": ["confident", "playful"],
+                },
+                "Chloe.json": {
+                    "name": "Chloe", "role": "family friend", "gender": "female",
+                    "sexual_orientation": "Straight",
+                    "personality": ["protective"],
+                },
+            }
+            for filename, card in cards.items():
+                (root / filename).write_text(
+                    json.dumps(card), encoding="utf-8"
+                )
+
+            app = MinimalWriterApp.__new__(MinimalWriterApp)
+            app.novel_var = SimpleNamespace(get=lambda: "Test Novel")
+            app.novel_packages = {"Test Novel": root}
+
+            prompt = app._prepare_location_context(
+                "Continue their conversation.",
+                supporting_text="Tiffany looked at Maya and smiled.",
+            )
+
+        self.assertIn("[Tiffany]", prompt)
+        self.assertIn("[Maya]", prompt)
+        self.assertIn("Sexual orientation: Straight", prompt)
+        self.assertIn("Sexual orientation: Bisexual", prompt)
+        self.assertIn("Maya: like a sister", prompt)
+        self.assertNotIn("[Chloe]", prompt)
 
     def test_ctrl_a_is_bound_and_selects_all_text(self):
         widget = FakeSelectableText()
