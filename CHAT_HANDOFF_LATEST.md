@@ -343,4 +343,4 @@ App #2 now contains the package creator, read-only full-JSON viewer, and separat
 - It does **not** prescribe a scene count, percentage, or mandatory sequence. It says not to assume the central conflict must begin in Scene 1 or immediately afterward, while also avoiding filler or artificially delaying an urgent conflict when the story or author calls for immediate action.
 - The same guidance is included in both **Prepare Scene** and the Minimal Writer **Write / Continue** prompt context. It is generic across novels and does not modify any novel package or current manuscript.
 - Added regression assertions in `tests/test_scene_preparation.py` and `tests/test_minimal_writer.py` to verify both prompt paths include the flexible guidance and retain the no-fixed-count / no-artificial-delay balance.
-- Commit and CI status for this change are recorded below after GitHub verification.
+- Implementation commits: `ba13bc6be72ac6d1c152330577d8d4c7c7d1431b` (shared guidance and prompt integration) and `REPLACEMENT_COMMIT` (correct Writer prompt paragraph spacing and test it). CI runs are checked after the final commit.

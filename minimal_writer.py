@@ -1436,7 +1436,7 @@ class MinimalWriterApp:
             return prompt
 
         pacing_note = build_story_opening_pacing_prompt()
-        prompt = f"{str(prompt).rstrip()}\\n\\n{pacing_note}"
+        prompt = f"{str(prompt).rstrip()}\n\n{pacing_note}"
 
         try:
             story_bible = load_story_bible(novel_path)

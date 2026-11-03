@@ -284,6 +284,7 @@ class MinimalWriterTests(unittest.TestCase):
         self.assertIn("Maya: like a sister", prompt)
         self.assertNotIn("[Chloe]", prompt)
         self.assertIn("STORY OPENING AND PACING", prompt)
+        self.assertIn("\n\nSTORY OPENING AND PACING", prompt)
         self.assertIn("not a fixed scene count", prompt.lower())
         self.assertIn("do not artificially delay", prompt.lower())
 
