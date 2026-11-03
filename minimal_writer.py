@@ -1447,11 +1447,35 @@ class MinimalWriterApp:
         if creative_note:
             prompt = f"{str(prompt).rstrip()}\n\n{creative_note}"
 
+        character_supporting_text = str(supporting_text or "")
+        include_all_character_cards = False
+        try:
+            state_path = Path(novel_path) / "current_state.json"
+            current_state = json.loads(state_path.read_text(encoding="utf-8"))
+            if isinstance(current_state, dict):
+                scene_cast = current_state.get("scene_cast", [])
+                if isinstance(scene_cast, list):
+                    cast_names = [
+                        str(name).strip()
+                        for name in scene_cast
+                        if isinstance(name, str) and name.strip()
+                    ]
+                    if cast_names:
+                        character_supporting_text = "\\n".join(
+                            part for part in (character_supporting_text, " ".join(cast_names))
+                            if part
+                        )
+                if not cast_names and current_state.get("status") == "story_start":
+                    include_all_character_cards = True
+        except (OSError, UnicodeError, ValueError):
+            pass
+
         prompt = build_character_card_context_prompt(
             novel_path,
             story_bible,
             prompt,
-            supporting_text=supporting_text,
+            supporting_text=character_supporting_text,
+            include_all=include_all_character_cards,
         )
 
         locations = story_bible.get("locations", {})
