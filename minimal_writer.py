@@ -1457,10 +1457,6 @@ class MinimalWriterApp:
     def _prepare_location_context(self, prompt: str, supporting_text: str = "") -> str:
         """Attach the selected novel's creative direction and relevant saved locations."""
         self.last_location_context_names = []
-        craft_note = build_story_craft_prompt()
-        if craft_note:
-            prompt = f"{str(prompt).rstrip()}\n\n{craft_note}"
-
         novel_var = getattr(self, "novel_var", None)
         novel_packages = getattr(self, "novel_packages", {})
         if novel_var is None or not isinstance(novel_packages, dict):
@@ -1476,6 +1472,10 @@ class MinimalWriterApp:
             # Story Bible context is optional: an absent or malformed file must
             # never prevent ordinary writing or modify the novel package.
             return prompt
+
+        craft_note = build_story_craft_prompt()
+        if craft_note:
+            prompt = f"{str(prompt).rstrip()}\n\n{craft_note}"
 
         canon_rules_note = build_canon_rules_prompt(story_bible.get("canon_rules"))
         if canon_rules_note:
