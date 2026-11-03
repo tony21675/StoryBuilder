@@ -283,6 +283,9 @@ class MinimalWriterTests(unittest.TestCase):
         self.assertIn("Sexual orientation: Bisexual", prompt)
         self.assertIn("Maya: like a sister", prompt)
         self.assertNotIn("[Chloe]", prompt)
+        self.assertIn("STORY OPENING AND PACING", prompt)
+        self.assertIn("not a fixed scene count", prompt.lower())
+        self.assertIn("do not artificially delay", prompt.lower())
 
     def test_writer_context_uses_saved_current_scene_cast(self):
         with tempfile.TemporaryDirectory() as temporary:

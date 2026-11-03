@@ -86,6 +86,10 @@ class ScenePreparationPromptTests(unittest.TestCase):
             self.assertIn("Sexual orientation: Straight", prompt)
             self.assertIn("Personality: quiet, witty", prompt)
             self.assertIn("not a checklist", prompt)
+            self.assertIn("STORY OPENING AND PACING", prompt)
+            self.assertIn("not a fixed scene count", prompt.lower())
+            self.assertIn("For an ensemble, this may take several scenes", prompt)
+            self.assertIn("do not artificially delay", prompt.lower())
             self.assertFalse((root / "Manuscript").exists())
             self.assertFalse((root / "current_state.json").exists())
 

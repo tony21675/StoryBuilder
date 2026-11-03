@@ -14,6 +14,7 @@ from builder.continuity_context import select_relevant_locations
 from builder.character_context import build_character_card_context_prompt
 from builder.story_bible_reader import load_story_bible
 from builder.creative_direction import build_creative_direction_prompt
+from builder.story_pacing import build_story_opening_pacing_prompt
 from builder.scene_preparation import (
     build_scene_preparation_prompt,
     next_scene_coordinates,
@@ -1433,6 +1434,9 @@ class MinimalWriterApp:
         novel_path = novel_packages.get(novel_name)
         if novel_path is None:
             return prompt
+
+        pacing_note = build_story_opening_pacing_prompt()
+        prompt = f"{str(prompt).rstrip()}\\n\\n{pacing_note}"
 
         try:
             story_bible = load_story_bible(novel_path)

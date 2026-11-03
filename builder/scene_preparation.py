@@ -9,6 +9,7 @@ from builder.odt_document import read_document
 from builder.story_bible_reader import load_story_bible
 from builder.creative_direction import build_creative_direction_prompt
 from builder.character_context import build_character_card_context_prompt
+from builder.story_pacing import build_story_opening_pacing_prompt
 
 
 _SCENE_FILENAME_RE = re.compile(
@@ -119,6 +120,7 @@ def build_scene_preparation_prompt(
         "Help the author prepare a starting direction for the next scene. This is planning, not scene prose.",
         f"Destination: Chapter {int(chapter_number):02d}, Scene {int(scene_number):02d}.",
         f"Story: {title}",
+        build_story_opening_pacing_prompt(),
     ]
 
     premise = _clean_text(story_bible.get("premise"))

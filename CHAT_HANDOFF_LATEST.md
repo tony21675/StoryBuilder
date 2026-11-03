@@ -332,5 +332,15 @@ App #2 now contains the package creator, read-only full-JSON viewer, and separat
 - Implementation files: `builder/character_card_editor.py`, new `builder/character_context.py`, `minimal_writer.py`, and `builder/scene_preparation.py`. Test files: `tests/test_character_card_editor.py`, new `tests/test_character_context.py`, `tests/test_minimal_writer.py`, and `tests/test_scene_preparation.py`.
 - Latest feature code/test checkpoint before this handoff update: `d725dfd3b826535e904af5449ab021102c0afbf0` on `redesign/simplified-writing-workflow`.
 - Automated tests on that checkpoint: Python workflow reports **615 passed, 1 failed, 77 subtests passed**. The single failure is the same pre-existing unrelated `test_blank_name_does_not_save_or_close_the_editor` Tk test-harness error: its fake root lacks the `.tk` attribute required by a real messagebox. The StoryBuilder unittest workflow likewise reports only that known Tk error; all new character-orientation and context tests passed. Runs: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/41571855706) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/41571855662).
-- **Live UI and Writer verification pending.** Sync/relaunch Story Bible, open one Character Card, confirm Sexual Orientation appears separately from Gender and that Personality remains free-form. Set orientations for the Mars crew only after the author decides each character's preference. Then verify a test prompt mentioning two named characters receives their saved orientation and personality context. Do not make guesses about any character's orientation.
+- **Live UI verification (November 2, 2026):** the author confirmed the Sexual Orientation field appeared separately from Gender and assigned values to all six Mars Character Cards. The dedicated diagnostic prompt asking the model to recite each card's facts was not run; prompt-context selection and formatting are covered by automated tests.
 
+
+
+## Flexible story-opening pacing guidance (November 2, 2026)
+
+- Added shared prompt guidance in new `builder/story_pacing.py`. It asks the Writer to choose opening pace based on the story's premise, genre, tone, author direction, and what is already established.
+- The note encourages enough early groundwork for readers to connect with characters, setting, and relationships. It explicitly acknowledges that ensemble stories may need several scenes and can establish the cast through different groupings.
+- It does **not** prescribe a scene count, percentage, or mandatory sequence. It says not to assume the central conflict must begin in Scene 1 or immediately afterward, while also avoiding filler or artificially delaying an urgent conflict when the story or author calls for immediate action.
+- The same guidance is included in both **Prepare Scene** and the Minimal Writer **Write / Continue** prompt context. It is generic across novels and does not modify any novel package or current manuscript.
+- Added regression assertions in `tests/test_scene_preparation.py` and `tests/test_minimal_writer.py` to verify both prompt paths include the flexible guidance and retain the no-fixed-count / no-artificial-delay balance.
+- Commit and CI status for this change are recorded below after GitHub verification.
