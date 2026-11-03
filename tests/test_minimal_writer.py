@@ -240,6 +240,7 @@ class MinimalWriterTests(unittest.TestCase):
             bible = {
                 "creative_direction": {},
                 "locations": {},
+                "canon_rules": ["Tiffany and Maya have a sister-like friendship."],
                 "character_cards": ["Tiffany.json", "Maya.json", "Chloe.json"],
             }
             (root / "story_bible.json").write_text(
@@ -283,6 +284,8 @@ class MinimalWriterTests(unittest.TestCase):
         self.assertIn("Sexual orientation: Bisexual", prompt)
         self.assertIn("Maya: like a sister", prompt)
         self.assertNotIn("[Chloe]", prompt)
+        self.assertIn("CANON RULES", prompt)
+        self.assertIn("Tiffany and Maya have a sister-like friendship.", prompt)
         self.assertIn("STORY OPENING AND PACING", prompt)
         self.assertIn("\n\nSTORY OPENING AND PACING", prompt)
         self.assertIn("not a fixed scene count", prompt.lower())
