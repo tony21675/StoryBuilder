@@ -69,7 +69,11 @@ def build_character_card_context_prompt(
     query = "\n".join(
         part for part in (str(prompt or ""), str(supporting_text or "")) if part
     )
+    all_cards: list[dict[str, Any]] = []
     selected: list[dict[str, Any]] = []
+    roster_names: list[str] = []
+    seen_names: set[str] = set()
+
     for entry in entries:
         if isinstance(entry, dict):
             card = entry
@@ -82,17 +86,38 @@ def build_character_card_context_prompt(
             continue
 
         name = _clean(card.get("name"), 100)
-        if not name or (not include_all and not _name_is_mentioned(name, query)):
+        if not name:
             continue
-        selected.append(card)
 
-    if not selected:
+        all_cards.append(card)
+        normalized_name = name.casefold()
+        if normalized_name not in seen_names:
+            roster_names.append(name)
+            seen_names.add(normalized_name)
+
+        if include_all or _name_is_mentioned(name, query):
+            selected.append(card)
+
+    if not roster_names and not selected:
         return str(prompt or "")
 
-    lines = [
-        "CHARACTER REFERENCES",
-        "These are established character facts, not a request for romance. Do not invent romantic or sexual attraction that conflicts with a character's stated orientation; friendship, teasing, and affection can remain platonic.",
-    ]
+    lines: list[str] = []
+    if roster_names:
+        lines.extend(
+            [
+                "ESTABLISHED CHARACTER ROSTER",
+                "Registered characters in this novel: " + ", ".join(roster_names),
+                "Treat this as the complete roster of established members of any recurring crew, team, household, or similar group. Do not invent extra members or add an unlisted person to a group arrival or group scene. Do not describe someone as arriving if the story context already places them in the scene. New characters may still be introduced when the author's direction or established story events genuinely call for them.",
+            ]
+        )
+
+    if selected:
+        lines.extend(
+            [
+                "CHARACTER REFERENCES",
+                "These are established character facts, not a request for romance. Do not invent romantic or sexual attraction that conflicts with a character's stated orientation; friendship, teasing, and affection can remain platonic.",
+            ]
+        )
     for card in selected:
         name = _clean(card.get("name"), 100)
         lines.append(f"\n[{name}]")
