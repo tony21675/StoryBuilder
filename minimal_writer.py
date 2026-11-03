@@ -14,6 +14,7 @@ from builder.continuity_context import select_relevant_locations
 from builder.character_context import build_character_card_context_prompt
 from builder.story_bible_reader import load_story_bible
 from builder.creative_direction import build_creative_direction_prompt
+from builder.canon_rules import build_canon_rules_prompt
 from builder.story_pacing import build_story_opening_pacing_prompt
 from builder.scene_preparation import (
     build_scene_preparation_prompt,
@@ -1469,6 +1470,10 @@ class MinimalWriterApp:
             # Story Bible context is optional: an absent or malformed file must
             # never prevent ordinary writing or modify the novel package.
             return prompt
+
+        canon_rules_note = build_canon_rules_prompt(story_bible.get("canon_rules"))
+        if canon_rules_note:
+            prompt = f"{str(prompt).rstrip()}\n\n{canon_rules_note}"
 
         pacing_note = build_story_opening_pacing_prompt()
         prompt = f"{str(prompt).rstrip()}\n\n{pacing_note}"
