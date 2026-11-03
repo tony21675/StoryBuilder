@@ -27,11 +27,29 @@ class ScenePreparationPromptTests(unittest.TestCase):
                 "explicit_adult_content": False,
             },
             "canon_rules": ["A very long rule that must not be sent to the planner."],
-            "character_cards": ["Private_Detail.json"],
+            "character_cards": ["Mara.json", "Jonah.json", "Private_Detail.json"],
         }
         (root / "story_bible.json").write_text(
             json.dumps(story_bible, indent=2), encoding="utf-8"
         )
+        cards = {
+            "Mara.json": {
+                "name": "Mara", "role": "harbor pilot", "gender": "female",
+                "sexual_orientation": "Straight", "personality": ["confident"],
+            },
+            "Jonah.json": {
+                "name": "Jonah", "role": "mechanic", "gender": "male",
+                "sexual_orientation": "Bisexual", "personality": ["quiet", "witty"],
+            },
+            "Private_Detail.json": {
+                "name": "Private Detail", "role": "observer", "gender": "female",
+                "sexual_orientation": "Straight", "personality": ["reserved"],
+            },
+        }
+        for filename, card in cards.items():
+            (root / filename).write_text(
+                json.dumps(card, indent=2), encoding="utf-8"
+            )
         if current_state is not None:
             (root / "current_state.json").write_text(
                 json.dumps(current_state, indent=2), encoding="utf-8"
@@ -62,6 +80,11 @@ class ScenePreparationPromptTests(unittest.TestCase):
             self.assertIn("Genres: Mystery, Comedy", prompt)
             self.assertIn("Mood and tone: Cozy, Humorous", prompt)
             self.assertIn("Intended audience: Adult", prompt)
+            self.assertIn("[Mara]", prompt)
+            self.assertIn("[Jonah]", prompt)
+            self.assertIn("[Private Detail]", prompt)
+            self.assertIn("Sexual orientation: Straight", prompt)
+            self.assertIn("Personality: quiet, witty", prompt)
             self.assertIn("not a checklist", prompt)
             self.assertFalse((root / "Manuscript").exists())
             self.assertFalse((root / "current_state.json").exists())
@@ -99,6 +122,9 @@ class ScenePreparationPromptTests(unittest.TestCase):
             self.assertIn("The north pier", prompt)
             self.assertIn("Mara, Jonah", prompt)
             self.assertIn("Why has the ferry not arrived?", prompt)
+            self.assertIn("[Mara]", prompt)
+            self.assertIn("[Jonah]", prompt)
+            self.assertNotIn("[Private Detail]", prompt)
             self.assertNotIn("This should not be copied", prompt)
             self.assertNotIn("Private knowledge should stay out", prompt)
             self.assertNotIn("A very long rule", prompt)
