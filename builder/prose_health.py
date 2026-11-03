@@ -152,19 +152,31 @@ def analyze_draft(text: str) -> list[DraftFinding]:
         if sum(f.category == "Repeated phrase" for f in findings) >= 3:
             break
 
-    # Only flag clear signs of an unfinished ending or unmatched delimiters.
+    # A paragraph that stops at a connector may be an interrupted thought,
+    # even when more prose follows in the next paragraph.
+    for para_num, para_start, para in paras:
+        ending_line = next(
+            (line.strip() for line in reversed(para.splitlines()) if line.strip()),
+            "",
+        )
+        ending_words = _words(ending_line)
+        if (
+            ending_words
+            and ending_words[-1] in _CONNECTORS
+            and ending_line[-1] not in ".!?\"”’)]}…"
+        ):
+            findings.append(DraftFinding(
+                "Possible abrupt ending",
+                "A paragraph ends with a word that often introduces unfinished text.",
+                f"Paragraph {para_num}, line {_line(source, para_start + len(para))}",
+                _excerpt(ending_line),
+            ))
+
+    # Keep the punctuation check limited to the end of the whole draft.
     stripped = source.rstrip()
     final_line = next((line.strip() for line in reversed(stripped.splitlines()) if line.strip()), "")
-    final_words = _words(final_line)
     final_char = stripped[-1]
-    if final_words and final_words[-1] in _CONNECTORS and final_char not in ".!?\"”’)]}…":
-        findings.append(DraftFinding(
-            "Possible abrupt ending",
-            "The final line ends with a word that often introduces unfinished text.",
-            f"Line {_line(source, len(stripped))}",
-            _excerpt(final_line),
-        ))
-    elif final_char in {",", ":", ";", "—", "–"}:
+    if final_char in {",", ":", ";", "—", "–"}:
         findings.append(DraftFinding(
             "Possible abrupt ending",
             "The draft ends with punctuation that may indicate an unfinished sentence.",
