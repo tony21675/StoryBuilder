@@ -14,6 +14,7 @@ from builder.continuity_context import select_relevant_locations
 from builder.character_context import build_character_card_context_prompt
 from builder.story_bible_reader import load_story_bible
 from builder.creative_direction import build_creative_direction_prompt
+from builder.story_craft import build_story_craft_prompt
 from builder.canon_rules import build_canon_rules_prompt
 from builder.story_pacing import build_story_opening_pacing_prompt
 from builder.story_timeline import build_story_timeline_prompt
@@ -1456,6 +1457,10 @@ class MinimalWriterApp:
     def _prepare_location_context(self, prompt: str, supporting_text: str = "") -> str:
         """Attach the selected novel's creative direction and relevant saved locations."""
         self.last_location_context_names = []
+        craft_note = build_story_craft_prompt()
+        if craft_note:
+            prompt = f"{str(prompt).rstrip()}\n\n{craft_note}"
+
         novel_var = getattr(self, "novel_var", None)
         novel_packages = getattr(self, "novel_packages", {})
         if novel_var is None or not isinstance(novel_packages, dict):
