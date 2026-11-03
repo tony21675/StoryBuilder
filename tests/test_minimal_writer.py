@@ -284,6 +284,73 @@ class MinimalWriterTests(unittest.TestCase):
         self.assertIn("Maya: like a sister", prompt)
         self.assertNotIn("[Chloe]", prompt)
 
+    def test_writer_context_uses_saved_current_scene_cast(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            bible = {
+                "creative_direction": {},
+                "locations": {},
+                "character_cards": ["Maya.json", "Tiffany.json"],
+            }
+            (root / "story_bible.json").write_text(
+                json.dumps(bible), encoding="utf-8"
+            )
+            (root / "current_state.json").write_text(
+                json.dumps({"status": "in_progress", "scene_cast": ["Maya"]}),
+                encoding="utf-8",
+            )
+            (root / "Maya.json").write_text(
+                json.dumps({"name": "Maya", "sexual_orientation": "Bisexual"}),
+                encoding="utf-8",
+            )
+            (root / "Tiffany.json").write_text(
+                json.dumps({"name": "Tiffany", "sexual_orientation": "Straight"}),
+                encoding="utf-8",
+            )
+            app = MinimalWriterApp.__new__(MinimalWriterApp)
+            app.novel_var = SimpleNamespace(get=lambda: "Test Novel")
+            app.novel_packages = {"Test Novel": root}
+
+            prompt = app._prepare_location_context(
+                "Continue the conversation.", supporting_text="The room was quiet."
+            )
+
+        self.assertIn("[Maya]", prompt)
+        self.assertIn("Sexual orientation: Bisexual", prompt)
+        self.assertNotIn("[Tiffany]", prompt)
+
+    def test_writer_context_includes_all_cards_at_fresh_story_start(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            bible = {
+                "creative_direction": {},
+                "locations": {},
+                "character_cards": ["Maya.json", "Tiffany.json"],
+            }
+            (root / "story_bible.json").write_text(
+                json.dumps(bible), encoding="utf-8"
+            )
+            (root / "current_state.json").write_text(
+                json.dumps({"status": "story_start", "scene_cast": []}),
+                encoding="utf-8",
+            )
+            (root / "Maya.json").write_text(
+                json.dumps({"name": "Maya", "sexual_orientation": "Bisexual"}),
+                encoding="utf-8",
+            )
+            (root / "Tiffany.json").write_text(
+                json.dumps({"name": "Tiffany", "sexual_orientation": "Straight"}),
+                encoding="utf-8",
+            )
+            app = MinimalWriterApp.__new__(MinimalWriterApp)
+            app.novel_var = SimpleNamespace(get=lambda: "Test Novel")
+            app.novel_packages = {"Test Novel": root}
+
+            prompt = app._prepare_location_context("Begin the opening scene.")
+
+        self.assertIn("[Maya]", prompt)
+        self.assertIn("[Tiffany]", prompt)
+
     def test_ctrl_a_is_bound_and_selects_all_text(self):
         widget = FakeSelectableText()
         bind_ctrl_a_select_all(widget)
