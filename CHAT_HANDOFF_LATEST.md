@@ -1,6 +1,6 @@
 # StoryBuilder handoff, current checkpoint
 
-Date: November 1, 2026
+Date: November 3, 2026
 
 ## Current direction
 
@@ -366,3 +366,14 @@ App #2 now contains the package creator, read-only full-JSON viewer, and separat
 - Added tests for correct scene path/filename, reading the saved ODT back, appending when the selector points at an existing scene, no-overwrite behavior against TXT/ODT scenes, and blank-output protection.
 - Implementation commit: `2e177655764d89a9ea8dfea0a89ff5c0b3d6324c`.
 - Automated results on this commit: Python workflow **621 passed, 1 failed, 77 subtests passed**; StoryBuilder unittest workflow **622 tests run, 1 error**. Both have only the same pre-existing unrelated Tk harness error in `test_blank_name_does_not_save_or_close_the_editor` because a fake root lacks `.tk`. All new Save New Scene tests passed. Runs: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/41589179869) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/41589179746).
+
+
+## Canon Rules prompt integration (November 3, 2026)
+
+- Fixed a missing connection: the Story Bible already saved canon_rules, but neither Prepare Scene nor Minimal Writer Write / Continue included those entries in the model prompt.
+- Added shared builder/canon_rules.py formatting. It renders nonblank saved rules as a compact CANON RULES section and leaves empty or unsupported values out. No schema, Story Bible UI, or novel-package storage changes.
+- Integrated the shared section into builder/scene_preparation.py and MinimalWriterApp._prepare_location_context in minimal_writer.py. Prepare Scene and actual writing now receive the same saved canon directions.
+- Updated tests/test_scene_preparation.py and tests/test_minimal_writer.py; added tests/test_canon_rules.py. Regression tests verify the planner and writer prompts include saved rules and the formatter ignores blank/unsupported entries.
+- Latest relevant commits: b04607e301c0f69f7df4f5ffd966c29d983a2609 (formatter), d04892e562fcdf72c9befaf57b646ee37d144405 (Prepare Scene), fb84ee5b9ac492c1f1cd8ccd0dd6ec104950fb25 (Writer), 1d4c5a916402d819a3ad0b0c9f5e1a38eb539e34 and 7a09bcb5ef2cb2a33a8a68c1140bde09b573dea5 (integration tests), 714e409c90ec8141d74b0a63b31bbd1332c228d1 (formatter newline correction), and a6b3db0d47292a5ea682daf429193bcadce7a2b5 (formatter tests).
+- CI on the latest code commit: Python workflow 623 passed, 1 failed, 77 subtests passed; StoryBuilder workflow 624 tests run, 1 error. The only failure is the existing unrelated test_blank_name_does_not_save_or_close_the_editor Tk harness error (fake root has no .tk). Both new formatter tests and the Prepare Scene / Writer integration tests passed. Runs: https://github.com/tony21675/StoryBuilder/actions/runs/41600277173 and https://github.com/tony21675/StoryBuilder/actions/runs/41600277280.
+- Live verification still needed: close Minimal Writer and run cd ~/Documents/StoryBuilder && ./start.sh to pull the development branch. The Long Way Home's existing Accident Timing Canon Rule was saved and synced by the author; Scene 4 remains unwritten. After pulling, check that Prepare Scene's next suggestion no longer invents an anomaly. This code change does not modify any novel files or manuscript prose.
