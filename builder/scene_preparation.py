@@ -8,6 +8,7 @@ from typing import Any
 from builder.odt_document import read_document
 from builder.story_bible_reader import load_story_bible
 from builder.creative_direction import build_creative_direction_prompt
+from builder.character_context import build_character_card_context_prompt
 
 
 _SCENE_FILENAME_RE = re.compile(
@@ -126,6 +127,20 @@ def build_scene_preparation_prompt(
         sections.append(f"Premise: {premise}")
     if setting:
         sections.append(f"Setting: {setting}")
+    cast_names: list[str] = []
+    if include_state:
+        cast_value = current_state.get("scene_cast")
+        if isinstance(cast_value, list):
+            cast_names = [str(name).strip() for name in cast_value if str(name).strip()]
+    character_context = build_character_card_context_prompt(
+        root,
+        story_bible,
+        " ".join(cast_names),
+        include_all=not cast_names,
+    )
+    if character_context:
+        sections.append(character_context)
+
     creative_note = build_creative_direction_prompt(
         story_bible.get("creative_direction")
     )
