@@ -5,6 +5,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
+from builder.odt_document import read_document
+from builder.novel_browser import list_scene_files
 from builder.scene_preparation import (
     build_scene_preparation_prompt,
     next_scene_coordinates,
@@ -441,6 +443,99 @@ class MinimalWriterPrepareSceneTests(unittest.TestCase):
             self.assertFalse(app.busy)
             self.assertFalse(app.writing)
             self.assertIn("Your edits were kept", app.status_var.set.call_args.args[0])
+
+
+class MinimalWriterSaveNewSceneTests(unittest.TestCase):
+    def make_app(self, novel_path, *, scene_label="Scene 02", output="A finished scene."):
+        app = object.__new__(MinimalWriterApp)
+        app.busy = False
+        app.current_file = None
+        app.selected_scene_source = None
+        app.saved_output_text = ""
+        app.novel_var = _FakeVariable("The Long Way Home")
+        app.novel_packages = {"The Long Way Home": Path(novel_path)}
+        app.chapter_var = _FakeVariable("Chapter 01")
+        app.chapter_numbers = {"Chapter 01": 1}
+        app.scene_var = _FakeVariable(scene_label)
+        app.scene_picker = _FakePicker()
+        app.scene_files = {}
+        app.status_var = SimpleNamespace(set=Mock())
+        app._output_text = Mock(return_value=output)
+        app._update_controls = Mock()
+        app._update_document_title = Mock()
+        app._showinfo = Mock()
+        app._showerror = Mock()
+        return app
+
+    def test_save_new_scene_uses_selected_novel_chapter_and_scene_folder(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "The Long Way Home"
+            (root / "Manuscript" / "Chapters" / "Chapter_01").mkdir(parents=True)
+            app = self.make_app(root, scene_label="Scene 02", output="Scene two prose.")
+
+            saved = MinimalWriterApp.save_new_scene(app)
+
+            target = (
+                root / "Manuscript" / "Chapters" / "Chapter_01"
+                / "Chapter_01_Section_02.odt"
+            )
+            self.assertTrue(saved)
+            self.assertTrue(target.is_file())
+            self.assertEqual(read_document(target), "Scene two prose.")
+            self.assertEqual(app.scene_var.get(), "Scene 02")
+            self.assertEqual(app.scene_files["Scene 02"], target)
+            self.assertEqual(app.selected_scene_source, target.resolve())
+            self.assertIn("Saved new scene:", app.status_var.set.call_args.args[0])
+            self.assertFalse(app._showerror.called)
+
+    def test_save_new_scene_appends_after_existing_scene_when_dropdown_points_at_it(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "The Long Way Home"
+            chapter = root / "Manuscript" / "Chapters" / "Chapter_01"
+            chapter.mkdir(parents=True)
+            (chapter / "Chapter_01_Section_01.txt").write_text(
+                "Already accepted.", encoding="utf-8"
+            )
+            app = self.make_app(root, scene_label="Scene 01", output="Next scene prose.")
+
+            saved = MinimalWriterApp.save_new_scene(app)
+
+            target = chapter / "Chapter_01_Section_02.odt"
+            self.assertTrue(saved)
+            self.assertTrue(target.is_file())
+            self.assertEqual(read_document(target), "Next scene prose.")
+            self.assertEqual(app.scene_var.get(), "Scene 02")
+            self.assertEqual(sorted(n for n, _ in list_scene_files(root, 1)), [1, 2])
+
+    def test_save_new_scene_never_overwrites_existing_odt_or_txt_scene(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "The Long Way Home"
+            chapter = root / "Manuscript" / "Chapters" / "Chapter_01"
+            chapter.mkdir(parents=True)
+            existing = chapter / "Chapter_01_Section_02.txt"
+            existing.write_text("Keep this accepted scene.", encoding="utf-8")
+            app = self.make_app(root, scene_label="Scene 02")
+
+            saved = MinimalWriterApp.save_new_scene(app)
+
+            target = chapter / "Chapter_01_Section_03.odt"
+            self.assertTrue(saved)
+            self.assertEqual(existing.read_text(encoding="utf-8"), "Keep this accepted scene.")
+            self.assertTrue(target.is_file())
+            self.assertEqual(app.scene_var.get(), "Scene 03")
+
+    def test_save_new_scene_refuses_empty_output_and_preserves_manuscript(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "The Long Way Home"
+            chapter = root / "Manuscript" / "Chapters" / "Chapter_01"
+            chapter.mkdir(parents=True)
+            app = self.make_app(root, output="   ")
+
+            saved = MinimalWriterApp.save_new_scene(app)
+
+            self.assertFalse(saved)
+            self.assertEqual(list(chapter.iterdir()), [])
+            self.assertTrue(app._showinfo.called)
 
 
 if __name__ == "__main__":

@@ -489,14 +489,19 @@ class MinimalWriterApp:
         self.open_button.pack(side="left", padx=(8, 0))
 
         self.save_button = ttk.Button(
-            actions, text="Save", command=self.save_output
+            actions, text="Save Draft", command=self.save_output
         )
         self.save_button.pack(side="left", padx=(8, 0))
 
         self.save_as_button = ttk.Button(
-            actions, text="Save As…", command=self.save_output_as
+            actions, text="Save Draft As…", command=self.save_output_as
         )
         self.save_as_button.pack(side="left", padx=(8, 0))
+
+        self.save_new_scene_button = ttk.Button(
+            actions, text="Save New Scene", command=self.save_new_scene
+        )
+        self.save_new_scene_button.pack(side="left", padx=(8, 0))
 
         self.save_scene_button = ttk.Button(
             actions, text="Save to Selected Scene", command=self.save_to_selected_scene
@@ -1841,6 +1846,89 @@ class MinimalWriterApp:
             return False
         return self._save_to_path(Path(filename))
 
+    def save_new_scene(self) -> bool:
+        """Save the current output as a new numbered ODT scene in the selected novel."""
+        if self.busy:
+            return False
+
+        novel_name = self.novel_var.get().strip()
+        novel_path = self.novel_packages.get(novel_name)
+        if novel_path is None:
+            self._showinfo("Choose a novel", "Select a novel before saving a scene.")
+            return False
+
+        chapter_label = self.chapter_var.get().strip()
+        chapter_number = self.chapter_numbers.get(chapter_label)
+        if chapter_number is None or int(chapter_number) < 1:
+            self._showinfo(
+                "Choose a chapter",
+                "Select a chapter before saving a new scene.",
+            )
+            return False
+
+        text = self._output_text()
+        if not text.strip():
+            self._showinfo("Nothing to save", "Write or open scene text before saving.")
+            return False
+
+        chapter_number = int(chapter_number)
+        chapter_path = (
+            Path(novel_path).expanduser()
+            / "Manuscript"
+            / "Chapters"
+            / f"Chapter_{chapter_number:02d}"
+        )
+        try:
+            chapter_path.mkdir(parents=True, exist_ok=True)
+            saved_scenes = list_scene_files(novel_path, chapter_number)
+        except OSError as exc:
+            self._showerror("Could not prepare chapter folder", str(exc))
+            return False
+
+        saved_numbers = {number for number, _path in saved_scenes}
+        requested_number = scene_number_from_label(self.scene_var.get().strip())
+        if requested_number is None or requested_number in saved_numbers:
+            # If the dropdown still points at an accepted scene (for example,
+            # after restarting the app), append after the last saved scene.
+            scene_number = max(saved_numbers, default=0) + 1
+        else:
+            # Prepare Scene normally selects the unsaved destination already.
+            scene_number = requested_number
+
+        while True:
+            filename_stem = (
+                f"Chapter_{chapter_number:02d}_Section_{scene_number:02d}"
+            )
+            target = chapter_path / f"{filename_stem}.odt"
+            legacy_txt = chapter_path / f"{filename_stem}.txt"
+            if not target.exists() and not legacy_txt.exists():
+                break
+            scene_number += 1
+
+        scene_label = f"Scene {scene_number:02d}"
+        self.scene_var.set(scene_label)
+        try:
+            saved_path = save_document(target, text)
+        except (OSError, UnicodeError, ValueError) as exc:
+            self._showerror("Could not save new scene", str(exc))
+            return False
+
+        self.selected_scene_source = saved_path
+        if self.current_file is None:
+            self.saved_output_text = text
+
+        # Refresh the scene list and leave the newly saved scene selected.
+        self._on_chapter_selected()
+        self.scene_var.set(scene_label)
+        self.selected_scene_source = saved_path
+        self.status_var.set(
+            f"Saved new scene: {novel_name} / Chapter {chapter_number:02d} / "
+            f"{scene_label} ({saved_path})"
+        )
+        self._update_document_title()
+        self._update_controls()
+        return True
+
     def save_to_selected_scene(self) -> bool:
         """Overwrite the selected existing scene only after explicit confirmation."""
         if self.busy:
@@ -1977,6 +2065,14 @@ class MinimalWriterApp:
         self.open_button.configure(state="normal" if idle else "disabled")
         self.save_button.configure(state="normal" if idle else "disabled")
         self.save_as_button.configure(state="normal" if idle else "disabled")
+        has_scene_destination = (
+            self.novel_var.get().strip() in self.novel_packages
+            and self.chapter_var.get().strip() in self.chapter_numbers
+        )
+        if hasattr(self, "save_new_scene_button"):
+            self.save_new_scene_button.configure(
+                state="normal" if idle and has_scene_destination else "disabled"
+            )
         self.save_scene_button.configure(
             state=(
                 "normal"

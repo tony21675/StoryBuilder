@@ -355,3 +355,13 @@ App #2 now contains the package creator, read-only full-JSON viewer, and separat
 - Added tests verifying the order (generate first, clear second), normal success, and failure behavior preserving the suggestion while requiring a model reload.
 - Implementation commits: `caac100cc4e9b45e2bee212b50125029b906e489` (automatic context clear after Prepare Scene) and `bc007e6872c1dc92fa8fee3f9a3c2aa49899a28c` (test formatting fix).
 - Automated test result on the final code commit: StoryBuilder workflow ran **618 tests, with 1 error**. The single error is the same pre-existing unrelated `test_blank_name_does_not_save_or_close_the_editor` Tk test-harness issue where a fake root lacks `.tk`. Thus **617 tests passed**, including both new context-clear tests. Run: [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/41587687161).
+
+
+## Save New Scene workflow (November 3, 2026)
+
+- Added a dedicated **Save New Scene** action to Minimal Writer. It writes the current output directly to the selected novel's `Manuscript/Chapters/Chapter_NN/Chapter_NN_Section_MM.odt` path and does not open a file picker.
+- When Prepare Scene has selected an unsaved scene number, that destination is used. If the selector is blank or still points at an already-saved scene (such as after restarting the app), the action appends after the highest saved scene number. It checks both ODT and TXT names and never overwrites an existing scene.
+- After saving, Minimal Writer refreshes the chapter's Scene dropdown and selects the new scene. The existing **Save to Selected Scene** remains the explicit, confirmation-protected overwrite path for a scene already loaded as a copy.
+- Renamed the ordinary **Save** and **Save As** labels to **Save Draft** and **Save Draft As…** to distinguish standalone files from manuscript scene saves.
+- Added tests for correct scene path/filename, reading the saved ODT back, appending when the selector points at an existing scene, no-overwrite behavior against TXT/ODT scenes, and blank-output protection.
+- Commit and CI status will be recorded after verification.
