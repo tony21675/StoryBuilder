@@ -1270,13 +1270,25 @@ class MinimalWriterApp:
                     0, lambda message=message: self._prepare_scene_failed(message)
                 )
             else:
+                context_reset_error = None
+                try:
+                    # Prepare Scene is a planning-only turn. Clear that turn from
+                    # the persistent model session so Write starts with clean chat
+                    # history while the suggestion remains in the prompt box.
+                    self.engine.clear_context()
+                except Exception as exc:
+                    context_reset_error = str(exc)
                 self.root.after(
-                    0, lambda suggestion=suggestion: self._prepare_scene_succeeded(suggestion)
+                    0,
+                    lambda suggestion=suggestion, error=context_reset_error:
+                        self._prepare_scene_succeeded(suggestion, error),
                 )
 
         threading.Thread(target=work, daemon=True).start()
 
-    def _prepare_scene_succeeded(self, suggestion: str) -> None:
+    def _prepare_scene_succeeded(
+        self, suggestion: str, context_reset_error: str | None = None
+    ) -> None:
         if self.stop_requested:
             self._prepare_scene_stopped()
             return
@@ -1316,10 +1328,21 @@ class MinimalWriterApp:
         self.busy = False
         self.writing = False
         self.stop_requested = False
-        self.status_var.set(
-            f"Prepared Chapter {chapter_number:02d}, Scene {scene_number:02d}. "
-            "Edit the suggestion, then press Write."
-        )
+        if context_reset_error:
+            # Keep the prepared suggestion, but do not leave the UI claiming
+            # that a model session with uncleared planning history is usable.
+            self.loaded_model = None
+            self.status_var.set(
+                f"Prepared Chapter {chapter_number:02d}, Scene {scene_number:02d}. "
+                "The suggestion was kept, but model history could not be cleared. "
+                "Load the model again before pressing Write. "
+                f"Details: {context_reset_error}"
+            )
+        else:
+            self.status_var.set(
+                f"Prepared Chapter {chapter_number:02d}, Scene {scene_number:02d}. "
+                "Model conversation cleared. Edit the suggestion, then press Write."
+            )
         self._update_controls()
 
     def _select_scene_destination(

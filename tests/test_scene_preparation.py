@@ -277,7 +277,7 @@ class MinimalWriterPrepareSceneTests(unittest.TestCase):
         app.writing = False
         app.stop_requested = False
         app.loaded_model = Path("/models/test.gguf")
-        app.engine = SimpleNamespace(child=None)
+        app.engine = SimpleNamespace(child=None, clear_context=Mock())
         app.root = SimpleNamespace(after=lambda _delay, callback: callback())
         app.novel_var = SimpleNamespace(get=lambda: "Test Novel")
         app.novel_packages = {"Test Novel": Path(novel_path)}
@@ -318,6 +318,8 @@ class MinimalWriterPrepareSceneTests(unittest.TestCase):
             self.assertEqual(app.scene_picker.values, ["Scene 01"])
             self.assertEqual(app.scene_files, {})
             self.assertIn("Chapter 01, Scene 01", generate.call_args.args[1])
+            app.engine.clear_context.assert_called_once_with()
+            self.assertIn("Model conversation cleared", app.status_var.set.call_args.args[0])
             self.assertFalse(app.busy)
             self.assertFalse(app.writing)
 
@@ -354,6 +356,50 @@ class MinimalWriterPrepareSceneTests(unittest.TestCase):
             self.assertIn("preparing Chapter 01, Scene 11", confirmation[1])
             self.assertIn("ONLY the text in the What should it write? box", confirmation[1])
             self.assertIn("will NOT overwrite, save, or modify", confirmation[1])
+
+    def test_prepare_scene_clears_model_context_after_generating_suggestion(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "Test Novel"
+            root.mkdir()
+            (root / "story_bible.json").write_text("{}", encoding="utf-8")
+            app = self.make_app(root)
+            events = []
+
+            def generate(_engine, _prompt):
+                events.append("generate")
+                return "A quiet afternoon continues."
+
+            def clear_context():
+                events.append("clear_context")
+
+            app.engine.clear_context.side_effect = clear_context
+            with patch("minimal_writer.write_from_prompt", side_effect=generate), \\
+                 patch("minimal_writer.threading.Thread", _ImmediateThread):
+                MinimalWriterApp.prepare_scene(app)
+
+            self.assertEqual(events, ["generate", "clear_context"])
+            self.assertEqual(app.prompt_box.value, "A quiet afternoon continues.")
+            self.assertIsNotNone(app.loaded_model)
+            self.assertIn("Model conversation cleared", app.status_var.set.call_args.args[0])
+
+    def test_prepare_scene_keeps_suggestion_and_requires_reload_if_context_clear_fails(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "Test Novel"
+            root.mkdir()
+            (root / "story_bible.json").write_text("{}", encoding="utf-8")
+            app = self.make_app(root)
+            app.engine.clear_context.side_effect = RuntimeError("clear failed")
+
+            with patch("minimal_writer.write_from_prompt", return_value="Keep this suggestion."), \\
+                 patch("minimal_writer.threading.Thread", _ImmediateThread):
+                MinimalWriterApp.prepare_scene(app)
+
+            self.assertEqual(app.prompt_box.value, "Keep this suggestion.")
+            self.assertIsNone(app.loaded_model)
+            self.assertIn("Load the model again", app.status_var.set.call_args.args[0])
+            self.assertIn("clear failed", app.status_var.set.call_args.args[0])
+            self.assertFalse(app.busy)
+            self.assertFalse(app.writing)
 
     def test_cancel_keeps_existing_prompt_and_does_not_call_model(self):
         with tempfile.TemporaryDirectory() as temp:

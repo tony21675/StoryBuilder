@@ -345,3 +345,12 @@ App #2 now contains the package creator, read-only full-JSON viewer, and separat
 - Added regression assertions in `tests/test_scene_preparation.py` and `tests/test_minimal_writer.py` to verify both prompt paths include the flexible guidance and retain the no-fixed-count / no-artificial-delay balance.
 - Implementation commits: `ba13bc6be72ac6d1c152330577d8d4c7c7d1431b` (shared guidance and prompt integration), `2c00a852c5bea332ec4b82b63385025153d5a994` (correct Writer prompt paragraph spacing and add a spacing assertion), and `7d9300f42fc55a1b83dde44ac85883f989a282db` (preserve the existing no-op behavior when the Story Bible is missing or malformed and align wording assertions).
 - Automated results on the final code commit: Python workflow **615 passed, 1 failed, 77 subtests passed**; StoryBuilder unittest workflow **616 tests run, 1 error**. The only remaining failure in both workflows is the known, unrelated `test_blank_name_does_not_save_or_close_the_editor` Tk test-harness error where a fake root has no `.tk` attribute. All new pacing guidance assertions pass. Runs: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/41585876469) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/41585876521).
+
+
+## Prepare Scene automatically clears model conversation (November 2, 2026)
+
+- After Prepare Scene successfully generates its editable suggestion, Minimal Writer now calls `WriterEngine.clear_context()` before presenting the completed result. This removes the planner turn from the persistent llama-cli chat history; the generated suggestion remains in the prompt box for the author to edit and pass to Write.
+- The clear runs in the existing worker thread after generation completes, so it does not block the UI. It does not clear the visible prose/output or alter manuscript files, Story Bible, or current state.
+- If clearing the context fails, the generated suggestion is still preserved and selected as before. The app marks the model as unloaded and tells the author to reload it before Write, avoiding a silent fallback to contaminated chat history.
+- Added tests verifying the order (generate first, clear second), normal success, and failure behavior preserving the suggestion while requiring a model reload.
+- Implementation commit and CI details will be appended after verification.
