@@ -47,7 +47,7 @@ Date: November 3, 2026
 - Updated one obsolete assertion in `tests/test_character_context.py`: the intended behavior is to include the full registered-name roster while withholding detailed profiles for unmentioned characters.
 - Relevant commits: `fd38ff51e736933d7413c6be27b2f26e60bea6c4` (prompt guidance), `fc3c7437d09496958196aa01e82af4a00b5fc093` (prompt-path tests), and `cb6b3dc29d1bd0e553ec1325e8e0a8888e3e2ded` (roster test alignment).
 - Feature implementation and test-alignment commit: `cb6b3dc29d1bd0e553ec1325e8e0a8888e3e2ded`.
-- Latest branch head after this handoff-only update: `6f90925c2e3180eb899571c0ab3d99a857905d5d`. This follow-up changes only `CHAT_HANDOFF_LATEST.md`; the code verified in the CI runs below is unchanged.
+- The latest commits after the implementation checkpoint only update this handoff file. The CI runs below validate the code at `cb6b3dc29d1bd0e553ec1325e8e0a8888e3e2ded`; no application code changed afterward.
 - CI on that head: compile passed. Python pytest reports **633 passed, 1 failed, 77 subtests passed**. The sole remaining failure is the unrelated Tkinter harness test `test_blank_name_does_not_save_or_close_the_editor`, where a fake root is a plain object without `.tk`. The StoryBuilder unittest workflow reports the same lone harness error. The new continuity tests and updated roster test all pass.
 - CI runs: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/41725096087) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/41725096065).
 - This latest code has **not yet been pulled or tested locally**. Follow the normal local pre-pull and post-pull test gate before relying on the update in Minimal Writer.
