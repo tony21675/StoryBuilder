@@ -69,6 +69,29 @@ class ProseHealthTests(unittest.TestCase):
                 for f in analyze_draft(complete_sentence))
         )
 
+    def test_detects_incomplete_paragraph_inside_later_prose(self):
+        text = (
+            "The cabin lights flickered. The crew listened.\n\n"
+            "Chloe studied the stars and wondered about the difference between\n\n"
+            "Elijah leaned toward the viewport and checked the display."
+        )
+        findings = analyze_draft(text)
+        abrupt = [
+            finding for finding in findings
+            if finding.category == "Possible abrupt ending"
+        ]
+        self.assertTrue(abrupt)
+        self.assertTrue(any("Paragraph 2" in finding.location for finding in abrupt))
+
+        complete_paragraph = (
+            "The answer lay in the narrow space between them.\n\n"
+            "They returned to the observation deck."
+        )
+        self.assertFalse(any(
+            finding.category == "Possible abrupt ending"
+            for finding in analyze_draft(complete_paragraph)
+        ))
+
     def test_detects_ai_preamble_and_closing_but_not_natural_dialogue(self):
         opening = analyze_draft("Certainly! Here is your scene.\n\nAris entered the room.")
         closing = analyze_draft("Aris left the room.\n\nI hope you enjoy the story!")
