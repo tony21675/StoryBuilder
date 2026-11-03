@@ -11,6 +11,7 @@ from builder.appearance import apply_application_appearance
 from builder.writer_engine import GenerationInterrupted, WriterEngine
 from builder.workspace import MODELS_DIR, NOVEL_ROOT
 from builder.continuity_context import select_relevant_locations
+from builder.character_context import build_character_card_context_prompt
 from builder.story_bible_reader import load_story_bible
 from builder.creative_direction import build_creative_direction_prompt
 from builder.scene_preparation import (
@@ -1445,6 +1446,13 @@ class MinimalWriterApp:
         )
         if creative_note:
             prompt = f"{str(prompt).rstrip()}\n\n{creative_note}"
+
+        prompt = build_character_card_context_prompt(
+            novel_path,
+            story_bible,
+            prompt,
+            supporting_text=supporting_text,
+        )
 
         locations = story_bible.get("locations", {})
         enriched, names = build_location_context_prompt(
