@@ -150,7 +150,7 @@ class ScenePreparationPromptTests(unittest.TestCase):
                 "current_situation": "This old opening situation must not be treated as current.",
                 "scene_cast": [],
             }
-            earlier_activity = "The crew finished dinner and started a board game.\\n"
+            earlier_activity = "The crew finished dinner and started a board game.\n"
             scene_text = earlier_activity + ("The game continued with friendly conversation. " * 65)
             source = self.make_novel(root, current_state=state, scene_text=scene_text)
 
