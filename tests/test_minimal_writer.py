@@ -246,6 +246,10 @@ class MinimalWriterTests(unittest.TestCase):
             (root / "story_bible.json").write_text(
                 json.dumps(bible), encoding="utf-8"
             )
+            (root / "current_state.json").write_text(
+                json.dumps({"time_of_day": "Day 1, 16:00 (4:00 PM), late afternoon."}),
+                encoding="utf-8",
+            )
             cards = {
                 "Tiffany.json": {
                     "name": "Tiffany Jones", "role": "student", "gender": "female",
@@ -286,6 +290,8 @@ class MinimalWriterTests(unittest.TestCase):
         self.assertNotIn("[Chloe]", prompt)
         self.assertIn("CANON RULES", prompt)
         self.assertIn("Tiffany and Maya have a sister-like friendship.", prompt)
+        self.assertIn("STORY TIMELINE", prompt)
+        self.assertIn("Latest saved in-story time: Day 1, 16:00", prompt)
         self.assertIn("STORY OPENING AND PACING", prompt)
         self.assertIn("\n\nSTORY OPENING AND PACING", prompt)
         self.assertIn("not a fixed scene count", prompt.lower())
