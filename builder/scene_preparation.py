@@ -11,13 +11,14 @@ from builder.canon_rules import build_canon_rules_prompt
 from builder.creative_direction import build_creative_direction_prompt
 from builder.character_context import build_character_card_context_prompt
 from builder.story_pacing import build_story_opening_pacing_prompt
+from builder.story_timeline import build_story_timeline_prompt
 
 
 _SCENE_FILENAME_RE = re.compile(
     r"^Chapter_(\d+)_Section_(\d+)\.(?:odt|txt)$",
     re.IGNORECASE,
 )
-_PREVIOUS_SCENE_CHARS = 2200
+_PREVIOUS_SCENE_CHARS = 6000
 
 
 def scene_number_from_label(label: str | None) -> int | None:
@@ -153,6 +154,10 @@ def build_scene_preparation_prompt(
     if creative_note:
         sections.append(creative_note)
 
+    timeline_note = build_story_timeline_prompt(current_state.get("time_of_day"))
+    if timeline_note:
+        sections.append(timeline_note)
+
     if include_state:
         situation = _clean_text(current_state.get("current_situation"))
         if situation:
@@ -199,8 +204,9 @@ def build_scene_preparation_prompt(
     sections.extend(
         [
             "",
-            "Use this context for orientation, not as a checklist. Suggest a natural situation to begin this scene and a promising direction it could take.",
-            "Write only a few concise, editable sentences for the author. Do not write the finished scene or dialogue, do not make a beat-by-beat outline, and leave unresolved matters open. Leave room for the story and characters to develop naturally.",
+            "Build directly on the selected previous scene and the latest established situation. Continue its natural momentum instead of restarting a completed activity or jumping to an unrelated task. Give one coherent, specific scene direction rather than a list of alternatives. The scene should contribute through character development, relationships, choices, or events that grow naturally from what is already happening.",
+            "Use the timeline anchor and the previous scene to maintain the passage of time. Do not invent a mystery, danger, anomaly, or interruption merely to create a hook; let new developments arise from the established story and the author's direction.",
+            "Write a few concise, editable sentences for the author. Do not write the finished scene or dialogue, and do not make a beat-by-beat outline. Leave room for the story and characters to develop naturally.",
             "Return only the scene starter, with no heading or explanation.",
         ]
     )
