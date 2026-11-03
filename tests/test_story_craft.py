@@ -18,6 +18,14 @@ class StoryCraftPromptTests(unittest.TestCase):
         self.assertIn("not everyone needs to speak", prompt)
         self.assertIn("let dialogue breathe", prompt)
         self.assertIn("not a formula", prompt)
+        self.assertIn(
+            "When a scene follows an existing scene, continue directly from its final moment.",
+            prompt,
+        )
+        self.assertIn(
+            "only change time or place when the author's direction calls for that transition",
+            prompt,
+        )
         self.assertNotIn("Mars", prompt)
         self.assertNotIn("nutrient paste", prompt)
         self.assertNotIn("cattle", prompt)
@@ -41,6 +49,10 @@ class StoryCraftPromptTests(unittest.TestCase):
         self.assertIn("SCENE CRAFT GUIDANCE", prompt)
         self.assertIn("not everyone needs to speak", prompt)
         self.assertIn("ordinary moments can matter", prompt)
+        self.assertIn(
+            "When a scene follows an existing scene, continue directly from its final moment.",
+            prompt,
+        )
 
     def test_write_and_continue_context_receives_shared_craft_guidance(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -64,6 +76,10 @@ class StoryCraftPromptTests(unittest.TestCase):
         self.assertIn("SCENE CRAFT GUIDANCE", prompt)
         self.assertIn("let dialogue breathe", prompt)
         self.assertIn("follow the author's specific direction", prompt)
+        self.assertIn(
+            "When a scene follows an existing scene, continue directly from its final moment.",
+            prompt,
+        )
 
 
 if __name__ == "__main__":
