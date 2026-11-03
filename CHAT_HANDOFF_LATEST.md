@@ -44,6 +44,15 @@ Date: November 3, 2026
 - Latest code checkpoint: 08b43c01d8cc54bde6044dcaab116e091b8cc545. Python CI: 627 passed, 1 failed, 77 subtests passed. StoryBuilder unittest CI: 628 tests run, 1 error. Both have only the same pre-existing unrelated test_blank_name_does_not_save_or_close_the_editor Tk harness issue: a fake root lacks .tk. All new timeline, scene-continuity, writer-context, and state-clock tests passed. Runs: https://github.com/tony21675/StoryBuilder/actions/runs/41603324940 and https://github.com/tony21675/StoryBuilder/actions/runs/41603324813.
 - Live test still required: pull the StoryBuilder branch, sync the selected novel package from GitHub in Story Bible, then reopen Minimal Writer and prepare Scene 4. The app branch and novel repository are separate syncs.
 
+## Shared scene-craft guidance (November 3, 2026)
+
+- The author approved a small, generic writing-guidance improvement after reviewing the opening scenes of The Long Way Home.
+- Added builder/story_craft.py with one compact, reusable prompt section: let scenes feel lived-in as well as purposeful; use natural variety in group size and dialogue; allow ordinary moments, character interaction, pauses, and distinct voices; avoid constant jokes, scripted turn-taking, overly polished banter, unnecessary technical exposition, and explanatory speeches.
+- Integrated the same guidance into Prepare Scene and Minimal Writer's shared Write / Continue context builder. It is broad guidance, not a checklist, and does not change Story Bible storage or add a new UI setting.
+- No manuscript prose, current_state.json, character cards, or novel-package files were changed.
+- The guidance deliberately contains no Mars-specific food assumptions. For The Long Way Home, shelf-stable protein ingredients or nutrient paste can be part of the pantry, while future food choices can also include suitable protein crops or other supplies. Do not make paste the only possible protein source or turn food logistics into a forced plot point.
+- Added tests/test_story_craft.py to check the guidance itself and its delivery to both Prepare Scene and Write / Continue. Confirm test results before treating the change as validated.
+
 ## Current novel: The Long Way Home
 
 - Local package: ~/Documents/MyNovel/The-Long-Way-Home. GitHub tony21675/The-Long-Way-Home, branch main.
