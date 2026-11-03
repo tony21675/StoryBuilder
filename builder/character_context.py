@@ -69,7 +69,6 @@ def build_character_card_context_prompt(
     query = "\n".join(
         part for part in (str(prompt or ""), str(supporting_text or "")) if part
     )
-    all_cards: list[dict[str, Any]] = []
     selected: list[dict[str, Any]] = []
     roster_names: list[str] = []
     seen_names: set[str] = set()
@@ -89,7 +88,6 @@ def build_character_card_context_prompt(
         if not name:
             continue
 
-        all_cards.append(card)
         normalized_name = name.casefold()
         if normalized_name not in seen_names:
             roster_names.append(name)
