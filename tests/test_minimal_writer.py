@@ -247,7 +247,7 @@ class MinimalWriterTests(unittest.TestCase):
             )
             cards = {
                 "Tiffany.json": {
-                    "name": "Tiffany", "role": "student", "gender": "female",
+                    "name": "Tiffany Jones", "role": "student", "gender": "female",
                     "sexual_orientation": "Straight",
                     "personality": ["shy", "thoughtful"],
                     "relationships": {"Maya": "like a sister"},
@@ -277,7 +277,7 @@ class MinimalWriterTests(unittest.TestCase):
                 supporting_text="Tiffany looked at Maya and smiled.",
             )
 
-        self.assertIn("[Tiffany]", prompt)
+        self.assertIn("[Tiffany Jones]", prompt)
         self.assertIn("[Maya]", prompt)
         self.assertIn("Sexual orientation: Straight", prompt)
         self.assertIn("Sexual orientation: Bisexual", prompt)
