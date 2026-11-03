@@ -160,6 +160,40 @@ class CharacterCardEditorBuildTests(unittest.TestCase):
         editor.entry_vars["age"] = FakeValue("32")
         self.assertEqual(editor.build_card()["age"], 32)
 
+    def test_sexual_orientation_is_separate_from_gender_and_is_saved(self):
+        editor = self.make_editor({
+            "name": "Maya",
+            "gender": "female",
+            "sexual_orientation": "Straight",
+        })
+        editor.entry_vars["sexual_orientation"].set("Bisexual")
+
+        saved = editor.build_card()
+
+        self.assertEqual(saved["gender"], "female")
+        self.assertEqual(saved["sexual_orientation"], "Bisexual")
+        self.assertIn("sexual_orientation", _STANDARD_FIELDS)
+
+    def test_sexual_orientation_is_optional_for_new_characters(self):
+        editor = self.make_editor({"name": "Maya", "gender": "female"})
+
+        saved = editor.build_card()
+
+        self.assertEqual(saved["gender"], "female")
+        self.assertNotIn("sexual_orientation", saved)
+
+    def test_not_specified_clears_an_existing_orientation(self):
+        editor = self.make_editor({
+            "name": "Maya",
+            "gender": "female",
+            "sexual_orientation": "Straight",
+        })
+        editor.entry_vars["sexual_orientation"].set("Not specified")
+
+        saved = editor.build_card()
+
+        self.assertEqual(saved["sexual_orientation"], "")
+
     def test_legacy_pronouns_are_hidden_but_preserved(self):
         editor = self.make_editor({"name": "Mara", "pronouns": "she/her"})
 
