@@ -12,6 +12,7 @@ from builder.appearance import get_widget_appearance_palette
 _STRING_FIELDS = (
     "role",
     "gender",
+    "sexual_orientation",
     "relationship_status",
     "occupation",
     "status",
@@ -49,7 +50,7 @@ _STANDARD_FIELDS = {
 }
 _TAB_FIELDS = {
     "Basic Information": {
-        "name", "age", "role", "gender", "relationship_status",
+        "name", "age", "role", "gender", "sexual_orientation", "relationship_status",
         "occupation", "status",
     },
     "Appearance": {"appearance"},
@@ -207,6 +208,30 @@ class CharacterCardEditorWindow:
         self._set_next_row(parent, row + 2)
         return row + 2
 
+    def _add_choice(
+        self,
+        parent: ttk.Frame,
+        key: str,
+        label: str,
+        value: Any,
+        choices: tuple[str, ...],
+    ) -> None:
+        row = self._next_row(parent)
+        ttk.Label(parent, text=f"{label} (optional)").grid(
+            row=row, column=0, sticky="w", pady=(5, 0)
+        )
+        current = self._display_scalar(value).strip()
+        display = current if current else "Not specified"
+        values = list(choices)
+        if display not in values:
+            values.append(display)
+        variable = tk.StringVar(self.window, value=display)
+        self.entry_vars[key] = variable
+        ttk.Combobox(
+            parent, textvariable=variable, values=values, state="readonly"
+        ).grid(row=row + 1, column=0, sticky="ew", pady=(2, 5))
+        self._set_next_row(parent, row + 2)
+
     def _add_text(
         self, parent: ttk.Frame, key: str, label: str, value: Any = "", height: int = 4
     ) -> None:
@@ -314,6 +339,13 @@ class CharacterCardEditorWindow:
         self._add_entry(parent, "role", "Role", self.original.get("role", ""))
         self._add_entry(parent, "age", "Age", self.original.get("age", ""))
         self._add_entry(parent, "gender", "Gender", self.original.get("gender", ""))
+        self._add_choice(
+            parent,
+            "sexual_orientation",
+            "Sexual Orientation",
+            self.original.get("sexual_orientation", ""),
+            ("Not specified", "Straight", "Bisexual"),
+        )
         self._add_entry(
             parent, "relationship_status", "Relationship Status",
             self.original.get("relationship_status", ""),
@@ -574,6 +606,8 @@ class CharacterCardEditorWindow:
 
         for key in _STRING_FIELDS:
             value = self.entry_vars[key].get().strip()
+            if key == "sexual_orientation" and value == "Not specified":
+                value = ""
             if value or key in self.original:
                 result[key] = value
 
