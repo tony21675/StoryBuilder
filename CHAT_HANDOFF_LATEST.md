@@ -353,4 +353,5 @@ App #2 now contains the package creator, read-only full-JSON viewer, and separat
 - The clear runs in the existing worker thread after generation completes, so it does not block the UI. It does not clear the visible prose/output or alter manuscript files, Story Bible, or current state.
 - If clearing the context fails, the generated suggestion is still preserved and selected as before. The app marks the model as unloaded and tells the author to reload it before Write, avoiding a silent fallback to contaminated chat history.
 - Added tests verifying the order (generate first, clear second), normal success, and failure behavior preserving the suggestion while requiring a model reload.
-- Implementation commit and CI details will be appended after verification.
+- Implementation commits: `caac100cc4e9b45e2bee212b50125029b906e489` (automatic context clear after Prepare Scene) and `bc007e6872c1dc92fa8fee3f9a3c2aa49899a28c` (test formatting fix).
+- Automated test result on the final code commit: StoryBuilder workflow ran **618 tests, with 1 error**. The single error is the same pre-existing unrelated `test_blank_name_does_not_save_or_close_the_editor` Tk test-harness issue where a fake root lacks `.tk`. Thus **617 tests passed**, including both new context-clear tests. Run: [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/41587687161).
