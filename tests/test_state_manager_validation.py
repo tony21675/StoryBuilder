@@ -47,8 +47,8 @@ class StateUpdateValidationTests(unittest.TestCase):
             "A consequential estimate or hypothesis may be recorded as an attributed recent event",
             evidence_prompt,
         )
-        self.assertIn("time_of_day as the running story clock", state_prompt)
-        self.assertIn("Never reset to the story's starting time", state_prompt)
+        self.assertIn("time_of_day as a running story clock", state_prompt)
+        self.assertIn("reset to the story's starting anchor", state_prompt)
         self.assertIn("advance the day when the prose establishes an overnight transition", ending_prompt)
 
     def test_explicit_null_patch_removes_stale_nested_state(self):
