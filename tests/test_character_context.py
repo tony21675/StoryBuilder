@@ -11,7 +11,7 @@ class CharacterCardContextTests(unittest.TestCase):
         root.mkdir(parents=True, exist_ok=True)
         cards = {
             "Tiffany.json": {
-                "name": "Tiffany",
+                "name": "Tiffany Jones",
                 "role": "student",
                 "gender": "female",
                 "sexual_orientation": "Straight",
@@ -49,7 +49,7 @@ class CharacterCardContextTests(unittest.TestCase):
                 root, bible, "Tiffany and Maya spend the afternoon talking."
             )
 
-        self.assertIn("[Tiffany]", prompt)
+        self.assertIn("[Tiffany Jones]", prompt)
         self.assertIn("[Maya]", prompt)
         self.assertIn("Sexual orientation: Straight", prompt)
         self.assertIn("Sexual orientation: Bisexual", prompt)
@@ -67,7 +67,7 @@ class CharacterCardContextTests(unittest.TestCase):
                 root, bible, "", include_all=True
             )
 
-        self.assertIn("[Tiffany]", prompt)
+        self.assertIn("[Tiffany Jones]", prompt)
         self.assertIn("[Maya]", prompt)
         self.assertIn("[Chloe]", prompt)
 
