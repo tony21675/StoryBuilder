@@ -91,7 +91,7 @@ def build_character_card_context_prompt(
 
     lines = [
         "CHARACTER REFERENCES",
-        "These are established background facts, not plot instructions. Keep relationships and any attraction consistent with them; ordinary friendship need not be romantic.",
+        "These are established character facts, not a request for romance. Do not invent romantic or sexual attraction that conflicts with a character's stated orientation; friendship, teasing, and affection can remain platonic.",
     ]
     for card in selected:
         name = _clean(card.get("name"), 100)
