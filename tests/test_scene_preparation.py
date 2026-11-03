@@ -373,8 +373,10 @@ class MinimalWriterPrepareSceneTests(unittest.TestCase):
                 events.append("clear_context")
 
             app.engine.clear_context.side_effect = clear_context
-            with patch("minimal_writer.write_from_prompt", side_effect=generate), \\
-                 patch("minimal_writer.threading.Thread", _ImmediateThread):
+            with (
+                patch("minimal_writer.write_from_prompt", side_effect=generate),
+                patch("minimal_writer.threading.Thread", _ImmediateThread),
+            ):
                 MinimalWriterApp.prepare_scene(app)
 
             self.assertEqual(events, ["generate", "clear_context"])
@@ -390,8 +392,10 @@ class MinimalWriterPrepareSceneTests(unittest.TestCase):
             app = self.make_app(root)
             app.engine.clear_context.side_effect = RuntimeError("clear failed")
 
-            with patch("minimal_writer.write_from_prompt", return_value="Keep this suggestion."), \\
-                 patch("minimal_writer.threading.Thread", _ImmediateThread):
+            with (
+                patch("minimal_writer.write_from_prompt", return_value="Keep this suggestion."),
+                patch("minimal_writer.threading.Thread", _ImmediateThread),
+            ):
                 MinimalWriterApp.prepare_scene(app)
 
             self.assertEqual(app.prompt_box.value, "Keep this suggestion.")
