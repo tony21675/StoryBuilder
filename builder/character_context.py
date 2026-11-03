@@ -37,14 +37,19 @@ def _relationships_text(value: Any) -> str:
 
 
 def _name_is_mentioned(name: str, text: str) -> bool:
-    if not name.strip():
-        return False
-    return bool(
+    parts = [part for part in name.strip().split() if part]
+    candidates = {name.strip()}
+    if len(parts) > 1:
+        candidates.add(parts[0])
+        candidates.add(parts[-1])
+    return any(
         re.search(
-            rf"(?<![\w]){re.escape(name.strip())}(?![\w])",
+            rf"(?<![\w]){re.escape(candidate)}(?![\w])",
             text,
             flags=re.IGNORECASE,
         )
+        for candidate in candidates
+        if candidate
     )
 
 
