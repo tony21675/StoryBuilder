@@ -193,7 +193,7 @@ def build_scene_preparation_prompt(
 
     if previous_ending:
         sections.append(
-            "Ending of the selected previous scene (for continuity):\n"
+            "Selected previous scene context (including its ending, for continuity):\n"
             + previous_ending
         )
     else:
