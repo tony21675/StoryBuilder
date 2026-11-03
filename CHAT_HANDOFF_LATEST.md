@@ -55,6 +55,16 @@ Date: November 3, 2026
 - Validation on commit 87e71d3f721c0fcc71131a66641c63a06ff04cad: Python CI reports 630 passed, 1 failed, and 77 subtests passed. All three new scene-craft tests pass; the sole failure is the already-known unrelated Tkinter harness issue in test_blank_name_does_not_save_or_close_the_editor (fake root lacks .tk). The unittest workflow reports the same single pre-existing Tk error. CI runs: https://github.com/tony21675/StoryBuilder/actions/runs/41628292642 and https://github.com/tony21675/StoryBuilder/actions/runs/41628292540.
 - The implementation is ready for a local live test. Close Minimal Writer and run cd ~/Documents/StoryBuilder && ./start.sh to pull the development branch, then load the model and try Prepare Scene.
 
+## Prepare Scene cast and endpoint guidance (November 3, 2026)
+
+- Updated the shared character-context builder so both Prepare Scene and Minimal Writer Write / Continue receive the full list of registered character names, even when detailed character-card notes remain scoped to the people relevant to the current scene.
+- The prompt now treats that roster as authoritative for established crews, teams, households, and similar groups. It tells the model not to invent extra group members or describe someone as arriving when the story already places them in the scene. New characters remain possible when the author's direction or established events call for them.
+- Prepare Scene's planning prompt now asks for exactly two editable parts in the existing prompt box: a concise **Scene direction** and a scene-specific **Natural endpoint**. It also asks the model to include a fixed instruction to write narrative prose only and stop at that endpoint. No separate required field or new UI control was added; the author can edit either part in the normal prompt box.
+- Added tests/test_character_roster.py for full-roster availability, scoped character-card details, Write / Continue context, and the generated endpoint instructions.
+- Relevant commits: 40bb21737cd38faf1be7ef1ea03772cef3dbd993, 0f6035a1af3d553de23851811e0f58d537c784bd, 9e5b7c65b84faff00d9a43f2fb79a2d08c69b655, f55b0e307be03210930ef5f34b2b3f9101cfca7a, 14d4ffe87809d82ba2400f2f776190c639282d18, and 9af0ff6df108560deec4de922d1a2f015f6f3cdb.
+- Validation is pending. The available GitHub status lookup returned no checks for these commits, so do not describe this update as test-verified yet. Pull the branch locally and run the test suite before relying on it in a live writing session.
+- No manuscript prose, Story Bible data, current_state.json, character cards, or other novel-package files were changed.
+
 ## Current novel: The Long Way Home
 
 - Local package: ~/Documents/MyNovel/The-Long-Way-Home. GitHub tony21675/The-Long-Way-Home, branch main.
