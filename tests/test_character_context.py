@@ -72,7 +72,7 @@ class CharacterCardContextTests(unittest.TestCase):
         self.assertIn("[Maya]", prompt)
         self.assertIn("[Chloe]", prompt)
 
-    def test_unmentioned_character_cards_do_not_change_the_prompt(self):
+    def test_unmentioned_character_cards_add_roster_without_detailed_profiles(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             bible = self.make_novel(root)
@@ -81,7 +81,18 @@ class CharacterCardContextTests(unittest.TestCase):
                 root, bible, "The crew worked through the afternoon."
             )
 
-        self.assertEqual(prompt, "The crew worked through the afternoon.")
+        self.assertIn("ESTABLISHED CHARACTER ROSTER", prompt)
+        self.assertIn(
+            "Registered characters in this novel: Tiffany Jones, Maya, Chloe",
+            prompt,
+        )
+        self.assertNotIn("CHARACTER REFERENCES", prompt)
+        self.assertNotIn("[Tiffany Jones]", prompt)
+        self.assertNotIn("[Maya]", prompt)
+        self.assertNotIn("[Chloe]", prompt)
+        self.assertNotIn("Sexual orientation:", prompt)
+        self.assertNotIn("Personality:", prompt)
+        self.assertNotIn("close friend; feels like a sister", prompt)
 
     def test_missing_card_file_is_ignored_without_blocking_writing(self):
         with tempfile.TemporaryDirectory() as temp:
