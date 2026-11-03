@@ -1462,7 +1462,7 @@ class MinimalWriterApp:
                         if isinstance(name, str) and name.strip()
                     ]
                     if cast_names:
-                        character_supporting_text = "\\n".join(
+                        character_supporting_text = "\n".join(
                             part for part in (character_supporting_text, " ".join(cast_names))
                             if part
                         )
