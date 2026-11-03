@@ -364,4 +364,5 @@ App #2 now contains the package creator, read-only full-JSON viewer, and separat
 - After saving, Minimal Writer refreshes the chapter's Scene dropdown and selects the new scene. The existing **Save to Selected Scene** remains the explicit, confirmation-protected overwrite path for a scene already loaded as a copy.
 - Renamed the ordinary **Save** and **Save As** labels to **Save Draft** and **Save Draft As…** to distinguish standalone files from manuscript scene saves.
 - Added tests for correct scene path/filename, reading the saved ODT back, appending when the selector points at an existing scene, no-overwrite behavior against TXT/ODT scenes, and blank-output protection.
-- Commit and CI status will be recorded after verification.
+- Implementation commit: `2e177655764d89a9ea8dfea0a89ff5c0b3d6324c`.
+- Automated results on this commit: Python workflow **621 passed, 1 failed, 77 subtests passed**; StoryBuilder unittest workflow **622 tests run, 1 error**. Both have only the same pre-existing unrelated Tk harness error in `test_blank_name_does_not_save_or_close_the_editor` because a fake root lacks `.tk`. All new Save New Scene tests passed. Runs: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/41589179869) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/41589179746).
