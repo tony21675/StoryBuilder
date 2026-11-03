@@ -25,6 +25,7 @@ class StateUpdateValidationTests(unittest.TestCase):
     def test_state_analysis_prompts_preserve_open_crises_and_filter_routine_clues(self):
         ending_prompt = state_manager_module.ENDING_STATE_SYSTEM_PROMPT
         evidence_prompt = state_manager_module.SCENE_EVIDENCE_SYSTEM_PROMPT
+        state_prompt = state_manager_module.STATE_SYSTEM_PROMPT
 
         self.assertIn(
             "Preserve every important unresolved situation or crisis named in the before-state",
@@ -46,6 +47,9 @@ class StateUpdateValidationTests(unittest.TestCase):
             "A consequential estimate or hypothesis may be recorded as an attributed recent event",
             evidence_prompt,
         )
+        self.assertIn("time_of_day as the running story clock", state_prompt)
+        self.assertIn("Never reset to the story's starting time", state_prompt)
+        self.assertIn("advance the day when the prose establishes an overnight transition", ending_prompt)
 
     def test_explicit_null_patch_removes_stale_nested_state(self):
         base = {
