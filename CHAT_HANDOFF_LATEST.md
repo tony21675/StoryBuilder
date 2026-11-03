@@ -304,3 +304,19 @@ App #2 now contains the package creator, read-only full-JSON viewer, and separat
 - Added regression coverage for an unfinished paragraph followed by more prose and for a complete paragraph ending in "between them". Commits: `1ce2e234930ab7c264994beebc7332c88cec60c8` (paragraph-level checker) and `ba5a9684f7a6963402b77f3bab06ac230841317e` (regression test).
 - Automated test results on the resulting code: the Python workflow reports **605 passed, 1 failed, 77 subtests passed**; the StoryBuilder unittest workflow reports **606 tests run, 1 error**. Both failures are the same pre-existing unrelated Tk test-harness issue in `test_blank_name_does_not_save_or_close_the_editor`, where a fake root lacks the `.tk` attribute required by a real messagebox. The new prose-health tests passed. Runs: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/41550505983) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/41550506102).
 - **Live retest pending after syncing/relaunching Minimal Writer:** reuse a disposable scene where one paragraph ends with an unfinished connector such as "the difference between", followed by another complete paragraph. Expected: **Possible abrupt ending** at the incomplete paragraph, with the later prose and entire draft left byte-for-byte unchanged. Also confirm a complete phrase such as "the space between them" does not trigger. The clean-draft and duplicate-paragraph checks have already passed live. Do not use any accepted manuscript as the test target; use a disposable draft or the local-only Story-Bible-Save-Test. Keep that fixture local-only and never sync/publish it.
+
+## Manual Prose-Health Check live verification closed (November 2, 2026)
+
+- The author completed the live checks in Minimal Writer:
+  - Clean ordinary prose returned the expected no-obvious-issues result.
+  - An intentionally duplicated substantial paragraph was detected, with both paragraph locations and an excerpt.
+  - An unfinished quotation at the end of a draft produced a possible-truncation warning.
+  - A complete sentence using "between them" did not trigger an abrupt-ending warning.
+  - Opening assistant preamble ("Certainly! Here's your scene.") was detected.
+  - Closing assistant commentary ("I hope you enjoy the story!") was detected when isolated as the final paragraph.
+- The checker did not detect an unfinished sentence ending in "had". The author explicitly rejected expanding the connector/helping-verb lists into a dictionary-sized set of suspicious words. This is an accepted limitation: the checker is a small, conservative mechanical aid, not a grammar engine, and will miss some incomplete sentences.
+- The author also chose not to spend more time optimizing detection around the rare phrase "difference between". Do not add more word lists, grammar rules, or special-case phrase matching. Keep the current lightweight behavior unless the author later asks to revisit it.
+- All findings remain advisory. Check Draft is manual only, makes no edits, makes no model calls, and does not save or alter manuscript/state files.
+- **Live verification is complete within the agreed scope.** No further Prose-Health Check testing is required now. Treat the feature as closed and move to the next agreed StoryBuilder task.
+- The earlier automated test status remains: new Prose-Health tests passed; the full CI workflows still include the unrelated known Tk fake-root test-harness failure documented above. Do not describe the full suite as entirely green.
+
