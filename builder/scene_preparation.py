@@ -9,6 +9,7 @@ from builder.odt_document import read_document
 from builder.story_bible_reader import load_story_bible
 from builder.canon_rules import build_canon_rules_prompt
 from builder.creative_direction import build_creative_direction_prompt
+from builder.story_craft import build_story_craft_prompt
 from builder.character_context import build_character_card_context_prompt
 from builder.story_pacing import build_story_opening_pacing_prompt
 from builder.story_timeline import build_story_timeline_prompt
@@ -153,6 +154,10 @@ def build_scene_preparation_prompt(
     )
     if creative_note:
         sections.append(creative_note)
+
+    craft_note = build_story_craft_prompt()
+    if craft_note:
+        sections.append(craft_note)
 
     timeline_note = build_story_timeline_prompt(current_state.get("time_of_day"))
     if timeline_note:
