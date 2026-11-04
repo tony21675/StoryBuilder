@@ -176,3 +176,19 @@ Date: November 4, 2026
 - The hydroponics bay can provide a **limited secondary buffer**, not a miracle cure. Healthy plants under adequate lighting and airflow can absorb some CO₂ and release oxygen through net photosynthesis, buying the crew time. The growing area cannot replace full-capacity mechanical CO₂ removal for approximately 50 people indefinitely.
 - The dramatic role of the hydroponics bay is to give the crew additional time to investigate, coordinate, and restore proper scrubbing. It should not resolve the emergency by itself or make the mechanical scrubbers expendable.
 - Do not add detailed failure mechanics, warning signs, or advance foreshadowing to early scenes. The author will decide when the disaster enters the story and how much technical detail to establish.
+
+
+### Minimal Writer: assemble chapter and finished novel (November 4, 2026)
+
+- Restored manuscript assembly in the current Minimal Writer, which previously lacked the old StoryBuilder **Assemble Chapter** action. Added two buttons below the novel/chapter/scene selectors: **Assemble Chapter** and **Assemble Finished Novel**.
+- **Assemble Chapter** compiles the selected chapter's saved scene documents in numerical order. **Assemble Finished Novel** compiles every chapter that contains saved scenes, with chapter headings in numerical order.
+- Both actions read accepted scene files from the selected novel package, including current ODT files and legacy TXT files (when both formats exist for a scene, the scene browser's existing ODT-preference behavior is used). They create formatted ODT copies under `Manuscript/Compiled/`:
+  - `Chapter_XX.odt`
+  - `{Novel_Title}_Complete_Novel.odt`
+- The assembly actions use saved scene files only; unsaved text in the Writer output pane is not included. They do not modify original scene files. Running either action again refreshes/replaces only its generated compiled ODT.
+- Assembly logic is in `builder/manuscript_assembly.py`; UI actions and buttons are in `minimal_writer.py`.
+- Tests added: `tests/test_manuscript_assembly.py` (five cases: numerical order, ODT/TXT handling, duplicate ODT preference, multi-chapter assembly/empty folders, empty input, refresh without source mutation) and `tests/test_minimal_writer_assembly_actions.py` (four UI action cases).
+- Relevant commits: `c4f7fa16bc419c325fd24c70bdadf7682931f4fc` (assembly module), `ffcd88a46c54c1a8263953396b274e9270fe8dea` (assembly helper refinement), `b234641beff1236625c19e33f5f16fffd44e8f85` (assembly tests), `bc26587ee571df0e53435cc414107a4ae83d1f09` (Minimal Writer buttons/actions), `a9e66169bf96f50745261a9f3f03119d41aed8f0` (UI action tests), and `3448da80584cad3d2f7dfaafb573a183b34ab6ea` (test fallback correction).
+- Initial GitHub Actions run at `3448da80584cad3d2f7dfaafb573a183b34ab6ea`: compile step passed; all nine new assembly tests passed. The full test suite then failed on two stale assertions expecting earlier Prepare Scene wording, plus the known unrelated Tkinter test-harness error in `test_blank_name_does_not_save_or_close_the_editor` (fake root has no `.tk`).
+- Updated only those two stale assertions to match current approved prompt wording: `d165602ba6fd558eb6eef770a3becfc97dfe862f` and `04ef9ae35b8a2f2d5809d5161e74372006987d82`. GitHub Actions runs for the latter commit were queued when this note was written; their final outcomes are not yet verified. Do not claim the full suite is green. The Tkinter harness failure remains untouched.
+- The new assembly feature has **not** been pulled or tested on the author's laptop. Follow the established local pre-pull and post-pull `python3 -m pytest -q` gate before relying on it locally.
