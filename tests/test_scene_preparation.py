@@ -94,7 +94,7 @@ class ScenePreparationPromptTests(unittest.TestCase):
             self.assertIn("For an ensemble, this may take several scenes", prompt)
             self.assertIn("artificially delay an urgent conflict", prompt.lower())
             self.assertIn(
-                "the scene may contribute through character development, relationships, choices, or events",
+                "The scene may contribute through character development, relationships, choices, or events",
                 prompt,
             )
             self.assertIn(
