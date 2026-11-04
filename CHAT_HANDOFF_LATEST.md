@@ -5,7 +5,7 @@
 **Scene review:** The former trace/validator workflow has been scrapped. Do not look for saved traces. Review scenes directly from the prose the author shares.
 
 
-Date: November 3, 2026
+Date: November 4, 2026
 
 ## Project and workflow
 
@@ -131,3 +131,28 @@ Date: November 3, 2026
 
 - `Taken_at_Dusk` is an important existing novel. Preserve its two encrypted secret letters, related local-only metadata, helper scripts, private key, and `/secrets/` ignore rule. Do not decrypt, display, copy, upload, or change them unless explicitly asked.
 - Keep disposable test packages local-only and never sync or publish them.
+
+
+## Current checkpoint (November 4, 2026)
+
+### The Long Way Home: outpost population and command responsibility
+
+- The author updated the existing **Outpost** location in Story Bible, adding to its Description that the permanent Mars facility has approximately **50 personnel**. The six central characters are one crew group within the larger population; other personnel cover command, engineering, life support, power generation, medicine, science, communications, logistics, maintenance, and safety. Most remain background figures unless the story needs them.
+- The author also updated the existing **Duty Rotations and Chain of Command** Canon Rule; this was an addition to the existing rule, not a new third rule. It now establishes that Elena is overall commander of the approximately 50-person facility and is responsible for the safety and operation of the whole outpost. Department leads and duty officers manage their areas and personnel; Elena trusts their expertise and does not personally supervise every routine task. She can enjoy personal time while remaining conscious of her overall responsibility.
+- The other existing Canon Rule remains unchanged: the major life-support accident is a later turning point, and early chapters should focus on ordinary lives and relationships without repetitive ominous hints or minor malfunctions.
+- The author asked whether to establish a daily schedule. We discussed a **loose routine** (work periods, duty rotations, personal time, sleep), but **no separate Crew Daily Routine rule or fixed timetable has been added**. Do not add one without discussion. The intended principle is that the crew work scheduled duties, share watch responsibility, have genuine downtime, and sleep; avoid inventing a task or maintenance event every time a quiet scene needs movement.
+- These Story Bible edits were saved locally according to the author's confirmation. Whether the novel package was synced to its GitHub repository after these specific Story Bible edits has **not** been confirmed. StoryBuilder code sync and novel-package sync are separate.
+
+### Chapter 1: scene numbering correction and movie-night progress
+
+- The author identified the difference between **Save New Scene** and **Save to Selected Scene** as the likely cause of a duplicate scene number. Save New Scene creates the next numbered scene; Save to Selected Scene overwrites the selected existing scene after confirmation. When replacing a generated scene, load/select the existing target and use Save to Selected Scene; when creating the next scene, use Save New Scene.
+- The numbering mismatch was traced to an original Scene 6 attempt using the real film *Pirates of the Caribbean* and a replacement fictional pirate-adventure Scene 6 apparently saved as a new scene rather than replacing the old one. The author synced the novel package and renamed the active later files so the current sequence is back in order. The exact archive location/disposition of the superseded real-film version was not confirmed; do not delete any backup or rename files again without checking.
+- Current intended sequence after correction:
+  - **Scene 5:** The six crew choose a movie in the recreation room; opening titles begin.
+  - **Scene 6:** Replacement version with a fictional pirate adventure, tropical sea, wooden galleon, and island. Crew comments and comparisons to Mars are welcome.
+  - **Scene 7:** The fictional ship/island sequence continues, reaching a lush island and sheltered cove.
+  - **Scene 8:** The crew continue watching together; the scene reaches the film's ending and closing credits. The author stated that the movie's exact content is not important; crew bonding and learning about the six characters are the real purpose. Do not spend more time policing the film's internal genre or details unless it disrupts the crew's physical reality or their relationships.
+- **Scene 9 draft:** After the credits, the crew ease back into conversation. The useful part includes playful comments about the film's impractical vehicles, character banter, and Daniel's dry remark about transport designs not working for sustained Martian travel. The model then drifted into another dinner-planning conversation, which duplicates an earlier dinner scene and should be removed. The author was given in-app selection instructions: select from the paragraph beginning "Elena let out a breath she hadn't realized she was holding..." through the end of that unwanted dinner detour, then delete it, preserving the preceding scene text through Daniel's hovercraft comment. The author was then told to use **Save New Scene** for Scene 9, but an explicit confirmation that the trimmed Scene 9 was saved was not received. Treat the saved status as unconfirmed.
+- **Scene 10 draft:** Prepare Scene initially suggested coffee-ground logistics and an invented maintenance cycle. The author preferred a natural wind-down with conversation and then going to quarters for sleep. The generated draft features the crew teasing one another about fictional vehicle designs and Martian life, then saying goodnight and returning to their individual quarters. It closes with the common area quiet and all six settling in for sleep. The author felt Elena's portrayal was broadly right: she can relax and enjoy her crew without turning her command responsibility off completely. Do not overcorrect Elena into either a constant supervisor or someone who forgets she commands the outpost. Scene 10 was shared for review, but explicit save/acceptance confirmation was not received.
+- A few personal-history anecdotes appeared in the Scene 10 draft (Morgan nearly tripping over a data cable during training; Ryan's failed nutrient-paste synthesis glowing green). These are unconfirmed invented details, not established canon. Do not treat them as facts until the author accepts them.
+- The next major story beat is not automatically the life-support accident just because the crew are going to sleep. Let the author decide how many ordinary scenes or how much elapsed story time occur before the next morning and the later accident. Do not force a fixed number of scenes or rush the turning point.
