@@ -109,6 +109,18 @@ class ScenePreparationPromptTests(unittest.TestCase):
                 "Do not invent an activity merely to create a sense of progress",
                 prompt,
             )
+            self.assertIn(
+                "one sentence describing a clear, concrete final beat that naturally closes this scene",
+                prompt,
+            )
+            self.assertIn(
+                "The endpoint must be the last beat of this scene, not merely something that happens near the end",
+                prompt,
+            )
+            self.assertIn(
+                "The writer should finish on this beat and stop rather than continuing afterward",
+                prompt,
+            )
             self.assertFalse((root / "Manuscript").exists())
             self.assertFalse((root / "current_state.json").exists())
 
