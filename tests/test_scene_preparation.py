@@ -93,6 +93,22 @@ class ScenePreparationPromptTests(unittest.TestCase):
             self.assertIn("not a fixed scene count", prompt.lower())
             self.assertIn("For an ensemble, this may take several scenes", prompt)
             self.assertIn("artificially delay an urgent conflict", prompt.lower())
+            self.assertIn(
+                "the scene may contribute through character development, relationships, choices, or events",
+                prompt,
+            )
+            self.assertIn(
+                "it does not need to introduce a new task, problem, decision, or change of activity",
+                prompt,
+            )
+            self.assertIn(
+                "Ordinary conversation, recreation, observation, shared experiences, and comfortable silence can make a scene worthwhile",
+                prompt,
+            )
+            self.assertIn(
+                "Do not invent an activity merely to create a sense of progress",
+                prompt,
+            )
             self.assertFalse((root / "Manuscript").exists())
             self.assertFalse((root / "current_state.json").exists())
 
