@@ -250,3 +250,38 @@ Date: November 4, 2026
 - If the second base is Japanese-operated, treat it as an independent facility with its own commander, personnel, procedures, and life-support constraints. Emergency assistance and any transfer of approximately 30 people would require coordination and agreement between the two outpost commands; Elena cannot unilaterally assign people to the other country's facility.
 - This adds a potential international-cooperation dimension to the survival arc. Keep the operational details realistic and respectful; do not rely on national stereotypes or assume the Japanese base automatically has spare capacity. Its ability to accept evacuees, transport arrangements, communications, and resource limits remain undecided.
 - These are story-planning notes, not a new Story Bible Canon Rule. The current US ownership is an author clarification; the Japanese second base remains a candidate to revisit.
+
+
+## Current checkpoint update: Author's Direction for Prepare Scene (November 4, 2026)
+
+### New optional Author's Direction box
+
+- The author approved a small Prepare Scene improvement: an **optional, multiline Author's direction** box placed immediately above the existing **What should it write?** prompt box.
+- The label explains: **Leave blank to let Gemma choose what happens next.** The field is genuinely optional. When blank or whitespace-only, the scene preparation prompt receives no extra Author's Direction section and the existing Prepare Scene behavior remains unchanged, using the selected previous scene, story facts, canon, timeline, and general creative guidance.
+- When the author enters direction, it is passed into `build_scene_preparation_prompt()` as a distinct, priority steering section. It is combined with the previous-scene context and Story Bible information; Gemma is asked to honor the author's intended event, focus, and outcome while shaping the scene naturally and preserving continuity, rather than substituting an unrelated idea.
+- The direction box clears only after a non-empty scene suggestion has successfully been accepted into the existing prompt box. It is not cleared when the author cancels the replace confirmation, generation fails or is stopped, the model returns an empty suggestion, or the author changes either the prompt box or Author's Direction while preparation is running. In that last case, the generated suggestion is discarded and the author's edits are preserved.
+- The existing two-part output is unchanged: **Scene direction** and **Natural endpoint**. No manuscript files, Story Bible data, novel state, or saved scenes were changed by this feature.
+- Code changes on `redesign/simplified-writing-workflow`:
+  - `builder/scene_preparation.py`: optional `author_direction` parameter and conditional priority section; blank direction adds nothing.
+  - `minimal_writer.py`: optional three-line text box before the scene prompt, passes direction into preparation, protects edits made during generation, and clears the box only on successful preparation.
+  - `tests/test_scene_preparation.py`: tests for direction included with priority, blank direction unchanged, successful use and clearing, cancellation preserving direction, and edits made during generation being kept.
+- Relevant commits:
+  - `010a8846140e41792b934cd9bb11c6fd835ac615` — prompt builder accepts optional author direction.
+  - `4260c024437f7f8cd383e0d4545b1344b9438ba2` — Minimal Writer UI and successful-use behavior.
+  - `c1994a9595e870ae43f1481ddca22aa56f5ed4e4` — positions Author's Direction above the generated scene prompt.
+  - `fa66dffeab01e59d2edc2679b0cce031c3cf5d59` — adds regression tests; this is the application-code branch head at this update.
+- **Verification:** GitHub Actions compile step passed. On commit `fa66dffeab01e59d2edc2679b0cce031c3cf5d59`, the Python pytest workflow reports **646 passed, 1 failed, 77 subtests passed**; the StoryBuilder unittest workflow reports **647 tests with 1 error**. Both failures are the previously known, unrelated Tkinter test-harness issue in `test_blank_name_does_not_save_or_close_the_editor`: its fake root is a plain object without the `.tk` attribute required by `messagebox.showerror`. The new Author's Direction tests passed; the workflow logs show no failures in the new feature tests. Do not claim that the full suite is green.
+- **Local laptop status:** These commits are on the GitHub development branch and have **not** been pulled or tested on the author's laptop. The last reported local pre-pull test run used `.venv/bin/python -m pytest -q` and returned **631 passed, 3 failed, 77 subtests passed** (two stale exact-wording assertions plus the known Tkinter harness failure). The author also reported a pre-existing uncommitted local modification to `storybuilder.py`. Do not tell the author to reset, discard, hard-pull, or overwrite it. Do not pull the development branch until the local change is understood/preserved and the agreed test gate has been addressed.
+
+### Novel / Computer AI sync verification (November 4, 2026)
+
+- The author later reported that the novel's GitHub sync completed successfully. We fetched and inspected `story_bible.json` from `tony21675/The-Long-Way-Home` on `main`, confirming the Computer AI Canon Rule is present as one continuous rule and `Computer.json` is registered in the character-card list.
+- We separately fetched `Computer.json` from the same branch and verified the card: name **Computer**, role **Central Outpost AI**, non-human facility system, natural feminine voice/personality, facility monitoring and diagnostics, entertainment/music, private personal logs, and help preparing messages to loved ones on Earth with sender approval before transmission.
+- GitHub blob SHAs at verification: `story_bible.json` = `2127d1ad7effd976692ac198ca36434553ef1018`; `Computer.json` = `2ab71727291712fd9212d11b49694cd29d5a145a`. The remote tree also showed Chapter 1 Section 15 and Chapter 2 scene files. The author confirmed the novel sync succeeded. Keep novel-package sync separate from StoryBuilder application-code sync.
+- The manuscript checkpoint from the current conversation: Chapter 1 ends at **Scene 15**, which the author saved. Chapter 2 is underway; the author confirmed saving the scene after correcting Elena's deadline from 0300 (night) to **the end of the following day shift**, consistent with the six being day crew. Preserve this correction. Do not rewrite accepted scenes.
+
+### How to use Author's Direction
+
+- Use it only when the author has specific steering for the next scene, such as a required event, character focus, interaction, or outcome. Keep instructions brief and let Prepare Scene combine them with continuity.
+- When the author has no preference, leave the box empty. Gemma should then choose the next scene from the existing story context and general creative guidance. Do not prompt the author to fill it in every time or treat blank as a missing input.
+- The field is temporary and clears after successful preparation, so one scene's steering does not carry into the next scene.
