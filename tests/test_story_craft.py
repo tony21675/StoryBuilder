@@ -18,6 +18,19 @@ class StoryCraftPromptTests(unittest.TestCase):
         self.assertIn("not everyone needs to speak", prompt)
         self.assertIn("let dialogue breathe", prompt)
         self.assertIn("not a formula", prompt)
+        self.assertIn("MEDIA AND DEVICE BOUNDARIES", prompt)
+        self.assertIn(
+            "When characters watch, listen to, read, or view content through a television, radio, phone, computer, screen, speaker, or other device",
+            prompt,
+        )
+        self.assertIn(
+            "they do not become the characters' physical surroundings or current activity",
+            prompt,
+        )
+        self.assertIn(
+            "unless the author's direction explicitly establishes participation",
+            prompt,
+        )
         self.assertIn(
             "When a scene follows an existing scene, continue directly from its final moment.",
             prompt,
@@ -49,6 +62,8 @@ class StoryCraftPromptTests(unittest.TestCase):
         self.assertIn("SCENE CRAFT GUIDANCE", prompt)
         self.assertIn("not everyone needs to speak", prompt)
         self.assertIn("ordinary moments can matter", prompt)
+        self.assertIn("MEDIA AND DEVICE BOUNDARIES", prompt)
+        self.assertIn("they do not become the characters' physical surroundings or current activity", prompt)
         self.assertIn(
             "When a scene follows an existing scene, continue directly from its final moment.",
             prompt,
@@ -76,6 +91,8 @@ class StoryCraftPromptTests(unittest.TestCase):
         self.assertIn("SCENE CRAFT GUIDANCE", prompt)
         self.assertIn("let dialogue breathe", prompt)
         self.assertIn("follow the author's specific direction", prompt)
+        self.assertIn("MEDIA AND DEVICE BOUNDARIES", prompt)
+        self.assertIn("they do not become the characters' physical surroundings or current activity", prompt)
         self.assertIn(
             "When a scene follows an existing scene, continue directly from its final moment.",
             prompt,
