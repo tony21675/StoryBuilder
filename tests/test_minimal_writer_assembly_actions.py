@@ -97,7 +97,7 @@ class MinimalWriterAssemblyActionTests(unittest.TestCase):
         ):
             self.app.assemble_finished_novel()
 
-        assemble.assert_called_once_with(self.novel_path, "Example-Novel")
+        assemble.assert_called_once_with(self.novel_path, "Example Novel")
         self.assertEqual(self.error_messages, [])
 
 
