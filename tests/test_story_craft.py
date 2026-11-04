@@ -67,8 +67,13 @@ class StoryCraftPromptTests(unittest.TestCase):
         self.assertIn("not everyone needs to speak", prompt)
         self.assertIn("ordinary moments can matter", prompt)
         self.assertIn("MEDIA AND DEVICE BOUNDARIES", prompt)
-        self.assertIn("not the characters' physical surroundings or current activity", prompt)
-        self.assertIn("or act on information when the story gives them a reason", prompt)
+        self.assertIn(
+            "not the characters' physical surroundings or current activity",
+            prompt,
+        )
+        self.assertIn(
+            "or act on information when the story gives them a reason", prompt
+        )
         self.assertIn(
             "When a scene follows an existing scene, continue directly from its final moment.",
             prompt,
@@ -97,8 +102,13 @@ class StoryCraftPromptTests(unittest.TestCase):
         self.assertIn("let dialogue breathe", prompt)
         self.assertIn("follow the author's specific direction", prompt)
         self.assertIn("MEDIA AND DEVICE BOUNDARIES", prompt)
-        self.assertIn("not the characters' physical surroundings or current activity", prompt)
-        self.assertIn("or act on information when the story gives them a reason", prompt)
+        self.assertIn(
+            "not the characters' physical surroundings or current activity",
+            prompt,
+        )
+        self.assertIn(
+            "or act on information when the story gives them a reason", prompt
+        )
         self.assertIn(
             "When a scene follows an existing scene, continue directly from its final moment.",
             prompt,
