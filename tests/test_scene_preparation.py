@@ -124,6 +124,41 @@ class ScenePreparationPromptTests(unittest.TestCase):
             self.assertFalse((root / "Manuscript").exists())
             self.assertFalse((root / "current_state.json").exists())
 
+    def test_author_direction_is_included_as_priority_steering_when_provided(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "Directed Novel"
+            source = self.make_novel(root, scene_text="The crew finished their diagnostics.")
+            direction = "Have Mission Control acknowledge the advisory and request updated readings."
+
+            prompt = build_scene_preparation_prompt(
+                root, "Directed Novel", 1, 2,
+                source_scene_path=source,
+                author_direction=direction,
+            )
+
+            self.assertIn("AUTHOR'S DIRECTION (OPTIONAL; FOLLOW THIS STEERING)", prompt)
+            self.assertIn(direction, prompt)
+            self.assertIn("Honor the author's intended event, focus, and outcome", prompt)
+            self.assertLess(
+                prompt.index("AUTHOR'S DIRECTION (OPTIONAL; FOLLOW THIS STEERING)"),
+                prompt.index("Build directly on the selected previous scene"),
+            )
+
+    def test_blank_author_direction_adds_no_extra_direction_section(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "Unsteered Novel"
+            source = self.make_novel(root, scene_text="The crew finished their diagnostics.")
+
+            prompt = build_scene_preparation_prompt(
+                root, "Unsteered Novel", 1, 2,
+                source_scene_path=source,
+                author_direction="  \n ",
+            )
+
+            self.assertNotIn(
+                "AUTHOR'S DIRECTION (OPTIONAL; FOLLOW THIS STEERING)", prompt
+            )
+
     def test_next_scene_uses_selected_ending_and_only_matching_state_details(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp) / "Existing Novel"
@@ -327,7 +362,7 @@ class _DeferredThread:
 
 
 class MinimalWriterPrepareSceneTests(unittest.TestCase):
-    def make_app(self, novel_path, *, existing_prompt=""):
+    def make_app(self, novel_path, *, existing_prompt="", author_direction=""):
         app = object.__new__(MinimalWriterApp)
         app.busy = False
         app.writing = False
@@ -344,12 +379,14 @@ class MinimalWriterPrepareSceneTests(unittest.TestCase):
         app.scene_picker = _FakePicker()
         app.scene_files = {}
         app.prompt_box = _FakeTextBox(existing_prompt)
+        app.author_direction_box = _FakeTextBox(author_direction)
         app.status_var = SimpleNamespace(set=Mock())
         app._update_controls = Mock()
         app._showinfo = Mock()
         app._showerror = Mock()
         app._askyesno = Mock(return_value=True)
         app._scene_preparation_destination = (1, 1)
+        app._scene_preparation_original_author_direction = ""
         return app
 
     def test_prepare_scene_fills_prompt_box_for_an_empty_novel(self):
@@ -413,6 +450,47 @@ class MinimalWriterPrepareSceneTests(unittest.TestCase):
             self.assertIn("ONLY the text in the What should it write? box", confirmation[1])
             self.assertIn("will NOT overwrite, save, or modify", confirmation[1])
 
+    def test_prepare_scene_uses_and_clears_author_direction_after_success(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "Test Novel"
+            root.mkdir()
+            (root / "story_bible.json").write_text("{}", encoding="utf-8")
+            direction = "Have Mission Control acknowledge the report, without offering a solution."
+            app = self.make_app(root, author_direction=direction)
+
+            with (
+                patch("minimal_writer.write_from_prompt", return_value="Earth acknowledges receipt.") as generate,
+                patch("minimal_writer.threading.Thread", _ImmediateThread),
+            ):
+                MinimalWriterApp.prepare_scene(app)
+
+            self.assertIn(direction, generate.call_args.args[1])
+            self.assertEqual(app.prompt_box.value, "Earth acknowledges receipt.")
+            self.assertEqual(app.author_direction_box.value, "")
+
+    def test_author_direction_edits_during_preparation_are_kept(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "Test Novel"
+            root.mkdir()
+            (root / "story_bible.json").write_text("{}", encoding="utf-8")
+            app = self.make_app(root, author_direction="Use the original direction.")
+            _DeferredThread.instances.clear()
+
+            with (
+                patch("minimal_writer.write_from_prompt", return_value="Generated suggestion."),
+                patch("minimal_writer.threading.Thread", _DeferredThread),
+            ):
+                MinimalWriterApp.prepare_scene(app)
+                app.author_direction_box.value = "A new direction typed while preparing."
+                _DeferredThread.instances[-1].target()
+
+            self.assertEqual(app.prompt_box.value, "")
+            self.assertEqual(
+                app.author_direction_box.value,
+                "A new direction typed while preparing.",
+            )
+            self.assertIn("Your edits were kept", app.status_var.set.call_args.args[0])
+
     def test_prepare_scene_clears_model_context_after_generating_suggestion(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp) / "Test Novel"
@@ -466,13 +544,20 @@ class MinimalWriterPrepareSceneTests(unittest.TestCase):
             root = Path(temp) / "Test Novel"
             root.mkdir()
             (root / "story_bible.json").write_text("{}", encoding="utf-8")
-            app = self.make_app(root, existing_prompt="My unfinished idea")
+            app = self.make_app(
+                root,
+                existing_prompt="My unfinished idea",
+                author_direction="Have Earth respond in this scene.",
+            )
             app._askyesno.return_value = False
 
             with patch("minimal_writer.write_from_prompt") as generate:
                 MinimalWriterApp.prepare_scene(app)
 
             self.assertEqual(app.prompt_box.value, "My unfinished idea")
+            self.assertEqual(
+                app.author_direction_box.value, "Have Earth respond in this scene."
+            )
             generate.assert_not_called()
             self.assertFalse(app.busy)
 
