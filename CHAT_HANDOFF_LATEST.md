@@ -67,6 +67,24 @@ Date: November 3, 2026
 - Initial implementation commit: `4e22b39a6d3be3b4124ad261e96a05127c498260`; wording refinement: `3828ecbf107218f612f543dcb0a91c52d9d48397`; test/assertion commits: `f908bbc23c7d0e3e3a9bf55b258948329f63fbd3` and `662860839ffafd8c17059df71088075df4758568` (latest application-code branch head before this handoff refresh).
 - **Verification status:** no CI result was available for this new commit when this handoff was updated, and it has not been pulled or tested on the user's laptop. Do not claim the new tests have passed. Follow the established pre-pull and post-pull `python3 -m pytest -q` gate before relying on the change locally.
 
+
+### Prepare Scene: natural downtime correction (November 3, 2026)
+
+- The author approved a **small correction, not a replacement of the Prepare Scene prompt**. In `builder/scene_preparation.py`, the existing instruction that said a scene "should contribute" through character development, relationships, choices, or events was softened.
+- It still asks Gemma to build directly on the previous scene, preserve natural momentum, and provide one coherent direction. It now explicitly says a scene does not need a new task, problem, decision, or change of activity to be worthwhile; ordinary conversation, recreation, observation, shared experiences, and comfortable silence can carry a scene. It also cautions against inventing an activity merely to create a sense of progress.
+- Added assertions to `tests/test_scene_preparation.py` to make sure the generated planning prompt includes this flexibility.
+- This is separate from the shared media/device boundary instruction. The media boundary applies to Prepare Scene and Write / Continue through `builder/story_craft.py`; the downtime correction applies specifically to the Prepare Scene planning instruction.
+- Implementation commit: `604d91e84212cfe99517bd1a4d29eab13ece72aa`; regression-test commit and latest application-code branch head at this update: `56c6588002ecac2d1139a66d016e89d4940ac364`.
+- **Verification status:** these latest changes have not been pulled or tested on the user's laptop. No CI test result is available for the new commits. Do not describe the prompt adjustment as tested or proven to change Gemma's behavior yet. Follow the existing local pre-pull and post-pull `python3 -m pytest -q` gate.
+
+### Prepare Scene diagnosis / scope
+
+- The earlier Prepare Scene prompt asked: "The scene should contribute through character development, relationships, choices, or events that grow naturally from what is already happening." This could over-cue a small local model to invent a new task or development even when the natural continuation is recreation, conversation, observation, or quiet companionship.
+- The user wants to work on the planning prompt before writing another scene, while preserving its current structure and two-part output. Do not replace the full prompt or add a long checklist. Evaluate the small correction in actual Prepare Scene outputs first.
+- Other existing instructions remain in place: continue from the previous scene, respect the timeline and canon, avoid invented danger/hooks, produce exactly **Scene direction** and **Natural endpoint**, and leave room for prose to develop naturally.
+- The user does not want every scene prompt to be hand-written. General writing guidance should do the routine work; the author only needs to intervene when a specific scene genuinely needs steering.
+
+
 ## Current novel: The Long Way Home
 
 - Local package: `~/Documents/MyNovel/The-Long-Way-Home`. GitHub: `tony21675/The-Long-Way-Home`, branch `main`.
