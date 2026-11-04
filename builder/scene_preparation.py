@@ -104,6 +104,7 @@ def build_scene_preparation_prompt(
     chapter_number: int,
     scene_number: int,
     source_scene_path: str | Path | None = None,
+    author_direction: str | None = None,
 ) -> str:
     """Build a compact, read-only planning request for one scene starter."""
     root = Path(novel_path).expanduser()
@@ -204,6 +205,17 @@ def build_scene_preparation_prompt(
     else:
         sections.append(
             "No saved previous scene was selected. Treat this as the novel's opening scene."
+        )
+
+    author_direction_text = str(author_direction or "").strip()
+    if author_direction_text:
+        sections.append(
+            "AUTHOR'S DIRECTION (OPTIONAL; FOLLOW THIS STEERING)\n"
+            + author_direction_text
+            + "\nHonor the author's intended event, focus, and outcome for this scene. "
+            "Use the previous scene, established characters, story facts, canon, and "
+            "timeline to shape a natural continuation; do not replace the author's "
+            "direction with an unrelated scene idea."
         )
 
     sections.extend(
