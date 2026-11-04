@@ -60,18 +60,21 @@ def assemble_finished_novel(
     """Assemble all chapters with saved scenes into one compiled ODT copy."""
     chapters: list[str] = []
     for chapter_number in list_scene_chapters(novel_path):
-        try:
-            chapters.append(_read_chapter(novel_path, chapter_number))
-        except ValueError as exc:
-            # Empty chapter folders are not manuscript content; skip them.
-            if "No saved scenes were found" in str(exc):
-                continue
-            raise
+        # Empty chapter folders are not manuscript content; skip them.
+        if not list_scene_files(novel_path, chapter_number):
+            continue
+        chapters.append(_read_chapter(novel_path, chapter_number))
 
     if not chapters:
         raise ValueError("No saved manuscript scenes were found to assemble.")
 
-    novel_name = str(title or Path(novel_path).expanduser().name.replace("-", " ").replace("_", " ")).strip()
+    novel_name = str(
+        title
+        or Path(novel_path).expanduser().name.replace("-", " ").replace("_", " ")
+    ).strip()
     content = f"**{novel_name}**\n\n" + "\n\n".join(chapters)
-    target = _compiled_directory(novel_path) / f"{_safe_filename(novel_name)}_Complete_Novel.odt"
+    target = (
+        _compiled_directory(novel_path)
+        / f"{_safe_filename(novel_name)}_Complete_Novel.odt"
+    )
     return save_document(target, content)
