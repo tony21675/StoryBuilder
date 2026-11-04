@@ -285,3 +285,37 @@ Date: November 4, 2026
 - Use it only when the author has specific steering for the next scene, such as a required event, character focus, interaction, or outcome. Keep instructions brief and let Prepare Scene combine them with continuity.
 - When the author has no preference, leave the box empty. Gemma should then choose the next scene from the existing story context and general creative guidance. Do not prompt the author to fill it in every time or treat blank as a missing input.
 - The field is temporary and clears after successful preparation, so one scene's steering does not carry into the next scene.
+
+## End-of-session checkpoint: Chapter 2 downtime sequence and Author's Direction test (November 4, 2026)
+
+### Resume point and scene progress
+
+- Immediately before this session, the author had confirmed that **Chapter 2, Scene 6** was saved. Elena's report deadline was corrected to **the end of the following day shift**, not 0300, because the central crew are the day crew and would be asleep at 0300.
+- The author then showed the Prepare Scene direction intended for the next scene: Daniel integrates the raw Delta-Seven scrubber data; Ryan discusses current stability parameters with Priya; Morgan briefly asks Daniel about a geological reading; Priya completes her initial monitoring summary.
+- The phrase about metrics being within acceptable deviation ranges was potentially ambiguous. The author used the new **Author's Direction** field to clarify that Priya's summary covers **personnel health / monitoring only**. It must not suggest that the whole life-support system, scrubber performance, or CO₂ levels are within acceptable limits. Delta-Seven remains failed and CO₂ remains a concern.
+- A subsequent prepared direction began from Priya having completed that personnel-monitoring summary and moved the crew into ordinary late-afternoon downtime. This is consistent with the intended continuity, but the author did not paste the directly steered scene's full generated prose into the chat. Therefore, do not claim that the first Author's Direction test definitively proved the model followed the added instruction while leaving every other element unchanged. The test was attempted; a full fidelity assessment remains open.
+
+### Downtime and bottle-stacking sequence developed tonight
+
+- The next prepared scene shifted the group into casual social time in the Mess Hall / communal staging area rather than keeping every moment inside operational briefings. The shared prose included Daniel's dry commentary, Zoe noticing an amusing detail, Ryan's exaggerated storytelling, and Morgan suggesting a low-stakes bottle-balancing challenge.
+- The following prepared direction continued the bottle challenge: Morgan gathered standardized empty water bottles, Ryan enthusiastically arranged his stack, Zoe quietly assessed Daniel's technique, and Priya watched while making amused notes on her handheld slate.
+- The generated prose built through several rounds of bottle stacking. While Ryan was boasting about his stack, Morgan picked up a small piece of crumpled packing paper and landed it cleanly in the designated recycling bin without breaking stride. The prose ended on the satisfying impact of the paper hitting the bin.
+- The next prepared direction focused on the group's reaction. The generated follow-up showed Ryan stopping mid-boast and blinking, Daniel chuckling, Zoe acknowledging the throw with a small nod, and Priya looking up with a genuine smile. Morgan did not fish for praise; she casually returned to gathering bottles for her own stack.
+- **Most recent shared prose / continuity anchor:** the paper toss has landed; Ryan is briefly speechless, Daniel and Zoe appreciate the shot, Priya smiles, and Morgan simply gets back to collecting bottles. The final image is the rhythmic clinking of bottles replacing the brief hush.
+- The author was advised to save that final follow-up as written. However, the author did not explicitly confirm the save in chat, and no newer Chapter 2 scene files were visible in the remote novel repository during this handoff update. Treat the local save status and exact new section number as **unverified** until checked in Writer. Do not claim these later scenes have synced to GitHub.
+- This sequence is a useful example of allowing the story to breathe: low-stakes competition, casual interaction, and a small skillful moment can carry a scene without inventing a new crisis or forcing a major plot development. Do not over-review or rewrite it for minor differences from the planned endpoint.
+
+### Author's Direction: practical use learned tonight
+
+- The optional field is useful for **small, specific steering**, not just major plot events. For example, when a character seems stressed or has been working too long, the author may suggest that the next scene let them decompress with coffee, music, a video game, a warm shower, or another ordinary personal routine.
+- Keep these directions light: suggest the character moment or desired beat and allow Gemma to work it naturally into the next scene. Do not prescribe the entire scene or make the character's stress into a dramatic crisis unless the author intends that.
+- These examples are possible character actions, not new Story Bible rules or fixed routines. There is no need to use Author's Direction every time; leave it blank whenever the author is happy to let Gemma choose what happens next.
+- The field is temporary and applies to the next scene preparation only. It does not change saved scenes, canon, the Story Bible, or the overall premise.
+
+### Repository verification and next-session handling
+
+- During this handoff update, the remote novel repository `tony21675/The-Long-Way-Home`, branch `main`, was inspected. Its latest commit was `c4e9c34344ac66f94f11f60795897be84dbfb7c8` (2026-11-04 13:23:27 UTC), and the remote tree contained Chapter 2 Sections 1–6 only. No later Chapter 2 section files were present at the time of inspection.
+- That remote commit added Chapter 2 Sections 4–6. It therefore confirms the previous Scene 6 checkpoint is backed up remotely, but it does **not** verify tonight's newer downtime/bottle-challenge material. The author may have saved it locally after that sync; this was not independently checked.
+- At the next session, first check the Writer scene list / selected novel to establish whether tonight's latest follow-up was saved and what section number it received. If it is saved, continue directly from Morgan returning to collect bottles after the successful paper toss. If it is not saved, recover the draft from the Writer only as needed; do not reconstruct or rewrite accepted prose unnecessarily.
+- Novel-package sync and StoryBuilder application-code sync remain separate. Do not pull, reset, or overwrite local StoryBuilder changes as part of manuscript recovery.
+- The author successfully used the Author's Direction workflow during this session, so the field was available in the working Writer session. The exact local code revision and any new local test results were not independently verified here. The previous CI and local-test caveats in the app-status section remain in force unless later verified.
