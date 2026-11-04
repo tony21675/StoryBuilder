@@ -241,3 +241,12 @@ Date: November 4, 2026
 
 - If the story develops in this direction, several measures could work together: progressively investigate and respond to scrubber failures; isolate sections that cannot be safely supported; consolidate remaining occupants in functioning areas; transfer around 30 people to the distant Mars base if transport and receiving capacity allow; use hydroponics as a limited CO₂/oxygen buffer; and keep the original outpost operating until the inbound ship can deliver useful replacement equipment.
 - Keep the engineering, staffing, transport, and timing details open until needed. The author has not fixed a failure count, evacuation date, base distance, ship arrival date, specific crew assignments, or final repair solution. Do not turn these brainstorming notes into mandatory events or add them to Story Bible Canon Rules without the author's later decision.
+
+
+### Possible national ownership / international coordination (November 4, 2026)
+
+- The author has clarified that the **original Mars outpost is US-owned / US-operated**. Elena is its overall commander, and the secure advisory in Chapter 2 is intended for the US Mission Control organization. The exact agency naming and institutional details can be settled later; do not invent a specific real-world organizational structure unnecessarily.
+- A second, distant Mars outpost is being considered as **Japanese-operated**. This is a promising option, but the host country/operator is not yet a final locked decision.
+- If the second base is Japanese-operated, treat it as an independent facility with its own commander, personnel, procedures, and life-support constraints. Emergency assistance and any transfer of approximately 30 people would require coordination and agreement between the two outpost commands; Elena cannot unilaterally assign people to the other country's facility.
+- This adds a potential international-cooperation dimension to the survival arc. Keep the operational details realistic and respectful; do not rely on national stereotypes or assume the Japanese base automatically has spare capacity. Its ability to accept evacuees, transport arrangements, communications, and resource limits remain undecided.
+- These are story-planning notes, not a new Story Bible Canon Rule. The current US ownership is an author clarification; the Japanese second base remains a candidate to revisit.
