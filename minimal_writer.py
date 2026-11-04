@@ -24,6 +24,10 @@ from builder.scene_preparation import (
     scene_number_from_label,
 )
 from builder.odt_document import markdown_to_rich_text, read_document, save_document
+from builder.manuscript_assembly import (
+    assemble_chapter as assemble_chapter_document,
+    assemble_finished_novel as assemble_finished_novel_document,
+)
 from builder.novel_browser import list_novel_packages, list_scene_chapters, list_scene_files
 from builder.prose_health import analyze_draft, format_draft_health_report
 from builder.novel_git_sync import (
@@ -436,6 +440,25 @@ class MinimalWriterApp:
             novel_row, text="Load Scene Copy", command=self.load_selected_scene_copy
         )
         self.load_scene_button.pack(side="left")
+
+        assembly_row = ttk.Frame(outer)
+        assembly_row.pack(fill="x", pady=(0, 8))
+        self.assemble_chapter_button = ttk.Button(
+            assembly_row,
+            text="Assemble Chapter",
+            command=self.assemble_current_chapter,
+        )
+        self.assemble_chapter_button.pack(side="left")
+        self.assemble_novel_button = ttk.Button(
+            assembly_row,
+            text="Assemble Finished Novel",
+            command=self.assemble_finished_novel,
+        )
+        self.assemble_novel_button.pack(side="left", padx=(8, 0))
+        ttk.Label(
+            assembly_row,
+            text="Creates ODT copies from saved scenes; unsaved editor text is not included.",
+        ).pack(side="left", padx=(10, 0))
 
         sync_row = ttk.Frame(outer)
         sync_row.pack(fill="x", pady=(0, 10))
@@ -1092,6 +1115,73 @@ class MinimalWriterApp:
             f"Loaded scene copy from {source}. The original is untouched; Save opens Save As."
         )
         self._update_controls()
+
+    def assemble_current_chapter(self) -> None:
+        """Create an ODT copy of the selected chapter's saved scenes."""
+        if self.busy:
+            return
+
+        novel_name = self.novel_var.get().strip()
+        novel_path = self.novel_packages.get(novel_name)
+        chapter_number = self.chapter_numbers.get(self.chapter_var.get().strip())
+        if novel_path is None or chapter_number is None:
+            self._showinfo(
+                "Choose a chapter",
+                "Select a novel and chapter before assembling a chapter document.",
+            )
+            return
+
+        try:
+            target = assemble_chapter_document(novel_path, chapter_number)
+        except (OSError, UnicodeError, ValueError) as exc:
+            self.status_var.set("Chapter assembly failed.")
+            self._showerror("Could not assemble chapter", str(exc))
+            return
+
+        self.status_var.set(
+            f"Assembled Chapter {int(chapter_number):02d}: {target}"
+        )
+        self._showinfo(
+            "Chapter assembled",
+            f"Chapter {int(chapter_number):02d} was assembled from its saved scenes.\n\n"
+            f"ODT document:\n{target}\n\n"
+            "The original scene files were not changed.",
+        )
+
+    def assemble_finished_novel(self) -> None:
+        """Create one ODT copy containing every chapter with saved scenes."""
+        if self.busy:
+            return
+
+        novel_name = self.novel_var.get().strip()
+        novel_path = self.novel_packages.get(novel_name)
+        if novel_path is None:
+            self._showinfo(
+                "Choose a novel",
+                "Select a novel before assembling the finished manuscript.",
+            )
+            return
+
+        try:
+            story_bible = load_story_bible(novel_path)
+            title = str(story_bible.get("title") or novel_name).strip()
+        except (OSError, UnicodeError, ValueError):
+            title = novel_name.replace("-", " ").replace("_", " ").strip()
+
+        try:
+            target = assemble_finished_novel_document(novel_path, title)
+        except (OSError, UnicodeError, ValueError) as exc:
+            self.status_var.set("Finished novel assembly failed.")
+            self._showerror("Could not assemble finished novel", str(exc))
+            return
+
+        self.status_var.set(f"Assembled finished novel: {target}")
+        self._showinfo(
+            "Finished novel assembled",
+            f"{title} was assembled from all chapters with saved scenes.\n\n"
+            f"ODT document:\n{target}\n\n"
+            "The original scene files were not changed.",
+        )
 
     def sync_selected_novel_to_github(self) -> None:
         """Preview and explicitly confirm syncing only the selected novel repo."""
@@ -2055,6 +2145,31 @@ class MinimalWriterApp:
                     else "disabled"
                 )
             )
+            if hasattr(self, "assemble_chapter_button"):
+                selected_novel_path = self.novel_packages.get(
+                    self.novel_var.get().strip()
+                )
+                selected_chapter = self.chapter_numbers.get(
+                    self.chapter_var.get().strip()
+                )
+                has_chapter_scenes = bool(
+                    selected_novel_path is not None
+                    and selected_chapter is not None
+                    and list_scene_files(selected_novel_path, selected_chapter)
+                )
+                has_novel_scenes = bool(
+                    selected_novel_path is not None
+                    and any(
+                        list_scene_files(selected_novel_path, chapter_number)
+                        for chapter_number in self.chapter_numbers.values()
+                    )
+                )
+                self.assemble_chapter_button.configure(
+                    state="normal" if idle and has_chapter_scenes else "disabled"
+                )
+                self.assemble_novel_button.configure(
+                    state="normal" if idle and has_novel_scenes else "disabled"
+                )
         self.load_button.configure(state="normal" if idle else "disabled")
         if hasattr(self, "prepare_scene_button"):
             has_selected_novel = (
