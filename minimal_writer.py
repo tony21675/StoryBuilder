@@ -474,19 +474,6 @@ class MinimalWriterApp:
             text="Uploads only the selected novel repository, not StoryBuilder code.",
         ).pack(side="left", padx=(10, 0))
 
-        prompt_header = ttk.Frame(outer)
-        prompt_header.pack(fill="x")
-        ttk.Label(prompt_header, text="What should it write?").pack(side="left", anchor="w")
-        self.prepare_scene_button = ttk.Button(
-            prompt_header, text="Prepare Scene", command=self.prepare_scene
-        )
-        self.prepare_scene_button.pack(side="right")
-        self.prompt_box = ScrolledText(
-            outer, height=8, wrap="word", undo=True, font=("TkDefaultFont", 11)
-        )
-        self.prompt_box.pack(fill="both", expand=False, pady=(4, 12))
-        bind_ctrl_a_select_all(self.prompt_box)
-
         author_direction_header = ttk.Frame(outer)
         author_direction_header.pack(fill="x")
         ttk.Label(
@@ -501,6 +488,19 @@ class MinimalWriterApp:
         )
         self.author_direction_box.pack(fill="x", expand=False, pady=(4, 8))
         bind_ctrl_a_select_all(self.author_direction_box)
+
+        prompt_header = ttk.Frame(outer)
+        prompt_header.pack(fill="x")
+        ttk.Label(prompt_header, text="What should it write?").pack(side="left", anchor="w")
+        self.prepare_scene_button = ttk.Button(
+            prompt_header, text="Prepare Scene", command=self.prepare_scene
+        )
+        self.prepare_scene_button.pack(side="right")
+        self.prompt_box = ScrolledText(
+            outer, height=8, wrap="word", undo=True, font=("TkDefaultFont", 11)
+        )
+        self.prompt_box.pack(fill="both", expand=False, pady=(4, 12))
+        bind_ctrl_a_select_all(self.prompt_box)
 
         actions = ttk.Frame(outer)
         actions.pack(fill="x", pady=(0, 8))
