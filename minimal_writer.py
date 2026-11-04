@@ -350,6 +350,7 @@ class MinimalWriterApp:
         self.last_location_context_names: list[str] = []
         self._scene_preparation_destination = (1, 1)
         self._scene_preparation_original_prompt = ""
+        self._scene_preparation_original_author_direction = ""
         self._scene_preparation_novel_path: Path | None = None
         self._preparing_scene = False
         self.chapter_numbers: dict[str, int] = {}
@@ -485,6 +486,21 @@ class MinimalWriterApp:
         )
         self.prompt_box.pack(fill="both", expand=False, pady=(4, 12))
         bind_ctrl_a_select_all(self.prompt_box)
+
+        author_direction_header = ttk.Frame(outer)
+        author_direction_header.pack(fill="x")
+        ttk.Label(
+            author_direction_header, text="Author's direction (optional)"
+        ).pack(side="left", anchor="w")
+        ttk.Label(
+            author_direction_header,
+            text="Leave blank to let Gemma choose what happens next.",
+        ).pack(side="left", padx=(8, 0))
+        self.author_direction_box = ScrolledText(
+            outer, height=3, wrap="word", undo=True, font=("TkDefaultFont", 10)
+        )
+        self.author_direction_box.pack(fill="x", expand=False, pady=(4, 8))
+        bind_ctrl_a_select_all(self.author_direction_box)
 
         actions = ttk.Frame(outer)
         actions.pack(fill="x", pady=(0, 8))
@@ -1325,6 +1341,9 @@ class MinimalWriterApp:
                 target_chapter,
                 target_scene,
                 source_scene_path=source_scene,
+                author_direction=self.author_direction_box.get(
+                    "1.0", "end-1c"
+                ).strip(),
             )
         except (OSError, UnicodeError, ValueError) as exc:
             self._showerror("Could not prepare scene", str(exc))
@@ -1347,6 +1366,9 @@ class MinimalWriterApp:
         self._scene_preparation_destination = (target_chapter, target_scene)
         self._scene_preparation_novel_path = novel_path
         self._scene_preparation_original_prompt = existing_prompt
+        self._scene_preparation_original_author_direction = (
+            self.author_direction_box.get("1.0", "end-1c").strip()
+        )
         self._preparing_scene = True
         self.busy = True
         self.writing = True
@@ -1392,14 +1414,23 @@ class MinimalWriterApp:
             return
         current_prompt = self.prompt_box.get("1.0", "end-1c")
         original_prompt = getattr(self, "_scene_preparation_original_prompt", "")
-        if current_prompt != original_prompt:
+        current_author_direction = self.author_direction_box.get(
+            "1.0", "end-1c"
+        ).strip()
+        original_author_direction = getattr(
+            self, "_scene_preparation_original_author_direction", ""
+        )
+        if (
+            current_prompt != original_prompt
+            or current_author_direction != original_author_direction
+        ):
             self._preparing_scene = False
             self.busy = False
             self.writing = False
             self.stop_requested = False
             self.status_var.set(
-                "The prompt was edited while Scene Preparation was running. "
-                "Your edits were kept; prepare again if you still need a suggestion."
+                "The prompt or author's direction was edited while Scene Preparation "
+                "was running. Your edits were kept; prepare again if you still need a suggestion."
             )
             self._update_controls()
             return
@@ -1418,6 +1449,7 @@ class MinimalWriterApp:
 
         self.prompt_box.delete("1.0", "end")
         self.prompt_box.insert("1.0", suggestion.strip())
+        self.author_direction_box.delete("1.0", "end")
         chapter_number, scene_number = self._scene_preparation_destination
         self._select_scene_destination(
             chapter_number, scene_number, self._scene_preparation_novel_path
