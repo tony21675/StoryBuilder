@@ -192,3 +192,52 @@ Date: November 4, 2026
 - Initial GitHub Actions run at `3448da80584cad3d2f7dfaafb573a183b34ab6ea`: compile step passed; all nine new assembly tests passed. The full test suite then failed on two stale assertions expecting earlier Prepare Scene wording, plus the known unrelated Tkinter test-harness error in `test_blank_name_does_not_save_or_close_the_editor` (fake root has no `.tk`).
 - Updated only those two stale assertions to match current approved prompt wording: `d165602ba6fd558eb6eef770a3becfc97dfe862f` and `04ef9ae35b8a2f2d5809d5161e74372006987d82`. GitHub Actions on `04ef9ae35b8a2f2d5809d5161e74372006987d82` then completed: compile step passed; pytest reports **642 passed, 1 failed, 77 subtests passed**; unittest reports **643 tests with one error**. Both workflows identify the same single unrelated known Tkinter harness issue in `test_blank_name_does_not_save_or_close_the_editor` (`messagebox.showerror` receives a fake root with no `.tk`). The two stale Prepare Scene assertions now pass, and the new assembly tests pass. Do not claim the full suite is green. The Tkinter harness failure remains untouched.
 - The new assembly feature has **not** been pulled or tested on the author's laptop. Follow the established local pre-pull and post-pull `python3 -m pytest -q` gate before relying on it locally.
+
+
+## Future story-planning board: Mars outpost survival arc (November 4, 2026)
+
+**Status: brainstorming only. These are possibilities to revisit as the story progresses, not new Story Bible Canon Rules, fixed plot commitments, or a predetermined sequence. Keep the author's options open and decide details only when the manuscript reaches them.**
+
+### Current manuscript point
+
+- Chapter 1 ends with **Scene 15**, which the author saved. Delta-Seven is the first confirmed CO₂ scrubber failure. The remaining scrubbers are still operating, but they are not fully compensating for the lost capacity and CO₂ continues to rise. No other scrubber has yet been confirmed failed, and the cause remains unknown.
+- The author has moved to **Chapter 2, Scene 1**. Its current direction follows Daniel and Ryan as they coordinate a professional response with higher-level life-support personnel and send a secure advisory package toward Mission Control. At the time of this handoff update, the generated prose has not yet been reviewed or confirmed saved.
+- The outpost Computer AI has been added as one continuous Canon Rule in the local Story Bible: facility-wide voice/tablet/workstation access; crew address it as "Computer"; consistent feminine voice, calm conversational manner, recognizes crew members, understands context and follow-ups, monitors systems and assists with information/diagnostics, with human authorization for critical changes. Scenes 1–14 were not rewritten.
+- **Novel sync is still outstanding.** The last attempted sync stopped at `git pull --ff-only origin main` with SSH `Permission denied (publickey)`; it reported that local changes were restored and that no commit or push was attempted. The Story Bible AI rule and manuscript changes remain local. The earlier sync review listed `story_bible.json` and Chapter 1 scene files 11–14; Scene 15 was saved afterward and should also be checked in the next sync review. Do not reset, hard-pull, discard, or overwrite these local changes.
+
+### Possible progressive scrubber failure
+
+- Keep the first failure as already written: Delta-Seven loses CO₂ removal efficiency, the Computer reports the trend, and Daniel and Ryan confirm that CO₂ is rising even though the other units remain active.
+- A possible later escalation is that **another scrubber begins to fail**, followed perhaps by further losses over time. The failures need not happen all at once. A progressive sequence gives the crew time to investigate, attempt repairs, adjust operations, and discover whether the problem is isolated or broader.
+- Do not decide now how many units fail, how far apart the failures occur, whether they share a cause, or what ultimately fixes them. Avoid making every new failure a predictable beat; let the evidence and the crew's actions shape the sequence.
+
+### Possible outpost compartmentalization
+
+- If some parts of the facility can no longer be reliably supported, the crew may eventually isolate affected sections and move occupants into sectors whose environmental systems remain functional.
+- This could involve sealing doors or bulkheads, controlling ventilation between zones, reducing the volume of occupied space, and concentrating functioning life-support capacity where people are sheltering.
+- The facility's exact environmental-zone layout, isolation capabilities, and practical limits have not been designed yet. Do not assume every corridor or room can be independently sealed until the setting supports it.
+
+### Possible second Mars base and evacuation
+
+- A second human outpost on Mars, located a considerable distance away, is one possible part of the wider setting. It could provide technical assistance and potentially receive evacuees, but its exact location, distance, transport links, spare capacity, and own resource limits are all undecided.
+- One possible emergency measure is transferring **about 30 of the original outpost's roughly 50 occupants** to the other base, leaving approximately 20 at the original facility. With a comparable mix of people and activity, reducing the population from 50 to 20 would reduce the crew's CO₂ production by roughly 60 percent. That does not instantly remove CO₂ already accumulated in the atmosphere, and the actual benefit depends on who remains, activity levels, occupied volume, ventilation, and the condition of the remaining scrubbers.
+- The receiving base would need sufficient habitable space, air and water capacity, food, medical support, and staffing to take the additional people. The transport method and number of trips remain open questions; do not treat the transfer as simple or immediate.
+- The author has established for this planning concept that **the six central characters are heads of their respective departments**, with Elena also serving as overall outpost commander. The six would have to help decide which personnel are essential to keep the original outpost operating and who can transfer. Departmental recommendations should consider minimum staffing, specialist skills, life-support coverage, engineering, medical needs, communications, and the needs of both locations; Elena remains responsible for overall command and coordination.
+- This creates potential character and leadership pressure: the six must make difficult personnel-allocation decisions, may disagree about staffing priorities, and may have to weigh volunteers or competing operational needs. These are possible dramatic beats, not predetermined conflicts. The choice is an operational survival decision, not a judgment about whose life matters more.
+
+### Hydroponics as a limited buffer
+
+- The hydroponics bay may buy additional time as a **supplemental biological buffer**, provided the plants are healthy and have adequate lighting, airflow, and operating conditions for net photosynthesis.
+- Plants can absorb some CO₂ and release oxygen while photosynthesis exceeds respiration, but the bay is not a miracle cure and cannot replace mechanical CO₂ removal for the outpost indefinitely. Its contribution should be treated as limited and dependent on the actual growing area and conditions.
+- The potential value is cumulative: fewer people at the original outpost lower CO₂ production, hydroponics may absorb a portion of the remaining CO₂, and functioning scrubbers continue doing the primary removal work. These measures can buy time; none guarantees safety by itself.
+
+### Inbound supply ship and outside help
+
+- Another possible story element is a cargo/supply ship already traveling from Earth to Mars when the crisis develops, perhaps around halfway between the planets. It could carry replacement components, consumables, and other supplies that may help restore the outpost.
+- The ship's actual cargo manifest, compatibility of parts, remaining travel time, ability to alter its mission, and whether its crew can provide useful technical assistance are not decided. Mission Control may be able to check the manifest and coordinate with the ship, but Mars-Earth communication delay means no instant real-time rescue or conversation.
+- This creates a possible survival objective: keep the original outpost viable long enough for the ship to arrive and for the needed equipment to be transferred and installed. The ship is a potential lifeline, not a guaranteed solution.
+
+### Possible combined survival strategy
+
+- If the story develops in this direction, several measures could work together: progressively investigate and respond to scrubber failures; isolate sections that cannot be safely supported; consolidate remaining occupants in functioning areas; transfer around 30 people to the distant Mars base if transport and receiving capacity allow; use hydroponics as a limited CO₂/oxygen buffer; and keep the original outpost operating until the inbound ship can deliver useful replacement equipment.
+- Keep the engineering, staffing, transport, and timing details open until needed. The author has not fixed a failure count, evacuation date, base distance, ship arrival date, specific crew assignments, or final repair solution. Do not turn these brainstorming notes into mandatory events or add them to Story Bible Canon Rules without the author's later decision.
