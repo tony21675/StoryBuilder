@@ -25,6 +25,7 @@ class StoryCraftPromptTests(unittest.TestCase):
         )
         self.assertIn(
             "not the characters' physical surroundings or current activity",
+            prompt,
         )
         self.assertIn(
             "or act on information when the story gives them a reason",
