@@ -168,3 +168,11 @@ Date: November 4, 2026
 - The crew are a close team living in a confined environment. Shared facilities and ordinary proximity can be depicted naturally without manufacturing embarrassment or conflict. Scene 11's shared shower sequence was discussed; the author does not consider the overlapping use a continuity or comfort problem, and the exact shower order does not need correcting.
 - Scene 11's morning work assignments (including Morgan's geological investigation and Daniel/Ryan's equipment checks) were considered plausible ordinary work. The author does not want ordinary work or discovery stripped from the story merely to avoid foreshadowing. Scene 11 was reviewed but the author has not explicitly confirmed its final save/acceptance status.
 
+
+
+### Disaster concept under consideration: CO₂ scrubbers and hydroponics
+
+- The author is considering failure of the outpost's **CO₂ scrubbers** as the major life-support disaster. This is a working story direction, not yet confirmed as a new Story Bible Canon Rule. The exact failure mechanism, sequence, affected equipment, and repair solution remain undecided.
+- The hydroponics bay can provide a **limited secondary buffer**, not a miracle cure. Healthy plants under adequate lighting and airflow can absorb some CO₂ and release oxygen through net photosynthesis, buying the crew time. The growing area cannot replace full-capacity mechanical CO₂ removal for approximately 50 people indefinitely.
+- The dramatic role of the hydroponics bay is to give the crew additional time to investigate, coordinate, and restore proper scrubbing. It should not resolve the emergency by itself or make the mechanical scrubbers expendable.
+- Do not add detailed failure mechanics, warning signs, or advance foreshadowing to early scenes. The author will decide when the disaster enters the story and how much technical detail to establish.
