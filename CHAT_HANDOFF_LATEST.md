@@ -429,4 +429,7 @@ Date: November 4, 2026
 - They may be used briefly and generically for direct movement between approved rooms/locations. They are **not** to become scene destinations or places where characters gather, work, hold meetings, or conduct sustained activity.
 - Updated the shared location allowlist instruction for both Prepare Scene and prose generation to include this narrow transit exception. All actual rooms/areas and scene destinations still need their own Story Bible entries.
 - Added regression assertions for this distinction, including the no-approved-locations case.
-- A new CI run is pending; the previous laptop installation checkpoint remains accurate for the prior version, but this clarification update still needs to be pulled and tested separately.
+- GitHub Actions verification on the clarified prompt:
+  - Python pytest: **657 passed, 1 failed, 77 subtests passed**. The only failure is the same pre-existing Tkinter harness test `test_blank_name_does_not_save_or_close_the_editor`, where the fake root lacks `.tk`. All hallway/corridor exception tests passed. Run: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/41992110894).
+  - StoryBuilder compile/unit workflow: `compileall` passed; 658 unit tests ran with the same one known Tkinter harness error. No location-rule test failed. Run: [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/41992113538).
+- The previous laptop installation checkpoint remains accurate for the prior version; this hallway/corridor clarification still needs to be pulled and tested separately.
