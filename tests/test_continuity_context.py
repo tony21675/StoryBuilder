@@ -42,7 +42,7 @@ class ContinuityContextTests(unittest.TestCase):
         self.assertEqual(names, [])
         self.assertIn("NO APPROVED LOCATIONS ARE REGISTERED", prompt)
         self.assertIn("Do not invent, name, infer, or move", prompt)
-        self.assertIn("Hallways and corridors may be used only as brief connective passageways", prompt)
+        self.assertIn("Ordinary, unnamed hallways and corridors may be used only as brief connecting passageways", prompt)
         self.assertIn("not as destinations or places to gather", prompt)
 
     def test_active_view_prunes_incidental_drink_but_preserves_durable_facts(self):
