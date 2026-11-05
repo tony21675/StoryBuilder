@@ -108,6 +108,39 @@ class ClearContextTests(unittest.TestCase):
         self.assertIsNone(engine.child)
 
 
+class PromptTraceAttachmentTests(unittest.TestCase):
+    def test_attaching_trace_records_the_already_running_cli_session(self):
+        class FakeChild:
+            def isalive(self):
+                return True
+
+        class FakeTrace:
+            def __init__(self):
+                self.sessions = []
+
+            def record_session(self, **details):
+                self.sessions.append(details)
+
+        engine = WriterEngine()
+        engine.child = FakeChild()
+        engine.model_path = Path("/models/example.gguf")
+        engine.system_prompt = ""
+        trace = FakeTrace()
+
+        engine.attach_prompt_trace(trace)
+
+        self.assertIs(engine.prompt_trace, trace)
+        self.assertEqual(len(trace.sessions), 1)
+        session = trace.sessions[0]
+        self.assertEqual(session["model_path"], Path("/models/example.gguf"))
+        self.assertEqual(session["system_prompt"], "")
+        self.assertEqual(session["context_size"], 16384)
+        self.assertEqual(session["max_tokens"], 3000)
+        self.assertEqual(session["runtime_options"]["reasoning"], "off")
+
+        engine.detach_prompt_trace(trace)
+        self.assertIsNone(engine.prompt_trace)
+
 class PromptEncodingTests(unittest.TestCase):
     def test_preserves_real_line_breaks_and_literal_backslash_sequences(self):
         prompt = "First paragraph.\n\nLiteral sequence: \\n\nPath: C:\\models"
