@@ -5,6 +5,7 @@ import re
 from pathlib import Path
 from typing import Any
 
+from builder.continuity_context import build_location_allowlist_prompt
 from builder.odt_document import read_document
 from builder.story_bible_reader import load_story_bible
 from builder.canon_rules import build_canon_rules_prompt
@@ -133,6 +134,10 @@ def build_scene_preparation_prompt(
         sections.append(f"Premise: {premise}")
     if setting:
         sections.append(f"Setting: {setting}")
+    location_allowlist, _location_names = build_location_allowlist_prompt(
+        story_bible.get("locations", {})
+    )
+    sections.append(location_allowlist)
     canon_rules_note = build_canon_rules_prompt(story_bible.get("canon_rules"))
     if canon_rules_note:
         sections.append(canon_rules_note)

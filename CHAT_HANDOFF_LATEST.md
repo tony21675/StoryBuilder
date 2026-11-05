@@ -381,3 +381,27 @@ Date: November 4, 2026
 - Post-pull `git status --short --branch` showed the local branch aligned with `origin/redesign/simplified-writing-workflow`, with only the original `M storybuilder.py` mode change still present. The local change was preserved; no reset, stash, or discard was used.
 - Post-pull full local pytest: **653 passed, 1 failed, 77 subtests passed**. The sole failure is again `test_blank_name_does_not_save_or_close_the_editor`, where the test's fake Tk root has no `.tk` attribute when `messagebox.showerror` is called. The Rewrite Scene tests are included among the passing tests.
 - **Status:** Rewrite Scene code and its regression tests are now pulled onto the author's laptop. The known Tkinter harness failure remains unrelated and unchanged. The original executable-permission modification to `storybuilder.py` remains local and must not be discarded automatically.
+
+
+## Story Bible location allowlist for scene planning and writing (November 5, 2026)
+
+### Author-approved behavior
+
+- The author approved a generic location allowlist sourced from each novel's own Story Bible. It must not contain novel-specific names or hard-coded assumptions.
+- **A location name alone is sufficient.** For example, a Story Bible entry named `Supply Closet` is a fully approved location even when its description, type, geography, climate, and notable details are all blank.
+- The author is comfortable adding more location entries over time. Separate rooms/areas need their own entries; listing a larger facility does not automatically authorize the rooms inside it.
+- The intent is to prevent the model from inventing rooms, lounges, offices, corridors, work areas, buildings, facilities, or other places that are not registered in the selected novel's Story Bible.
+
+### Implementation
+
+- Added a shared helper in `builder/continuity_context.py` to return usable saved location names and build a name-only allowlist instruction.
+- **Prepare Scene** now receives the complete list of names from the selected novel's Story Bible on every scene-planning request. The instruction treats it as the complete approved list and tells the model not to invent, rename, infer, or subdivide locations. A name-only entry counts as valid without any descriptive details.
+- The actual Writer prompt used for Write, Rewrite Scene, and Continue also receives the complete allowlist. Descriptive location details remain selective: they are attached only when the corresponding saved location is explicitly named in the scene prompt/supporting text.
+- If no locations are registered, the prompt explicitly says not to invent a place and to leave a needed new location unspecified for the author to add.
+- This change is generic across novels. It does not add, change, or populate any Story Bible locations and does not modify manuscript scenes or saved canon.
+
+### Tests
+
+- Added tests for name-only location entries, ignored unsupported/blank entries, an empty location list, inclusion of all names in Prepare Scene, and inclusion of the same allowlist in actual Writer prompts while keeping detailed references selective.
+- GitHub Actions verification is pending for the new commit. The previously documented single Tkinter test-harness failure remains a known unrelated issue unless a new run shows otherwise.
+

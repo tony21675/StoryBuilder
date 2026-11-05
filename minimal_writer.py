@@ -10,7 +10,10 @@ from tkinter.scrolledtext import ScrolledText
 from builder.appearance import apply_application_appearance
 from builder.writer_engine import GenerationInterrupted, WriterEngine
 from builder.workspace import MODELS_DIR, NOVEL_ROOT
-from builder.continuity_context import select_relevant_locations
+from builder.continuity_context import (
+    build_location_allowlist_prompt,
+    select_relevant_locations,
+)
 from builder.character_context import build_character_card_context_prompt
 from builder.story_bible_reader import load_story_bible
 from builder.creative_direction import build_creative_direction_prompt
@@ -224,39 +227,43 @@ def build_location_context_prompt(
     locations: dict,
     supporting_text: str = "",
 ) -> tuple[str, list[str]]:
-    """Append only saved locations whose complete names appear in scene text."""
+    """Add the complete saved-location allowlist plus details for named locations."""
     query = "\n".join(
         part for part in (str(prompt or ""), str(supporting_text or "")) if part
     )
     selected = select_relevant_locations(locations, "", query)
-    if not selected:
-        return str(prompt or ""), []
+    allowlist, _available_names = build_location_allowlist_prompt(locations)
+    context_parts = [allowlist]
 
-    lines = [
-        "SAVED LOCATION REFERENCES FOR THIS SCENE",
-        "Use these details only for the places named below. Keep each place's details separate.",
-    ]
-    for name, details in selected.items():
-        lines.append(f"\n[{name}]")
-        if isinstance(details, str):
-            if details.strip():
-                lines.append(f"Description: {details.strip()}")
-            continue
-
-        for key, value in details.items():
-            if value is None or value == "":
+    if selected:
+        lines = [
+            "SAVED LOCATION REFERENCES FOR THIS SCENE",
+            "Use these details only for the places named below. Keep each place's details separate.",
+        ]
+        for name, details in selected.items():
+            lines.append(f"\n[{name}]")
+            if isinstance(details, str):
+                if details.strip():
+                    lines.append(f"Description: {details.strip()}")
                 continue
-            label = str(key).replace("_", " ").strip().capitalize()
-            if isinstance(value, (dict, list)):
-                rendered = json.dumps(value, ensure_ascii=False, indent=2)
-                lines.append(f"{label}:\n" + "\n".join(
-                    f"  {line}" for line in rendered.splitlines()
-                ))
-            else:
-                lines.append(f"{label}: {value}")
 
-    context = "\n".join(lines)
-    return f"{str(prompt or '').rstrip()}\n\n{context}", list(selected)
+            for key, value in details.items():
+                if value is None or value == "":
+                    continue
+                label = str(key).replace("_", " ").strip().capitalize()
+                if isinstance(value, (dict, list)):
+                    rendered = json.dumps(value, ensure_ascii=False, indent=2)
+                    lines.append(f"{label}:\n" + "\n".join(
+                        f"  {line}" for line in rendered.splitlines()
+                    ))
+                else:
+                    lines.append(f"{label}: {value}")
+        context_parts.append("\n".join(lines))
+
+    context = "\n\n".join(part for part in context_parts if part)
+    base_prompt = str(prompt or "").rstrip()
+    enriched = f"{base_prompt}\n\n{context}" if base_prompt else context
+    return enriched, list(selected)
 
 
 def build_revision_prompt(selected_text: str, instruction: str) -> str:

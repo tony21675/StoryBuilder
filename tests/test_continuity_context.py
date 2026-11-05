@@ -4,15 +4,43 @@ from pathlib import Path
 
 import storybuilder as storybuilder_app
 from builder.continuity_context import (
+    build_location_allowlist_prompt,
     build_scene_relevance_query,
     estimate_tokens_from_chars,
     is_low_value_detail,
+    saved_location_names,
     select_active_character_knowledge,
 )
 from builder.manuscript import ManuscriptManager
 
 
 class ContinuityContextTests(unittest.TestCase):
+    def test_story_bible_location_allowlist_accepts_name_only_entries(self):
+        locations = {
+            "Supply Closet": {},
+            "Main Galley": {"type": "room", "description": "Shared meal preparation area."},
+            "Not A Location": None,
+            "   ": {},
+        }
+
+        prompt, names = build_location_allowlist_prompt(locations)
+
+        self.assertEqual(names, ["Supply Closet", "Main Galley"])
+        self.assertEqual(saved_location_names(locations), names)
+        self.assertIn("- Supply Closet", prompt)
+        self.assertIn("- Main Galley", prompt)
+        self.assertIn("COMPLETE ALLOWLIST", prompt)
+        self.assertIn("Do not invent, rename, infer, or subdivide", prompt)
+        self.assertNotIn("Shared meal preparation area", prompt)
+        self.assertNotIn("Not A Location", prompt)
+
+    def test_empty_story_bible_location_list_explicitly_forbids_invented_places(self):
+        prompt, names = build_location_allowlist_prompt({})
+
+        self.assertEqual(names, [])
+        self.assertIn("NO APPROVED LOCATIONS ARE REGISTERED", prompt)
+        self.assertIn("Do not invent, name, infer, or move", prompt)
+
     def test_active_view_prunes_incidental_drink_but_preserves_durable_facts(self):
         ledger = {
             "Tony": [

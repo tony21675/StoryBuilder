@@ -124,6 +124,28 @@ class ScenePreparationPromptTests(unittest.TestCase):
             self.assertFalse((root / "Manuscript").exists())
             self.assertFalse((root / "current_state.json").exists())
 
+    def test_scene_preparation_includes_every_saved_location_name(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "Novel with Locations"
+            self.make_novel(root)
+            bible_path = root / "story_bible.json"
+            bible = json.loads(bible_path.read_text(encoding="utf-8"))
+            bible["locations"] = {
+                "Supply Closet": {},
+                "Recreation Room": {"type": "room", "description": "A simple recreation space."},
+            }
+            bible_path.write_text(json.dumps(bible), encoding="utf-8")
+
+            prompt = build_scene_preparation_prompt(
+                root, "Novel with Locations", 1, 1
+            )
+
+        self.assertIn("APPROVED LOCATIONS FROM THIS NOVEL'S STORY BIBLE", prompt)
+        self.assertIn("- Supply Closet", prompt)
+        self.assertIn("- Recreation Room", prompt)
+        self.assertIn("Do not invent, rename, infer, or subdivide", prompt)
+        self.assertNotIn("A simple recreation space.", prompt)
+
     def test_author_direction_is_included_as_priority_steering_when_provided(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp) / "Directed Novel"

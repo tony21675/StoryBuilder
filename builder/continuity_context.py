@@ -275,6 +275,61 @@ def select_relevant_locations(
 
     return selected
 
+
+def saved_location_names(locations: dict[str, Any]) -> list[str]:
+    """Return the ordered names of usable locations registered in the Story Bible."""
+    if not isinstance(locations, dict):
+        return []
+
+    names: list[str] = []
+    seen: set[str] = set()
+    for raw_name, details in locations.items():
+        name = str(raw_name or "").strip()
+        if not name or not isinstance(details, (str, dict)):
+            continue
+        normalized = " ".join(name.casefold().split())
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        names.append(name)
+    return names
+
+
+def build_location_allowlist_prompt(
+    locations: dict[str, Any],
+) -> tuple[str, list[str]]:
+    """Build a name-only allowlist so planning and prose use saved locations only."""
+    names = saved_location_names(locations)
+    if names:
+        location_names = "\n".join(f"- {name}" for name in names)
+        prompt = (
+            "APPROVED LOCATIONS FROM THIS NOVEL'S STORY BIBLE (COMPLETE ALLOWLIST)\n"
+            f"{location_names}\n\n"
+            "This is the complete list of physical locations available to this story. "
+            "Use only locations on this list. Do not invent, rename, infer, or subdivide "
+            "rooms, offices, corridors, work areas, buildings, facilities, landmarks, or "
+            "other places. An entry for a larger facility does not automatically make "
+            "its individual rooms or sub-areas available; each distinct place needs its "
+            "own Story Bible entry. A name-only entry is fully valid and available even "
+            "when it has no optional description. Do not invent visual or equipment "
+            "details for a name-only entry. Continue in the current location only when "
+            "that location is listed. If a requested or necessary location is missing, "
+            "do not substitute an invented place; flag the missing location for the "
+            "author to add to the Story Bible."
+        )
+    else:
+        prompt = (
+            "NO APPROVED LOCATIONS ARE REGISTERED IN THIS NOVEL'S STORY BIBLE\n\n"
+            "Do not invent, name, infer, or move the scene into a room, office, corridor, "
+            "work area, building, facility, landmark, or other place. Do not treat a "
+            "larger setting as permission to invent its individual rooms. Keep the "
+            "location unspecified unless an already-established location is added to "
+            "the Story Bible. If the scene needs a physical location, flag that missing "
+            "location for the author to add before writing."
+        )
+    return prompt, names
+
+
 def build_historical_relevance_query(
     direction: str,
     scene_idea: str = "",

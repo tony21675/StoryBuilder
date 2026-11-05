@@ -9,6 +9,7 @@ from minimal_writer import (
     CONTINUE_PROMPT,
     MinimalWriterApp,
     build_continue_prompt,
+    build_location_context_prompt,
     build_revision_prompt,
     build_rewrite_scene_prompt,
     continuation_prefix,
@@ -300,6 +301,28 @@ class MinimalWriterTests(unittest.TestCase):
         self.assertIn("\n\nSTORY OPENING AND PACING", prompt)
         self.assertIn("not a fixed scene count", prompt.lower())
         self.assertIn("artificially delay an urgent conflict", prompt.lower())
+
+    def test_writer_prompt_has_complete_location_allowlist_and_named_details(self):
+        locations = {
+            "Supply Closet": {},
+            "Main Galley": {
+                "type": "room",
+                "description": "A shared meal preparation area.",
+            },
+        }
+
+        prompt, referenced_names = build_location_context_prompt(
+            "Scene direction: The group gathers in the Main Galley.",
+            locations,
+        )
+
+        self.assertIn("APPROVED LOCATIONS FROM THIS NOVEL'S STORY BIBLE", prompt)
+        self.assertIn("- Supply Closet", prompt)
+        self.assertIn("- Main Galley", prompt)
+        self.assertIn("[Main Galley]", prompt)
+        self.assertIn("Description: A shared meal preparation area.", prompt)
+        self.assertNotIn("[Supply Closet]", prompt)
+        self.assertEqual(referenced_names, ["Main Galley"])
 
     def test_writer_context_uses_saved_current_scene_cast(self):
         with tempfile.TemporaryDirectory() as temporary:
