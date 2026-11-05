@@ -325,3 +325,48 @@ Date: November 4, 2026
 - The author has now confirmed that **Chapter 2, Scene 10 is the last saved scene locally**. This supersedes the earlier uncertainty in the end-of-session checkpoint about whether tonight's follow-up had been saved.
 - Resume with **Chapter 2, Scene 11**. The latest accepted scene ends after Morgan's successful paper toss: Ryan is briefly speechless, Daniel and Zoe appreciate the shot, Priya smiles, and Morgan casually returns to collecting empty bottles for her own stack.
 - This is a local save confirmation from the author. The remote novel repository was last inspected before this clarification and contained Chapter 2 Sections 1–6 only; no post-Scene-6 sync has been verified. Do not imply Scene 7–10 are backed up remotely until the novel repo is checked again after sync.
+
+## Minimal Writer: Rewrite Scene action (November 4, 2026)
+
+### Purpose and workflow
+
+- The author identified a workflow gap: when generated prose is too short or misses an important beat, pressing **Prepare Scene** is not the right way to ask for another attempt. Prepare Scene plans the next scene and advances its destination. It does not rewrite the current generated prose.
+- Added a separate **Rewrite Scene** button next to **Write** in Minimal Writer.
+- **Prepare Scene** remains the planning action for the next scene. **Write** creates the first prose draft from the existing scene prompt. **Rewrite Scene** creates a fresh replacement attempt for the same scene using the existing prompt plus any additional instruction in Author's Direction.
+- Rewrite Scene requires a loaded model, non-empty text in **What should it write?**, and an existing visible Output draft. It asks for confirmation before starting. The prompt shown in the scene prompt box remains unchanged.
+- The generation-only prompt is built from the original scene prompt plus an **ADDITIONAL AUTHOR'S DIRECTION FOR THIS REWRITE** section. The additional text is treated as a priority clarification for the same scene. Gemma is instructed to preserve the existing location, characters, intended events, and natural endpoint except where the new direction specifically refines them, and to return a complete replacement scene rather than planning or advancing to another scene.
+- If Author's Direction is blank, Rewrite Scene still makes a fresh attempt from the existing scene prompt alone.
+- Rewrite Scene does **not** change the selected chapter/scene, advance the scene number, modify the scene prompt box, or save/overwrite any manuscript file. The author remains in control of saving the replacement.
+- Safety behavior:
+  - Cancelling the confirmation leaves the existing draft and instructions untouched and sends nothing to the model.
+  - If generation fails, the existing draft is restored by the existing error-recovery path.
+  - If the author stops a rewrite, the previous draft is restored even if some replacement tokens had already streamed; a partial rewrite is not left in place.
+  - On successful rewrite, the new prose replaces the visible Output draft. Author's Direction is cleared only if it is unchanged from the instruction used to start the rewrite. Any newer edits made while generation was running are preserved.
+  - The original prompt in **What should it write?** is never consumed or replaced by this action.
+- The confirmation explicitly states that only the visible Output draft will be replaced and that saved manuscript files remain untouched.
+
+### Code and tests
+
+- `minimal_writer.py`:
+  - Added `build_rewrite_scene_prompt()` to combine the existing prompt and optional extra guidance without modifying the source prompt.
+  - Added the Rewrite Scene UI button and `rewrite_current_scene()` action.
+  - Added the rewrite mode status label, success-only instruction clearing, and stop behavior that restores the previous draft.
+  - The stop handler uses a safe default generation mode so existing test harnesses and legacy callers that do not set the mode retain their prior behavior.
+- `tests/test_minimal_writer.py` adds coverage for:
+  - appending the additional direction while preserving the original prompt;
+  - blank/whitespace-only guidance leaving the prompt unchanged;
+  - sending the current prompt plus Author's Direction under rewrite mode;
+  - cancelling without starting generation or altering the draft;
+  - successful replacement and clearing unchanged guidance;
+  - preserving guidance edited while generation is in progress;
+  - restoring the prior draft when a rewrite is stopped after partial output.
+- Relevant commits:
+  - `2fdea0807e3f84cafe59d581bf0382ac56c73069` — main Rewrite Scene implementation.
+  - `2cb7f6ad7f79e5ba527c5a5e24f662ebe253c0a8` — rewrite regression tests.
+  - `688b0e6f7b94bb29ec79c3fb741996a5cd15efbc` — fixes newline literals in tests.
+  - `dd1ea170ff9025feab48906948e78d3717819c10` — compatibility guard in the stopped-generation handler; latest application-code commit at this checkpoint.
+- **GitHub Actions verification on `dd1ea170ff9025feab48906948e78d3717819c10`:**
+  - Python pytest: **653 passed, 1 failed, 77 subtests passed**. The sole failure is the previously known unrelated Tkinter test harness issue, `test_blank_name_does_not_save_or_close_the_editor`, where the fake root is a plain object without the `.tk` attribute required by `messagebox.showerror`. All new Rewrite Scene tests passed.
+  - StoryBuilder compile/unit workflow: `compileall` passed; 654 unit tests ran, with the same single unrelated Tkinter harness error.
+  - Runs: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/41969292039) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/41969292041).
+- **Local laptop status:** This implementation was made on GitHub branch `redesign/simplified-writing-workflow`. The current local laptop revision was not inspected or changed during this task, and no local tests were run. Earlier handoff notes record an uncommitted local change to `storybuilder.py` and a failing pre-pull test run. Do not tell the author to hard-pull, reset, overwrite, or discard local work. Before using the new button locally, first inspect local `git status` and reconcile/preserve the existing local change, then use the agreed test gate. Do not claim the new button is already installed on the laptop until verified.
