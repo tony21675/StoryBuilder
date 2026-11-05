@@ -10,6 +10,7 @@ from minimal_writer import (
     MinimalWriterApp,
     build_continue_prompt,
     build_revision_prompt,
+    build_rewrite_scene_prompt,
     continuation_prefix,
     load_model_for_writing,
     read_text_document,
@@ -70,6 +71,9 @@ class FakePromptBox:
 
     def get(self, _start, _end):
         return self.text
+
+    def delete(self, _start, _end):
+        self.text = ""
 
 
 class FakeStyledOutputBox:
@@ -683,6 +687,148 @@ class MinimalWriterTests(unittest.TestCase):
 
         self.assertEqual(engine.generate_calls, [(prompt, None)])
         self.assertEqual(answer, "Generated text")
+
+    def test_rewrite_scene_prompt_adds_author_direction_without_mutating_original(self):
+        original = (
+            "Scene direction: Continue the conversation.\\n"
+            "Natural endpoint: Elena enters.\\n"
+            "Write natural manuscript prose only."
+        )
+        direction = "Let the characters talk for a little longer."
+        result = build_rewrite_scene_prompt(original, direction)
+
+        self.assertTrue(result.startswith(original))
+        self.assertIn("ADDITIONAL AUTHOR'S DIRECTION FOR THIS REWRITE", result)
+        self.assertIn(direction, result)
+        self.assertIn("same scene", result)
+        self.assertIn("complete replacement scene", result)
+        self.assertEqual(original.splitlines()[0], "Scene direction: Continue the conversation.")
+
+    def test_rewrite_scene_prompt_without_extra_direction_keeps_original_prompt(self):
+        original = "Scene direction: Continue naturally.\\nNatural endpoint: Elena enters."
+        self.assertEqual(build_rewrite_scene_prompt(original, ""), original)
+        self.assertEqual(build_rewrite_scene_prompt(original, "  \\n "), original)
+
+    def test_rewrite_action_sends_existing_prompt_with_author_direction(self):
+        app = MinimalWriterApp.__new__(MinimalWriterApp)
+        app.busy = False
+        app.loaded_model = Path("/models/example.gguf")
+        scene_prompt = "Scene direction: Let the group talk.\\nNatural endpoint: Elena arrives."
+        direction = "Give the conversation more room."
+        app.prompt_box = FakePromptBox(scene_prompt)
+        app.author_direction_box = FakePromptBox(direction)
+        app.output_box = FakeOutputBox("Too-short first attempt.")
+        app.status_var = FakeStatus()
+        app._askyesno = lambda _title, _message: True
+        app._prepare_location_context = lambda prompt: prompt
+        captured = {}
+        app._begin_generation = lambda prompt, mode: captured.update(
+            prompt=prompt, mode=mode
+        )
+
+        app.rewrite_current_scene()
+
+        self.assertEqual(captured["mode"], "rewrite")
+        self.assertTrue(captured["prompt"].startswith(scene_prompt))
+        self.assertIn(direction, captured["prompt"])
+        self.assertEqual(app.prompt_box.text, scene_prompt)
+        self.assertEqual(app.author_direction_box.text, direction)
+        self.assertEqual(app._rewrite_original_author_direction, direction)
+
+    def test_cancelled_rewrite_keeps_existing_draft_and_guidance(self):
+        app = MinimalWriterApp.__new__(MinimalWriterApp)
+        app.busy = False
+        app.loaded_model = Path("/models/example.gguf")
+        app.prompt_box = FakePromptBox("Scene direction: Same scene.")
+        app.author_direction_box = FakePromptBox("Add more dialogue.")
+        original = "Existing draft."
+        app.output_box = FakeOutputBox(original)
+        app.status_var = FakeStatus()
+        app._askyesno = lambda _title, _message: False
+        app._prepare_location_context = lambda prompt: self.fail(
+            "A cancelled rewrite must not prepare or send a prompt."
+        )
+        app._begin_generation = lambda *_args, **_kwargs: self.fail(
+            "A cancelled rewrite must not start generation."
+        )
+
+        app.rewrite_current_scene()
+
+        self.assertEqual(app._output_text(), original)
+        self.assertEqual(app.author_direction_box.text, "Add more dialogue.")
+        self.assertIn("cancelled", app.status_var.value.lower())
+
+    def test_rewrite_success_replaces_draft_and_clears_unchanged_guidance(self):
+        app = MinimalWriterApp.__new__(MinimalWriterApp)
+        app.root = FakeRoot()
+        app.output_box = FakeOutputBox("Old draft.")
+        app.current_file = None
+        app.saved_output_text = ""
+        app.author_direction_box = FakePromptBox("Add more dialogue.")
+        app._rewrite_original_author_direction = "Add more dialogue."
+        app._generation_mode = "rewrite"
+        app._generation_prefix = ""
+        app.busy = True
+        app.writing = True
+        app.stop_requested = False
+        app.loaded_model = Path("/models/example.gguf")
+        app.status_var = FakeStatus()
+        app._update_controls = lambda: None
+
+        app._write_succeeded("Replacement scene.")
+
+        self.assertEqual(app._output_text(), "Replacement scene.")
+        self.assertEqual(app.author_direction_box.text, "")
+        self.assertIn("rewriting", app.status_var.value.lower())
+
+    def test_rewrite_success_preserves_guidance_edited_during_generation(self):
+        app = MinimalWriterApp.__new__(MinimalWriterApp)
+        app.root = FakeRoot()
+        app.output_box = FakeOutputBox("Old draft.")
+        app.current_file = None
+        app.saved_output_text = ""
+        app.author_direction_box = FakePromptBox("A newer instruction.")
+        app._rewrite_original_author_direction = "Original instruction."
+        app._generation_mode = "rewrite"
+        app._generation_prefix = ""
+        app.busy = True
+        app.writing = True
+        app.stop_requested = False
+        app.loaded_model = Path("/models/example.gguf")
+        app.status_var = FakeStatus()
+        app._update_controls = lambda: None
+
+        app._write_succeeded("Replacement scene.")
+
+        self.assertEqual(app._output_text(), "Replacement scene.")
+        self.assertEqual(app.author_direction_box.text, "A newer instruction.")
+        self.assertIn("edits were kept", app.status_var.value.lower())
+
+    def test_stopped_rewrite_restores_previous_draft_even_after_partial_output(self):
+        app = MinimalWriterApp.__new__(MinimalWriterApp)
+        app.root = FakeRoot()
+        app.output_box = FakeOutputBox("Partial replacement.")
+        app.current_file = Path("/tmp/scene.txt")
+        app.saved_output_text = "Saved text before rewrite."
+        app._pre_generation_text = "Old visible draft."
+        app._pre_generation_file = app.current_file
+        app._pre_generation_saved_text = app.saved_output_text
+        app._generation_mode = "rewrite"
+        app.busy = True
+        app.writing = True
+        app.stop_requested = True
+        app._generation_had_chunks = True
+        app.loaded_model = Path("/models/example.gguf")
+        app.status_var = FakeStatus()
+        app._update_controls = lambda: None
+
+        app._write_stopped()
+
+        self.assertEqual(app._output_text(), "Old visible draft.")
+        self.assertEqual(app.current_file, Path("/tmp/scene.txt"))
+        self.assertEqual(app.saved_output_text, "Saved text before rewrite.")
+        self.assertIn("previous draft was restored", app.status_var.value.lower())
+        self.assertIsNone(app.loaded_model)
 
     def test_write_replaces_visible_prose_but_preserves_model_session_context(self):
         app = MinimalWriterApp.__new__(MinimalWriterApp)
