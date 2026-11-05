@@ -433,3 +433,35 @@ Date: November 4, 2026
   - Python pytest: **657 passed, 1 failed, 77 subtests passed**. The only failure is the same pre-existing Tkinter harness test `test_blank_name_does_not_save_or_close_the_editor`, where the fake root lacks `.tk`. All hallway/corridor exception tests passed. Run: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/41992110894).
   - StoryBuilder compile/unit workflow: `compileall` passed; 658 unit tests ran with the same one known Tkinter harness error. No location-rule test failed. Run: [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/41992113538).
 - The previous laptop installation checkpoint remains accurate for the prior version; this hallway/corridor clarification still needs to be pulled and tested separately.
+
+
+## Writer continuity context and one-scene prompt capture (November 5, 2026)
+
+### What was found
+
+- The author reported a sharp drop in scene-to-scene continuity while writing *The Long Way Home*, especially after the charades scene.
+- Code inspection at the laptop's previously installed revision confirmed that **Prepare Scene** included up to the last 6,000 characters of the previous saved scene when planning the next scene.
+- After planning, Prepare Scene intentionally clears the persistent llama.cpp conversation history. That behavior remains unchanged.
+- The actual prose **Write** and **Rewrite Scene** prompts did not include the preceding saved manuscript scene. They included the prepared direction plus Story Bible-derived creative direction, canon, pacing, timeline, character, and location context. Thus the prose model could be told that a game had happened without being shown which game actions, performances, objects, and dialogue had actually occurred. This is a concrete continuity-context gap; it is not proof that it explains every quality change.
+- The Writer Engine already contained prompt-trace hooks and builder/prompt_trace.py already implemented a one-scene local capture, but the Minimal Writer did not attach a trace to the active model session. The capture mechanism was therefore not actually being used by the Writer app.
+
+### Changes made on the existing branch
+
+- Added builder/writer_continuity.py. For the selected target chapter/scene, it finds the most recent accepted saved scene with earlier coordinates, including across chapter boundaries. It reads the accepted ODT/TXT scene through the existing scene browser (ODT is preferred where both formats exist), limits the included prose to 6,000 characters, and appends it as explicitly labeled continuity-only context.
+- **Write** and **Rewrite Scene** now include that immediately preceding saved scene. The current target scene and any future scenes are excluded. Continue behavior was not changed.
+- Connected the existing prompt-trace helper to the actual Writer generation path. A one-generation capture records the exact prompt text submitted to llama.cpp, the model response, active model/session/runtime settings, current-state snapshot, and scene/author-direction metadata. It also records the Writer's configured system prompt (currently blank).
+- The trace is local only and is not uploaded or synced. Default file: ~/.local/share/storybuilder/prompt_trace.json. Each completed capture overwrites the previous one-scene trace rather than creating an accumulating log. When a generation completes, the Writer status line reports the trace path.
+- Capture obeys the existing local preference switch. If no preference file exists, capture defaults to enabled; an explicit false setting disables it. Preference path: $XDG_CONFIG_HOME/storybuilder/prompt_trace_enabled.json, or ~/.config/storybuilder/prompt_trace_enabled.json when XDG_CONFIG_HOME is unset.
+- No model file, sampling setting, system prompt, story prose, Story Bible, or novel package was changed. All code changes are on the existing redesign/simplified-writing-workflow branch; no new branch was created.
+
+### Tests and verification
+
+- Added tests/test_writer_continuity.py for immediately preceding scene selection, chapter-boundary lookup, exclusion of current/future scenes, and bounded context.
+- Added Minimal Writer tests confirming Write includes the preceding saved scene and one-scene tracing is armed, finalized locally, and detached.
+- Added a Writer Engine test confirming an already-running llama-cli session is recorded when the trace is attached.
+- GitHub Actions at commit c90638eff5f8aa17651d88b3a7b1c47cd22c2043:
+  - Python pytest: **664 passed, 1 failed, 77 subtests passed**. The only failure is the previously known unrelated Tkinter harness failure in test_blank_name_does_not_save_or_close_the_editor (fake root lacks .tk). All new tests passed. Run: https://github.com/tony21675/StoryBuilder/actions/runs/42026688547
+  - StoryBuilder workflow: shell syntax and compileall passed; 665 unit tests ran with the same single known Tkinter harness error. Run: https://github.com/tony21675/StoryBuilder/actions/runs/42026688638
+- **Laptop status:** This work has not yet been pulled or tested on the author's laptop. The last confirmed local change remains the intentional storybuilder.py executable-mode change (100644 to 100755). Preserve it. Before pulling, inspect git status --short --branch and git diff -- storybuilder.py; then fetch and inspect incoming paths before using git pull --ff-only origin redesign/simplified-writing-workflow. Run the agreed test gate afterward:
+  .venv/bin/python -m pytest -q -k "not test_blank_name_does_not_save_or_close_the_editor".
+- After pull, the immediate diagnostic test should be one naturally prepared scene. Then inspect ~/.local/share/storybuilder/prompt_trace.json to confirm the exact previous-scene reference and the final text sent to the model. Do not change model settings until the trace has been reviewed.
