@@ -481,3 +481,17 @@ Date: November 4, 2026
 - Added Minimal Writer tests confirming upload is attempted with the saved trace path and that upload failure preserves the local trace.
 - No manuscript, Story Bible, model settings, or public repository trace content was changed.
 - **Laptop installation:** The automatic upload wiring is committed remotely but must still be pulled onto the laptop. The existing local `storybuilder.py` executable-permission change (mode-only) must be preserved during that update. After pulling, run the agreed test gate, then verify `gh auth status` (or configure a token environment variable) before the next Writer generation.
+
+
+## Saved-scene ending-state updates (November 5, 2026)
+
+- The author confirmed that *The Long Way Home* is currently at **Day 2, nighttime**. The local `current_state.json` was still at its original `Day 1, 16:00`, Chapter 1, Scene 1, `story_start` record. That stale time and opening status were being sent into Write / Prepare Scene prompts and made the novel appear to be at its beginning.
+- Added `builder/scene_state_update.py` and connected it to Minimal Writer's **Save New Scene** action.
+- When an ODT scene is successfully saved, Writer first records the saved chapter/scene and marks that scene complete. It then uses the already-loaded model for one focused ending-state pass over the accepted scene's final paragraphs. The pass may update only `current_situation`, `location`, `physical_state`, and `time_of_day`. Time is carried forward unless the accepted prose supports a change; no exact hour is invented from a broad night/evening description.
+- The state task clears the model conversation before and after its JSON response so that it cannot contaminate the next prose-generation turn. It does not reload model weights.
+- **Explicitly excluded:** no old-to-new scene comparison, no `review_state_proposal`, no `review_chapter_flow`, no separate continuity checker, and no prose validator. The state proposal receives ordinary structural validation before it is written so malformed data cannot damage `current_state.json`.
+- State writes are atomic. If analysis fails, the manuscript scene remains saved and the completed chapter/scene pointer is still recorded; existing time and other state details are preserved. The Writer status line reports the failure. If no model is loaded, the scene pointer is recorded but the ending-state details are not analyzed.
+- This is deliberately a focused end-state update, not the full legacy clue/knowledge audit. It updates story time, immediate situation, and supported ending location/physical details only.
+- Added `tests/test_scene_state_update.py` for story-time preservation, scene markers, prompt construction, patch filtering/validation, atomic state-file writes, and the post-save update/failure paths.
+- **One-time local correction still required before the next scene prompt:** update the author's local `current_state.json` baseline to Chapter 2, Scene 19, `in_progress`, `scene_completed: true`, `chapter_completed: false`, and `time_of_day: "Day 2, nighttime at the Mars research outpost."` This uses the author's explicit timeline correction; do not infer a more precise hour. The existing scene 19 remains the latest accepted manuscript scene until Scene 20 is saved.
+- The update is committed on the existing `redesign/simplified-writing-workflow` branch. Local laptop pull and test verification are still pending. Preserve the laptop's mode-only `storybuilder.py` change during installation.
