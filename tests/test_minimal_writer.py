@@ -933,9 +933,41 @@ class MinimalWriterTests(unittest.TestCase):
                 "Keep the mood light.",
             )
 
-            app._finish_prompt_trace(trace, status="completed")
+            upload_result = {
+                "ok": True,
+                "repository": "tony21675/StoryBuilder-Traces",
+                "url": "https://github.com/tony21675/StoryBuilder-Traces/blob/main/prompt_trace.json",
+            }
+            with patch(
+                "minimal_writer.upload_prompt_trace", return_value=upload_result
+            ) as upload:
+                app._finish_prompt_trace(trace, status="completed")
+
+            upload.assert_called_once_with(trace_path)
             self.assertEqual(detached, [trace])
             self.assertEqual(app._last_prompt_trace_path, str(trace_path))
+            self.assertEqual(app._last_prompt_trace_upload_result, upload_result)
+
+    def test_prompt_trace_upload_failure_keeps_local_trace_available(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            trace_path = Path(temporary) / "prompt_trace.json"
+            trace = type(
+                "Trace",
+                (),
+                {"finish": lambda self, **kwargs: trace_path},
+            )()
+            app = MinimalWriterApp.__new__(MinimalWriterApp)
+            app.engine = FakeEngine()
+
+            failure = {"ok": False, "error": "GitHub CLI is not authenticated."}
+            with patch(
+                "minimal_writer.upload_prompt_trace", return_value=failure
+            ) as upload:
+                app._finish_prompt_trace(trace, status="completed")
+
+            upload.assert_called_once_with(trace_path)
+            self.assertEqual(app._last_prompt_trace_path, str(trace_path))
+            self.assertEqual(app._last_prompt_trace_upload_result, failure)
 
     def test_write_replaces_visible_prose_but_preserves_model_session_context(self):
         app = MinimalWriterApp.__new__(MinimalWriterApp)
