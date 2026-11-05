@@ -39,6 +39,7 @@ from builder.novel_git_sync import (
     sync_novel_repository,
 )
 from builder.prompt_trace import PromptTrace, load_prompt_trace_enabled
+from builder.prompt_trace_sync import upload_prompt_trace
 from builder.writer_continuity import build_previous_scene_context_prompt
 
 
@@ -1869,6 +1870,7 @@ class MinimalWriterApp:
     def _finish_prompt_trace(
         self, trace, *, status: str, error: str | None = None
     ) -> None:
+        self._last_prompt_trace_upload_result = None
         if trace is None:
             return
         saved_path = None
@@ -1877,6 +1879,16 @@ class MinimalWriterApp:
         except Exception:
             saved_path = None
         self._last_prompt_trace_path = str(saved_path) if saved_path else None
+        if saved_path:
+            try:
+                self._last_prompt_trace_upload_result = upload_prompt_trace(saved_path)
+            except Exception as exc:
+                # Remote diagnostics are optional. Keep the local trace and never
+                # turn a completed writing operation into a failure if upload fails.
+                self._last_prompt_trace_upload_result = {
+                    "ok": False,
+                    "error": str(exc)[:700],
+                }
         detach = getattr(self.engine, "detach_prompt_trace", None)
         if callable(detach):
             try:
@@ -1893,6 +1905,7 @@ class MinimalWriterApp:
         self._generation_mode = mode
         self._generation_had_chunks = False
         self._last_prompt_trace_path = None
+        self._last_prompt_trace_upload_result = None
         prompt_trace = self._start_prompt_trace(prompt)
         if mode == "continue":
             self._generation_prefix = continuation_prefix(self._pre_generation_text)
@@ -2010,10 +2023,24 @@ class MinimalWriterApp:
             if location_names else ""
         )
         trace_path = getattr(self, "_last_prompt_trace_path", None)
-        trace_note = f" Prompt trace saved: {trace_path}." if trace_path else ""
+        trace_note = f" Prompt trace saved locally: {trace_path}." if trace_path else ""
+        upload_result = getattr(self, "_last_prompt_trace_upload_result", None)
+        upload_note = ""
+        if isinstance(upload_result, dict):
+            if upload_result.get("ok"):
+                upload_url = str(upload_result.get("url") or "").strip()
+                upload_note = " Latest trace uploaded to the private GitHub trace repository."
+                if upload_url:
+                    upload_note += f" {upload_url}"
+            else:
+                upload_error = str(upload_result.get("error") or "Unknown upload error").strip()
+                upload_note = (
+                    " GitHub trace upload failed; the local trace is still saved. "
+                    f"{upload_error}"
+                )
         self.status_var.set(
             f"Finished {action} with {model_name}.{location_note}{rewrite_note}"
-            f"{trace_note} Edit the output or save it."
+            f"{trace_note}{upload_note} Edit the output or save it."
         )
         self._update_controls()
 
