@@ -465,3 +465,19 @@ Date: November 4, 2026
 - **Laptop status:** This work has not yet been pulled or tested on the author's laptop. The last confirmed local change remains the intentional storybuilder.py executable-mode change (100644 to 100755). Preserve it. Before pulling, inspect git status --short --branch and git diff -- storybuilder.py; then fetch and inspect incoming paths before using git pull --ff-only origin redesign/simplified-writing-workflow. Run the agreed test gate afterward:
   .venv/bin/python -m pytest -q -k "not test_blank_name_does_not_save_or_close_the_editor".
 - After pull, the immediate diagnostic test should be one naturally prepared scene. Then inspect ~/.local/share/storybuilder/prompt_trace.json to confirm the exact previous-scene reference and the final text sent to the model. Do not change model settings until the trace has been reviewed.
+
+## Automatic private prompt-trace upload (November 5, 2026)
+
+- The author requested that each Writer trace be uploaded automatically to GitHub so it can be reviewed without manually attaching the local JSON file.
+- The private destination already exists: `tony21675/StoryBuilder-Traces`, with the existing single file `prompt_trace.json`. The public StoryBuilder source repository is not used for manuscript-bearing traces.
+- `builder/prompt_trace_sync.py` already implements the upload safely:
+  - Uses an explicitly configured `STORYBUILDER_TRACE_GITHUB_TOKEN`, `GH_TOKEN`, or `GITHUB_TOKEN`; otherwise it reads the signed-in token from GitHub CLI (`gh auth token`).
+  - Defaults to `<authenticated GitHub username>/StoryBuilder-Traces` unless `STORYBUILDER_TRACE_GITHUB_REPO` is configured.
+  - Verifies through GitHub's API that the destination repository is private before uploading.
+  - Replaces the same `prompt_trace.json` file on the repository's default branch. The new root commit intentionally does not retain prior branch history. This is not a secure-erasure guarantee for GitHub's underlying object storage.
+  - Refuses to upload if the destination contains unrelated files.
+- Wired `minimal_writer.py` to call `upload_prompt_trace()` after each successful local trace save, for completed, interrupted, and failed generation captures. The upload runs in the existing generation worker thread. A GitHub upload failure does not fail or discard the local trace or generated prose.
+- On successful writing, the status message now distinguishes the local trace file from its private GitHub upload. On upload failure, it reports the problem while confirming the local trace remains saved.
+- Added Minimal Writer tests confirming upload is attempted with the saved trace path and that upload failure preserves the local trace.
+- No manuscript, Story Bible, model settings, or public repository trace content was changed.
+- **Laptop installation:** The automatic upload wiring is committed remotely but must still be pulled onto the laptop. The existing local `storybuilder.py` executable-permission change (mode-only) must be preserved during that update. After pulling, run the agreed test gate, then verify `gh auth status` (or configure a token environment variable) before the next Writer generation.
