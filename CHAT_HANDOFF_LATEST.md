@@ -409,3 +409,15 @@ Date: November 4, 2026
   - StoryBuilder compile/unit workflow: `compileall` passed; 658 unit tests ran with the same one known Tkinter harness error and no location-allowlist failures. Run: [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/41986990814).
 - Do not treat the known Tkinter harness failure as introduced by this location change; it has appeared in previous runs before these edits.
 
+
+
+### Local installation confirmation: Story Bible location allowlist (November 5, 2026)
+
+- The author fetched and inspected the local StoryBuilder repository before pulling. Local branch was `redesign/simplified-writing-workflow`; the only working-tree change was `M storybuilder.py`.
+- `git diff -- storybuilder.py` confirmed the local change is only the executable file-mode change from `100644` to `100755`, with no source-code edits.
+- `git fetch origin` showed the branch advanced from `7732063` to `508d3b1`.
+- The author inspected the incoming file list. It contained exactly the expected Story Bible location allowlist implementation, tests, and handoff files; `storybuilder.py` was not incoming.
+- The author then ran `git pull --ff-only origin redesign/simplified-writing-workflow`. It completed as a fast-forward from `7732063` to `508d3b1`, updating eight files with no conflicts.
+- Post-pull `git status --short --branch` confirmed the local branch aligned with `origin/redesign/simplified-writing-workflow`; the only remaining working-tree change was the original `M storybuilder.py` mode modification. It was preserved.
+- Local test gate: `.venv/bin/python -m pytest -q -k "not test_blank_name_does_not_save_or_close_the_editor"` passed with **657 passed, 1 deselected, 77 subtests passed in 2.42s**. The deselected test is the previously documented unrelated Tkinter harness issue.
+- **Status:** The Story Bible location allowlist feature is installed on the author's laptop and passes the agreed local test gate. The next practical step is a real Writer test: use a novel with only a few saved locations and verify that Prepare Scene and Write/Rewrite stay within that saved list. The author may add minimal location entries such as `Supply Closet` with no descriptive fields; names alone are sufficient.
