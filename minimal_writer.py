@@ -38,6 +38,8 @@ from builder.novel_git_sync import (
     inspect_novel_repository,
     sync_novel_repository,
 )
+from builder.prompt_trace import PromptTrace, load_prompt_trace_enabled
+from builder.writer_continuity import build_previous_scene_context_prompt
 
 
 CONTINUE_PROMPT = (
@@ -1577,6 +1579,7 @@ class MinimalWriterApp:
             return
 
         prompt = self._prepare_location_context(prompt)
+        prompt = self._prepare_previous_scene_context(prompt)
         self._begin_generation(prompt, mode="write")
 
     def rewrite_current_scene(self) -> None:
@@ -1622,6 +1625,7 @@ class MinimalWriterApp:
 
         prompt = build_rewrite_scene_prompt(scene_prompt, author_direction)
         prompt = self._prepare_location_context(prompt)
+        prompt = self._prepare_previous_scene_context(prompt)
         self._rewrite_original_author_direction = author_direction
         self._begin_generation(prompt, mode="rewrite")
 
@@ -1651,6 +1655,22 @@ class MinimalWriterApp:
             "\n".join(part for part in (scene_idea, existing_text) if part),
         )
         self._begin_generation(prompt, mode="continue")
+
+    def _prepare_previous_scene_context(self, prompt: str) -> str:
+        """Add the immediately preceding accepted scene for grounded continuity."""
+        novel_name = getattr(getattr(self, "novel_var", None), "get", lambda: "")().strip()
+        novel_path = getattr(self, "novel_packages", {}).get(novel_name)
+        chapter_number = getattr(self, "chapter_numbers", {}).get(
+            getattr(getattr(self, "chapter_var", None), "get", lambda: "")().strip()
+        )
+        scene_number = scene_number_from_label(
+            getattr(getattr(self, "scene_var", None), "get", lambda: "")()
+        )
+        if novel_path is None or chapter_number is None or scene_number is None:
+            return str(prompt or "")
+        return build_previous_scene_context_prompt(
+            prompt, novel_path, chapter_number, scene_number
+        )
 
     def _prepare_location_context(self, prompt: str, supporting_text: str = "") -> str:
         """Attach the selected novel's creative direction and relevant saved locations."""
@@ -1781,6 +1801,89 @@ class MinimalWriterApp:
         self._update_controls()
         self._showerror("Could not start a new session", message)
 
+    def _start_prompt_trace(self, prompt: str):
+        """Arm a local, one-generation capture without affecting normal writing."""
+        try:
+            if not load_prompt_trace_enabled():
+                return None
+        except Exception:
+            return None
+
+        novel_name = getattr(getattr(self, "novel_var", None), "get", lambda: "")().strip()
+        novel_path = getattr(self, "novel_packages", {}).get(novel_name)
+        chapter_number = getattr(self, "chapter_numbers", {}).get(
+            getattr(getattr(self, "chapter_var", None), "get", lambda: "")().strip(),
+            1,
+        )
+        scene_number = scene_number_from_label(
+            getattr(getattr(self, "scene_var", None), "get", lambda: "")()
+        ) or 1
+
+        current_state = {}
+        reference_files = []
+        if novel_path is not None:
+            for filename in ("story_bible.json", "current_state.json"):
+                path = Path(novel_path) / filename
+                try:
+                    content = path.read_text(encoding="utf-8")
+                except (OSError, UnicodeError):
+                    continue
+                reference_files.append((filename, content))
+                if filename == "current_state.json":
+                    try:
+                        parsed = json.loads(content)
+                    except (TypeError, ValueError):
+                        parsed = {}
+                    if isinstance(parsed, dict):
+                        current_state = parsed
+
+        prompt_box = getattr(self, "prompt_box", None)
+        direction_box = getattr(self, "author_direction_box", None)
+        scene_direction = (
+            prompt_box.get("1.0", "end-1c") if prompt_box is not None else str(prompt or "")
+        )
+        author_guidance = (
+            direction_box.get("1.0", "end-1c").strip()
+            if direction_box is not None else ""
+        )
+        trace = PromptTrace(
+            chapter=int(chapter_number or 1),
+            scene=int(scene_number),
+            model_path=getattr(self, "loaded_model", None),
+            current_state=current_state,
+            reference_files=reference_files,
+            contract={},
+            scene_direction=scene_direction,
+            author_guidance=author_guidance,
+            system_prompt=getattr(self.engine, "system_prompt", ""),
+        )
+        attach = getattr(self.engine, "attach_prompt_trace", None)
+        if not callable(attach):
+            return None
+        try:
+            attach(trace)
+        except Exception:
+            return None
+        return trace
+
+    def _finish_prompt_trace(
+        self, trace, *, status: str, error: str | None = None
+    ) -> None:
+        if trace is None:
+            return
+        saved_path = None
+        try:
+            saved_path = trace.finish(status=status, error=error)
+        except Exception:
+            saved_path = None
+        self._last_prompt_trace_path = str(saved_path) if saved_path else None
+        detach = getattr(self.engine, "detach_prompt_trace", None)
+        if callable(detach):
+            try:
+                detach(trace)
+            except Exception:
+                pass
+
     def _begin_generation(self, prompt: str, mode: str) -> None:
         # Keep the previous document recoverable so errors or an immediate Stop
         # do not destroy the author's text.
@@ -1789,6 +1892,8 @@ class MinimalWriterApp:
         self._pre_generation_saved_text = self.saved_output_text
         self._generation_mode = mode
         self._generation_had_chunks = False
+        self._last_prompt_trace_path = None
+        prompt_trace = self._start_prompt_trace(prompt)
         if mode == "continue":
             self._generation_prefix = continuation_prefix(self._pre_generation_text)
             self._set_output_text(self._generation_prefix)
@@ -1821,15 +1926,28 @@ class MinimalWriterApp:
                     pass
 
         def work() -> None:
+            trace_status = "completed"
+            trace_error = None
+            callback = None
             try:
                 answer = write_from_prompt(self.engine, prompt, on_delta=stream_delta)
-            except GenerationInterrupted:
-                self.root.after(0, self._write_stopped)
+            except GenerationInterrupted as exc:
+                trace_status = "interrupted"
+                trace_error = str(exc)
+                callback = self._write_stopped
             except Exception as exc:
+                trace_status = "failed"
+                trace_error = str(exc)
                 message = str(exc)
-                self.root.after(0, lambda message=message: self._write_failed(message))
+                callback = lambda message=message: self._write_failed(message)
             else:
-                self.root.after(0, lambda answer=answer: self._write_succeeded(answer))
+                callback = lambda answer=answer: self._write_succeeded(answer)
+            finally:
+                self._finish_prompt_trace(
+                    prompt_trace, status=trace_status, error=trace_error
+                )
+            if callback is not None:
+                self.root.after(0, callback)
 
         threading.Thread(target=work, daemon=True).start()
 
@@ -1891,9 +2009,11 @@ class MinimalWriterApp:
             f" Location context: {', '.join(location_names)}."
             if location_names else ""
         )
+        trace_path = getattr(self, "_last_prompt_trace_path", None)
+        trace_note = f" Prompt trace saved: {trace_path}." if trace_path else ""
         self.status_var.set(
-            f"Finished {action} with {model_name}.{location_note}{rewrite_note} "
-            "Edit the output or save it."
+            f"Finished {action} with {model_name}.{location_note}{rewrite_note}"
+            f"{trace_note} Edit the output or save it."
         )
         self._update_controls()
 
