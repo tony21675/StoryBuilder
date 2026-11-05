@@ -421,3 +421,12 @@ Date: November 4, 2026
 - Post-pull `git status --short --branch` confirmed the local branch aligned with `origin/redesign/simplified-writing-workflow`; the only remaining working-tree change was the original `M storybuilder.py` mode modification. It was preserved.
 - Local test gate: `.venv/bin/python -m pytest -q -k "not test_blank_name_does_not_save_or_close_the_editor"` passed with **657 passed, 1 deselected, 77 subtests passed in 2.42s**. The deselected test is the previously documented unrelated Tkinter harness issue.
 - **Status:** The Story Bible location allowlist feature is installed on the author's laptop and passes the agreed local test gate. The next practical step is a real Writer test: use a novel with only a few saved locations and verify that Prepare Scene and Write/Rewrite stay within that saved list. The author may add minimal location entries such as `Supply Closet` with no descriptive fields; names alone are sufficient.
+
+
+### Author clarification: connective hallways and corridors (November 5, 2026)
+
+- The author clarified that ordinary hallways, corridors, and connecting passageways are assumed parts of a structure and do not need individual Story Bible entries.
+- They may be used briefly and generically for direct movement between approved rooms/locations. They are **not** to become scene destinations or places where characters gather, work, hold meetings, or conduct sustained activity.
+- Updated the shared location allowlist instruction for both Prepare Scene and prose generation to include this narrow transit exception. All actual rooms/areas and scene destinations still need their own Story Bible entries.
+- Added regression assertions for this distinction, including the no-approved-locations case.
+- A new CI run is pending; the previous laptop installation checkpoint remains accurate for the prior version, but this clarification update still needs to be pulled and tested separately.
