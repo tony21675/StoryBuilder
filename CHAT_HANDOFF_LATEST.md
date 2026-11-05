@@ -319,3 +319,9 @@ Date: November 4, 2026
 - At the next session, first check the Writer scene list / selected novel to establish whether tonight's latest follow-up was saved and what section number it received. If it is saved, continue directly from Morgan returning to collect bottles after the successful paper toss. If it is not saved, recover the draft from the Writer only as needed; do not reconstruct or rewrite accepted prose unnecessarily.
 - Novel-package sync and StoryBuilder application-code sync remain separate. Do not pull, reset, or overwrite local StoryBuilder changes as part of manuscript recovery.
 - The author successfully used the Author's Direction workflow during this session, so the field was available in the working Writer session. The exact local code revision and any new local test results were not independently verified here. The previous CI and local-test caveats in the app-status section remain in force unless later verified.
+
+### Author clarification on resume point (November 4, 2026, evening)
+
+- The author has now confirmed that **Chapter 2, Scene 10 is the last saved scene locally**. This supersedes the earlier uncertainty in the end-of-session checkpoint about whether tonight's follow-up had been saved.
+- Resume with **Chapter 2, Scene 11**. The latest accepted scene ends after Morgan's successful paper toss: Ryan is briefly speechless, Daniel and Zoe appreciate the shot, Priya smiles, and Morgan casually returns to collecting empty bottles for her own stack.
+- This is a local save confirmation from the author. The remote novel repository was last inspected before this clarification and contained Chapter 2 Sections 1–6 only; no post-Scene-6 sync has been verified. Do not imply Scene 7–10 are backed up remotely until the novel repo is checked again after sync.
