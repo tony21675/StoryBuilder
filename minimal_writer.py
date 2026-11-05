@@ -40,6 +40,14 @@ from builder.novel_git_sync import (
 )
 from builder.prompt_trace import PromptTrace, load_prompt_trace_enabled
 from builder.prompt_trace_sync import upload_prompt_trace
+from builder.scene_state_update import (
+    advance_saved_scene_markers,
+    build_saved_scene_state_prompt,
+    load_current_state,
+    merge_saved_scene_state,
+    parse_saved_scene_state_patch,
+    write_current_state,
+)
 from builder.writer_continuity import build_previous_scene_context_prompt
 
 
@@ -2233,6 +2241,150 @@ class MinimalWriterApp:
             return False
         return self._save_to_path(Path(filename))
 
+    def _finish_saved_scene_state_update(
+        self,
+        novel_name: str,
+        chapter_number: int,
+        scene_number: int,
+        story_time: str,
+        error: str | None,
+        reset_error: str | None,
+    ) -> None:
+        """Report the result of the optional post-save ending-state update."""
+        self.busy = False
+        self.writing = False
+        self.stop_requested = False
+
+        if error:
+            message = (
+                f"Saved new scene: {novel_name} / Chapter {chapter_number:02d} / "
+                f"Scene {scene_number:02d}. The scene position was recorded, but "
+                "the ending-state analysis failed; existing story details were preserved. "
+                + str(error).splitlines()[0]
+            )
+        else:
+            message = (
+                f"Saved new scene and updated its ending state: {novel_name} / "
+                f"Chapter {chapter_number:02d} / Scene {scene_number:02d}."
+            )
+            if story_time:
+                message += f" Story time: {story_time}."
+
+        if reset_error:
+            try:
+                child = getattr(self.engine, "child", None)
+                if child is None or not child.isalive():
+                    self.loaded_model = None
+            except Exception:
+                self.loaded_model = None
+            message += (
+                " The model session could not be cleared after the state update; "
+                "reload the model before writing again."
+            )
+
+        self.status_var.set(message)
+        self._update_controls()
+
+    def _start_saved_scene_state_update(
+        self,
+        novel_path: str | Path,
+        novel_name: str,
+        chapter_number: int,
+        scene_number: int,
+        scene_text: str,
+    ) -> None:
+        """Record the saved scene, then update only its supported ending-state facts."""
+        state_path = Path(novel_path).expanduser() / "current_state.json"
+        try:
+            current_state = load_current_state(state_path)
+            marked_state = advance_saved_scene_markers(
+                current_state, chapter_number, scene_number
+            )
+            write_current_state(state_path, marked_state)
+        except (OSError, UnicodeError, ValueError, TypeError) as exc:
+            self.status_var.set(
+                f"Scene saved, but current_state.json could not be updated: {exc}"
+            )
+            self._update_controls()
+            return
+
+        model_path = getattr(self, "loaded_model", None)
+        if model_path is None:
+            self.status_var.set(
+                f"Saved new scene: {novel_name} / Chapter {chapter_number:02d} / "
+                f"Scene {scene_number:02d}. Scene progress was recorded; load a model "
+                "to analyze the ending time and situation."
+            )
+            self._update_controls()
+            return
+
+        self.busy = True
+        self.writing = False
+        self.stop_requested = False
+        self.status_var.set(
+            f"Scene saved. Updating the story state from the ending of "
+            f"Chapter {chapter_number:02d}, Scene {scene_number:02d}…"
+        )
+        self._update_controls()
+
+        def work() -> None:
+            error = None
+            reset_error = None
+            story_time = ""
+            try:
+                before_state = load_current_state(state_path)
+                prompt = build_saved_scene_state_prompt(
+                    before_state,
+                    chapter_number,
+                    scene_number,
+                    scene_text,
+                )
+                # Use the already-loaded model, but isolate this short state task
+                # from prior writing turns and clear its JSON response afterward.
+                self.engine.clear_context()
+                response = self.engine.generate(prompt)
+                patch = parse_saved_scene_state_patch(
+                    before_state,
+                    response,
+                    scene_characters=(
+                        before_state.get("scene_cast")
+                        if isinstance(before_state.get("scene_cast"), list)
+                        else None
+                    ),
+                )
+                updated_state = merge_saved_scene_state(
+                    before_state,
+                    patch,
+                    chapter_number,
+                    scene_number,
+                )
+                write_current_state(state_path, updated_state)
+                story_time = str(updated_state.get("time_of_day", "") or "")
+            except Exception as exc:
+                error = str(exc)
+            finally:
+                try:
+                    self.engine.clear_context()
+                except Exception as exc:
+                    reset_error = str(exc)
+
+            try:
+                self.root.after(
+                    0,
+                    lambda: self._finish_saved_scene_state_update(
+                        novel_name,
+                        chapter_number,
+                        scene_number,
+                        story_time,
+                        error,
+                        reset_error,
+                    ),
+                )
+            except tk.TclError:
+                pass
+
+        threading.Thread(target=work, daemon=True).start()
+
     def save_new_scene(self) -> bool:
         """Save the current output as a new numbered ODT scene in the selected novel."""
         if self.busy:
@@ -2308,12 +2460,15 @@ class MinimalWriterApp:
         self._on_chapter_selected()
         self.scene_var.set(scene_label)
         self.selected_scene_source = saved_path
-        self.status_var.set(
-            f"Saved new scene: {novel_name} / Chapter {chapter_number:02d} / "
-            f"{scene_label} ({saved_path})"
-        )
         self._update_document_title()
         self._update_controls()
+        self._start_saved_scene_state_update(
+            novel_path,
+            novel_name,
+            chapter_number,
+            scene_number,
+            text,
+        )
         return True
 
     def save_to_selected_scene(self) -> bool:
