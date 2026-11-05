@@ -172,6 +172,48 @@ class WriterEngine:
                 pass
             return None
 
+    def attach_prompt_trace(self, trace) -> None:
+        """Capture the already-running CLI session for one explicitly armed scene."""
+        with self.lock:
+            self.prompt_trace = trace
+            child = self.child
+            if child is None or self.model_path is None:
+                return
+            try:
+                if not child.isalive():
+                    return
+            except Exception:
+                return
+
+            device = self.detect_accelerator()
+            context_size = int(os.environ.get("STORY_WRITER_CONTEXT", "16384"))
+            max_predict = int(os.environ.get("STORY_WRITER_MAX_TOKENS", "3000"))
+            self._trace_record(
+                "record_session",
+                model_path=self.model_path,
+                runtime_binary=DEFAULT_LLAMA,
+                system_prompt=self.system_prompt,
+                context_size=context_size,
+                max_tokens=max_predict,
+                device=device,
+                runtime_options={
+                    "gpu_layers": "all" if device else 0,
+                    "reasoning": "off",
+                    "repeat_last_n": 256,
+                    "repeat_penalty": 1.08,
+                    "max_generation_tokens": max_predict,
+                    "temperature": "llama.cpp default (not explicitly set by WriterEngine)",
+                    "top_k": "llama.cpp default (not explicitly set by WriterEngine)",
+                    "top_p": "llama.cpp default (not explicitly set by WriterEngine)",
+                },
+            )
+
+    def detach_prompt_trace(self, trace) -> None:
+        """Stop recording when this one-scene capture has finished."""
+        with self.lock:
+            if self.prompt_trace is trace:
+                self.prompt_trace = None
+
     @staticmethod
     def available_models() -> list[Path]:
         MODELS_DIR.mkdir(parents=True, exist_ok=True)
