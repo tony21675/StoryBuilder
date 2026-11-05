@@ -324,12 +324,15 @@ def build_location_allowlist_prompt(
     else:
         prompt = (
             "NO APPROVED LOCATIONS ARE REGISTERED IN THIS NOVEL'S STORY BIBLE\n\n"
-            "Do not invent, name, infer, or move the scene into a room, office, corridor, "
-            "work area, building, facility, landmark, or other place. Do not treat a "
-            "larger setting as permission to invent its individual rooms. Keep the "
-            "location unspecified unless an already-established location is added to "
-            "the Story Bible. If the scene needs a physical location, flag that missing "
-            "location for the author to add before writing."
+            "Do not invent, name, infer, or move the scene into a room, office, work "
+            "area, building, facility, landmark, or other place. Do not treat a larger "
+            "setting as permission to invent its individual rooms. Keep the location "
+            "unspecified unless an already-established location is added to the Story "
+            "Bible. Ordinary, unnamed hallways and corridors may be used only as brief "
+            "connecting passageways while moving between already-established locations, "
+            "not as destinations or places to gather, work, or hold meetings. If the "
+            "scene needs a physical location, flag that missing location for the author "
+            "to add before writing."
         )
     return prompt, names
 
