@@ -403,5 +403,5 @@ Date: November 4, 2026
 ### Tests
 
 - Added tests for name-only location entries, ignored unsupported/blank entries, an empty location list, inclusion of all names in Prepare Scene, and inclusion of the same allowlist in actual Writer prompts while keeping detailed references selective.
-- GitHub Actions verification is pending for the new commit. The previously documented single Tkinter test-harness failure remains a known unrelated issue unless a new run shows otherwise.
+- The first GitHub Actions run (`41986830787`) ran 658 tests and identified one outdated assertion in `test_prompt_is_unchanged_when_no_location_name_matches`: the new allowlist is intentionally added even when the current scene does not name a location. The assertion has been updated to verify that all approved names appear while unrelated location descriptions remain excluded. The same pre-existing Tkinter test-harness error (`test_blank_name_does_not_save_or_close_the_editor`, fake root lacks `.tk`) also occurred. A corrected CI run is pending.
 
