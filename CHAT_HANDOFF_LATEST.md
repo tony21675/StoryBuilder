@@ -495,3 +495,10 @@ Date: November 4, 2026
 - Added `tests/test_scene_state_update.py` for story-time preservation, scene markers, prompt construction, patch filtering/validation, atomic state-file writes, and the post-save update/failure paths.
 - **One-time local correction still required before the next scene prompt:** update the author's local `current_state.json` baseline to Chapter 2, Scene 19, `in_progress`, `scene_completed: true`, `chapter_completed: false`, and `time_of_day: "Day 2, nighttime at the Mars research outpost."` This uses the author's explicit timeline correction; do not infer a more precise hour. The existing scene 19 remains the latest accepted manuscript scene until Scene 20 is saved.
 - The update is committed on the existing `redesign/simplified-writing-workflow` branch. Local laptop pull and test verification are still pending. Preserve the laptop's mode-only `storybuilder.py` change during installation.
+
+
+### Verification
+
+- Source changes are on `redesign/simplified-writing-workflow`, currently at `c2321f7d65bcc75b3d10e67ccf2479d365b35fb3`.
+- Python pytest: **672 passed, 1 failed, 77 subtests passed**. The only failure remains the known unrelated Tkinter test-harness issue in `test_blank_name_does_not_save_or_close_the_editor` (fake root has no `.tk`). All seven new saved-scene state tests passed. Run: https://github.com/tony21675/StoryBuilder/actions/runs/42042893995.
+- StoryBuilder workflow: launcher syntax and `compileall` passed; the unit suite ran 673 tests with only the same known Tkinter harness error. Run: https://github.com/tony21675/StoryBuilder/actions/runs/42042894143.
