@@ -403,5 +403,9 @@ Date: November 4, 2026
 ### Tests
 
 - Added tests for name-only location entries, ignored unsupported/blank entries, an empty location list, inclusion of all names in Prepare Scene, and inclusion of the same allowlist in actual Writer prompts while keeping detailed references selective.
-- The first GitHub Actions run (`41986830787`) ran 658 tests and identified one outdated assertion in `test_prompt_is_unchanged_when_no_location_name_matches`: the new allowlist is intentionally added even when the current scene does not name a location. The assertion has been updated to verify that all approved names appear while unrelated location descriptions remain excluded. The same pre-existing Tkinter test-harness error (`test_blank_name_does_not_save_or_close_the_editor`, fake root lacks `.tk`) also occurred. A corrected CI run is pending.
+- The first GitHub Actions run (`41986830787`) ran 658 tests and identified one outdated assertion in `test_prompt_is_unchanged_when_no_location_name_matches`: the new allowlist is intentionally added even when the current scene does not name a location. The assertion was updated to verify that all approved names appear while unrelated location descriptions remain excluded.
+- Corrected GitHub Actions verification on the follow-up commit completed:
+  - Python pytest: **657 passed, 1 failed, 77 subtests passed**. The sole failure is the previously known unrelated Tkinter harness test `test_blank_name_does_not_save_or_close_the_editor`, where the fake root lacks `.tk`. All new location-allowlist tests passed. Run: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/41986990787).
+  - StoryBuilder compile/unit workflow: `compileall` passed; 658 unit tests ran with the same one known Tkinter harness error and no location-allowlist failures. Run: [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/41986990814).
+- Do not treat the known Tkinter harness failure as introduced by this location change; it has appeared in previous runs before these edits.
 
