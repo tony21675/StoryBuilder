@@ -690,8 +690,8 @@ class MinimalWriterTests(unittest.TestCase):
 
     def test_rewrite_scene_prompt_adds_author_direction_without_mutating_original(self):
         original = (
-            "Scene direction: Continue the conversation.\\n"
-            "Natural endpoint: Elena enters.\\n"
+            "Scene direction: Continue the conversation.\n"
+            "Natural endpoint: Elena enters.\n"
             "Write natural manuscript prose only."
         )
         direction = "Let the characters talk for a little longer."
@@ -705,15 +705,15 @@ class MinimalWriterTests(unittest.TestCase):
         self.assertEqual(original.splitlines()[0], "Scene direction: Continue the conversation.")
 
     def test_rewrite_scene_prompt_without_extra_direction_keeps_original_prompt(self):
-        original = "Scene direction: Continue naturally.\\nNatural endpoint: Elena enters."
+        original = "Scene direction: Continue naturally.\nNatural endpoint: Elena enters."
         self.assertEqual(build_rewrite_scene_prompt(original, ""), original)
-        self.assertEqual(build_rewrite_scene_prompt(original, "  \\n "), original)
+        self.assertEqual(build_rewrite_scene_prompt(original, "  \n "), original)
 
     def test_rewrite_action_sends_existing_prompt_with_author_direction(self):
         app = MinimalWriterApp.__new__(MinimalWriterApp)
         app.busy = False
         app.loaded_model = Path("/models/example.gguf")
-        scene_prompt = "Scene direction: Let the group talk.\\nNatural endpoint: Elena arrives."
+        scene_prompt = "Scene direction: Let the group talk.\nNatural endpoint: Elena arrives."
         direction = "Give the conversation more room."
         app.prompt_box = FakePromptBox(scene_prompt)
         app.author_direction_box = FakePromptBox(direction)
