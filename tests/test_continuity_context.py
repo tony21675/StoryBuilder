@@ -31,6 +31,8 @@ class ContinuityContextTests(unittest.TestCase):
         self.assertIn("- Main Galley", prompt)
         self.assertIn("COMPLETE ALLOWLIST", prompt)
         self.assertIn("Do not invent, rename, infer, or subdivide", prompt)
+        self.assertIn("Ordinary, unnamed hallways, corridors, and connecting passageways may be used briefly", prompt)
+        self.assertIn("they are not destinations or places to gather", prompt)
         self.assertNotIn("Shared meal preparation area", prompt)
         self.assertNotIn("Not A Location", prompt)
 
@@ -40,6 +42,8 @@ class ContinuityContextTests(unittest.TestCase):
         self.assertEqual(names, [])
         self.assertIn("NO APPROVED LOCATIONS ARE REGISTERED", prompt)
         self.assertIn("Do not invent, name, infer, or move", prompt)
+        self.assertIn("Hallways and corridors may be used only as brief connective passageways", prompt)
+        self.assertIn("not as destinations or places to gather", prompt)
 
     def test_active_view_prunes_incidental_drink_but_preserves_durable_facts(self):
         ledger = {
