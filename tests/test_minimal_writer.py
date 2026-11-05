@@ -853,6 +853,90 @@ class MinimalWriterTests(unittest.TestCase):
         self.assertIn("previous draft was restored", app.status_var.value.lower())
         self.assertIsNone(app.loaded_model)
 
+    def test_write_includes_the_immediately_preceding_saved_scene(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            chapter = root / "Manuscript" / "Chapters" / "Chapter_02"
+            chapter.mkdir(parents=True)
+            previous = chapter / "Chapter_02_Section_19.txt"
+            previous.write_text(
+                "Morgan finished her charades turn. The group was still laughing.",
+                encoding="utf-8",
+            )
+
+            Value = lambda value: type("Value", (), {"get": lambda self: value})()
+            app = MinimalWriterApp.__new__(MinimalWriterApp)
+            app.busy = False
+            app.loaded_model = Path("/models/example.gguf")
+            app.prompt_box = FakePromptBox("Scene direction: Continue the evening.")
+            app.novel_var = Value("The Long Way Home")
+            app.novel_packages = {"The Long Way Home": root}
+            app.chapter_var = Value("Chapter 02")
+            app.chapter_numbers = {"Chapter 02": 2}
+            app.scene_var = Value("Scene 20")
+            app._prepare_location_context = lambda prompt: prompt
+            captured = {}
+            app._begin_generation = lambda prompt, mode: captured.update(
+                prompt=prompt, mode=mode
+            )
+
+            app.write()
+
+            self.assertEqual(captured["mode"], "write")
+            self.assertIn("IMMEDIATELY PRECEDING SAVED SCENE", captured["prompt"])
+            self.assertIn("Morgan finished her charades turn.", captured["prompt"])
+            self.assertIn("Source: Chapter 02, Scene 19", captured["prompt"])
+
+    def test_prompt_trace_is_armed_for_one_scene_and_finished_locally(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            trace_path = Path(temporary) / "prompt_trace.json"
+            trace = type(
+                "Trace",
+                (),
+                {
+                    "finish": lambda self, **kwargs: trace_path,
+                },
+            )()
+            attached = []
+            detached = []
+            engine = FakeEngine()
+            engine.attach_prompt_trace = attached.append
+            engine.detach_prompt_trace = detached.append
+
+            Value = lambda value: type("Value", (), {"get": lambda self: value})()
+            app = MinimalWriterApp.__new__(MinimalWriterApp)
+            app.engine = engine
+            app.loaded_model = Path("/models/example.gguf")
+            app.prompt_box = FakePromptBox("Scene direction: Continue.")
+            app.author_direction_box = FakePromptBox("Keep the mood light.")
+            app.novel_var = Value("The Long Way Home")
+            app.novel_packages = {"The Long Way Home": Path(temporary)}
+            app.chapter_var = Value("Chapter 02")
+            app.chapter_numbers = {"Chapter 02": 2}
+            app.scene_var = Value("Scene 20")
+
+            with patch("minimal_writer.load_prompt_trace_enabled", return_value=True), patch(
+                "minimal_writer.PromptTrace", return_value=trace
+            ) as trace_factory:
+                result = app._start_prompt_trace("Full enriched prompt")
+
+            self.assertIs(result, trace)
+            self.assertEqual(attached, [trace])
+            self.assertEqual(trace_factory.call_args.kwargs["chapter"], 2)
+            self.assertEqual(trace_factory.call_args.kwargs["scene"], 20)
+            self.assertEqual(
+                trace_factory.call_args.kwargs["scene_direction"],
+                "Scene direction: Continue.",
+            )
+            self.assertEqual(
+                trace_factory.call_args.kwargs["author_guidance"],
+                "Keep the mood light.",
+            )
+
+            app._finish_prompt_trace(trace, status="completed")
+            self.assertEqual(detached, [trace])
+            self.assertEqual(app._last_prompt_trace_path, str(trace_path))
+
     def test_write_replaces_visible_prose_but_preserves_model_session_context(self):
         app = MinimalWriterApp.__new__(MinimalWriterApp)
         app.root = FakeRoot()
