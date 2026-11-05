@@ -1898,7 +1898,7 @@ class MinimalWriterApp:
         self._finish_stopped()
 
     def _finish_stopped(self) -> None:
-        was_rewrite = self._generation_mode == "rewrite"
+        was_rewrite = getattr(self, "_generation_mode", "write") == "rewrite"
         if was_rewrite:
             self._restore_pre_generation_output()
         self.busy = False
