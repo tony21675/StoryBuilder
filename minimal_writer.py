@@ -201,6 +201,24 @@ def build_continue_prompt(existing_text: str) -> str:
     return f"{CONTINUE_PROMPT}\n\nPassage ending for context:\n{passage_ending}"
 
 
+def build_rewrite_scene_prompt(scene_prompt: str, author_direction: str = "") -> str:
+    """Combine the unchanged scene prompt with optional extra guidance for a rewrite."""
+    original = str(scene_prompt or "").strip()
+    direction = str(author_direction or "").strip()
+    if not direction:
+        return original
+    return (
+        f"{original}\n\n"
+        "ADDITIONAL AUTHOR'S DIRECTION FOR THIS REWRITE\n"
+        f"{direction}\n\n"
+        "Treat this as a priority clarification for the same scene, not a request to "
+        "prepare or advance to another scene. Preserve the existing scene's location, "
+        "characters, intended events, and natural endpoint except where this additional "
+        "direction specifically refines them. Write a complete replacement scene as "
+        "natural manuscript prose only."
+    )
+
+
 def build_location_context_prompt(
     prompt: str,
     locations: dict,
@@ -509,6 +527,11 @@ class MinimalWriterApp:
             actions, text="Write", command=self.write
         )
         self.write_button.pack(side="left")
+
+        self.rewrite_scene_button = ttk.Button(
+            actions, text="Rewrite Scene", command=self.rewrite_current_scene
+        )
+        self.rewrite_scene_button.pack(side="left", padx=(8, 0))
 
         self.continue_button = ttk.Button(
             actions, text="Continue", command=self.continue_writing
@@ -1549,6 +1572,52 @@ class MinimalWriterApp:
         prompt = self._prepare_location_context(prompt)
         self._begin_generation(prompt, mode="write")
 
+    def rewrite_current_scene(self) -> None:
+        """Regenerate the visible scene using its existing prompt and extra guidance."""
+        if self.busy:
+            return
+        if self.loaded_model is None:
+            self._showinfo("Load a model", "Load a model before rewriting a scene.")
+            return
+
+        scene_prompt = self.prompt_box.get("1.0", "end-1c")
+        if not scene_prompt.strip():
+            self._showinfo(
+                "No scene direction",
+                "Prepare or enter the scene direction in What should it write? first.",
+            )
+            return
+
+        previous_draft = self._output_text()
+        if not previous_draft.strip():
+            self._showinfo(
+                "No scene draft",
+                "Write the scene first. Rewrite Scene replaces an existing draft with a fresh attempt.",
+            )
+            return
+
+        author_direction = self.author_direction_box.get(
+            "1.0", "end-1c"
+        ).strip()
+        if not self._askyesno(
+            "Rewrite current scene?",
+            (
+                "Gemma will use the existing What should it write? prompt, with "
+                "Author's Direction added as extra guidance. The visible Output draft "
+                "will be replaced only after you confirm.\n\n"
+                "The scene prompt, selected scene number, and saved manuscript files "
+                "will not be changed. If you cancel, stop generation, or generation "
+                "fails, the current draft will be restored."
+            ),
+        ):
+            self.status_var.set("Rewrite cancelled. The current draft was kept.")
+            return
+
+        prompt = build_rewrite_scene_prompt(scene_prompt, author_direction)
+        prompt = self._prepare_location_context(prompt)
+        self._rewrite_original_author_direction = author_direction
+        self._begin_generation(prompt, mode="rewrite")
+
     def continue_writing(self) -> None:
         if self.busy:
             return
@@ -1723,7 +1792,10 @@ class MinimalWriterApp:
         self.busy = True
         self.writing = True
         self.stop_requested = False
-        action = "Continuing" if mode == "continue" else "Writing"
+        action = {
+            "continue": "Continuing",
+            "rewrite": "Rewriting",
+        }.get(mode, "Writing")
         location_names = getattr(self, "last_location_context_names", [])
         location_note = (
             f" Saved locations: {', '.join(location_names)}."
@@ -1791,14 +1863,30 @@ class MinimalWriterApp:
         self.busy = False
         self.writing = False
         model_name = self.loaded_model.name if self.loaded_model else "model"
-        action = "continuing" if self._generation_mode == "continue" else "writing"
+        action = {
+            "continue": "continuing",
+            "rewrite": "rewriting",
+        }.get(self._generation_mode, "writing")
+        rewrite_note = ""
+        if self._generation_mode == "rewrite":
+            direction_box = getattr(self, "author_direction_box", None)
+            original_direction = getattr(
+                self, "_rewrite_original_author_direction", None
+            )
+            if direction_box is not None and original_direction is not None:
+                current_direction = direction_box.get("1.0", "end-1c").strip()
+                if current_direction == original_direction:
+                    direction_box.delete("1.0", "end")
+                else:
+                    rewrite_note = " New Author's Direction edits were kept."
         location_names = getattr(self, "last_location_context_names", [])
         location_note = (
             f" Location context: {', '.join(location_names)}."
             if location_names else ""
         )
         self.status_var.set(
-            f"Finished {action} with {model_name}.{location_note} Edit the output or save it."
+            f"Finished {action} with {model_name}.{location_note}{rewrite_note} "
+            "Edit the output or save it."
         )
         self._update_controls()
 
@@ -1810,15 +1898,24 @@ class MinimalWriterApp:
         self._finish_stopped()
 
     def _finish_stopped(self) -> None:
+        was_rewrite = self._generation_mode == "rewrite"
+        if was_rewrite:
+            self._restore_pre_generation_output()
         self.busy = False
         self.writing = False
         self.loaded_model = None
         self.stop_requested = False
         partial_text = self._output_text()
         self._set_output_text(partial_text)
-        self.status_var.set(
-            "Writing stopped. Partial text is kept. Load the model again to continue."
-        )
+        if was_rewrite:
+            self.status_var.set(
+                "Rewrite stopped. The previous draft was restored. "
+                "Load the model again before continuing."
+            )
+        else:
+            self.status_var.set(
+                "Writing stopped. Partial text is kept. Load the model again to continue."
+            )
         self._update_controls()
 
     def _write_failed(self, message: str) -> None:
@@ -2217,6 +2314,10 @@ class MinimalWriterApp:
         self.write_button.configure(
             state="normal" if idle and self.loaded_model is not None else "disabled"
         )
+        if hasattr(self, "rewrite_scene_button"):
+            self.rewrite_scene_button.configure(
+                state="normal" if idle and self.loaded_model is not None else "disabled"
+            )
         self.continue_button.configure(
             state="normal" if idle and self.loaded_model is not None else "disabled"
         )
