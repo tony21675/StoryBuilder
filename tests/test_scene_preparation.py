@@ -10,6 +10,7 @@ from builder.novel_browser import list_scene_files
 from builder.scene_preparation import (
     build_scene_preparation_prompt,
     next_scene_coordinates,
+    resolve_scene_preparation_target,
     scene_number_from_label,
 )
 from minimal_writer import MinimalWriterApp
@@ -313,6 +314,66 @@ class ScenePreparationDestinationTests(unittest.TestCase):
         )
 
 
+    def test_pending_prepared_scene_retry_keeps_destination_and_previous_scene(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "Novel"
+            root.mkdir()
+            previous = root / "Chapter_02_Section_19.odt"
+            pending_scene = root / "Chapter_02_Section_20.odt"
+
+            retry = resolve_scene_preparation_target(
+                2,
+                None,
+                20,
+                novel_path=root,
+                pending_destination=(2, 20),
+                pending_novel_path=root,
+                pending_source_scene_path=previous,
+            )
+            after_save = resolve_scene_preparation_target(
+                2,
+                pending_scene,
+                20,
+                novel_path=root,
+                pending_destination=(2, 20),
+                pending_novel_path=root,
+                pending_source_scene_path=previous,
+            )
+
+        self.assertEqual(retry, (2, 20, previous, True))
+        self.assertEqual(after_save, (2, 21, pending_scene, False))
+
+    def test_pending_scene_is_not_reused_for_a_different_novel_or_selection(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "Novel"
+            other_novel = Path(temp) / "Other Novel"
+            root.mkdir()
+            other_novel.mkdir()
+            previous = root / "Chapter_02_Section_19.odt"
+
+            different_novel = resolve_scene_preparation_target(
+                2,
+                None,
+                20,
+                novel_path=other_novel,
+                pending_destination=(2, 20),
+                pending_novel_path=root,
+                pending_source_scene_path=previous,
+            )
+            different_selection = resolve_scene_preparation_target(
+                2,
+                previous,
+                19,
+                novel_path=root,
+                pending_destination=(2, 20),
+                pending_novel_path=root,
+                pending_source_scene_path=previous,
+            )
+
+        self.assertEqual(different_novel, (2, 21, None, False))
+        self.assertEqual(different_selection, (2, 20, previous, False))
+
+
 class _FakePicker:
     def __init__(self):
         self.values = []
@@ -392,6 +453,10 @@ class MinimalWriterPrepareSceneTests(unittest.TestCase):
         app._askyesno = Mock(return_value=True)
         app._scene_preparation_destination = (1, 1)
         app._scene_preparation_original_author_direction = ""
+        app._scene_preparation_source_scene_path = None
+        app._prepared_scene_destination = None
+        app._prepared_scene_novel_path = None
+        app._prepared_scene_source_scene_path = None
         return app
 
     def test_prepare_scene_fills_prompt_box_for_an_empty_novel(self):
@@ -454,6 +519,51 @@ class MinimalWriterPrepareSceneTests(unittest.TestCase):
             self.assertIn("preparing Chapter 01, Scene 11", confirmation[1])
             self.assertIn("ONLY the text in the What should it write? box", confirmation[1])
             self.assertIn("will NOT overwrite, save, or modify", confirmation[1])
+
+    def test_prepare_scene_retry_keeps_same_scene_and_previous_scene_context(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "Test Novel"
+            chapter = root / "Manuscript" / "Chapters" / "Chapter_01"
+            chapter.mkdir(parents=True)
+            (root / "story_bible.json").write_text("{}", encoding="utf-8")
+            source = chapter / "Chapter_01_Section_10.txt"
+            source.write_text("The accepted ending of Scene 10.", encoding="utf-8")
+
+            app = self.make_app(root)
+            app.chapter_var = _FakeVariable("Chapter 01")
+            app.chapter_numbers = {"Chapter 01": 1}
+            app.scene_var = _FakeVariable("Scene 10")
+            app.scene_files = {"Scene 10": source}
+
+            with (
+                patch(
+                    "minimal_writer.write_from_prompt",
+                    side_effect=("First suggestion.", "Second suggestion."),
+                ) as generate,
+                patch("minimal_writer.threading.Thread", _ImmediateThread),
+            ):
+                MinimalWriterApp.prepare_scene(app)
+                self.assertEqual(app.scene_var.get(), "Scene 11")
+                self.assertEqual(app._prepared_scene_destination, (1, 11))
+
+                app.author_direction_box.value = (
+                    "Have Daniel walk over to Elena and talk to her about the overdue report."
+                )
+                MinimalWriterApp.prepare_scene(app)
+
+            self.assertEqual(generate.call_count, 2)
+            first_prompt = generate.call_args_list[0].args[1]
+            retry_prompt = generate.call_args_list[1].args[1]
+            self.assertIn("Chapter 01, Scene 11", first_prompt)
+            self.assertIn("The accepted ending of Scene 10.", first_prompt)
+            self.assertIn("Chapter 01, Scene 11", retry_prompt)
+            self.assertIn("The accepted ending of Scene 10.", retry_prompt)
+            self.assertIn("walk over to Elena", retry_prompt)
+            self.assertEqual(app._scene_preparation_destination, (1, 11))
+            self.assertEqual(app._prepared_scene_destination, (1, 11))
+            self.assertEqual(app.scene_var.get(), "Scene 11")
+            self.assertEqual(app.prompt_box.value, "Second suggestion.")
+            self.assertIsNone(app.author_direction_box.value)
 
     def test_prepare_scene_uses_and_clears_author_direction_after_success(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -616,6 +726,8 @@ class MinimalWriterSaveNewSceneTests(unittest.TestCase):
             root = Path(temp) / "The Long Way Home"
             (root / "Manuscript" / "Chapters" / "Chapter_01").mkdir(parents=True)
             app = self.make_app(root, scene_label="Scene 02", output="Scene two prose.")
+            app._prepared_scene_destination = (1, 2)
+            app._prepared_scene_novel_path = root
 
             saved = MinimalWriterApp.save_new_scene(app)
 
@@ -629,6 +741,9 @@ class MinimalWriterSaveNewSceneTests(unittest.TestCase):
             self.assertEqual(app.scene_var.get(), "Scene 02")
             self.assertEqual(app.scene_files["Scene 02"], target)
             self.assertEqual(app.selected_scene_source, target.resolve())
+            self.assertIsNone(app._prepared_scene_destination)
+            self.assertIsNone(app._prepared_scene_novel_path)
+            self.assertIsNone(app._prepared_scene_source_scene_path)
             self.assertIn("Saved new scene:", app.status_var.set.call_args.args[0])
             self.assertFalse(app._showerror.called)
 
