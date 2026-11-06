@@ -50,7 +50,7 @@ class StoryCraftPromptTests(unittest.TestCase):
         self.assertIn("Follow the author's direction", prompt)
         self.assertNotIn("MEDIA AND DEVICE BOUNDARIES", prompt)
 
-    def test_prepare_scene_adds_media_guidance_when_previous_scene_uses_a_device(self):
+    def test_previous_scene_device_mention_does_not_trigger_media_guidance(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             (root / "story_bible.json").write_text(
@@ -64,6 +64,24 @@ class StoryCraftPromptTests(unittest.TestCase):
 
             prompt = build_scene_preparation_prompt(
                 root, "Test Novel", 1, 2, source_scene_path=previous
+            )
+
+        self.assertNotIn("MEDIA AND DEVICE BOUNDARIES", prompt)
+
+    def test_author_direction_device_mention_triggers_media_guidance(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "story_bible.json").write_text(
+                json.dumps({"title": "Test Novel", "locations": {}}),
+                encoding="utf-8",
+            )
+
+            prompt = build_scene_preparation_prompt(
+                root,
+                "Test Novel",
+                1,
+                1,
+                author_direction="The crew watches a film on the television.",
             )
 
         self.assertIn("MEDIA AND DEVICE BOUNDARIES", prompt)
