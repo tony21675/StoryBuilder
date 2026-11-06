@@ -20,7 +20,10 @@ from builder.creative_direction import build_creative_direction_prompt
 from builder.story_craft import build_story_craft_prompt
 from builder.canon_rules import build_canon_rules_prompt
 from builder.story_pacing import build_story_opening_pacing_prompt
-from builder.story_timeline import build_story_timeline_prompt
+from builder.story_timeline import (
+    build_current_story_context_prompt,
+    build_story_timeline_prompt,
+)
 from builder.scene_preparation import (
     build_scene_preparation_prompt,
     next_scene_coordinates,
@@ -1726,6 +1729,9 @@ class MinimalWriterApp:
                 timeline_note = build_story_timeline_prompt(current_state.get("time_of_day"))
                 if timeline_note:
                     prompt = f"{str(prompt).rstrip()}\n\n{timeline_note}"
+                story_context_note = build_current_story_context_prompt(current_state)
+                if story_context_note:
+                    prompt = f"{str(prompt).rstrip()}\n\n{story_context_note}"
                 cast_names = []
                 scene_cast = current_state.get("scene_cast", [])
                 if isinstance(scene_cast, list):
