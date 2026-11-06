@@ -48,6 +48,48 @@ def next_scene_coordinates(
     return chapter, 1
 
 
+def resolve_scene_preparation_target(
+    selected_chapter: int | None,
+    selected_scene_path: str | Path | None,
+    selected_scene_number: int | None = None,
+    *,
+    novel_path: str | Path | None = None,
+    pending_destination: tuple[int, int] | None = None,
+    pending_novel_path: str | Path | None = None,
+    pending_source_scene_path: str | Path | None = None,
+) -> tuple[int, int, Path | None, bool]:
+    """Reuse an unsaved prepared scene when retrying; otherwise move past the selection."""
+    chapter = max(1, int(selected_chapter or 1))
+    current_position = (chapter, int(selected_scene_number or 0))
+
+    same_novel = (
+        novel_path is not None
+        and pending_novel_path is not None
+        and Path(novel_path).expanduser() == Path(pending_novel_path).expanduser()
+    )
+    is_retry = (
+        same_novel
+        and pending_destination is not None
+        and current_position == pending_destination
+        and selected_scene_path is None
+    )
+    if is_retry:
+        previous_scene = (
+            Path(pending_source_scene_path)
+            if pending_source_scene_path is not None
+            else None
+        )
+        return pending_destination[0], pending_destination[1], previous_scene, True
+
+    target_chapter, target_scene = next_scene_coordinates(
+        selected_chapter, selected_scene_path, selected_scene_number
+    )
+    previous_scene = (
+        Path(selected_scene_path) if selected_scene_path is not None else None
+    )
+    return target_chapter, target_scene, previous_scene, False
+
+
 def _read_current_state(novel_path: Path) -> dict[str, Any]:
     state_path = novel_path / "current_state.json"
     try:
