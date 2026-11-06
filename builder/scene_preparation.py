@@ -10,7 +10,7 @@ from builder.odt_document import read_document
 from builder.story_bible_reader import load_story_bible
 from builder.canon_rules import build_canon_rules_prompt
 from builder.creative_direction import build_creative_direction_prompt
-from builder.story_craft import build_story_craft_prompt
+from builder.story_craft import build_media_device_prompt, build_story_craft_prompt
 from builder.character_context import build_character_card_context_prompt
 from builder.story_pacing import build_story_opening_pacing_prompt
 from builder.story_timeline import (
@@ -124,12 +124,14 @@ def build_scene_preparation_prompt(
     previous_ending = _previous_scene_ending(source_scene_path)
 
     title = _clean_text(story_bible.get("title")) or _clean_text(novel_name)
+    author_direction_text = str(author_direction or "").strip()
     sections = [
         "Help the author prepare a starting direction for the next scene. This is planning, not scene prose.",
         f"Destination: Chapter {int(chapter_number):02d}, Scene {int(scene_number):02d}.",
         f"Story: {title}",
-        build_story_opening_pacing_prompt(),
     ]
+    if (int(chapter_number), int(scene_number)) == (1, 1):
+        sections.append(build_story_opening_pacing_prompt())
 
     premise = _clean_text(story_bible.get("premise"))
     setting = _clean_text(story_bible.get("setting"))
@@ -167,6 +169,9 @@ def build_scene_preparation_prompt(
     craft_note = build_story_craft_prompt()
     if craft_note:
         sections.append(craft_note)
+    media_note = build_media_device_prompt("\n".join((previous_ending, author_direction_text)))
+    if media_note:
+        sections.append(media_note)
 
     timeline_note = build_story_timeline_prompt(current_state.get("time_of_day"))
     if timeline_note:
@@ -211,30 +216,20 @@ def build_scene_preparation_prompt(
             + previous_ending
         )
     else:
-        sections.append(
-            "No saved previous scene was selected. Treat this as the novel's opening scene."
-        )
+        if (int(chapter_number), int(scene_number)) == (1, 1):
+            sections.append("No saved previous scene was selected. Treat this as the novel's opening scene.")
+        else:
+            sections.append("No saved previous scene text was selected.")
 
-    author_direction_text = str(author_direction or "").strip()
     if author_direction_text:
-        sections.append(
-            "AUTHOR'S DIRECTION (OPTIONAL; FOLLOW THIS STEERING)\n"
-            + author_direction_text
-            + "\nHonor the author's intended event, focus, and outcome for this scene. "
-            "Use the previous scene, established characters, story facts, canon, and "
-            "timeline to shape a natural continuation; do not replace the author's "
-            "direction with an unrelated scene idea."
-        )
+        sections.append("AUTHOR'S DIRECTION\n" + author_direction_text)
 
     sections.extend(
         [
             "",
-            "Build directly on the selected previous scene and the latest established situation. Continue its natural momentum instead of restarting a completed activity or jumping to an unrelated task. Give one coherent, specific scene direction rather than a list of alternatives. The scene may contribute through character development, relationships, choices, or events that grow naturally from what is already happening, but it does not need to introduce a new task, problem, decision, or change of activity. Ordinary conversation, recreation, observation, shared experiences, and comfortable silence can make a scene worthwhile in themselves. Do not invent an activity merely to create a sense of progress; follow the story's natural momentum and the author's direction.",
-            "Use the established character roster as authoritative. Do not invent extra members of an established crew, team, household, or similar group. Keep track of who is already present, who is elsewhere, and who is actually arriving.",
-            "Use the timeline anchor and the previous scene to maintain the passage of time. Do not invent a mystery, danger, anomaly, or interruption merely to create a hook; let new developments arise from the established story and the author's direction.",
-            "Prepare a compact, editable writing direction in exactly two labeled parts: 'Scene direction:' followed by two to four concise sentences describing what should happen next, and 'Natural endpoint:' followed by one sentence describing a clear, concrete final beat that naturally closes this scene.",
-            "Choose an endpoint that fits the proposed scene and leaves the next scene free to begin with the next activity. The endpoint must be the last beat of this scene, not merely something that happens near the end. Prefer a completed action, response, or settled moment; avoid ending on an unfinished exchange or the start of another activity. Do not force a cliffhanger, prescribe every beat, or make the endpoint generic. The writer should finish on this beat and stop rather than continuing afterward.",
-            "Do not write finished scene prose, dialogue, or a beat-by-beat outline. Leave room for the story and characters to develop naturally. Return only the two labeled parts followed by this exact instruction: 'Write natural manuscript prose only; do not repeat these labels, and stop at the natural endpoint.'",
+            "Follow the author's direction and continue naturally from the previous scene. A quiet or ordinary moment is valid scene material.",
+            "Return exactly two labeled parts: 'Scene direction:' in two to four concise sentences, and 'Natural endpoint:' in one sentence naming the final concrete beat. Stop at that beat.",
+            "Do not write manuscript prose or dialogue. Return only those two parts, followed by this exact instruction: 'Write natural manuscript prose only; do not repeat these labels, and stop at the natural endpoint.'",
         ]
     )
     return "\n\n".join(sections)
