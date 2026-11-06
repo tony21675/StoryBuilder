@@ -6,8 +6,8 @@ import re
 
 
 _MEDIA_CONTEXT_RE = re.compile(
-    r"\\b(?:watch(?:ing)?|television|tv|movie|film|screen|phone|radio|broadcast|"
-    r"podcast|speaker|music|song|video|stream(?:ing)?|headphones|tablet|computer|display)\\b",
+    r"\b(?:watch(?:ing)?|television|tv|movie|film|screen|phone|radio|broadcast|"
+    r"podcast|speaker|music|song|video|stream(?:ing)?|headphones|tablet|computer|display)\b",
     re.IGNORECASE,
 )
 
