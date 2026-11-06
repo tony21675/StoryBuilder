@@ -19,7 +19,7 @@ def build_story_craft_prompt() -> str:
         "Keep scenes natural and lived-in. Let characters and relationships develop at "
         "their own pace. Vary who speaks; not everyone needs a line. Ordinary moments can "
         "matter. Prefer concrete actions and believable detail over overworked description. "
-        "Keep the previous scene's location and activity in view when continuing. "
+        "Carry forward the previous scene's location and activity when continuing. "
         "Use the author's direction as supplementary guidance within established continuity."
     )
 

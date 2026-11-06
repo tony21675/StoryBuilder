@@ -269,7 +269,7 @@ def build_scene_preparation_prompt(
     sections.extend(
         [
             "",
-            "Use the established story context, selected previous scene, and requested scene direction as the foundation. Treat any AUTHOR'S DIRECTION as supplementary guidance that may refine emphasis or add detail; it does not replace the scene direction, remove established characters, or override continuity unless the author explicitly asks for those changes. A quiet or ordinary moment is valid scene material.",
+            "Use the established story context, selected previous scene, and requested scene direction as the foundation. Any optional author guidance is supplementary: it may refine emphasis or add detail, but it does not replace the scene direction, remove established characters, or override continuity unless the author explicitly asks for those changes. A quiet or ordinary moment is valid scene material.",
             "Return exactly two labeled parts: 'Scene direction:' in two to four concise sentences, and 'Natural endpoint:' in one sentence naming the final concrete beat. Stop at that beat.",
             "Do not write manuscript prose or dialogue. Return only those two parts, followed by this exact instruction: 'Write natural manuscript prose only; do not repeat these labels, and stop at the natural endpoint.'",
         ]
