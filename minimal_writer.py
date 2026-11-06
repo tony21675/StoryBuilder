@@ -17,9 +17,8 @@ from builder.continuity_context import (
 from builder.character_context import build_character_card_context_prompt
 from builder.story_bible_reader import load_story_bible
 from builder.creative_direction import build_creative_direction_prompt
-from builder.story_craft import build_story_craft_prompt
+from builder.story_craft import build_media_device_prompt, build_story_craft_prompt
 from builder.canon_rules import build_canon_rules_prompt
-from builder.story_pacing import build_story_opening_pacing_prompt
 from builder.story_timeline import (
     build_current_story_context_prompt,
     build_story_timeline_prompt,
@@ -1706,13 +1705,13 @@ class MinimalWriterApp:
         craft_note = build_story_craft_prompt()
         if craft_note:
             prompt = f"{str(prompt).rstrip()}\n\n{craft_note}"
+        media_note = build_media_device_prompt("\n".join((str(prompt or ""), str(supporting_text or ""))))
+        if media_note:
+            prompt = f"{str(prompt).rstrip()}\n\n{media_note}"
 
         canon_rules_note = build_canon_rules_prompt(story_bible.get("canon_rules"))
         if canon_rules_note:
             prompt = f"{str(prompt).rstrip()}\n\n{canon_rules_note}"
-
-        pacing_note = build_story_opening_pacing_prompt()
-        prompt = f"{str(prompt).rstrip()}\n\n{pacing_note}"
 
         creative_note = build_creative_direction_prompt(
             story_bible.get("creative_direction")
