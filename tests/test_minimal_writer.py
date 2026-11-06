@@ -297,10 +297,9 @@ class MinimalWriterTests(unittest.TestCase):
         self.assertIn("Tiffany and Maya have a sister-like friendship.", prompt)
         self.assertIn("STORY TIMELINE", prompt)
         self.assertIn("Latest saved in-story time: Day 1, 16:00", prompt)
-        self.assertIn("STORY OPENING AND PACING", prompt)
-        self.assertIn("\n\nSTORY OPENING AND PACING", prompt)
-        self.assertIn("not a fixed scene count", prompt.lower())
-        self.assertIn("artificially delay an urgent conflict", prompt.lower())
+        self.assertNotIn("STORY OPENING AND PACING", prompt)
+        self.assertIn("SCENE CRAFT GUIDANCE", prompt)
+        self.assertIn("Carry forward the previous scene's location and activity", prompt)
 
     def test_writer_prompt_has_complete_location_allowlist_and_named_details(self):
         locations = {
