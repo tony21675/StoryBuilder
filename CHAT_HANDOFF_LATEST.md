@@ -558,3 +558,15 @@ Date: November 4, 2026
   - StoryBuilder workflow: shell launcher syntax and `compileall` passed; unit tests reached the same known Tkinter harness failure.
 - **Laptop installation:** Not yet pulled. The user's last confirmed local-only change remains the intentional `storybuilder.py` executable-mode change (100644 to 100755). Startup sync in `start.sh` already stashes/restores local changes around a fast-forward pull; close the running Writer and launch it again to install this update. Then run the established local test gate:
   `.venv/bin/python -m pytest -q -k "not test_blank_name_does_not_save_or_close_the_editor"`.
+
+
+## Author's Direction is supplementary guidance (November 5, 2026)
+
+- The author identified that optional **Author's Direction** was overriding too much of the established scene plan, including dropping already-present characters when asking to add or adjust roles.
+- Changed Prepare Scene so the saved story context, selected previous scene, and requested scene direction form the foundation. Optional Author's Direction is now explicitly supplementary: it may refine emphasis or add detail, but it does not replace the scene direction, remove established characters, or override continuity unless the author explicitly asks for those changes.
+- Updated shared scene-craft wording to keep previous-scene continuity in view while describing Author's Direction as supplementary guidance. Updated Rewrite Scene's prompt the same way so the field has consistent behavior in both planning and rewriting.
+- No model settings, saved novel state, Story Bible, or manuscript prose were changed. No new branch was created.
+- Added/updated prompt tests in `tests/test_scene_preparation.py`, `tests/test_story_craft.py`, and `tests/test_minimal_writer.py`.
+- Commits on `redesign/simplified-writing-workflow`: `813eda9b2d742468c8b808cea8e64ce5645b40a4` (initial prompt wording and tests), followed by `380bc31056ca635a14243234eb0fe363dfe589ed` (kept the previous-scene wording expected by existing tests and avoided mentioning the optional field when it is blank).
+- GitHub Actions at `380bc31056ca635a14243234eb0fe363dfe589ed`: compile and shell syntax checks passed. Both test workflows report **678 passed, 1 failed, 77 subtests passed** (the unittest run reports 679 tests with the same single error). The one remaining failure is the known unrelated Tkinter harness issue in `test_blank_name_does_not_save_or_close_the_editor`, where a fake root lacks `.tk`. The new Author's Direction tests pass.
+- **Laptop installation:** The change is committed remotely but has not yet been pulled into the running Writer. Close Writer after preserving any unsaved visible work, then relaunch with `cd ~/Documents/StoryBuilder && ./start.sh`; startup sync will fast-forward the existing branch and preserve the known mode-only `storybuilder.py` permission change. Then run the established local test gate: `.venv/bin/python -m pytest -q -k "not test_blank_name_does_not_save_or_close_the_editor"`.
