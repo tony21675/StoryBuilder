@@ -502,3 +502,12 @@ Date: November 4, 2026
 - Source changes are on `redesign/simplified-writing-workflow`, currently at `c2321f7d65bcc75b3d10e67ccf2479d365b35fb3`.
 - Python pytest: **672 passed, 1 failed, 77 subtests passed**. The only failure remains the known unrelated Tkinter test-harness issue in `test_blank_name_does_not_save_or_close_the_editor` (fake root has no `.tk`). All seven new saved-scene state tests passed. Run: https://github.com/tony21675/StoryBuilder/actions/runs/42042893995.
 - StoryBuilder workflow: launcher syntax and `compileall` passed; the unit suite ran 673 tests with only the same known Tkinter harness error. Run: https://github.com/tony21675/StoryBuilder/actions/runs/42042894143.
+
+## Outstanding objective continuity in scene planning and prose prompts (November 5, 2026)
+
+- The author identified a continuity loss: Daniel's report to Elena remained undelivered at the end of Chapter 2, Scene 19 and was recorded in `current_state.json` under `active_objectives.Daniel`, but the Writer prompts did not consistently receive outstanding objectives.
+- Added a shared prompt formatter in `builder/story_timeline.py` for the saved current situation and non-empty per-character active objectives. It labels objectives as unresolved continuity, says not to assume off-page completion or silently drop an objective because a scene omits it, and also says not to force every objective into every scene. It prohibits inventing excuses or outcomes.
+- Prepare Scene now includes this context when its existing current-state position check accepts the saved state. Actual Write, Rewrite Scene, and Continue prompts now include the same context through the shared Writer-context path.
+- No old-to-new checker, separate scene reviewer, additional model pass, model setting change, or manuscript/state mutation was added. The change only supplies already-saved state to prompts.
+- Regression coverage verifies both Prepare Scene and the final Write prompt include Daniel's report obligation and the unresolved-continuity instruction.
+- **Installation status:** Changes are committed on the existing `redesign/simplified-writing-workflow` branch. The author's local branch must still fetch, inspect incoming filenames, pull fast-forward, and run the agreed local pytest gate. Preserve the intentional `storybuilder.py` executable-mode-only change.
