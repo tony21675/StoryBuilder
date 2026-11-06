@@ -151,7 +151,7 @@ class ScenePreparationPromptTests(unittest.TestCase):
             )
 
             self.assertNotIn(
-                "AUTHOR'S DIRECTION (OPTIONAL; FOLLOW THIS STEERING)", prompt
+                "AUTHOR'S DIRECTION", prompt
             )
 
     def test_next_scene_uses_selected_ending_and_only_matching_state_details(self):
