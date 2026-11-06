@@ -5,7 +5,62 @@
 **Scene review:** The former trace/validator workflow has been scrapped. Do not look for saved traces. Review scenes directly from the prose the author shares.
 
 
-Date: November 4, 2026
+Date: November 6, 2026
+
+
+## Latest cross-project checkpoint (November 6, 2026)
+
+**This section supersedes older novel-specific status in the historical notes below wherever the details conflict.** The detailed novel handoff is now maintained separately at [The Long Way Home: CHAT_HANDOFF_LATEST.md](https://github.com/tony21675/The-Long-Way-Home/blob/main/CHAT_HANDOFF_LATEST.md).
+
+### The Long Way Home: active manuscript and story state
+
+- Novel repo: `tony21675/The-Long-Way-Home`, branch `main`; local package: `~/Documents/MyNovel/The-Long-Way-Home`.
+- GitHub contains Chapter 1 Scenes **01–15**, including the replacement Scene 10.
+- Scene 10 was written at the author's explicit request as a quiet evening bridge between Scene 9's movie discussion and Scene 11's following-morning routine. The author pulled the ODT from GitHub successfully. An older recovered Scene 10 from pre-reset history was determined not to fit between the current Scenes 9 and 11; it remains outside the active manuscript and must not be restored.
+- Chapter 2 was intentionally reset. The active GitHub Chapter 2 folder contains only `.gitkeep`; it is ready for a fresh Scene 1.
+- The old local Chapter 2 folder was preserved outside the active novel repository at `~/Documents/Chapter_2_Archive_The-Long-Way-Home/Chapter_02`. A copy of the old state file is at `~/Documents/Chapter_2_Archive_The-Long-Way-Home/current_state_before_reset.json`. Do not delete, restore, or overwrite this archive unless the author explicitly asks.
+- GitHub `current_state.json` is now Chapter 2, Scene 1, `in_progress`, `scene_completed: false`, `chapter_completed: false`, at **Day 2, late afternoon**, with location **Main Lab**. The old Chapter 2 Scene 19/charades position and Daniel's undelivered-report objective are archived history, not active continuity.
+- The current Chapter 2 Scene 1 Prepare Scene direction focuses on how the crew responds to the already-established Delta-Seven CO₂ scrubber problem. Morgan may offer an unproven possible fix; Priya stays grounded in medical protocol; the crew interacts in the Main Lab; the natural endpoint is agreement on the next immediate physical action before escalating the alert. The author said they were about to share Gemma's generated prose. **The prose has not yet been shared in this chat. Review it when provided; do not write or replace the scene unless explicitly asked.**
+
+### Active Delta-Seven situation at the Chapter 1 ending
+
+- Chapter 1 Scene 15 ends in the Main Lab with Daniel and Ryan examining systems.
+- The Computer reports a gradual decline in CO₂ scrubbing efficiency at **Scrubber Unit Delta-Seven**. Ambient CO₂ is rising above the normal operating target of **850 ppm**. The unit remains active; the cause is unknown. The decline has developed over roughly four hours.
+- The Computer announces that department leads should report to Level Two diagnostic stations. Do not treat that wording as permission to invent a new location. Diagnostic stations can be work areas within the approved Main Lab.
+- Do not invent a cause, repair outcome, sabotage, villain, or conspiracy. Let the author and manuscript establish the solution.
+
+### Crew departments discussed
+
+The working assignments are: **Elena** — Mission Commander/overall command; **Daniel** — Engineering, life-support and biological/environmental systems; **Ryan** — Engineering, systems and diagnostics; **Priya** — Medical, physician and crew-health monitoring; **Morgan** — Science & Research, planetary geology; **Zoe** — Communications.
+
+The outpost has approximately 50 personnel. The six principal characters are one crew group within the larger outpost, not the only staff. Other department specialists may exist as background personnel.
+
+Occupation-field edits were suggested for the character cards, but the author has not confirmed that those edits were saved. The currently verified GitHub character cards do not contain the suggested department occupation labels. Do not claim the labels are saved; verify the actual local cards before relying on that.
+
+### Approved locations and synchronization
+
+The author confirmed seven entries in the local Story Bible Location Manager:
+
+1. Crew Recreation and Wellness Room
+2. Galley
+3. Mess Hall
+4. Crew Quarters
+5. Bathroom and Hygiene Facilities
+6. Recreation Room (currently an empty location definition; its distinction from Crew Recreation and Wellness Room remains unresolved)
+7. Main Lab (Interior / Technical and diagnostic workspace)
+
+Main Lab already appears in Chapter 1 Scene 15 and was approved and added through the Location Manager. **Only use these approved locations.** Do not invent Sub-Level B, Medbay, an Engineering Bay, a separate Level Two facility, or any other place. Departments are organizational assignments, not rooms. Diagnostic stations can be areas within Main Lab.
+
+Synchronization caveat: the currently verified GitHub `story_bible.json` still contains only the original six locations and does **not** yet include Main Lab, while GitHub `current_state.json` already names Main Lab. The author's local Location Manager list includes Main Lab, but that Story Bible change has not been confirmed synced to the novel repository. Do not claim it is backed up remotely until it is synced and rechecked.
+
+### Writer behavior and author workflow
+
+- The author found that Author's Direction had been overriding the existing scene plan and dropping characters. The prompt fix is committed on `redesign/simplified-writing-workflow` at application-code commit `380bc31056ca635a14243234eb0fe363dfe589ed`: Author's Direction is supplementary guidance and may refine emphasis or add detail, but should not replace the scene direction, remove established characters, or override continuity unless explicitly requested.
+- CI for that code head reported **678 passed, 1 known unrelated Tkinter harness failure, and 77 subtests passed**; shell syntax and compile checks passed. The known failure is `test_blank_name_does_not_save_or_close_the_editor`, where the fake root has no `.tk` attribute. No claim is made that the author's laptop test gate has been run.
+- The author's intended workflow is: Gemma writes; the assistant reviews Gemma's directions and generated prose for continuity, character roles, and approved locations. Do not write manuscript scenes unless the author explicitly asks.
+- Older handoff references to a named real movie are obsolete. The movie watched by the crew is a generic fictional pirate adventure. Do not bring back a real film title or its plot.
+- Keep instructions light and the process incremental. Preserve the author's manuscript and local Story Bible changes; before any novel sync, inspect `git status --short --branch`.
+
 
 ## Project and workflow
 
