@@ -192,6 +192,9 @@ class ScenePreparationPromptTests(unittest.TestCase):
                 "location": {"primary": "The north pier"},
                 "scene_cast": ["Mara", "Jonah"],
                 "unresolved_questions": ["Why has the ferry not arrived?"],
+                "active_objectives": {
+                    "Daniel": "Deliver the report Elena requested before the end of the workday."
+                },
                 "active_clues": ["This should not be copied into the planning prompt."],
                 "character_knowledge": {"Mara": ["Private knowledge should stay out."]},
             }
@@ -214,6 +217,12 @@ class ScenePreparationPromptTests(unittest.TestCase):
             self.assertIn("The north pier", prompt)
             self.assertIn("Mara, Jonah", prompt)
             self.assertIn("Why has the ferry not arrived?", prompt)
+            self.assertIn("OUTSTANDING CHARACTER OBJECTIVES", prompt)
+            self.assertIn(
+                "Daniel: Deliver the report Elena requested before the end of the workday.",
+                prompt,
+            )
+            self.assertIn("Do not assume it happened off-page", prompt)
             self.assertIn("[Mara]", prompt)
             self.assertIn("[Jonah]", prompt)
             self.assertNotIn("[Private Detail]", prompt)
