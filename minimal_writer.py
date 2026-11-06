@@ -25,7 +25,7 @@ from builder.story_timeline import (
 )
 from builder.scene_preparation import (
     build_scene_preparation_prompt,
-    next_scene_coordinates,
+    resolve_scene_preparation_target,
     scene_number_from_label,
 )
 from builder.odt_document import markdown_to_rich_text, read_document, save_document
@@ -390,6 +390,10 @@ class MinimalWriterApp:
         self._scene_preparation_original_prompt = ""
         self._scene_preparation_original_author_direction = ""
         self._scene_preparation_novel_path: Path | None = None
+        self._scene_preparation_source_scene_path: Path | None = None
+        self._prepared_scene_destination: tuple[int, int] | None = None
+        self._prepared_scene_novel_path: Path | None = None
+        self._prepared_scene_source_scene_path: Path | None = None
         self._preparing_scene = False
         self.chapter_numbers: dict[str, int] = {}
         self.scene_files: dict[str, Path] = {}
@@ -475,6 +479,7 @@ class MinimalWriterApp:
             novel_row, textvariable=self.scene_var, state="readonly", width=10
         )
         self.scene_picker.pack(side="left", padx=(0, 8))
+        self.scene_picker.bind("<<ComboboxSelected>>", self._on_scene_selected)
         self.load_scene_button = ttk.Button(
             novel_row, text="Load Scene Copy", command=self.load_selected_scene_copy
         )
@@ -1093,6 +1098,12 @@ class MinimalWriterApp:
     def _on_novel_selected(self, _event=None) -> None:
         """Populate the chapter picker for the selected novel."""
         novel_path = self.novel_packages.get(self.novel_var.get().strip())
+        pending_novel_path = getattr(self, "_prepared_scene_novel_path", None)
+        if (
+            getattr(self, "_prepared_scene_destination", None) is not None
+            and pending_novel_path != novel_path
+        ):
+            self._clear_prepared_scene_target()
         self.chapter_numbers = {}
         if novel_path is not None:
             numbers = list_scene_chapters(novel_path)
@@ -1120,7 +1131,10 @@ class MinimalWriterApp:
         """Populate the scene picker using only numbered manuscript text files."""
         novel_path = self.novel_packages.get(self.novel_var.get().strip())
         chapter_number = self.chapter_numbers.get(self.chapter_var.get().strip())
-        self.scene_files = {}
+        pending_destination = getattr(self, "_prepared_scene_destination", None)
+        if pending_destination is not None and chapter_number != pending_destination[0]:
+            self._clear_prepared_scene_target()
+        self.scene_files = {};
         if novel_path is not None and chapter_number is not None:
             scenes = list_scene_files(novel_path, chapter_number)
             self.scene_files = {
@@ -1144,6 +1158,22 @@ class MinimalWriterApp:
                 "You can still use the Writer normally."
             )
         self._update_controls()
+
+    def _clear_prepared_scene_target(self) -> None:
+        """Forget a rejected or saved unsaved scene destination."""
+        self._prepared_scene_destination = None
+        self._prepared_scene_novel_path = None
+        self._prepared_scene_source_scene_path = None
+
+    def _on_scene_selected(self, _event=None) -> None:
+        """Discard a pending retry target when the author selects another scene."""
+        pending_destination = getattr(self, "_prepared_scene_destination", None)
+        if pending_destination is None:
+            return
+        chapter_number = self.chapter_numbers.get(self.chapter_var.get().strip())
+        scene_number = scene_number_from_label(self.scene_var.get().strip())
+        if (chapter_number, scene_number) != pending_destination:
+            self._clear_prepared_scene_target()
 
     def load_selected_scene_copy(self) -> None:
         """Load a selected accepted scene as a copy; Save will use Save As."""
@@ -1373,9 +1403,22 @@ class MinimalWriterApp:
         chapter_number = self.chapter_numbers.get(self.chapter_var.get().strip())
         selected_scene_label = self.scene_var.get().strip()
         selected_scene_number = scene_number_from_label(selected_scene_label)
-        source_scene = self.scene_files.get(selected_scene_label)
-        target_chapter, target_scene = next_scene_coordinates(
-            chapter_number, source_scene, selected_scene_number
+        selected_scene_path = self.scene_files.get(selected_scene_label)
+        (
+            target_chapter,
+            target_scene,
+            source_scene,
+            _is_retry,
+        ) = resolve_scene_preparation_target(
+            chapter_number,
+            selected_scene_path,
+            selected_scene_number,
+            novel_path=novel_path,
+            pending_destination=getattr(self, "_prepared_scene_destination", None),
+            pending_novel_path=getattr(self, "_prepared_scene_novel_path", None),
+            pending_source_scene_path=getattr(
+                self, "_prepared_scene_source_scene_path", None
+            ),
         )
         try:
             planning_prompt = build_scene_preparation_prompt(
@@ -1408,6 +1451,7 @@ class MinimalWriterApp:
 
         self._scene_preparation_destination = (target_chapter, target_scene)
         self._scene_preparation_novel_path = novel_path
+        self._scene_preparation_source_scene_path = source_scene
         self._scene_preparation_original_prompt = existing_prompt
         self._scene_preparation_original_author_direction = (
             self.author_direction_box.get("1.0", "end-1c").strip()
@@ -1494,6 +1538,11 @@ class MinimalWriterApp:
         self.prompt_box.insert("1.0", suggestion.strip())
         self.author_direction_box.delete("1.0", "end")
         chapter_number, scene_number = self._scene_preparation_destination
+        self._prepared_scene_destination = self._scene_preparation_destination
+        self._prepared_scene_novel_path = self._scene_preparation_novel_path
+        self._prepared_scene_source_scene_path = (
+            self._scene_preparation_source_scene_path
+        )
         self._select_scene_destination(
             chapter_number, scene_number, self._scene_preparation_novel_path
         )
@@ -1514,7 +1563,9 @@ class MinimalWriterApp:
         else:
             self.status_var.set(
                 f"Prepared Chapter {chapter_number:02d}, Scene {scene_number:02d}. "
-                "Model conversation cleared. Edit the suggestion, then press Write."
+                "Model conversation cleared. Press Prepare Scene to try another "
+                "suggestion for this same scene, or edit it and press Write. "
+                "Saving the scene advances to the next number."
             )
         self._update_controls()
 
@@ -2457,6 +2508,7 @@ class MinimalWriterApp:
             self._showerror("Could not save new scene", str(exc))
             return False
 
+        self._clear_prepared_scene_target()
         self.selected_scene_source = saved_path
         if self.current_file is None:
             self.saved_output_text = text
