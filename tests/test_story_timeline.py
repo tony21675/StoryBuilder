@@ -4,16 +4,16 @@ from builder.story_timeline import build_story_timeline_prompt
 
 
 class StoryTimelinePromptTests(unittest.TestCase):
-    def test_formats_saved_story_time_as_a_forward_moving_anchor(self):
+    def test_formats_saved_story_time_as_a_short_forward_moving_anchor(self):
         prompt = build_story_timeline_prompt(
             "Day 1, 16:00 (4:00 PM), late afternoon at the Mars outpost."
         )
 
         self.assertIn("STORY TIMELINE", prompt)
         self.assertIn("Latest saved in-story time: Day 1, 16:00", prompt)
-        self.assertIn("not as an instruction to reset every new scene", prompt)
-        self.assertIn("Keep time moving forward", prompt)
-        self.assertIn("Do not repeat activities", prompt)
+        self.assertIn("Continue forward from here", prompt)
+        self.assertIn("Do not reset the clock", prompt)
+        self.assertLess(len(prompt), 400)
 
     def test_empty_or_unsupported_time_adds_no_prompt_text(self):
         self.assertEqual(build_story_timeline_prompt(""), "")
