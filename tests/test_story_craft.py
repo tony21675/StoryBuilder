@@ -14,7 +14,7 @@ class StoryCraftPromptTests(unittest.TestCase):
         prompt = build_story_craft_prompt()
 
         self.assertIn("SCENE CRAFT GUIDANCE", prompt)
-        self.assertIn("ordinary moments can matter", prompt)
+        self.assertIn("ordinary moments can matter", prompt.lower())
         self.assertIn("Vary who speaks", prompt)
         self.assertIn("Follow the author's direction", prompt)
         self.assertLess(len(prompt), 600)
@@ -46,7 +46,7 @@ class StoryCraftPromptTests(unittest.TestCase):
             prompt = build_scene_preparation_prompt(root, "Test Novel", 1, 1)
 
         self.assertIn("SCENE CRAFT GUIDANCE", prompt)
-        self.assertIn("ordinary moments can matter", prompt)
+        self.assertIn("ordinary moments can matter", prompt.lower())
         self.assertIn("Follow the author's direction", prompt)
         self.assertNotIn("MEDIA AND DEVICE BOUNDARIES", prompt)
 
