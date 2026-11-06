@@ -528,3 +528,16 @@ Date: November 4, 2026
   - Python pytest: **674 passed, 1 failed, 77 subtests passed**. The sole failure is the previously known unrelated Tkinter harness issue in test_blank_name_does_not_save_or_close_the_editor, where the fake root has no .tk attribute. All prompt-reduction tests passed. Run: https://github.com/tony21675/StoryBuilder/actions/runs/42141431209.
   - StoryBuilder workflow: shell launcher syntax and compileall passed; unit tests ran with the same single known Tkinter harness failure. Run: https://github.com/tony21675/StoryBuilder/actions/runs/42141431264.
 - **Laptop installation:** Not yet pulled. Before installation, inspect the local branch and preserve the known mode-only storybuilder.py change (100644 to 100755). Run the agreed local test gate after a fast-forward pull.
+
+
+## Scene-preparation media guidance narrowed to author direction (November 5, 2026)
+
+- **Prepare Scene** now adds the media/device boundary reminder only when the new author-authored scene direction mentions media or a device.
+- A device mentioned only in the preceding saved scene no longer triggers the reminder for an unrelated upcoming scene. This avoids carrying irrelevant instructions forward simply because a tablet, screen, film, or similar item appeared earlier.
+- Actual Writer generation paths were not changed by this adjustment.
+- Added regression tests for both cases: prior-scene-only media mention is ignored; media named in the new author direction still triggers the reminder.
+- Verification at commit `921d0642d9272722e51761cccd63e8d14a5b49e0`:
+  - Python pytest: **675 passed, 1 failed, 77 subtests passed**. The sole failure is the known unrelated Tkinter harness issue in `test_blank_name_does_not_save_or_close_the_editor`, where the fake root has no `.tk` attribute. Both new media-guidance tests passed. Run: https://github.com/tony21675/StoryBuilder/actions/runs/42142563854.
+  - StoryBuilder workflow: shell launcher syntax and `compileall` passed; unit tests reached the same known Tkinter harness failure. Run: https://github.com/tony21675/StoryBuilder/actions/runs/42142563779.
+- **Laptop installation:** The first prompt-reduction pass and this follow-up have not yet been pulled onto the author's laptop. Preserve the intentional mode-only `storybuilder.py` change (100644 to 100755) during installation. After the fast-forward pull, run the established local test gate:
+  `.venv/bin/python -m pytest -q -k "not test_blank_name_does_not_save_or_close_the_editor"`.
