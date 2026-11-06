@@ -16,7 +16,7 @@ class StoryCraftPromptTests(unittest.TestCase):
         self.assertIn("SCENE CRAFT GUIDANCE", prompt)
         self.assertIn("ordinary moments can matter", prompt.lower())
         self.assertIn("Vary who speaks", prompt)
-        self.assertIn("Follow the author's direction", prompt)
+        self.assertIn("supplementary guidance", prompt)
         self.assertLess(len(prompt), 600)
         self.assertNotIn("MEDIA AND DEVICE BOUNDARIES", prompt)
         self.assertNotIn("Mars", prompt)
@@ -47,7 +47,7 @@ class StoryCraftPromptTests(unittest.TestCase):
 
         self.assertIn("SCENE CRAFT GUIDANCE", prompt)
         self.assertIn("ordinary moments can matter", prompt.lower())
-        self.assertIn("Follow the author's direction", prompt)
+        self.assertIn("supplementary guidance", prompt)
         self.assertNotIn("MEDIA AND DEVICE BOUNDARIES", prompt)
 
     def test_previous_scene_device_mention_does_not_trigger_media_guidance(self):

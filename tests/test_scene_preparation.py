@@ -91,7 +91,7 @@ class ScenePreparationPromptTests(unittest.TestCase):
             self.assertIn("Personality: quiet, witty", prompt)
             self.assertIn("SCENE CRAFT GUIDANCE", prompt)
             self.assertIn("STORY OPENING AND PACING", prompt)
-            self.assertIn("Follow the author's direction", prompt)
+            self.assertIn("supplementary guidance", prompt)
             self.assertIn("A quiet or ordinary moment is valid scene material", prompt)
             self.assertIn("Return exactly two labeled parts", prompt)
             self.assertIn("Natural endpoint:", prompt)
@@ -121,7 +121,7 @@ class ScenePreparationPromptTests(unittest.TestCase):
         self.assertIn("Do not invent, rename, infer, or subdivide", prompt)
         self.assertNotIn("A simple recreation space.", prompt)
 
-    def test_author_direction_is_included_as_priority_steering_when_provided(self):
+    def test_author_direction_is_included_as_supplementary_guidance_when_provided(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp) / "Directed Novel"
             source = self.make_novel(root, scene_text="The crew finished their diagnostics.")
@@ -133,8 +133,10 @@ class ScenePreparationPromptTests(unittest.TestCase):
                 author_direction=direction,
             )
 
-            self.assertIn("AUTHOR'S DIRECTION", prompt)
+            self.assertIn("AUTHOR'S DIRECTION (SUPPLEMENTARY)", prompt)
             self.assertIn(direction, prompt)
+            self.assertIn("does not replace the scene direction", prompt)
+            self.assertIn("remove established characters", prompt)
             self.assertLess(
                 prompt.index("AUTHOR'S DIRECTION"),
                 prompt.index("Return exactly two labeled parts"),

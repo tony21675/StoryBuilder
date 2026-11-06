@@ -227,11 +227,11 @@ def build_rewrite_scene_prompt(scene_prompt: str, author_direction: str = "") ->
         f"{original}\n\n"
         "ADDITIONAL AUTHOR'S DIRECTION FOR THIS REWRITE\n"
         f"{direction}\n\n"
-        "Treat this as a priority clarification for the same scene, not a request to "
-        "prepare or advance to another scene. Preserve the existing scene's location, "
-        "characters, intended events, and natural endpoint except where this additional "
-        "direction specifically refines them. Write a complete replacement scene as "
-        "natural manuscript prose only."
+        "Treat this as supplementary guidance for the same scene, not a replacement "
+        "scene plan or a request to prepare or advance to another scene. Use it to refine "
+        "or add detail while preserving the existing scene's location, characters, intended "
+        "events, and natural endpoint unless the author explicitly asks to change them. "
+        "Write a complete replacement scene as natural manuscript prose only."
     )
 
 

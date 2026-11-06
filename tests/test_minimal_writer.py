@@ -722,7 +722,9 @@ class MinimalWriterTests(unittest.TestCase):
         self.assertTrue(result.startswith(original))
         self.assertIn("ADDITIONAL AUTHOR'S DIRECTION FOR THIS REWRITE", result)
         self.assertIn(direction, result)
-        self.assertIn("same scene", result)
+        self.assertIn("supplementary guidance for the same scene", result)
+        self.assertIn("unless the author explicitly asks to change them", result)
+        self.assertNotIn("priority clarification", result)
         self.assertIn("complete replacement scene", result)
         self.assertEqual(original.splitlines()[0], "Scene direction: Continue the conversation.")
 
