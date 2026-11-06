@@ -76,7 +76,7 @@ class CharacterRosterPromptTests(unittest.TestCase):
         self.assertIn("Scene direction:", prompt)
         self.assertIn("Natural endpoint:", prompt)
         self.assertIn("two labeled parts", prompt)
-        self.assertIn("leaves the next scene free to begin with the next activity", prompt)
+        self.assertIn("Stop at that beat", prompt)
         self.assertIn("do not repeat these labels, and stop at the natural endpoint", prompt)
         self.assertIn("[Daniel]", prompt)
         self.assertIn("[Morgan]", prompt)
