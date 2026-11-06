@@ -863,6 +863,24 @@ class MinimalWriterTests(unittest.TestCase):
                 "Morgan finished her charades turn. The group was still laughing.",
                 encoding="utf-8",
             )
+            (root / "story_bible.json").write_text(
+                json.dumps({"creative_direction": {}, "locations": {}, "character_cards": []}),
+                encoding="utf-8",
+            )
+            (root / "current_state.json").write_text(
+                json.dumps({
+                    "chapter": 2,
+                    "scene": 19,
+                    "scene_completed": True,
+                    "time_of_day": "Day 2, nighttime at the Mars research outpost.",
+                    "current_situation": "The crew has finished charades in the Recreation Room.",
+                    "active_objectives": {
+                        "Daniel": "Deliver the report Elena requested. It remains undelivered."
+                    },
+                    "scene_cast": ["Daniel", "Elena", "Morgan", "Priya", "Ryan", "Zoe"],
+                }),
+                encoding="utf-8",
+            )
 
             Value = lambda value: type("Value", (), {"get": lambda self: value})()
             app = MinimalWriterApp.__new__(MinimalWriterApp)
@@ -874,7 +892,6 @@ class MinimalWriterTests(unittest.TestCase):
             app.chapter_var = Value("Chapter 02")
             app.chapter_numbers = {"Chapter 02": 2}
             app.scene_var = Value("Scene 20")
-            app._prepare_location_context = lambda prompt: prompt
             captured = {}
             app._begin_generation = lambda prompt, mode: captured.update(
                 prompt=prompt, mode=mode
@@ -886,6 +903,14 @@ class MinimalWriterTests(unittest.TestCase):
             self.assertIn("IMMEDIATELY PRECEDING SAVED SCENE", captured["prompt"])
             self.assertIn("Morgan finished her charades turn.", captured["prompt"])
             self.assertIn("Source: Chapter 02, Scene 19", captured["prompt"])
+            self.assertIn("CURRENT STORY SITUATION", captured["prompt"])
+            self.assertIn("The crew has finished charades in the Recreation Room.", captured["prompt"])
+            self.assertIn("OUTSTANDING CHARACTER OBJECTIVES", captured["prompt"])
+            self.assertIn(
+                "Daniel: Deliver the report Elena requested. It remains undelivered.",
+                captured["prompt"],
+            )
+            self.assertIn("Do not assume it happened off-page", captured["prompt"])
 
     def test_prompt_trace_is_armed_for_one_scene_and_finished_locally(self):
         with tempfile.TemporaryDirectory() as temporary:
