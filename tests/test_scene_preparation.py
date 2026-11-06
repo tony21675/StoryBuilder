@@ -136,7 +136,7 @@ class ScenePreparationPromptTests(unittest.TestCase):
             self.assertIn(direction, prompt)
             self.assertLess(
                 prompt.index("AUTHOR'S DIRECTION"),
-                prompt.index("Follow the author's direction"),
+                prompt.index("Return exactly two labeled parts"),
             )
 
     def test_blank_author_direction_adds_no_extra_direction_section(self):
