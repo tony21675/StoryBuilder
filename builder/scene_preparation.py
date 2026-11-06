@@ -169,7 +169,7 @@ def build_scene_preparation_prompt(
     craft_note = build_story_craft_prompt()
     if craft_note:
         sections.append(craft_note)
-    media_note = build_media_device_prompt("\n".join((previous_ending, author_direction_text)))
+    media_note = build_media_device_prompt(author_direction_text)
     if media_note:
         sections.append(media_note)
 
