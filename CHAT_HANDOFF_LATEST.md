@@ -541,3 +541,20 @@ Date: November 4, 2026
   - StoryBuilder workflow: shell launcher syntax and `compileall` passed; unit tests reached the same known Tkinter harness failure. Run: https://github.com/tony21675/StoryBuilder/actions/runs/42142563779.
 - **Laptop installation:** The first prompt-reduction pass and this follow-up have not yet been pulled onto the author's laptop. Preserve the intentional mode-only `storybuilder.py` change (100644 to 100755) during installation. After the fast-forward pull, run the established local test gate:
   `.venv/bin/python -m pytest -q -k "not test_blank_name_does_not_save_or_close_the_editor"`.
+
+
+## Retry scene preparation without advancing the scene (November 5, 2026)
+
+- Fixed the Prepare Scene retry behavior. After a suggestion is successfully prepared, the Writer remembers its unsaved destination and the preceding accepted scene used as its continuity reference.
+- Pressing **Prepare Scene** again while that unsaved destination remains selected now prepares the same scene number again. The retry keeps the preceding saved scene and current saved-state context, so a retry does not lose continuity context.
+- The author may change Author's Direction between attempts. The new direction is sent with the retry.
+- The pending destination is cleared after **Save New Scene** succeeds. The just-saved scene then becomes the preceding scene, and the next Prepare Scene advances normally.
+- Selecting a different novel, chapter, or scene discards the pending retry target so it cannot leak into another selection.
+- The status line now explains that Prepare Scene can be used to try another suggestion for the same scene and that saving advances the number.
+- Added regression coverage for same-scene retry, preservation of the preceding saved scene, changed Author's Direction, invalidation on a different novel/selection, and clearing the pending target after save.
+- No manuscript prose, saved Story Bible content, current_state.json, or model settings were changed.
+- Verification at commit `e4aaedea3095c39f902839b3912f83c57f4db43a`:
+  - Python pytest: **678 passed, 1 failed, 77 subtests passed**. The sole failure is the previously known unrelated Tkinter harness issue in `test_blank_name_does_not_save_or_close_the_editor`, where the fake root has no `.tk` attribute. All scene-retry tests passed.
+  - StoryBuilder workflow: shell launcher syntax and `compileall` passed; unit tests reached the same known Tkinter harness failure.
+- **Laptop installation:** Not yet pulled. The user's last confirmed local-only change remains the intentional `storybuilder.py` executable-mode change (100644 to 100755). Startup sync in `start.sh` already stashes/restores local changes around a fast-forward pull; close the running Writer and launch it again to install this update. Then run the established local test gate:
+  `.venv/bin/python -m pytest -q -k "not test_blank_name_does_not_save_or_close_the_editor"`.
