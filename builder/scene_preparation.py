@@ -13,7 +13,10 @@ from builder.creative_direction import build_creative_direction_prompt
 from builder.story_craft import build_story_craft_prompt
 from builder.character_context import build_character_card_context_prompt
 from builder.story_pacing import build_story_opening_pacing_prompt
-from builder.story_timeline import build_story_timeline_prompt
+from builder.story_timeline import (
+    build_current_story_context_prompt,
+    build_story_timeline_prompt,
+)
 
 
 _SCENE_FILENAME_RE = re.compile(
@@ -170,9 +173,9 @@ def build_scene_preparation_prompt(
         sections.append(timeline_note)
 
     if include_state:
-        situation = _clean_text(current_state.get("current_situation"))
-        if situation:
-            sections.append(f"Current situation: {situation}")
+        story_context = build_current_story_context_prompt(current_state)
+        if story_context:
+            sections.append(story_context)
 
         locations = current_state.get("location")
         if isinstance(locations, dict):
