@@ -88,39 +88,13 @@ class ScenePreparationPromptTests(unittest.TestCase):
             self.assertIn("[Private Detail]", prompt)
             self.assertIn("Sexual orientation: Straight", prompt)
             self.assertIn("Personality: quiet, witty", prompt)
-            self.assertIn("not a checklist", prompt)
+            self.assertIn("SCENE CRAFT GUIDANCE", prompt)
             self.assertIn("STORY OPENING AND PACING", prompt)
-            self.assertIn("not a fixed scene count", prompt.lower())
-            self.assertIn("For an ensemble, this may take several scenes", prompt)
-            self.assertIn("artificially delay an urgent conflict", prompt.lower())
-            self.assertIn(
-                "The scene may contribute through character development, relationships, choices, or events",
-                prompt,
-            )
-            self.assertIn(
-                "it does not need to introduce a new task, problem, decision, or change of activity",
-                prompt,
-            )
-            self.assertIn(
-                "Ordinary conversation, recreation, observation, shared experiences, and comfortable silence can make a scene worthwhile",
-                prompt,
-            )
-            self.assertIn(
-                "Do not invent an activity merely to create a sense of progress",
-                prompt,
-            )
-            self.assertIn(
-                "one sentence describing a clear, concrete final beat that naturally closes this scene",
-                prompt,
-            )
-            self.assertIn(
-                "The endpoint must be the last beat of this scene, not merely something that happens near the end",
-                prompt,
-            )
-            self.assertIn(
-                "The writer should finish on this beat and stop rather than continuing afterward",
-                prompt,
-            )
+            self.assertIn("Follow the author's direction", prompt)
+            self.assertIn("A quiet or ordinary moment is valid scene material", prompt)
+            self.assertIn("Return exactly two labeled parts", prompt)
+            self.assertIn("Natural endpoint:", prompt)
+            self.assertIn("Stop at that beat", prompt)
             self.assertFalse((root / "Manuscript").exists())
             self.assertFalse((root / "current_state.json").exists())
 
@@ -158,12 +132,11 @@ class ScenePreparationPromptTests(unittest.TestCase):
                 author_direction=direction,
             )
 
-            self.assertIn("AUTHOR'S DIRECTION (OPTIONAL; FOLLOW THIS STEERING)", prompt)
+            self.assertIn("AUTHOR'S DIRECTION", prompt)
             self.assertIn(direction, prompt)
-            self.assertIn("Honor the author's intended event, focus, and outcome", prompt)
             self.assertLess(
-                prompt.index("AUTHOR'S DIRECTION (OPTIONAL; FOLLOW THIS STEERING)"),
-                prompt.index("Build directly on the selected previous scene"),
+                prompt.index("AUTHOR'S DIRECTION"),
+                prompt.index("Follow the author's direction"),
             )
 
     def test_blank_author_direction_adds_no_extra_direction_section(self):
@@ -255,7 +228,8 @@ class ScenePreparationPromptTests(unittest.TestCase):
             self.assertIn("Latest saved in-story time: Day 1, 16:00", prompt)
             self.assertIn("finished dinner and started a board game", prompt)
             self.assertNotIn("This old opening situation must not be treated as current.", prompt)
-            self.assertIn("one coherent, specific scene direction", prompt)
+            self.assertIn("Return exactly two labeled parts", prompt)
+            self.assertNotIn("STORY OPENING AND PACING", prompt)
             self.assertLess(len(scene_text), 6000)
 
     def test_unrelated_current_state_is_not_added_to_selected_scene_prompt(self):
