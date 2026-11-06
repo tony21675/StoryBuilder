@@ -511,3 +511,18 @@ Date: November 4, 2026
 - No old-to-new checker, separate scene reviewer, additional model pass, model setting change, or manuscript/state mutation was added. The change only supplies already-saved state to prompts.
 - Regression coverage verifies both Prepare Scene and the final Write prompt include Daniel's report obligation and the unresolved-continuity instruction.
 - **Installation status:** Changes are committed on the existing `redesign/simplified-writing-workflow` branch. The author's local branch must still fetch, inspect incoming filenames, pull fast-forward, and run the agreed local pytest gate. Preserve the intentional `storybuilder.py` executable-mode-only change.
+
+
+## First prompt reduction pass (November 5, 2026)
+
+- The author approved trimming prompt bloat after a recent Writer trace showed a 17,680-character prompt for a straightforward scene.
+- Reduced shared scene-craft guidance to a short paragraph about natural scenes, character development, varied participation, concrete detail, and continuity.
+- Separated media/device boundaries from general craft guidance. That reminder is now included only when the scene direction or selected previous scene actually mentions media/devices.
+- Removed opening-pacing guidance from ordinary Write, Rewrite, and Continue prompts. Prepare Scene receives it only for Chapter 1, Scene 1.
+- Shortened the running timeline reminder to the saved time plus a brief instruction to move forward without inventing an exact hour.
+- Shortened Prepare Scene's repeated instructions while preserving its two-part editable output: Scene direction and Natural endpoint.
+- Kept the substantive story context intact: the author's direction, immediately preceding saved scene, current situation, unresolved objectives, canon rules, approved location list, relevant character references, and creative direction.
+- No model settings, manuscript prose, novel-package data, or current_state.json values were changed.
+- Added/updated tests for conditional media context, shorter craft/timeline prompts, opening-only pacing context, and the revised Prepare Scene format.
+- **Verification:** GitHub Actions for the latest source/test commit were still running when this handoff update was prepared. Record final results after they complete; do not treat earlier intermediate failures as the result for the latest commit.
+- **Laptop installation:** Not yet pulled. Before installation, inspect the local branch and preserve the known mode-only storybuilder.py change (100644 to 100755). Run the agreed local test gate after a fast-forward pull.
