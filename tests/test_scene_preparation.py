@@ -563,7 +563,7 @@ class MinimalWriterPrepareSceneTests(unittest.TestCase):
             self.assertEqual(app._prepared_scene_destination, (1, 11))
             self.assertEqual(app.scene_var.get(), "Scene 11")
             self.assertEqual(app.prompt_box.value, "Second suggestion.")
-            self.assertIsNone(app.author_direction_box.value)
+            self.assertEqual(app.author_direction_box.value, "")
 
     def test_prepare_scene_uses_and_clears_author_direction_after_success(self):
         with tempfile.TemporaryDirectory() as temp:
