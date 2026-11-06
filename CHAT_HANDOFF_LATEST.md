@@ -524,5 +524,7 @@ Date: November 4, 2026
 - Kept the substantive story context intact: the author's direction, immediately preceding saved scene, current situation, unresolved objectives, canon rules, approved location list, relevant character references, and creative direction.
 - No model settings, manuscript prose, novel-package data, or current_state.json values were changed.
 - Added/updated tests for conditional media context, shorter craft/timeline prompts, opening-only pacing context, and the revised Prepare Scene format.
-- **Verification:** GitHub Actions for the latest source/test commit were still running when this handoff update was prepared. Record final results after they complete; do not treat earlier intermediate failures as the result for the latest commit.
+- **Verification at source/test commit 73f56ab055ecf7501d687c57c66cda6995fbc214:**
+  - Python pytest: **674 passed, 1 failed, 77 subtests passed**. The sole failure is the previously known unrelated Tkinter harness issue in test_blank_name_does_not_save_or_close_the_editor, where the fake root has no .tk attribute. All prompt-reduction tests passed. Run: https://github.com/tony21675/StoryBuilder/actions/runs/42141431209.
+  - StoryBuilder workflow: shell launcher syntax and compileall passed; unit tests ran with the same single known Tkinter harness failure. Run: https://github.com/tony21675/StoryBuilder/actions/runs/42141431264.
 - **Laptop installation:** Not yet pulled. Before installation, inspect the local branch and preserve the known mode-only storybuilder.py change (100644 to 100755). Run the agreed local test gate after a fast-forward pull.
