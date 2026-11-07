@@ -141,6 +141,12 @@ case "${1:-}" in
       exit 1
     fi
 
+    if [[ -f "$SCRIPT_DIR/backup_handoffs.py" ]]; then
+      if ! python3 "$SCRIPT_DIR/backup_handoffs.py"; then
+        echo "WARNING: GitHub sync succeeded, but the local handoff mirror could not be refreshed."
+      fi
+    fi
+
     echo
     echo "DONE: StoryBuilder is synchronized with GitHub."
     git status -sb
