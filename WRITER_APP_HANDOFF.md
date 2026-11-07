@@ -35,7 +35,8 @@ The Writer creates and edits manuscript prose. Novel canon, character cards, loc
 ## Current functionality recorded
 
 - Load and use a local language model for manuscript generation.
-- Write, Continue, and Prepare Scene workflows.
+- Write, Continue, Prepare Scene (a planning-only helper that fills the prompt box), and Rewrite Scene (an explicitly confirmed fresh generation of the visible draft) workflows.
+- Rewrite Scene keeps the existing draft if canceled, stopped, or generation fails.
 - Editable scene direction and natural endpoint supplied by Prepare Scene.
 - Open and save manuscript drafts and scenes, including ODT support.
 - Browse and save the selected scene.
@@ -60,7 +61,10 @@ For future scene preparation, explicitly name the intended participants and ensu
 
 ## Verification status
 
-The handoff-backup utility and tests have been added to the repository, and launch/sync paths now call the backup. A fresh local test run on the author's laptop has not yet been confirmed. Run the focused backup tests and the full suite after the laptop pulls the changes. Do not claim they passed until verified.
+- The focused handoff-backup test module passed locally on November 7, 2026 (2 tests).
+- Both GitHub Actions workflows passed after the November 7 repository cleanup. The Python Tests workflow reports 681 passed and 77 subtests passed; the StoryBuilder tests workflow reports 681 tests passed.
+- The full test suite has not yet been run locally on this laptop after the latest changes.
+
 
 ## Current status
 
