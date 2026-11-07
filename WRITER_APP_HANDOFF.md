@@ -1,6 +1,6 @@
 # Writer App handoff
 
-**Updated:** November 6, 2026  
+**Updated:** November 7, 2026  
 **Application:** StoryBuilder Minimal Writer  
 **Repository:** `tony21675/StoryBuilder`  
 **Active/default branch:** `redesign/simplified-writing-workflow`  
