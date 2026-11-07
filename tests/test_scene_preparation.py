@@ -37,12 +37,19 @@ class ScenePreparationPromptTests(unittest.TestCase):
         )
         cards = {
             "Mara.json": {
-                "name": "Mara", "role": "harbor pilot", "gender": "female",
-                "sexual_orientation": "Straight", "personality": ["confident"],
+                "name": "Mara", "role": "harbor pilot",
+                "occupation": "Harbor Operations, Pilot",
+                "background": "Experienced harbor pilot who knows local channels and winter conditions.",
+                "skills": ["navigation", "tide assessment", "small-vessel handling"],
+                "hobbies": ["sailing", "woodworking"],
+                "gender": "female", "sexual_orientation": "Straight",
+                "personality": ["confident"],
             },
             "Jonah.json": {
-                "name": "Jonah", "role": "mechanic", "gender": "male",
-                "sexual_orientation": "Bisexual", "personality": ["quiet", "witty"],
+                "name": "Jonah", "role": "mechanic",
+                "skills": ["engine maintenance", "mechanical troubleshooting"],
+                "gender": "male", "sexual_orientation": "Bisexual",
+                "personality": ["quiet", "witty"],
             },
             "Private_Detail.json": {
                 "name": "Private Detail", "role": "observer", "gender": "female",
@@ -88,7 +95,19 @@ class ScenePreparationPromptTests(unittest.TestCase):
             self.assertIn("[Jonah]", prompt)
             self.assertIn("[Private Detail]", prompt)
             self.assertIn("Sexual orientation: Straight", prompt)
+            self.assertIn("Occupation / department: Harbor Operations, Pilot", prompt)
+            self.assertIn(
+                "Background / experience: Experienced harbor pilot who knows local channels and winter conditions.",
+                prompt,
+            )
+            self.assertIn(
+                "Skills / expertise: navigation, tide assessment, small-vessel handling",
+                prompt,
+            )
+            self.assertIn("Interests / hobbies: sailing, woodworking", prompt)
+            self.assertIn("Skills / expertise: engine maintenance, mechanical troubleshooting", prompt)
             self.assertIn("Personality: quiet, witty", prompt)
+            self.assertIn("Do not treat hobbies or general interests as professional qualifications", prompt)
             self.assertIn("SCENE CRAFT GUIDANCE", prompt)
             self.assertIn("STORY OPENING AND PACING", prompt)
             self.assertIn("supplementary guidance", prompt)
