@@ -24,9 +24,7 @@ The private planning record is maintained separately in the ChatGPT Library at `
 ## Documents that are not active handoffs
 
 - `FUTURE_APPS_ON_HOLD.md` is about possible future **applications**, not future story premises.
-- `LONG_TERM_GOALS.md`, `REDESIGN_PLAN.md`, and `STORY_FLOW_REPAIR_PLAN.md` are older product-planning references. They do not override the current Writer App or Story Bible App handoff.
-- `APP_AUDIT_2026-10-21.md`, `CROSS_NOVEL_CONTEXT_AUDIT_2026-10-21.md`, `WRITER_FLOW_EXPERIMENT_AUDIT_2026-10-21.md`, and files under `docs/` are historical audits. Consult them only for background when a current handoff points to a specific issue.
-- Older dated handoffs, addenda, and copied checkpoints are historical. They must not be used to infer current status or next steps.
+- Superseded audits, redesign plans, repair plans, and dated handoff copies have been removed from the active repository tree. Do not recreate them; use the current handoffs above.
 
 ## Rules that prevent handoff drift
 
