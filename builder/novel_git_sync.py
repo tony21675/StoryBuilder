@@ -354,6 +354,14 @@ def sync_novel_repository(novel_path: str | Path) -> NovelSyncResult:
             "No local file commit was needed."
         )
 
+    try:
+        from builder.handoff_backup import HandoffBackupError, refresh_handoff_backups
+
+        refresh_handoff_backups()
+        message += "\\nLocal handoff backup refreshed."
+    except (HandoffBackupError, OSError) as exc:
+        message += f"\\nWARNING: Novel sync succeeded, but the local handoff backup failed: {exc}"
+
     return NovelSyncResult(
         repository=repository,
         branch=preview.branch,
