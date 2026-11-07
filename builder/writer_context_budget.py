@@ -66,6 +66,9 @@ def compact_character_cards(text: str) -> str | None:
         "name", "age", "gender", "pronoun", "role", "appearance", "physical",
         "personality", "trait", "voice", "speech", "accent", "relationship",
         "nickname", "family", "clothing", "occupation", "temperament",
+        "skill", "expertise", "specialt", "technical", "background",
+        "experience", "hobb", "interest", "training", "qualification",
+        "certification", "description",
     )
     compact: dict[str, Any] = {}
     for character, raw_card in cards.items():
