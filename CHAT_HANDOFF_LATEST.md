@@ -24,11 +24,19 @@ A novel's own package is the source for its canon and manuscript: its Story Bibl
 
 Future novel premises and unstarted concepts are kept separately in the private ChatGPT Library at `/Writing/FUTURE_STORY_PLANNING.md`. This is a parking record, not an active novel or software-project plan. The second-Mars-base fragment has now been connected by the author to *The Long Way Home*: the Japanese-owned base is part of that novel's crisis direction, not a separate standalone concept unless the author later defines a different story. The spacecraft-in-transit fragment remains separate and incomplete.
 
+## Latest Writer app change — November 7, 2026
+
+StoryBuilder's shared character-card context builder now passes role, occupation/department, skills/expertise, background/experience, training/qualifications, personality, hobbies/interests, descriptive notes, and relationships into Prepare Scene and Write. The Writer's context-budget compactor also preserves the professional and interest fields when shortening card payloads. This directly addresses the earlier problem where character roles were available but their documented skills and occupations were omitted from prompt context.
+
+Both GitHub Actions workflows passed on StoryBuilder commit `6787b8f601f82e2358a146fead6d148040c51db4`: Python Tests reports 682 passed and 77 subtests passed; StoryBuilder tests reports 682 passed. Tony still needs to pull the update and run the suite locally. No novel manuscript or canon files were changed by this Writer code update.
+
+Separate open issue: Prepare Scene retry still does not pass its previous generated direction back into the planner. Do not treat that behavior as fixed.
+
 ## Repository and verification checkpoint
 
 - The obsolete nested `StoryBuilder/` checkout and its Git submodule pointer have been removed. The active Writer and Story Bible remain in the outer repository; no `.gitmodules` file or nested `StoryBuilder/` tree remains.
-- Both GitHub Actions workflows passed after the cleanup. Python Tests reports 681 passed and 77 subtests passed; StoryBuilder tests reports 681 tests passed.
-- The focused local handoff-backup test module passed (2 tests). The full test suite has not yet been run locally on this laptop.
+- The latest character-card context change is CI-verified: Python Tests reports 682 passed and 77 subtests passed; StoryBuilder tests reports 682 passed (commit `6787b8f601f82e2358a146fead6d148040c51db4`).
+- The previous full local suite passed 681 tests before this change. Run the updated suite locally after pulling the latest StoryBuilder commit. The focused local handoff-backup test module previously passed (2 tests).
 
 ## Local handoff backups
 
@@ -52,4 +60,4 @@ StoryBuilder includes `backup_handoffs.py` and `builder/handoff_backup.py`. The 
 8. When sources disagree, record the conflict and pause. Do not choose a version by guessing.
 9. Preserve the working branch and its autosync behavior unless branch migration is deliberately coordinated and tested.
 
-**Project status:** The Long Way Home's broad crisis direction has been reconstructed from the author's latest decisions. The manuscript remains paused at the Chapter 2 Scene 1 review point. *Taken at Dusk* remains on hold.
+**Project status:** The Long Way Home's broad crisis direction has been reconstructed from the author's latest decisions. Chapter 2 Scene 1 remains unaccepted and under review. The StoryBuilder character-card context fix is committed and awaits Tony's local pull/test. Prepare Scene's retry-direction behavior remains a separate known issue. *Taken at Dusk* remains on hold.
