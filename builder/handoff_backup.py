@@ -13,7 +13,7 @@ These are automatic local mirrors of the current project handoffs and story-dire
 - Source files remain authoritative in their own project repositories.
 - This folder is an independent local safety copy, not a place to edit primary project records.
 - The mirrors refresh when StoryBuilder starts and after a successful app or selected-novel GitHub sync.
-- You can refresh them manually with: `bash ~/Documents/StoryBuilder/backup_handoffs.py`
+- You can refresh them manually with: `python3 ~/Documents/StoryBuilder/backup_handoffs.py`
 - Only handoff and planning documents are copied. Manuscripts, model files, credentials, encrypted files, secret-letter assets, and other project data are not copied.
 - Missing source files are skipped and are never used as a reason to delete an existing backup.
 
