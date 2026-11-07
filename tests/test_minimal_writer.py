@@ -258,6 +258,10 @@ class MinimalWriterTests(unittest.TestCase):
             cards = {
                 "Tiffany.json": {
                     "name": "Tiffany Jones", "role": "student", "gender": "female",
+                    "occupation": "High school student",
+                    "background": "Used to helping with busy family routines.",
+                    "skills": ["organization", "first aid basics"],
+                    "hobbies": ["drawing", "photography"],
                     "sexual_orientation": "Straight",
                     "personality": ["shy", "thoughtful"],
                     "relationships": {"Maya": "like a sister"},
@@ -292,6 +296,10 @@ class MinimalWriterTests(unittest.TestCase):
         self.assertIn("Sexual orientation: Straight", prompt)
         self.assertIn("Sexual orientation: Bisexual", prompt)
         self.assertIn("Maya: like a sister", prompt)
+        self.assertIn("Occupation / department: High school student", prompt)
+        self.assertIn("Background / experience: Used to helping with busy family routines.", prompt)
+        self.assertIn("Skills / expertise: organization, first aid basics", prompt)
+        self.assertIn("Interests / hobbies: drawing, photography", prompt)
         self.assertNotIn("[Chloe]", prompt)
         self.assertIn("CANON RULES", prompt)
         self.assertIn("Tiffany and Maya have a sister-like friendship.", prompt)
