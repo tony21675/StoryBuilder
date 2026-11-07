@@ -50,6 +50,10 @@ class WriterContextBudgetTests(unittest.TestCase):
                 "appearance": "Broad shoulders and tired eyes.",
                 "personality": "Protective and controlled.",
                 "voice": "Low and dry.",
+                "occupation": "Life-Support Specialist",
+                "skills": ["life-support monitoring", "resource systems"],
+                "background": "Experienced with the systems that sustain the crew.",
+                "hobbies": ["chess", "cooking"],
                 "unrelated_long_biography": "x" * 8000,
             }
         }
@@ -67,8 +71,13 @@ class WriterContextBudgetTests(unittest.TestCase):
             safety_margin_tokens=300,
         )
         self.assertIn("scene_characters.json", dict(fitted))
-        self.assertIn("appearance", dict(fitted)["scene_characters.json"])
-        self.assertNotIn("unrelated_long_biography", dict(fitted)["scene_characters.json"])
+        compacted_card = json.loads(dict(fitted)["scene_characters.json"])["Tony"]
+        self.assertIn("appearance", compacted_card)
+        self.assertEqual(compacted_card["occupation"], "Life-Support Specialist")
+        self.assertEqual(compacted_card["skills"], ["life-support monitoring", "resource systems"])
+        self.assertEqual(compacted_card["background"], "Experienced with the systems that sustain the crew.")
+        self.assertEqual(compacted_card["hobbies"], ["chess", "cooking"])
+        self.assertNotIn("unrelated_long_biography", compacted_card)
         self.assertIn("scene_characters.json", metrics["compacted_reference_files"])
 
     def test_keeps_compacted_character_cards_and_knowledge_before_dropping_history(self):
