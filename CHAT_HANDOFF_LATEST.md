@@ -1,6 +1,6 @@
 # Writing project handoff index
 
-**Updated:** November 6, 2026
+**Updated:** November 7, 2026
 
 This index covers writing projects only. Each application and novel has one authoritative handoff. The project repositories remain the source of truth; local mirror copies are maintained separately.
 
@@ -23,6 +23,12 @@ A novel's own package is the source for its canon and manuscript: its Story Bibl
 ### Future story planning
 
 Future novel premises and unstarted concepts are kept separately in the private ChatGPT Library at `/Writing/FUTURE_STORY_PLANNING.md`. This is a parking record, not an active novel or software-project plan. The second-Mars-base fragment has now been connected by the author to *The Long Way Home*: the Japanese-owned base is part of that novel's crisis direction, not a separate standalone concept unless the author later defines a different story. The spacecraft-in-transit fragment remains separate and incomplete.
+
+## Repository and verification checkpoint
+
+- The obsolete nested `StoryBuilder/` checkout and its Git submodule pointer have been removed. The active Writer and Story Bible remain in the outer repository; no `.gitmodules` file or nested `StoryBuilder/` tree remains.
+- Both GitHub Actions workflows passed after the cleanup. Python Tests reports 681 passed and 77 subtests passed; StoryBuilder tests reports 681 tests passed.
+- The focused local handoff-backup test module passed (2 tests). The full test suite has not yet been run locally on this laptop.
 
 ## Local handoff backups
 
