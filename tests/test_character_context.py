@@ -13,6 +13,11 @@ class CharacterCardContextTests(unittest.TestCase):
             "Tiffany.json": {
                 "name": "Tiffany Jones",
                 "role": "student",
+                "occupation": "High school student",
+                "background": "Has helped care for younger relatives and is used to handling busy family routines.",
+                "skills": ["organization", "first aid basics"],
+                "hobbies": ["drawing", "photography"],
+                "description": "Usually quiet in unfamiliar groups, but comfortable with close friends.",
                 "gender": "female",
                 "sexual_orientation": "Straight",
                 "personality": ["shy", "thoughtful"],
@@ -54,10 +59,17 @@ class CharacterCardContextTests(unittest.TestCase):
         self.assertIn("Sexual orientation: Straight", prompt)
         self.assertIn("Sexual orientation: Bisexual", prompt)
         self.assertIn("Personality: shy, thoughtful", prompt)
+        self.assertIn("Occupation / department: High school student", prompt)
+        self.assertIn("Background / experience: Has helped care for younger relatives", prompt)
+        self.assertIn("Skills / expertise: organization, first aid basics", prompt)
+        self.assertIn("Interests / hobbies: drawing, photography", prompt)
+        self.assertIn("Additional established notes: Usually quiet in unfamiliar groups", prompt)
         self.assertIn("Maya: close friend; feels like a sister", prompt)
         self.assertNotIn("[Chloe]", prompt)
         self.assertIn("Do not invent romantic or sexual attraction", prompt)
         self.assertIn("friendship, teasing, and affection can remain platonic", prompt)
+        self.assertIn("Do not treat hobbies or general interests as professional qualifications", prompt)
+        self.assertIn("questions or hypotheses rather than established expertise", prompt)
 
     def test_all_cards_can_be_included_for_opening_scene_preparation(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -71,6 +83,8 @@ class CharacterCardContextTests(unittest.TestCase):
         self.assertIn("[Tiffany Jones]", prompt)
         self.assertIn("[Maya]", prompt)
         self.assertIn("[Chloe]", prompt)
+        self.assertIn("Skills / expertise: organization, first aid basics", prompt)
+        self.assertIn("Interests / hobbies: drawing, photography", prompt)
 
     def test_unmentioned_character_cards_add_roster_without_detailed_profiles(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -92,7 +106,33 @@ class CharacterCardContextTests(unittest.TestCase):
         self.assertNotIn("[Chloe]", prompt)
         self.assertNotIn("Sexual orientation:", prompt)
         self.assertNotIn("Personality:", prompt)
+        self.assertNotIn("Skills / expertise:", prompt)
         self.assertNotIn("close friend; feels like a sister", prompt)
+
+    def test_embedded_card_objects_use_the_same_professional_fields(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            root.mkdir()
+            bible = {
+                "character_cards": [
+                    {
+                        "name": "Morgan",
+                        "role": "planetary geologist",
+                        "occupation": "Science Department, Planetary Geologist",
+                        "skills": ["geology", "terrain assessment", "field observation"],
+                        "hobbies": ["yoga"],
+                    }
+                ]
+            }
+
+            prompt = build_character_card_context_prompt(
+                root, bible, "Morgan joins the discussion."
+            )
+
+        self.assertIn("Role: planetary geologist", prompt)
+        self.assertIn("Occupation / department: Science Department, Planetary Geologist", prompt)
+        self.assertIn("Skills / expertise: geology, terrain assessment, field observation", prompt)
+        self.assertIn("Interests / hobbies: yoga", prompt)
 
     def test_missing_card_file_is_ignored_without_blocking_writing(self):
         with tempfile.TemporaryDirectory() as temp:
