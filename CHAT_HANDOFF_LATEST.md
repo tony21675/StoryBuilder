@@ -21,9 +21,16 @@ A novel's own package is the source for canon and manuscript: its Story Bible, c
 ### Future story planning
 The private planning record is maintained separately in the ChatGPT Library at `/Writing/FUTURE_STORY_PLANNING.md`. It is a parking file for story concepts that are not active novels. It is not canon and does not authorize development.
 
+## Separate, non-writing future applications
+
+`FUTURE_APPS_ON_HOLD.md` is **not part of the writing-project handoff system**. It records two unrelated standalone applications for possible later development:
+- Local Model Chat — a general-purpose local AI chat app, not a writing tool.
+- DIY Vape Recipe Studio — a separate local recipe and inventory app.
+
+Both are intentionally on hold until the Writer and Story Bible work is finished. The single planning copy remains in this repository. LocalStoryChat links to it rather than keeping a duplicate. Do not mix either application with future novel ideas or active writing-app handoffs.
+
 ## Documents that are not active handoffs
 
-- `FUTURE_APPS_ON_HOLD.md` is about possible future **applications**, not future story premises.
 - Superseded audits, redesign plans, repair plans, and dated handoff copies have been removed from the active repository tree. Do not recreate them; use the current handoffs above.
 
 ## Rules that prevent handoff drift
