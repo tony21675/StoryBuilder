@@ -37,10 +37,18 @@ class HandoffBackupTests(unittest.TestCase):
             )
 
             self.assertTrue(any("8 updated" in item for item in messages[:1]))
-            for source, content in files.items():
-                relative = source.relative_to(root)
-                mirrored = backup / relative
-                self.assertEqual(mirrored.read_text(encoding="utf-8"), content)
+            expected_destinations = {
+                app / "CHAT_HANDOFF_LATEST.md": backup / "StoryBuilder" / "CHAT_HANDOFF_LATEST.md",
+                app / "WRITER_APP_HANDOFF.md": backup / "StoryBuilder" / "WRITER_APP_HANDOFF.md",
+                app / "STORY_BIBLE_APP_HANDOFF.md": backup / "StoryBuilder" / "STORY_BIBLE_APP_HANDOFF.md",
+                lwh / "CHAT_HANDOFF_LATEST.md": backup / "The-Long-Way-Home" / "CHAT_HANDOFF_LATEST.md",
+                lwh / "STORY_DIRECTION.md": backup / "The-Long-Way-Home" / "STORY_DIRECTION.md",
+                taken / "HANDOFF_LATEST.md": backup / "Taken-at-Dusk" / "HANDOFF_LATEST.md",
+                taken / "STORY_PLAN.md": backup / "Taken-at-Dusk" / "STORY_PLAN.md",
+                taken / "SECRET_LETTERS_STORAGE.md": backup / "Taken-at-Dusk" / "SECRET_LETTERS_STORAGE.md",
+            }
+            for source, expected in expected_destinations.items():
+                self.assertEqual(expected.read_text(encoding="utf-8"), files[source])
             self.assertFalse((backup / "The-Long-Way-Home" / "private.enc").exists())
             self.assertTrue((backup / "README.md").is_file())
 
