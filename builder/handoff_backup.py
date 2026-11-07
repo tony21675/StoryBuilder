@@ -102,8 +102,8 @@ def refresh_handoff_backups(
             "Taken-at-Dusk/STORY_PLAN.md",
         ),
         (
-            novels / "Taken_at_Dusk" / "SECRET_LETTERS_STORAGE.md",
-            "Taken-at-Dusk/SECRET_LETTERS_STORAGE.md",
+            novels / "Taken_at_Dusk" / "SECRET_LETTERS_HANDOFF.md",
+            "Taken-at-Dusk/SECRET_LETTERS_HANDOFF.md",
         ),
     ]
 
