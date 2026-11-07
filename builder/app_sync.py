@@ -167,11 +167,11 @@ def sync_storybuilder_repository(app_path: str | Path) -> str:
         from builder.handoff_backup import HandoffBackupError, refresh_handoff_backups
 
         refresh_handoff_backups(storybuilder_root=git_root)
-        backup_note = "\\nLocal handoff backup refreshed."
+        backup_note = "\nLocal handoff backup refreshed."
     except (HandoffBackupError, OSError) as exc:
-        backup_note = f"\\nWARNING: GitHub sync succeeded, but the local handoff backup failed: {exc}"
+        backup_note = f"\nWARNING: GitHub sync succeeded, but the local handoff backup failed: {exc}"
     return (
-        "StoryBuilder application synchronized successfully. The novel was not saved or synced.\\n"
+        "StoryBuilder application synchronized successfully. The novel was not saved or synced.\n"
         + (status_line if status_line else f"Branch: {branch}")
         + backup_note
     )
