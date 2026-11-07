@@ -135,10 +135,14 @@ class StoryBibleCharacterCardActionTests(unittest.TestCase):
         app = self.make_app(
             "/not-used", name="  ", role="Pilot", description="Description."
         )
-        with patch("story_bible_app.save_story_bible_character_cards") as save:
+        with (
+            patch("story_bible_app.save_story_bible_character_cards") as save,
+            patch("story_bible_app.messagebox.showerror") as showerror,
+        ):
             app.save_character_card()
 
         save.assert_not_called()
+        showerror.assert_called_once()
         app._finish_character_card_editor.assert_not_called()
         self.assertIn("Enter a name", app.viewer_status_var.value)
 
