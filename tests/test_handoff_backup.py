@@ -26,7 +26,7 @@ class HandoffBackupTests(unittest.TestCase):
                 lwh / "STORY_DIRECTION.md": "story direction",
                 taken / "HANDOFF_LATEST.md": "paused novel",
                 taken / "STORY_PLAN.md": "story plan",
-                taken / "SECRET_LETTERS_STORAGE.md": "storage reference",
+                taken / "SECRET_LETTERS_HANDOFF.md": "storage reference",
             }
             for path, content in files.items():
                 path.write_text(content, encoding="utf-8")
@@ -45,7 +45,7 @@ class HandoffBackupTests(unittest.TestCase):
                 lwh / "STORY_DIRECTION.md": backup / "The-Long-Way-Home" / "STORY_DIRECTION.md",
                 taken / "HANDOFF_LATEST.md": backup / "Taken-at-Dusk" / "HANDOFF_LATEST.md",
                 taken / "STORY_PLAN.md": backup / "Taken-at-Dusk" / "STORY_PLAN.md",
-                taken / "SECRET_LETTERS_STORAGE.md": backup / "Taken-at-Dusk" / "SECRET_LETTERS_STORAGE.md",
+                taken / "SECRET_LETTERS_HANDOFF.md": backup / "Taken-at-Dusk" / "SECRET_LETTERS_HANDOFF.md",
             }
             for source, expected in expected_destinations.items():
                 self.assertEqual(expected.read_text(encoding="utf-8"), files[source])
