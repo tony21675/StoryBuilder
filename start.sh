@@ -7,6 +7,9 @@ cd "$SCRIPT_DIR"
 echo "Synchronizing StoryBuilder with GitHub..."
 # Run the Bash sync helper explicitly and stop here if synchronization is unsafe.
 bash "$SCRIPT_DIR/sync.sh" start
+if ! python3 "$SCRIPT_DIR/backup_handoffs.py"; then
+  echo "WARNING: Could not refresh the local handoff backup. The Writer will still start."
+fi
 
 echo "Starting Minimal Writer..."
 # These can be overridden in the environment for a particular launch.
