@@ -4,7 +4,7 @@
 **Application:** StoryBuilder Minimal Writer  
 **Repository:** `tony21675/StoryBuilder`  
 **Current branch:** `redesign/simplified-writing-workflow`  
-**Current remote handoff checkpoint:** `fb28ae59a5b2ac5fd070aab44971fc9d169b93c3`
+**Application-code checkpoint reviewed in the audit:** `380bc31056ca635a14243234eb0fe363dfe589ed` (documentation-only commits followed).
 
 ## Purpose and boundary
 
