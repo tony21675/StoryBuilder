@@ -45,11 +45,27 @@ The Writer creates and edits manuscript prose. Novel canon, character cards, loc
 
 Do not infer that every feature has been freshly tested on the author's laptop. Record verification separately as local, CI, or GitHub evidence.
 
-## Writer context issue to investigate
+## Character-card context update
 
-The Chapter 2 Scene 1 trace for *The Long Way Home* showed the complete registered character roster, but Zoe's detailed character card was not included. The prompt builder includes detailed cards for characters it detects by name in the current writing context; Zoe was not named in that scene direction or the immediately preceding saved scene, although the generated draft later introduced her and gave her unestablished emergency-bypass/blueprint knowledge.
+**Implemented:** November 7, 2026
 
-For future scene preparation, explicitly name the intended participants and ensure each participating character has the appropriate reference data. Before changing prompt-selection code, inspect how scene cast is passed and discuss the change with the author. Do not treat invented skills from the trace as canon.
+The shared `build_character_card_context_prompt` now supplies the character information that was previously being left out of prompts:
+- Role and occupation / department.
+- Skills, expertise, specialties, and technical skills.
+- Background and experience.
+- Training, qualifications, and certifications when present.
+- Personality, interests and hobbies, longer descriptive notes, and established relationships.
+- Existing personal-reference fields such as age, gender, orientation, and relationship status remain available.
+
+This shared formatter is used by both Prepare Scene and Write. Prepare Scene includes all detailed cards when no scene cast has been saved, or the saved cast when one is available. Write includes detailed cards for characters identified by name in the writing prompt or supporting scene context, with saved scene-cast names also used when present.
+
+The prompt gives one concise distinction: documented professional fields ground what a character knows and can do; hobbies are not professional qualifications; ideas outside a specialty may be raised as questions or hypotheses rather than treated as established expertise.
+
+The context-budget compactor was also updated to preserve skills, expertise, specialties, background, experience, hobbies, interests, training, qualifications, certifications, and description fields when it needs to shorten large character-card payloads.
+
+No novel character cards, Story Bible files, current story state, accepted manuscript scenes, or model files were changed by this StoryBuilder update.
+
+**Separate known issue:** Prepare Scene still does not pass its existing generated scene direction back into the planner on retry. That is a distinct follow-up change and was not part of this character-card fix.
 
 ## Working agreement
 
@@ -62,10 +78,10 @@ For future scene preparation, explicitly name the intended participants and ensu
 ## Verification status
 
 - The focused handoff-backup test module passed locally on November 7, 2026 (2 tests).
-- Both GitHub Actions workflows passed after the November 7 repository cleanup. The Python Tests workflow reports 681 passed and 77 subtests passed; the StoryBuilder tests workflow reports 681 tests passed.
-- The full test suite has not yet been run locally on this laptop after the latest changes.
+- After the character-card context update, both GitHub Actions workflows passed on commit `6787b8f601f82e2358a146fead6d148040c51db4` (November 7, 2026). Python Tests reports 682 passed and 77 subtests passed; StoryBuilder tests reports 682 tests passed.
+- The previous full local suite on Tony's laptop passed 681 tests before this character-card update. Re-run the full suite locally after pulling the latest StoryBuilder commit.
 
 
 ## Current status
 
-The current work is project-record and backup reliability. Do not generate or revise manuscript scenes as part of Writer app maintenance.
+The character-card context fix is committed and CI-verified. After Tony pulls it locally, test Prepare Scene and Write against The Long Way Home cards to confirm that the six leads' documented expertise is available to the model. The separate Prepare Scene retry-direction issue remains open.
