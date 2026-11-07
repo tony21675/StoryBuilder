@@ -52,12 +52,15 @@ Other improvements previously reported include plain-English character fields, o
 
 ## Verification status and working agreement
 
-- No fresh local test run on the author's laptop has been recorded after adding the handoff-backup utility. Run the focused backup tests and full test suite after pulling.
+- The focused handoff-backup test module passed locally on November 7, 2026 (2 tests).
+- Both GitHub Actions workflows passed after the November 7 repository cleanup. The Python Tests workflow reports 681 passed and 77 subtests passed; the StoryBuilder tests workflow reports 681 tests passed.
+- The full test suite has not yet been run locally on this laptop after the latest changes.
 - Discuss app or data-model changes before editing.
 - Make one focused change at a time.
 - Do not silently change the schema or rewrite a novel's existing cards, canon, or locations.
 - Preserve local package changes and inspect Git status before any sync.
 - Update this handoff after each agreed Story Bible App milestone.
+
 
 ## Current status
 
