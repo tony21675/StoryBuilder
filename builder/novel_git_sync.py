@@ -6,6 +6,8 @@ from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 
+from builder.handoff_backup import HandoffBackupError, refresh_handoff_backups
+
 
 class NovelGitSyncError(RuntimeError):
     """A safe novel-to-GitHub sync could not be completed."""
@@ -355,8 +357,6 @@ def sync_novel_repository(novel_path: str | Path) -> NovelSyncResult:
         )
 
     try:
-        from builder.handoff_backup import HandoffBackupError, refresh_handoff_backups
-
         refresh_handoff_backups()
         message += "\nLocal handoff backup refreshed."
     except (HandoffBackupError, OSError) as exc:
