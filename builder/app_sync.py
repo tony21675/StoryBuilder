@@ -4,6 +4,8 @@ import subprocess
 from datetime import datetime
 from pathlib import Path
 
+from builder.handoff_backup import HandoffBackupError, refresh_handoff_backups
+
 
 class StoryBuilderSyncError(RuntimeError):
     """Raised when the StoryBuilder application repository cannot sync safely."""
@@ -164,8 +166,6 @@ def sync_storybuilder_repository(app_path: str | Path) -> str:
     status_line = final.stdout.strip()
     backup_note = ""
     try:
-        from builder.handoff_backup import HandoffBackupError, refresh_handoff_backups
-
         refresh_handoff_backups(storybuilder_root=git_root)
         backup_note = "\nLocal handoff backup refreshed."
     except (HandoffBackupError, OSError) as exc:
