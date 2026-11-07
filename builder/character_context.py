@@ -25,6 +25,14 @@ def _list_text(value: Any, limit: int = 8) -> str:
     return ""
 
 
+def _combined_list_text(
+    card: dict[str, Any], fields: tuple[str, ...], limit: int = 8
+) -> str:
+    """Combine optional list-like card fields without requiring a fixed schema."""
+    values = [_list_text(card.get(field), limit=limit) for field in fields]
+    return "; ".join(value for value in values if value)
+
+
 def _relationships_text(value: Any) -> str:
     if isinstance(value, dict):
         entries = []
@@ -61,7 +69,7 @@ def build_character_card_context_prompt(
     supporting_text: str = "",
     include_all: bool = False,
 ) -> str:
-    """Append concise references for named characters without changing novel files."""
+    """Append concise, relevant references for characters in the writing context."""
     entries = story_bible.get("character_cards", [])
     if not isinstance(entries, list) or not entries:
         return str(prompt or "")
@@ -113,6 +121,7 @@ def build_character_card_context_prompt(
         lines.extend(
             [
                 "CHARACTER REFERENCES",
+                "Use each character's documented role, occupation, skills, and background to ground what they know and can do. Do not treat hobbies or general interests as professional qualifications. Characters may ask questions or suggest possibilities outside their specialties, but present those as questions or hypotheses rather than established expertise.",
                 "These are established character facts, not a request for romance. Do not invent romantic or sexual attraction that conflicts with a character's stated orientation; friendship, teasing, and affection can remain platonic.",
             ]
         )
@@ -121,17 +130,48 @@ def build_character_card_context_prompt(
         lines.append(f"\n[{name}]")
         for field, label in (
             ("role", "Role"),
+            ("occupation", "Occupation / department"),
+            ("department", "Department"),
             ("age", "Age"),
             ("gender", "Gender"),
             ("sexual_orientation", "Sexual orientation"),
             ("relationship_status", "Relationship status"),
         ):
-            value = _clean(card.get(field), 160)
+            value = _clean(card.get(field), 200)
             if value:
                 lines.append(f"{label}: {value}")
+
+        background = _combined_list_text(
+            card, ("background", "experience"), limit=4
+        )
+        if background:
+            lines.append(f"Background / experience: {background}")
+
+        skills = _combined_list_text(
+            card, ("skills", "expertise", "specialties", "technical_skills"),
+            limit=10,
+        )
+        if skills:
+            lines.append(f"Skills / expertise: {skills}")
+
+        training = _combined_list_text(
+            card, ("training", "qualifications", "certifications"), limit=8
+        )
+        if training:
+            lines.append(f"Training / qualifications: {training}")
+
         personality = _list_text(card.get("personality"))
         if personality:
             lines.append(f"Personality: {personality}")
+
+        interests = _combined_list_text(card, ("interests", "hobbies"), limit=10)
+        if interests:
+            lines.append(f"Interests / hobbies: {interests}")
+
+        description = _clean(card.get("description"), 520)
+        if description:
+            lines.append(f"Additional established notes: {description}")
+
         relationships = _relationships_text(card.get("relationships"))
         if relationships:
             lines.append(f"Established relationships: {relationships}")
