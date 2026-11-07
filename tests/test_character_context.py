@@ -112,7 +112,7 @@ class CharacterCardContextTests(unittest.TestCase):
     def test_embedded_card_objects_use_the_same_professional_fields(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
-            root.mkdir()
+            root.mkdir(exist_ok=True)
             bible = {
                 "character_cards": [
                     {
