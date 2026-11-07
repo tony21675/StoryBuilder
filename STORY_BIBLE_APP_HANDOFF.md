@@ -1,6 +1,6 @@
 # Story Bible App handoff
 
-**Updated:** November 6, 2026  
+**Updated:** November 7, 2026  
 **Application:** Story Bible  
 **Repository:** `tony21675/StoryBuilder`  
 **Active/default branch:** `redesign/simplified-writing-workflow`  
