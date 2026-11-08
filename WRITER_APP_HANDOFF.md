@@ -34,7 +34,10 @@ The Writer creates and edits manuscript prose. Novel canon, character cards, loc
 
 ## Current functionality recorded
 
-- Load and use a local language model for manuscript generation.
+- Load and use local language models for separate writing tasks: Prepare Scene (planner) and manuscript prose (writer).
+- The app uses one WriterEngine process and switches models sequentially. It loads the planner model for Prepare Scene and the writing model for Write, Continue, Rewrite Scene, AI passage revision, and New Session. The previous model process is stopped before the other model starts; both models are never held in memory by StoryBuilder at the same time.
+- Two model selectors are shown in the Writer UI. Model filenames are saved outside the repository in `~/.config/storybuilder/model_roles.json` (or the path specified by `STORYBUILDER_MODEL_ROLES_FILE`). Defaults select a Qwen3.5-4B filename for Prepare Scene and Gemma 4 E4B for manuscript writing when those files are available. Both selections can be changed in the UI and persist across launches.
+- The existing **Load Writer** button preloads the selected manuscript-writing model. Prepare Scene and manuscript actions also load their selected role automatically when needed.
 - Write, Continue, Prepare Scene (a planning-only helper that fills the prompt box), and Rewrite Scene (an explicitly confirmed fresh generation of the visible draft) workflows.
 - Rewrite Scene keeps the existing draft if canceled, stopped, or generation fails.
 - Editable scene direction and natural endpoint supplied by Prepare Scene.
@@ -67,15 +70,35 @@ No novel character cards, Story Bible files, current story state, accepted manus
 
 **Separate known issue:** Prepare Scene still does not pass its existing generated scene direction back into the planner on retry. That is a distinct follow-up change and was not part of this character-card fix.
 
+## Model-role trial — November 7, 2026
+
+**Implemented for local testing:** separate model assignments for scene planning and manuscript writing.
+
+- Prepare Scene defaults to Qwen3.5-4B when that model is present.
+- Write, Continue, Rewrite Scene, AI passage revision, and New Session default to the Gemma 4 E4B file when present.
+- The choices are configurable in the Writer UI and saved under the user's config directory, not in Git.
+- Only one model process is loaded at a time. Selecting an action that needs the other role stops the existing process and loads the selected role's model.
+- llama.cpp is launched with `--reasoning off` and explicit `--jinja` so chat-template-dependent models such as Qwen3.5 use their GGUF metadata template.
+- This is an initial integration trial, not a permanent model-quality verdict. Compare actual Prepare Scene and manuscript results in The Long Way Home before making further prompt or UI changes.
+
+The author-approved creative philosophy for this trial:
+- Established story facts are the foundation, not a ban on inventing details.
+- Unwritten details are creative space. Plausible new technology, locations, complications, character interactions, and plot developments are welcome.
+- Characters should generally act within their established personalities and expertise, while still being allowed to surprise the reader.
+- Protect basic survival logic and major established story foundations, but do not overload prompts with rigid prohibitions or checklists.
+- The author chooses which creative developments become accepted story canon.
+
 ## Working agreement
 
 - The author prefers one focused change at a time and discussion before code or model changes.
 - Keep the writing process flexible. Avoid oversized prompts, rigid formulas, or micromanaging scene prose.
-- Gemma writes; ChatGPT reviews direction and generated prose for continuity when asked. Do not write manuscript scenes unless explicitly requested.
+- The planner develops possibilities and scene directions; the writer develops approved directions into manuscript prose. ChatGPT reviews direction and generated prose for continuity when asked. Do not write manuscript scenes unless explicitly requested.
 - Do not change a novel's prose, story state, canon, or package data from the Writer app handoff.
 - After an agreed app milestone, update this handoff and verify the commit.
 
 ## Verification status
+
+- Separate planner/writer model assignment and sequential model switching are implemented on the active branch. CI verification is pending for this update.
 
 - The focused handoff-backup test module passed locally on November 7, 2026 (2 tests).
 - After the character-card context update, both GitHub Actions workflows passed on commit `6787b8f601f82e2358a146fead6d148040c51db4` (November 7, 2026). Python Tests reports 682 passed and 77 subtests passed; StoryBuilder tests reports 682 tests passed.
