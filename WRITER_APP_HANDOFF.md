@@ -70,7 +70,7 @@ After pulling, check three things on the author's laptop:
 ## Lean model context update
 
 **Implemented:** November 7, 2026  
-**Verification:** Source and matching tests are committed together; CI and local verification are pending.
+**Verification:** Both GitHub Actions workflows passed on commit `1c5ad3c9d2b633ae9a08a3941227f414e4cc0484`: Python Tests reported 697 passed and 77 subtests passed; StoryBuilder tests reported 697 passed. Tony's local pull and full-suite run remain pending.
 
 The Writer and Prepare Scene prompt builders now use a deliberately small context package instead of forwarding whole Story Bible sections.
 
@@ -121,11 +121,11 @@ The author-approved creative philosophy for this trial:
 ## Verification status
 
 - The two-model planner/writer routing and Current Activity panel were locally verified. The full local suite passed 696 tests before this lean-context update.
-- The lean-context source and matching tests are committed together. CI must pass before the author pulls and repeats the local full-suite test.
-- The focused handoff-backup tests and previous Writer updates remain verified as recorded in earlier commits.
+- Lean-context commit `1c5ad3c9d2b633ae9a08a3941227f414e4cc0484` passed both GitHub Actions workflows: Python Tests reported 697 passed and 77 subtests passed; StoryBuilder tests reported 697 passed.
+- Tony's local pull and full-suite verification are still pending.
 
 
 ## Current status
 
-The lean-context update is committed on the existing branch. CI and the author's local pull/test are pending. The next verification is that ordinary Write and Rewrite requests contain only the scene direction plus brief relevant context, with no full canon list or complete location allowlist. Prepare Scene's retry-direction behavior remains open.
+The lean-context update is committed on the existing branch and is CI-verified. The author still needs to pull and run the full local test suite, then check one ordinary Write and one Rewrite for prompt-size and generation-speed improvements. Prepare Scene's retry-direction behavior remains open.
 

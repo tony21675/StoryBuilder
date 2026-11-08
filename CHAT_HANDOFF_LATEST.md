@@ -37,14 +37,14 @@ Author-approved creative philosophy: gaps in canon are creative space, not autom
 
 StoryBuilder's Writer and Prepare Scene requests have now been simplified. They no longer send the full canon-rules list, complete location allowlist, full creative-direction settings, generic craft/media instructions, or full character biographies on every request. They use short current-state context, brief facts for relevant characters, only named location details, and a short ending from the previous scene. The Story Bible remains unchanged as the detailed source of truth.
 
-Both GitHub Actions workflows passed on StoryBuilder commit `6787b8f601f82e2358a146fead6d148040c51db4`: Python Tests reports 682 passed and 77 subtests passed; StoryBuilder tests reports 682 passed. Tony still needs to pull the update and run the suite locally. No novel manuscript or canon files were changed by this Writer code update.
+The lean-context update passed both GitHub Actions workflows on commit `1c5ad3c9d2b633ae9a08a3941227f414e4cc0484`: Python Tests reports 697 passed and 77 subtests passed; StoryBuilder tests reports 697 passed. Tony still needs to pull the update and run the suite locally. No novel manuscript, Story Bible, character-card, or model files were changed.
 
 Separate open issue: Prepare Scene retry still does not pass its previous generated direction back into the planner. Do not treat that behavior as fixed.
 
 ## Repository and verification checkpoint
 
 - The obsolete nested `StoryBuilder/` checkout and its Git submodule pointer have been removed. The active Writer and Story Bible remain in the outer repository; no `.gitmodules` file or nested `StoryBuilder/` tree remains.
-- Before the lean-context update, the full local suite passed 696 tests. The new prompt-reduction source and tests are committed together; CI and the next local suite run are pending.
+- Before the lean-context update, the full local suite passed 696 tests. The prompt-reduction source and tests passed both CI workflows on commit `1c5ad3c9d2b633ae9a08a3941227f414e4cc0484` (697 tests passed in each workflow; Python Tests also reports 77 subtests passed). Tony's local pull and full-suite run remain pending.
 - The focused local handoff-backup tests previously passed (2 tests).
 
 
@@ -70,4 +70,4 @@ StoryBuilder includes `backup_handoffs.py` and `builder/handoff_backup.py`. The 
 8. When sources disagree, record the conflict and pause. Do not choose a version by guessing.
 9. Preserve the working branch and its autosync behavior unless branch migration is deliberately coordinated and tested.
 
-**Project status:** The Long Way Home's broad crisis direction has been reconstructed from the author's latest decisions. Chapter 2 Scene 01 is saved and accepted; Scene 02 is next. The Writer's lean-context update is committed on the existing branch; CI and Tony's local pull/test are pending. Prepare Scene's retry-direction behavior remains a separate known issue. *Taken at Dusk* remains on hold.
+**Project status:** The Long Way Home's broad crisis direction has been reconstructed from the author's latest decisions. Chapter 2 Scene 01 is saved and accepted; Scene 02 is next. The Writer's lean-context update is committed on the existing branch and CI-verified; Tony's local pull/test are pending. Prepare Scene's retry-direction behavior remains a separate known issue. *Taken at Dusk* remains on hold.
