@@ -56,7 +56,7 @@ CONTINUE_PROMPT = (
 CONTINUE_CONTEXT_CHARS = 2000
 
 MANUSCRIPT_DIALOGUE_GUIDANCE = (
-    "SHOW THE WORK THROUGH DIALOGUE\\n"
+    "SHOW THE WORK THROUGH DIALOGUE\n"
     "When characters and the Computer are working together, show the work as it happens. "
     "Let them speak directly to one another about what they are doing, noticing, and deciding; "
     "do not replace these interactions with summary narration."
@@ -68,7 +68,7 @@ def build_manuscript_generation_prompt(prompt: str) -> str:
     original = str(prompt or "").rstrip()
     if not original:
         return MANUSCRIPT_DIALOGUE_GUIDANCE
-    return f"{original}\\n\\n{MANUSCRIPT_DIALOGUE_GUIDANCE}"
+    return f"{original}\n\n{MANUSCRIPT_DIALOGUE_GUIDANCE}"
 
 
 
