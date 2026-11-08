@@ -1052,7 +1052,7 @@ class MinimalWriterTests(unittest.TestCase):
         self.assertEqual(len(generated_prompts), len(expected_author_prompts))
         for generated, author_prompt in zip(generated_prompts, expected_author_prompts):
             self.assertTrue(generated.startswith(author_prompt))
-            self.assertIn("\\n\\nSHOW THE WORK THROUGH DIALOGUE", generated)
+            self.assertIn("\n\nSHOW THE WORK THROUGH DIALOGUE", generated)
             self.assertIn("The Computer is a speaking participant", generated)
         self.assertEqual(app.engine.start_calls, starts_after_load)
         self.assertEqual(app.engine.session_history, generated_prompts)
