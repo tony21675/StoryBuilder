@@ -153,6 +153,27 @@ class CharacterCardContextTests(unittest.TestCase):
         self.assertIn("Skills / expertise: geology, terrain assessment, field observation", prompt)
         self.assertIn("Interests / hobbies: yoga", prompt)
 
+    def test_ambiguous_names_use_gender_recorded_on_character_cards(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            bible = {
+                "character_cards": [
+                    {"name": "Morgan", "gender": "female"},
+                    {"name": "Sam", "gender": "male"},
+                ]
+            }
+
+            prompt = build_character_card_context_prompt(
+                root, bible, "Morgan and Sam review the results.", compact=True
+            )
+
+        self.assertIn("[Morgan]", prompt)
+        self.assertIn("Gender: female", prompt)
+        self.assertIn("[Sam]", prompt)
+        self.assertIn("Gender: male", prompt)
+        self.assertIn("never infer gender from a name", prompt)
+        self.assertIn("If gender is not recorded, avoid assuming", prompt)
+
     def test_missing_card_file_is_ignored_without_blocking_writing(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
