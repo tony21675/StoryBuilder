@@ -55,6 +55,22 @@ CONTINUE_PROMPT = (
 )
 CONTINUE_CONTEXT_CHARS = 2000
 
+MANUSCRIPT_DIALOGUE_GUIDANCE = (
+    "SHOW THE WORK THROUGH DIALOGUE\\n"
+    "When characters and the Computer are working together, show the work as it happens. "
+    "Let them speak directly to one another about what they are doing, noticing, and deciding; "
+    "do not replace these interactions with summary narration."
+)
+
+
+def build_manuscript_generation_prompt(prompt: str) -> str:
+    """Append one concise dialogue-first note to every manuscript-writing request."""
+    original = str(prompt or "").rstrip()
+    if not original:
+        return MANUSCRIPT_DIALOGUE_GUIDANCE
+    return f"{original}\\n\\n{MANUSCRIPT_DIALOGUE_GUIDANCE}"
+
+
 
 def select_all_text(event):
     """Select all text in a Tk Text-compatible widget for Ctrl+A."""
@@ -842,6 +858,7 @@ class MinimalWriterApp:
 
     def _begin_revision_generation(self, prompt: str) -> None:
         """Generate a proposal without changing the current passage."""
+        prompt = build_manuscript_generation_prompt(prompt)
         writer_model = self._selected_role_model("writer")
         if writer_model is None:
             self._showinfo("Choose a writing model", "Select a model for manuscript writing first.")
@@ -2238,6 +2255,7 @@ class MinimalWriterApp:
                 pass
 
     def _begin_generation(self, prompt: str, mode: str) -> None:
+        prompt = build_manuscript_generation_prompt(prompt)
         writer_model = self._selected_role_model("writer")
         if writer_model is None:
             self._showinfo(
