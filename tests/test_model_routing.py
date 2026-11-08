@@ -13,6 +13,9 @@ class FakeValue:
     def get(self):
         return self.value
 
+    def set(self, value):
+        self.value = value
+
 
 class ModelRoutingTests(unittest.TestCase):
     def make_app(self):

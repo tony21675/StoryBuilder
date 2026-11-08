@@ -60,6 +60,8 @@ The Writer now has a prominent **Current Activity** panel directly below the mod
 
 The panel does not claim a selected model is loaded merely because it is selected. It shows Loading until the model loader returns, then Generating when the generation call begins. When idle it reports the model whose process is actually alive, or Not loaded. The detailed bottom status strip remains in place for messages and explanations.
 
+The Prepare Scene unit-test fixture now models the live subprocess that the two-model routing code expects, and its assertions use the planner-specific status wording and the automatic Writer reload behavior.
+
 After pulling, check three things on the author's laptop:
 1. Prepare Scene shows Qwen as Loading, then Generating, then Finished.
 2. Write and Rewrite Scene show Gemma as Loading when switching from Qwen, then Generating, then Finished.

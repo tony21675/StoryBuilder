@@ -1181,9 +1181,15 @@ class MinimalWriterApp:
         self._activity_model_path = (
             Path(model_path).expanduser().resolve() if model_path is not None else None
         )
-        self.activity_task_var.set(str(task))
-        self.activity_model_var.set(self._activity_model_label(model_path))
-        self.activity_state_var.set(str(state))
+        for attribute, value in (
+            ("activity_task_var", str(task)),
+            ("activity_model_var", self._activity_model_label(model_path)),
+            ("activity_state_var", str(state)),
+        ):
+            variable = getattr(self, attribute, None)
+            setter = getattr(variable, "set", None)
+            if callable(setter):
+                setter(value)
 
     def _begin_model_activity(self, task: str, model_path: str | Path) -> None:
         state = (

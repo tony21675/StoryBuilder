@@ -455,7 +455,10 @@ class MinimalWriterPrepareSceneTests(unittest.TestCase):
         app.writing = False
         app.stop_requested = False
         app.loaded_model = Path("/models/test.gguf")
-        app.engine = SimpleNamespace(child=None, clear_context=Mock())
+        app.engine = SimpleNamespace(
+            child=SimpleNamespace(isalive=lambda: True),
+            clear_context=Mock(),
+        )
         app.root = SimpleNamespace(after=lambda _delay, callback: callback())
         app.novel_var = SimpleNamespace(get=lambda: "Test Novel")
         app.novel_packages = {"Test Novel": Path(novel_path)}
@@ -503,7 +506,7 @@ class MinimalWriterPrepareSceneTests(unittest.TestCase):
             self.assertEqual(app.scene_files, {})
             self.assertIn("Chapter 01, Scene 01", generate.call_args.args[1])
             app.engine.clear_context.assert_called_once_with()
-            self.assertIn("Model conversation cleared", app.status_var.set.call_args.args[0])
+            self.assertIn("Planner conversation cleared", app.status_var.set.call_args.args[0])
             self.assertFalse(app.busy)
             self.assertFalse(app.writing)
 
@@ -652,9 +655,9 @@ class MinimalWriterPrepareSceneTests(unittest.TestCase):
             self.assertEqual(events, ["generate", "clear_context"])
             self.assertEqual(app.prompt_box.value, "A quiet afternoon continues.")
             self.assertIsNotNone(app.loaded_model)
-            self.assertIn("Model conversation cleared", app.status_var.set.call_args.args[0])
+            self.assertIn("Planner conversation cleared", app.status_var.set.call_args.args[0])
 
-    def test_prepare_scene_keeps_suggestion_and_requires_reload_if_context_clear_fails(self):
+    def test_prepare_scene_keeps_suggestion_and_loads_writer_on_write_if_context_clear_fails(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp) / "Test Novel"
             root.mkdir()
@@ -670,7 +673,10 @@ class MinimalWriterPrepareSceneTests(unittest.TestCase):
 
             self.assertEqual(app.prompt_box.value, "Keep this suggestion.")
             self.assertIsNone(app.loaded_model)
-            self.assertIn("Load the model again", app.status_var.set.call_args.args[0])
+            self.assertIn(
+                "selected writing model will load automatically when you press Write",
+                app.status_var.set.call_args.args[0],
+            )
             self.assertIn("clear failed", app.status_var.set.call_args.args[0])
             self.assertFalse(app.busy)
             self.assertFalse(app.writing)
