@@ -26,6 +26,15 @@ Future novel premises and unstarted concepts are kept separately in the private 
 
 ## Latest Writer app change — November 7, 2026
 
+StoryBuilder now has a two-role model setup for trial:
+- Prepare Scene uses a separately selected planner model (defaults to Qwen3.5-4B when available).
+- Write, Continue, Rewrite Scene, AI passage revision, and New Session use a separately selected manuscript-writing model (defaults to Gemma 4 E4B when available).
+- Both roles share one WriterEngine process and load sequentially. Switching tasks stops the previous llama-cli process before loading the selected role. Model filenames are saved in the user's config directory, outside the repository.
+- llama.cpp is started with explicit Jinja chat-template handling and reasoning disabled.
+- This first integration is for local testing; model assignments and creative quality remain provisional until Tony tests the updated Writer locally on The Long Way Home.
+
+Author-approved creative philosophy: gaps in canon are creative space, not automatic prohibitions. Encourage plausible inventions, new technical details, character interactions and plot developments. Protect basic survival logic and major established story foundations, but do not smother the models with rigid lists of restrictions. The author chooses which inventions become canon.
+
 StoryBuilder's shared character-card context builder now passes role, occupation/department, skills/expertise, background/experience, training/qualifications, personality, hobbies/interests, descriptive notes, and relationships into Prepare Scene and Write. The Writer's context-budget compactor also preserves the professional and interest fields when shortening card payloads. This directly addresses the earlier problem where character roles were available but their documented skills and occupations were omitted from prompt context.
 
 Both GitHub Actions workflows passed on StoryBuilder commit `6787b8f601f82e2358a146fead6d148040c51db4`: Python Tests reports 682 passed and 77 subtests passed; StoryBuilder tests reports 682 passed. Tony still needs to pull the update and run the suite locally. No novel manuscript or canon files were changed by this Writer code update.
@@ -60,4 +69,4 @@ StoryBuilder includes `backup_handoffs.py` and `builder/handoff_backup.py`. The 
 8. When sources disagree, record the conflict and pause. Do not choose a version by guessing.
 9. Preserve the working branch and its autosync behavior unless branch migration is deliberately coordinated and tested.
 
-**Project status:** The Long Way Home's broad crisis direction has been reconstructed from the author's latest decisions. Chapter 2 Scene 1 remains unaccepted and under review. The StoryBuilder character-card context fix is committed and awaits Tony's local pull/test. Prepare Scene's retry-direction behavior remains a separate known issue. *Taken at Dusk* remains on hold.
+**Project status:** The Long Way Home's broad crisis direction has been reconstructed from the author's latest decisions. Chapter 2 Scene 1 remains unaccepted and under review. The StoryBuilder character-card context fix and initial two-model planner/writer integration are committed and await Tony's local pull/test. Prepare Scene's retry-direction behavior remains a separate known issue. *Taken at Dusk* remains on hold.
