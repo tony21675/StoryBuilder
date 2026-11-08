@@ -326,6 +326,7 @@ class WriterEngine:
             args.extend([
                 "-c", str(context_size),
                 "--reasoning", "off",
+                "--jinja",
                 "--repeat-last-n", "256",
                 "--repeat-penalty", "1.08",
                 "--n-predict", str(max_predict),
