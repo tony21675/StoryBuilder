@@ -36,6 +36,60 @@ class ModelRoutingTests(unittest.TestCase):
             Path("/models/Gemma-4-E4B.gguf"),
         )
 
+
+    def test_runtime_activity_shows_loading_until_selected_model_is_live(self):
+        app = self.make_app()
+        app.engine = SimpleNamespace(child=None)
+        app.loaded_model = None
+        app.activity_task_var = FakeValue("")
+        app.activity_model_var = FakeValue("")
+        app.activity_state_var = FakeValue("")
+        qwen = Path("/models/Qwen3.5-4B-Q4_K_M.gguf")
+
+        app._begin_model_activity("Prepare Scene", qwen)
+
+        self.assertEqual(app.activity_task_var.value, "Prepare Scene")
+        self.assertEqual(app.activity_model_var.value, qwen.name)
+        self.assertEqual(app.activity_state_var.value, "Loading")
+
+        app.loaded_model = qwen
+        app.engine.child = SimpleNamespace(isalive=lambda: True)
+        self.assertTrue(app._runtime_model_is_ready(qwen))
+        app._set_activity_status("Prepare Scene", qwen, "Generating")
+        self.assertEqual(app.activity_state_var.value, "Generating")
+
+    def test_idle_activity_reports_the_actual_loaded_model(self):
+        app = self.make_app()
+        gemma = Path("/models/Gemma-4-E4B.gguf")
+        app.engine = SimpleNamespace(child=SimpleNamespace(isalive=lambda: True))
+        app.loaded_model = gemma
+        app.busy = False
+        app.activity_task_var = FakeValue("")
+        app.activity_model_var = FakeValue("")
+        app.activity_state_var = FakeValue("")
+
+        app._refresh_idle_activity()
+
+        self.assertEqual(app.activity_task_var.value, "Idle")
+        self.assertEqual(app.activity_model_var.value, gemma.name)
+        self.assertEqual(app.activity_state_var.value, "Ready")
+
+    def test_idle_activity_does_not_claim_a_dead_process_is_loaded(self):
+        app = self.make_app()
+        gemma = Path("/models/Gemma-4-E4B.gguf")
+        app.engine = SimpleNamespace(child=SimpleNamespace(isalive=lambda: False))
+        app.loaded_model = gemma
+        app.busy = False
+        app.activity_task_var = FakeValue("")
+        app.activity_model_var = FakeValue("")
+        app.activity_state_var = FakeValue("")
+
+        app._refresh_idle_activity()
+
+        self.assertIsNone(app.loaded_model)
+        self.assertEqual(app.activity_model_var.value, "None loaded")
+        self.assertEqual(app.activity_state_var.value, "Not loaded")
+
     def test_unknown_role_is_rejected(self):
         with self.assertRaises(ValueError):
             self.make_app()._selected_role_model("editor")

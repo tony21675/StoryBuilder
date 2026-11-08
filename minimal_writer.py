@@ -428,6 +428,10 @@ class MinimalWriterApp:
         self.status_var = tk.StringVar(
             value="Choose separate models for Prepare Scene and manuscript writing."
         )
+        self.activity_task_var = tk.StringVar(value="Idle")
+        self.activity_model_var = tk.StringVar(value="None loaded")
+        self.activity_state_var = tk.StringVar(value="Not loaded")
+        self._activity_model_path: Path | None = None
         self._build_widgets()
         self.refresh_models()
         self.refresh_novels()
@@ -483,7 +487,32 @@ class MinimalWriterApp:
         ttk.Label(
             outer,
             text="Only the model needed for the selected task is loaded.",
-        ).pack(anchor="w", pady=(0, 10))
+        ).pack(anchor="w", pady=(0, 4))
+
+        activity_frame = ttk.LabelFrame(
+            outer, text="Current Activity", padding=(8, 6)
+        )
+        activity_frame.pack(fill="x", pady=(0, 10))
+        for column, weight in enumerate((2, 3, 1)):
+            activity_frame.columnconfigure(column, weight=weight)
+
+        for column, (heading, variable) in enumerate(
+            (
+                ("Task", self.activity_task_var),
+                ("Model for this task", self.activity_model_var),
+                ("Runtime state", self.activity_state_var),
+            )
+        ):
+            cell = ttk.Frame(activity_frame)
+            cell.grid(row=0, column=column, sticky="nsew", padx=(0, 10))
+            ttk.Label(cell, text=heading).pack(anchor="w")
+            ttk.Label(
+                cell,
+                textvariable=variable,
+                font=("TkDefaultFont", 10, "bold"),
+                wraplength=340,
+                justify="left",
+            ).pack(anchor="w", fill="x")
 
         # Novel browsing is deliberately read-first. Loading a scene puts a
         # copy in the editor and does not make the accepted manuscript the Save target.
@@ -824,6 +853,7 @@ class MinimalWriterApp:
         self.writing = True
         self.stop_requested = False
         self.status_var.set(f"Revising selected text with {writer_model.name}…")
+        self._begin_model_activity("Revise Passage", writer_model)
         try:
             self.output_box.configure(state="disabled")
         except tk.TclError:
@@ -833,6 +863,9 @@ class MinimalWriterApp:
         def work() -> None:
             try:
                 self._ensure_model_loaded(writer_model)
+                self._schedule_activity_status(
+                    "Revise Passage", writer_model, "Generating"
+                )
                 answer = write_from_prompt(self.engine, prompt)
             except GenerationInterrupted:
                 self.root.after(0, self._revision_stopped)
@@ -859,6 +892,9 @@ class MinimalWriterApp:
         self.loaded_model = None
         self._enable_revision_editor()
         self._discard_revision()
+        self._set_activity_status(
+            "Revise Passage", getattr(self, "_activity_model_path", None), "Stopped"
+        )
         self.status_var.set(
             "Revision stopped. The original passage was kept. The selected writing model will load automatically next time."
         )
@@ -876,6 +912,9 @@ class MinimalWriterApp:
             self.loaded_model = None
         self._enable_revision_editor()
         self._discard_revision()
+        self._set_activity_status(
+            "Revise Passage", getattr(self, "_activity_model_path", None), "Error"
+        )
         self.status_var.set("Revision failed. The original passage was kept.")
         self._update_controls()
         self._showerror("Revision failed", message)
@@ -888,11 +927,17 @@ class MinimalWriterApp:
         self.writing = False
         self.stop_requested = False
         self._enable_revision_editor()
+        self._set_activity_status(
+            "Revise Passage", getattr(self, "_activity_model_path", None), "Finished"
+        )
         self._update_controls()
 
         candidate = answer.strip()
         if not candidate:
             self._discard_revision()
+            self._set_activity_status(
+                "Revise Passage", getattr(self, "_activity_model_path", None), "Error"
+            )
             self.status_var.set("Revision returned no text. The original passage was kept.")
             self._showerror(
                 "Empty revision",
@@ -1094,6 +1139,83 @@ class MinimalWriterApp:
         self.loaded_model = target
         return target
 
+    def _runtime_model_is_ready(self, model_path: str | Path | None) -> bool:
+        """Return true only when this exact model is recorded and its process is live."""
+        if model_path is None:
+            return False
+        try:
+            target = Path(model_path).expanduser().resolve()
+            loaded = getattr(self, "loaded_model", None)
+            if loaded is None or Path(loaded).expanduser().resolve() != target:
+                return False
+        except (OSError, TypeError, ValueError):
+            return False
+
+        engine = getattr(self, "engine", None)
+        if engine is None or not hasattr(engine, "child"):
+            return True
+        child = getattr(engine, "child", None)
+        try:
+            return child is not None and child.isalive()
+        except Exception:
+            return False
+
+    @staticmethod
+    def _activity_model_label(model_path: str | Path | None) -> str:
+        if model_path is None:
+            return "None loaded"
+        name = Path(model_path).name
+        if "--" in name:
+            name = name.rsplit("--", 1)[-1]
+        if len(name) > 64:
+            name = f"{name[:30]}…{name[-30:]}"
+        return name
+
+    def _set_activity_status(
+        self,
+        task: str,
+        model_path: str | Path | None,
+        state: str,
+    ) -> None:
+        """Update the prominent task/model/runtime display from the UI thread."""
+        self._activity_model_path = (
+            Path(model_path).expanduser().resolve() if model_path is not None else None
+        )
+        self.activity_task_var.set(str(task))
+        self.activity_model_var.set(self._activity_model_label(model_path))
+        self.activity_state_var.set(str(state))
+
+    def _begin_model_activity(self, task: str, model_path: str | Path) -> None:
+        state = (
+            "Generating"
+            if self._runtime_model_is_ready(model_path)
+            else "Loading"
+        )
+        self._set_activity_status(task, model_path, state)
+
+    def _schedule_activity_status(
+        self, task: str, model_path: str | Path | None, state: str
+    ) -> None:
+        """Schedule a status change safely when called from a worker thread."""
+        try:
+            self.root.after(
+                0,
+                lambda: self._set_activity_status(task, model_path, state),
+            )
+        except tk.TclError:
+            pass
+
+    def _refresh_idle_activity(self) -> None:
+        """Show the actually loaded model while idle, not merely the selected model."""
+        if getattr(self, "busy", False):
+            return
+        loaded = getattr(self, "loaded_model", None)
+        if loaded is not None and self._runtime_model_is_ready(loaded):
+            self._set_activity_status("Idle", loaded, "Ready")
+        else:
+            self.loaded_model = None
+            self._set_activity_status("Idle", None, "Not loaded")
+
     def _save_model_role_selection(self) -> None:
         try:
             save_model_roles(
@@ -1113,6 +1235,7 @@ class MinimalWriterApp:
                 f"Prepare Scene will use {name}. It loads automatically when needed."
             )
         self._update_controls()
+        self._refresh_idle_activity()
 
     def _on_writer_model_selected(self, _event=None) -> None:
         self._save_model_role_selection()
@@ -1122,6 +1245,7 @@ class MinimalWriterApp:
                 f"Writing will use {name}. It loads automatically when needed."
             )
         self._update_controls()
+        self._refresh_idle_activity()
 
     def load_selected_model(self) -> None:
         if self.busy:
@@ -1138,6 +1262,7 @@ class MinimalWriterApp:
         self.writing = False
         self.stop_requested = False
         self.status_var.set(f"Loading {path.name}…")
+        self._set_activity_status("Load Writer", path, "Loading")
         self._update_controls()
 
         def work() -> None:
@@ -1156,6 +1281,7 @@ class MinimalWriterApp:
         self.writing = False
         self.stop_requested = False
         self.loaded_model = path
+        self._set_activity_status("Load Writer", path, "Ready")
         self.status_var.set(f"Loaded: {path.name}")
         self._update_controls()
 
@@ -1164,6 +1290,9 @@ class MinimalWriterApp:
         self.writing = False
         self.stop_requested = False
         self.loaded_model = None
+        self._set_activity_status(
+            "Load Writer", getattr(self, "_activity_model_path", None), "Error"
+        )
         self.status_var.set("Model load failed.")
         self._update_controls()
         self._showerror("Could not load model", message)
@@ -1570,11 +1699,15 @@ class MinimalWriterApp:
             f"Preparing Chapter {target_chapter:02d}, Scene {target_scene:02d} "
             f"for {novel_name} with {planner_model.name}…"
         )
+        self._begin_model_activity("Prepare Scene", planner_model)
         self._update_controls()
 
         def work() -> None:
             try:
                 self._ensure_model_loaded(planner_model)
+                self._schedule_activity_status(
+                    "Prepare Scene", planner_model, "Generating"
+                )
                 suggestion = write_from_prompt(self.engine, planning_prompt).strip()
             except GenerationInterrupted:
                 self.root.after(0, self._prepare_scene_stopped)
@@ -1622,6 +1755,9 @@ class MinimalWriterApp:
             self.busy = False
             self.writing = False
             self.stop_requested = False
+            self._set_activity_status(
+                "Prepare Scene", getattr(self, "_activity_model_path", None), "Finished"
+            )
             self.status_var.set(
                 "The prompt or author's direction was edited while Scene Preparation "
                 "was running. Your edits were kept; prepare again if you still need a suggestion."
@@ -1633,6 +1769,9 @@ class MinimalWriterApp:
             self.busy = False
             self.writing = False
             self.stop_requested = False
+            self._set_activity_status(
+                "Prepare Scene", getattr(self, "_activity_model_path", None), "Error"
+            )
             self.status_var.set("Scene preparation returned no suggestion. Your prompt was kept.")
             self._update_controls()
             self._showerror(
@@ -1661,6 +1800,9 @@ class MinimalWriterApp:
             # Keep the prepared suggestion, but do not leave the UI claiming
             # that a model session with uncleared planning history is usable.
             self.loaded_model = None
+            self._set_activity_status(
+                "Prepare Scene", getattr(self, "_activity_model_path", None), "Error"
+            )
             self.status_var.set(
                 f"Prepared Chapter {chapter_number:02d}, Scene {scene_number:02d}. "
                 "The suggestion was kept, but planner history could not be cleared. "
@@ -1668,6 +1810,9 @@ class MinimalWriterApp:
                 f"Details: {context_reset_error}"
             )
         else:
+            self._set_activity_status(
+                "Prepare Scene", getattr(self, "_activity_model_path", None), "Finished"
+            )
             self.status_var.set(
                 f"Prepared Chapter {chapter_number:02d}, Scene {scene_number:02d}. "
                 "Planner conversation cleared. Press Prepare Scene to try another "
@@ -1720,6 +1865,9 @@ class MinimalWriterApp:
             still_loaded = False
         if not still_loaded:
             self.loaded_model = None
+        self._set_activity_status(
+            "Prepare Scene", getattr(self, "_activity_model_path", None), "Error"
+        )
         self.status_var.set("Scene preparation failed. Your existing prompt was kept.")
         self._update_controls()
         self._showerror("Scene preparation failed", message)
@@ -1730,6 +1878,9 @@ class MinimalWriterApp:
         self.writing = False
         self.loaded_model = None
         self.stop_requested = False
+        self._set_activity_status(
+            "Prepare Scene", getattr(self, "_activity_model_path", None), "Stopped"
+        )
         self.status_var.set(
             "Scene preparation stopped. Your existing prompt was kept. "
             "The selected planner model will load automatically next time."
@@ -1929,11 +2080,17 @@ class MinimalWriterApp:
         self.writing = False
         self.stop_requested = False
         self.status_var.set(f"Starting a new writer session with {writer_model.name}…")
+        self._set_activity_status(
+            "New Session",
+            writer_model,
+            "Ready" if self._runtime_model_is_ready(writer_model) else "Loading",
+        )
         self._update_controls()
 
         def work() -> None:
             try:
                 self._ensure_model_loaded(writer_model)
+                self._schedule_activity_status("New Session", writer_model, "Ready")
                 self.engine.clear_context()
             except Exception as exc:
                 message = str(exc)
@@ -1948,6 +2105,9 @@ class MinimalWriterApp:
         self.writing = False
         self.stop_requested = False
         model_name = self.loaded_model.name if self.loaded_model else "model"
+        self._set_activity_status(
+            "New Session", getattr(self, "_activity_model_path", None), "Finished"
+        )
         self.status_var.set(
             f"New session ready with {model_name}. Visible text was kept."
         )
@@ -1963,6 +2123,9 @@ class MinimalWriterApp:
             still_loaded = False
         if not still_loaded:
             self.loaded_model = None
+        self._set_activity_status(
+            "New Session", getattr(self, "_activity_model_path", None), "Error"
+        )
         self.status_var.set("New session failed. Reload the model if needed.")
         self._update_controls()
         self._showerror("Could not start a new session", message)
@@ -2115,6 +2278,12 @@ class MinimalWriterApp:
             if location_names else ""
         )
         self.status_var.set(f"{action} with {writer_model.name}…{location_note}")
+        task_name = {
+            "write": "Write",
+            "continue": "Continue",
+            "rewrite": "Rewrite Scene",
+        }.get(mode, "Write")
+        self._begin_model_activity(task_name, writer_model)
         self._update_controls()
 
         def stream_delta(chunk: str) -> None:
@@ -2132,6 +2301,7 @@ class MinimalWriterApp:
             callback = None
             try:
                 self._ensure_model_loaded(writer_model)
+                self._schedule_activity_status(task_name, writer_model, "Generating")
                 attach_trace = getattr(self.engine, "attach_prompt_trace", None)
                 if prompt_trace is not None and callable(attach_trace):
                     try:
@@ -2233,6 +2403,14 @@ class MinimalWriterApp:
                     " GitHub trace upload failed; the local trace is still saved. "
                     f"{upload_error}"
                 )
+        self._set_activity_status(
+            {
+                "continue": "Continue",
+                "rewrite": "Rewrite Scene",
+            }.get(self._generation_mode, "Write"),
+            getattr(self, "_activity_model_path", None) or self.loaded_model,
+            "Finished",
+        )
         self.status_var.set(
             f"Finished {action} with {model_name}.{location_note}{rewrite_note}"
             f"{trace_note}{upload_note} Edit the output or save it."
@@ -2256,6 +2434,14 @@ class MinimalWriterApp:
         self.stop_requested = False
         partial_text = self._output_text()
         self._set_output_text(partial_text)
+        self._set_activity_status(
+            {
+                "continue": "Continue",
+                "rewrite": "Rewrite Scene",
+            }.get(getattr(self, "_generation_mode", "write"), "Write"),
+            getattr(self, "_activity_model_path", None),
+            "Stopped",
+        )
         if was_rewrite:
             self.status_var.set(
                 "Rewrite stopped. The previous draft was restored. "
@@ -2281,6 +2467,14 @@ class MinimalWriterApp:
         if not still_loaded:
             self.loaded_model = None
         self.stop_requested = False
+        self._set_activity_status(
+            {
+                "continue": "Continue",
+                "rewrite": "Rewrite Scene",
+            }.get(getattr(self, "_generation_mode", "write"), "Write"),
+            getattr(self, "_activity_model_path", None),
+            "Error",
+        )
         self.status_var.set("Writing failed. The selected writing model will load automatically on the next attempt if needed.")
         self._update_controls()
         self._showerror("Writing failed", message)
@@ -2469,6 +2663,11 @@ class MinimalWriterApp:
                 "reload the model before writing again."
             )
 
+        self._set_activity_status(
+            "Update Scene State",
+            getattr(self, "_activity_model_path", None) or self.loaded_model,
+            "Error" if error or reset_error else "Finished",
+        )
         self.status_var.set(message)
         self._update_controls()
 
@@ -2497,6 +2696,7 @@ class MinimalWriterApp:
 
         model_path = getattr(self, "loaded_model", None)
         if model_path is None:
+            self._set_activity_status("Update Scene State", None, "Not loaded")
             self.status_var.set(
                 f"Saved new scene: {novel_name} / Chapter {chapter_number:02d} / "
                 f"Scene {scene_number:02d}. Scene progress was recorded; load a model "
@@ -2511,6 +2711,9 @@ class MinimalWriterApp:
         self.status_var.set(
             f"Scene saved. Updating the story state from the ending of "
             f"Chapter {chapter_number:02d}, Scene {scene_number:02d}…"
+        )
+        self._set_activity_status(
+            "Update Scene State", model_path, "Generating"
         )
         self._update_controls()
 

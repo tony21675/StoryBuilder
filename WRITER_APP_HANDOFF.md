@@ -48,6 +48,23 @@ The Writer creates and edits manuscript prose. Novel canon, character cards, loc
 
 Do not infer that every feature has been freshly tested on the author's laptop. Record verification separately as local, CI, or GitHub evidence.
 
+## Visible runtime status display
+
+**Implemented:** November 7, 2026  
+**Verification:** Focused unit tests added; local GUI behavior and the full suite still need confirmation after pulling.
+
+The Writer now has a prominent **Current Activity** panel directly below the model selectors. It displays:
+- Current task (Prepare Scene, Write, Continue, Rewrite Scene, passage revision, New Session, manual load, or saved-scene state update).
+- The model assigned to that task.
+- Runtime state: Loading, Ready, Generating, Finished, Stopped, Error, or Not loaded.
+
+The panel does not claim a selected model is loaded merely because it is selected. It shows Loading until the model loader returns, then Generating when the generation call begins. When idle it reports the model whose process is actually alive, or Not loaded. The detailed bottom status strip remains in place for messages and explanations.
+
+After pulling, check three things on the author's laptop:
+1. Prepare Scene shows Qwen as Loading, then Generating, then Finished.
+2. Write and Rewrite Scene show Gemma as Loading when switching from Qwen, then Generating, then Finished.
+3. After generation, the panel identifies the model that remains loaded. If the process is stopped or fails, it must not show Ready.
+
 ## Character-card context update
 
 **Implemented:** November 7, 2026
