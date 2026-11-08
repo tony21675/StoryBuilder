@@ -70,7 +70,7 @@ After pulling, check three things on the author's laptop:
 ## Dialogue-first manuscript guidance
 
 **Implemented:** November 8, 2026  
-**Verification:** Regression tests added for Computer speech, gender selection from cards, and multi-paragraph Continue guidance. Local verification and GitHub Actions are pending after the author's next pull.
+**Verification:** Tony's first local run after pulling the changes reported 699 passed and 1 failed. The failure was an outdated test expectation that still compared raw user prompts rather than the prompts with the new automatic guidance appended. That test was corrected; a fresh local run is pending.
 
 Every manuscript-writing request now receives a compact automatic instruction to show important work through direct exchanges instead of summary narration. It also makes the Computer an explicitly speaking participant: when it completes a diagnostic, calculation, scan, or requested task, it should report important findings aloud in natural dialogue. Screens may support the spoken report but must not replace it.
 
