@@ -5,25 +5,17 @@ import re
 from pathlib import Path
 from typing import Any
 
-from builder.continuity_context import build_location_allowlist_prompt
 from builder.odt_document import read_document
 from builder.story_bible_reader import load_story_bible
-from builder.canon_rules import build_canon_rules_prompt
-from builder.creative_direction import build_creative_direction_prompt
-from builder.story_craft import build_media_device_prompt, build_story_craft_prompt
 from builder.character_context import build_character_card_context_prompt
-from builder.story_pacing import build_story_opening_pacing_prompt
-from builder.story_timeline import (
-    build_current_story_context_prompt,
-    build_story_timeline_prompt,
-)
+from builder.story_timeline import build_story_timeline_prompt
 
 
 _SCENE_FILENAME_RE = re.compile(
     r"^Chapter_(\d+)_Section_(\d+)\.(?:odt|txt)$",
     re.IGNORECASE,
 )
-_PREVIOUS_SCENE_CHARS = 6000
+_PREVIOUS_SCENE_CHARS = 1800
 
 
 def scene_number_from_label(label: str | None) -> int | None:
@@ -99,7 +91,7 @@ def _read_current_state(novel_path: Path) -> dict[str, Any]:
     return data if isinstance(data, dict) else {}
 
 
-def _clean_text(value: Any, limit: int = 1200) -> str:
+def _clean_text(value: Any, limit: int = 600) -> str:
     if not isinstance(value, str):
         return ""
     text = value.strip()
@@ -152,7 +144,7 @@ def build_scene_preparation_prompt(
     source_scene_path: str | Path | None = None,
     author_direction: str | None = None,
 ) -> str:
-    """Build a compact, read-only planning request for one scene starter."""
+    """Build a lean planning request with only the current scene's useful context."""
     root = Path(novel_path).expanduser()
     try:
         story_bible = load_story_bible(root)
@@ -165,113 +157,91 @@ def build_scene_preparation_prompt(
     )
     previous_ending = _previous_scene_ending(source_scene_path)
 
-    title = _clean_text(story_bible.get("title")) or _clean_text(novel_name)
+    title = _clean_text(story_bible.get("title"), limit=120) or _clean_text(
+        novel_name, limit=120
+    )
     author_direction_text = str(author_direction or "").strip()
     sections = [
-        "Help the author prepare a starting direction for the next scene. This is planning, not scene prose.",
+        "Help the author prepare a natural direction for the next scene. This is planning, not manuscript prose.",
         f"Destination: Chapter {int(chapter_number):02d}, Scene {int(scene_number):02d}.",
         f"Story: {title}",
     ]
-    if (int(chapter_number), int(scene_number)) == (1, 1):
-        sections.append(build_story_opening_pacing_prompt())
 
-    premise = _clean_text(story_bible.get("premise"))
-    setting = _clean_text(story_bible.get("setting"))
+    premise = _clean_text(story_bible.get("premise"), limit=600)
+    setting = _clean_text(story_bible.get("setting"), limit=600)
     if premise:
         sections.append(f"Premise: {premise}")
     if setting:
         sections.append(f"Setting: {setting}")
-    location_allowlist, _location_names = build_location_allowlist_prompt(
-        story_bible.get("locations", {})
-    )
-    sections.append(location_allowlist)
-    canon_rules_note = build_canon_rules_prompt(story_bible.get("canon_rules"))
-    if canon_rules_note:
-        sections.append(canon_rules_note)
+
     cast_names: list[str] = []
     if include_state:
-        cast_value = current_state.get("scene_cast")
-        if isinstance(cast_value, list):
-            cast_names = [str(name).strip() for name in cast_value if str(name).strip()]
-    character_context = build_character_card_context_prompt(
-        root,
-        story_bible,
-        " ".join(cast_names),
-        include_all=not cast_names,
-    )
-    if character_context:
-        sections.append(character_context)
+        timeline_note = build_story_timeline_prompt(current_state.get("time_of_day"))
+        if timeline_note:
+            sections.append(timeline_note)
 
-    creative_note = build_creative_direction_prompt(
-        story_bible.get("creative_direction")
-    )
-    if creative_note:
-        sections.append(creative_note)
-
-    craft_note = build_story_craft_prompt()
-    if craft_note:
-        sections.append(craft_note)
-    media_note = build_media_device_prompt(author_direction_text)
-    if media_note:
-        sections.append(media_note)
-
-    timeline_note = build_story_timeline_prompt(current_state.get("time_of_day"))
-    if timeline_note:
-        sections.append(timeline_note)
-
-    if include_state:
-        story_context = build_current_story_context_prompt(current_state)
-        if story_context:
-            sections.append(story_context)
+        situation = _clean_text(current_state.get("current_situation"), limit=600)
+        if situation:
+            sections.append("CURRENT STORY SITUATION\n" + situation)
 
         locations = current_state.get("location")
         if isinstance(locations, dict):
-            primary_location = _clean_text(locations.get("primary"), limit=240)
+            primary_location = _clean_text(locations.get("primary"), limit=120)
             if primary_location:
-                sections.append(f"Current main location: {primary_location}")
+                sections.append(f"Current location: {primary_location}")
 
-        cast = current_state.get("scene_cast")
-        if isinstance(cast, list):
-            names = [
-                _clean_text(name, limit=100)
-                for name in cast
+        cast_value = current_state.get("scene_cast")
+        if isinstance(cast_value, list):
+            cast_names = [
+                _clean_text(name, limit=80)
+                for name in cast_value
                 if isinstance(name, str) and name.strip()
             ][:8]
-            if names:
-                sections.append("People currently involved: " + ", ".join(names))
+            if cast_names:
+                sections.append("People currently involved: " + ", ".join(cast_names))
 
         questions = current_state.get("unresolved_questions")
         if isinstance(questions, list):
             open_questions = [
-                _clean_text(question, limit=220)
+                _clean_text(question, limit=160)
                 for question in questions
                 if isinstance(question, str) and question.strip()
-            ][:3]
+            ][:2]
             if open_questions:
-                sections.append(
-                    "Still unresolved: " + " ".join(open_questions)
-                )
+                sections.append("Still unresolved: " + " ".join(open_questions))
+
+    character_query = "\n".join(
+        part for part in (
+            " ".join(cast_names),
+            previous_ending,
+            author_direction_text,
+        ) if part
+    )
+    character_context = build_character_card_context_prompt(
+        root,
+        story_bible,
+        "",
+        supporting_text=character_query,
+        include_all=not bool(character_query),
+        compact=True,
+    )
+    if character_context:
+        sections.append(character_context)
 
     if previous_ending:
         sections.append(
-            "Selected previous scene context (including its ending, for continuity):\n"
-            + previous_ending
+            "PREVIOUS SCENE ENDING (brief continuity reference)\n" + previous_ending
         )
-    else:
-        if (int(chapter_number), int(scene_number)) == (1, 1):
-            sections.append("No saved previous scene was selected. Treat this as the novel's opening scene.")
-        else:
-            sections.append("No saved previous scene text was selected.")
+    elif (int(chapter_number), int(scene_number)) == (1, 1):
+        sections.append("This is the opening scene; no previous scene has been saved.")
 
     if author_direction_text:
-        sections.append("AUTHOR'S DIRECTION (SUPPLEMENTARY)\n" + author_direction_text)
+        sections.append("AUTHOR'S DIRECTION\n" + author_direction_text)
 
     sections.extend(
         [
-            "",
-            "Use the established story context, selected previous scene, and requested scene direction as the foundation. Any optional author guidance is supplementary: it may refine emphasis or add detail, but it does not replace the scene direction, remove established characters, or override continuity unless the author explicitly asks for those changes. A quiet or ordinary moment is valid scene material.",
-            "Return exactly two labeled parts: 'Scene direction:' in two to four concise sentences, and 'Natural endpoint:' in one sentence naming the final concrete beat. Stop at that beat.",
-            "Do not write manuscript prose or dialogue. Return only those two parts, followed by this exact instruction: 'Write natural manuscript prose only; do not repeat these labels, and stop at the natural endpoint.'",
+            "Use the scene context as a starting point. Gaps are creative space; develop plausible details and interactions without treating every unknown as a prohibition.",
+            "Return exactly two labeled parts: 'Scene direction:' in two to four concise sentences, and 'Natural endpoint:' in one sentence naming the final concrete beat. Do not write manuscript prose. Finish with: 'Write natural manuscript prose only; do not repeat these labels, and stop at the natural endpoint.'",
         ]
     )
-    return "\n\n".join(sections)
+    return "\n\n".join(part for part in sections if part)

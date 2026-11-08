@@ -6,7 +6,7 @@ from builder.novel_browser import list_scene_chapters, list_scene_files
 from builder.odt_document import read_document
 
 
-DEFAULT_PREVIOUS_SCENE_CONTEXT_CHARS = 6000
+DEFAULT_PREVIOUS_SCENE_CONTEXT_CHARS = 2000
 
 
 def previous_saved_scene(

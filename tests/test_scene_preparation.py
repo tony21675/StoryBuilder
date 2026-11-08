@@ -82,7 +82,7 @@ class ScenePreparationPromptTests(unittest.TestCase):
             )
 
             self.assertIn("Chapter 01, Scene 01", prompt)
-            self.assertIn("Treat this as the novel's opening scene", prompt)
+            self.assertIn("This is the opening scene; no previous scene has been saved.", prompt)
             self.assertIn("A small coastal town faces an unexpected change.", prompt)
             self.assertIn("CANON RULES", prompt)
             self.assertIn("A working harbor in the present day.", prompt)
@@ -110,7 +110,7 @@ class ScenePreparationPromptTests(unittest.TestCase):
             self.assertIn("Do not treat hobbies or general interests as professional qualifications", prompt)
             self.assertIn("SCENE CRAFT GUIDANCE", prompt)
             self.assertIn("STORY OPENING AND PACING", prompt)
-            self.assertIn("supplementary guidance", prompt)
+            self.assertNotIn("supplementary guidance", prompt)
             self.assertIn("A quiet or ordinary moment is valid scene material", prompt)
             self.assertIn("Return exactly two labeled parts", prompt)
             self.assertIn("Natural endpoint:", prompt)

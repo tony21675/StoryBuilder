@@ -67,27 +67,30 @@ After pulling, check three things on the author's laptop:
 2. Write and Rewrite Scene show Gemma as Loading when switching from Qwen, then Generating, then Finished.
 3. After generation, the panel identifies the model that remains loaded. If the process is stopped or fails, it must not show Ready.
 
-## Character-card context update
+## Lean model context update
 
-**Implemented:** November 7, 2026
+**Implemented:** November 7, 2026  
+**Verification:** Source and matching tests are committed together; CI and local verification are pending.
 
-The shared `build_character_card_context_prompt` now supplies the character information that was previously being left out of prompts:
-- Role and occupation / department.
-- Skills, expertise, specialties, and technical skills.
-- Background and experience.
-- Training, qualifications, and certifications when present.
-- Personality, interests and hobbies, longer descriptive notes, and established relationships.
-- Existing personal-reference fields such as age, gender, orientation, and relationship status remain available.
+The Writer and Prepare Scene prompt builders now use a deliberately small context package instead of forwarding whole Story Bible sections.
 
-This shared formatter is used by both Prepare Scene and Write. Prepare Scene includes all detailed cards when no scene cast has been saved, or the saved cast when one is available. Write includes detailed cards for characters identified by name in the writing prompt or supporting scene context, with saved scene-cast names also used when present.
+For manuscript writing, the model receives:
+- The author's scene direction and any additional rewrite guidance.
+- A short time anchor and current-situation summary (maximum 600 characters).
+- Brief facts for characters actually named in the request or saved scene cast: gender, role, occupation/department, skills, and short personality/voice notes.
+- Short saved details only for locations named in the request. No complete location allowlist is attached.
+- Up to 2,000 characters from the ending of the immediately preceding accepted scene.
 
-The prompt gives one concise distinction: documented professional fields ground what a character knows and can do; hobbies are not professional qualifications; ideas outside a specialty may be raised as questions or hypotheses rather than treated as established expertise.
+For Prepare Scene, the planner receives:
+- The novel title, premise and setting (each capped at 600 characters).
+- A short current-situation note, time anchor, current location/cast and up to two unresolved questions when they match the requested scene.
+- Brief facts for relevant characters, not complete character biographies.
+- Up to 1,800 characters from the previous scene's ending.
 
-The context-budget compactor was also updated to preserve skills, expertise, specialties, background, experience, hobbies, interests, training, qualifications, certifications, and description fields when it needs to shorten large character-card payloads.
+The automatic prompt no longer dumps the complete canon-rules list, full location allowlist, full creative-direction settings, generic scene-craft/media-device instructions, or full character biographies into every request. The underlying Story Bible and character-card files are unchanged and remain the detailed source of truth.
 
-No novel character cards, Story Bible files, current story state, accepted manuscript scenes, or model files were changed by this StoryBuilder update.
+This is a simple relevance reduction, not a new rules engine. Unknown details remain creative space. The app should not turn every gap into a prohibition or add new permanent rules because a draft needs correction.
 
-**Separate known issue:** Prepare Scene still does not pass its existing generated scene direction back into the planner on retry. That is a distinct follow-up change and was not part of this character-card fix.
 
 ## Model-role trial — November 7, 2026
 
@@ -117,15 +120,12 @@ The author-approved creative philosophy for this trial:
 
 ## Verification status
 
-- Separate planner/writer model assignment and sequential model switching are implemented on the active branch. CI verification is pending for this update.
-
-- The focused handoff-backup test module passed locally on November 7, 2026 (2 tests).
-- After the character-card context update, both GitHub Actions workflows passed on commit `6787b8f601f82e2358a146fead6d148040c51db4` (November 7, 2026). Python Tests reports 682 passed and 77 subtests passed; StoryBuilder tests reports 682 tests passed.
-- The previous full local suite on Tony's laptop passed 681 tests before this character-card update. Re-run the full suite locally after pulling the latest StoryBuilder commit.
+- The two-model planner/writer routing and Current Activity panel were locally verified. The full local suite passed 696 tests before this lean-context update.
+- The lean-context source and matching tests are committed together. CI must pass before the author pulls and repeats the local full-suite test.
+- The focused handoff-backup tests and previous Writer updates remain verified as recorded in earlier commits.
 
 
 ## Current status
 
-The character-card context change remains CI-verified. The two-model planner/writer integration is committed on the active branch; automated CI status for this latest update has not yet been reported, and Tony's local pull/test is pending.
+The lean-context update is committed on the existing branch. CI and the author's local pull/test are pending. The next verification is that ordinary Write and Rewrite requests contain only the scene direction plus brief relevant context, with no full canon list or complete location allowlist. Prepare Scene's retry-direction behavior remains open.
 
-After pulling, verify that Prepare Scene selects Qwen3.5-4B, manuscript actions select Gemma 4 E4B, and the app unloads one model before loading the other. Then run the full local test suite and the handoff backup script. The separate Prepare Scene retry-direction issue remains open.

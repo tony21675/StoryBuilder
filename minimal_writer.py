@@ -10,19 +10,10 @@ from tkinter.scrolledtext import ScrolledText
 from builder.appearance import apply_application_appearance
 from builder.writer_engine import GenerationInterrupted, WriterEngine
 from builder.workspace import MODELS_DIR, NOVEL_ROOT
-from builder.continuity_context import (
-    build_location_allowlist_prompt,
-    select_relevant_locations,
-)
+from builder.continuity_context import select_relevant_locations
 from builder.character_context import build_character_card_context_prompt
 from builder.story_bible_reader import load_story_bible
-from builder.creative_direction import build_creative_direction_prompt
-from builder.story_craft import build_media_device_prompt, build_story_craft_prompt
-from builder.canon_rules import build_canon_rules_prompt
-from builder.story_timeline import (
-    build_current_story_context_prompt,
-    build_story_timeline_prompt,
-)
+from builder.story_timeline import build_story_timeline_prompt
 from builder.scene_preparation import (
     build_scene_preparation_prompt,
     resolve_scene_preparation_target,
@@ -245,44 +236,51 @@ def build_location_context_prompt(
     locations: dict,
     supporting_text: str = "",
 ) -> tuple[str, list[str]]:
-    """Add the complete saved-location allowlist plus details for named locations."""
+    """Add brief details only for saved locations named in the current scene."""
     query = "\n".join(
         part for part in (str(prompt or ""), str(supporting_text or "")) if part
     )
     selected = select_relevant_locations(locations, "", query)
-    allowlist, _available_names = build_location_allowlist_prompt(locations)
-    context_parts = [allowlist]
+    if not selected:
+        return str(prompt or ""), []
 
-    if selected:
-        lines = [
-            "SAVED LOCATION REFERENCES FOR THIS SCENE",
-            "Use these details only for the places named below. Keep each place's details separate.",
-        ]
-        for name, details in selected.items():
-            lines.append(f"\n[{name}]")
-            if isinstance(details, str):
-                if details.strip():
-                    lines.append(f"Description: {details.strip()}")
+    lines = ["BRIEF DETAILS FOR PLACES NAMED IN THIS SCENE"]
+    for name, details in selected.items():
+        if isinstance(details, str):
+            values = [("Description", details)]
+        else:
+            values = [
+                (label, details.get(field))
+                for field, label in (
+                    ("type", "Type"),
+                    ("description", "Description"),
+                    ("notable_details", "Notable details"),
+                )
+                if details.get(field) not in (None, "", [], {})
+            ]
+
+        place_lines = []
+        remaining = 650
+        for label, value in values:
+            if isinstance(value, (dict, list)):
+                value = json.dumps(value, ensure_ascii=False)
+            value = " ".join(str(value).split())
+            if not value or remaining <= 0:
                 continue
+            if len(value) > remaining:
+                value = value[: max(0, remaining - 1)].rstrip() + "…"
+            place_lines.append(f"{label}: {value}")
+            remaining -= len(value)
+        if place_lines:
+            lines.append(f"\n[{name}]")
+            lines.extend(place_lines)
 
-            for key, value in details.items():
-                if value is None or value == "":
-                    continue
-                label = str(key).replace("_", " ").strip().capitalize()
-                if isinstance(value, (dict, list)):
-                    rendered = json.dumps(value, ensure_ascii=False, indent=2)
-                    lines.append(f"{label}:\n" + "\n".join(
-                        f"  {line}" for line in rendered.splitlines()
-                    ))
-                else:
-                    lines.append(f"{label}: {value}")
-        context_parts.append("\n".join(lines))
-
-    context = "\n\n".join(part for part in context_parts if part)
+    if len(lines) == 1:
+        return str(prompt or ""), list(selected)
+    context = "\n".join(lines)
     base_prompt = str(prompt or "").rstrip()
     enriched = f"{base_prompt}\n\n{context}" if base_prompt else context
     return enriched, list(selected)
-
 
 def build_revision_prompt(selected_text: str, instruction: str) -> str:
     """Ask the model to revise only the selected passage, following the author's instruction."""
@@ -1988,7 +1986,7 @@ class MinimalWriterApp:
         )
 
     def _prepare_location_context(self, prompt: str, supporting_text: str = "") -> str:
-        """Attach the selected novel's creative direction and relevant saved locations."""
+        """Add only brief, relevant facts needed to ground this writing request."""
         self.last_location_context_names = []
         novel_var = getattr(self, "novel_var", None)
         novel_packages = getattr(self, "novel_packages", {})
@@ -2002,68 +2000,64 @@ class MinimalWriterApp:
         try:
             story_bible = load_story_bible(novel_path)
         except (OSError, UnicodeError, ValueError):
-            # Story Bible context is optional: an absent or malformed file must
-            # never prevent ordinary writing or modify the novel package.
             return prompt
 
-        craft_note = build_story_craft_prompt()
-        if craft_note:
-            prompt = f"{str(prompt).rstrip()}\n\n{craft_note}"
-        media_note = build_media_device_prompt("\n".join((str(prompt or ""), str(supporting_text or ""))))
-        if media_note:
-            prompt = f"{str(prompt).rstrip()}\n\n{media_note}"
-
-        canon_rules_note = build_canon_rules_prompt(story_bible.get("canon_rules"))
-        if canon_rules_note:
-            prompt = f"{str(prompt).rstrip()}\n\n{canon_rules_note}"
-
-        creative_note = build_creative_direction_prompt(
-            story_bible.get("creative_direction")
-        )
-        if creative_note:
-            prompt = f"{str(prompt).rstrip()}\n\n{creative_note}"
-
-        character_supporting_text = str(supporting_text or "")
-        include_all_character_cards = False
+        current_state = {}
         try:
             state_path = Path(novel_path) / "current_state.json"
             current_state = json.loads(state_path.read_text(encoding="utf-8"))
-            if isinstance(current_state, dict):
-                timeline_note = build_story_timeline_prompt(current_state.get("time_of_day"))
-                if timeline_note:
-                    prompt = f"{str(prompt).rstrip()}\n\n{timeline_note}"
-                story_context_note = build_current_story_context_prompt(current_state)
-                if story_context_note:
-                    prompt = f"{str(prompt).rstrip()}\n\n{story_context_note}"
-                cast_names = []
-                scene_cast = current_state.get("scene_cast", [])
-                if isinstance(scene_cast, list):
-                    cast_names = [
-                        str(name).strip()
-                        for name in scene_cast
-                        if isinstance(name, str) and name.strip()
-                    ]
-                    if cast_names:
-                        character_supporting_text = "\n".join(
-                            part for part in (character_supporting_text, " ".join(cast_names))
-                            if part
-                        )
-                if not cast_names and current_state.get("status") == "story_start":
-                    include_all_character_cards = True
+            if not isinstance(current_state, dict):
+                current_state = {}
         except (OSError, UnicodeError, ValueError):
-            pass
+            current_state = {}
 
-        prompt = build_character_card_context_prompt(
+        context_parts = [str(prompt or "").rstrip()]
+        timeline_note = build_story_timeline_prompt(
+            current_state.get("time_of_day")
+        )
+        if timeline_note:
+            context_parts.append(timeline_note)
+
+        situation = current_state.get("current_situation")
+        if isinstance(situation, str) and situation.strip():
+            situation = " ".join(situation.split())
+            if len(situation) > 600:
+                situation = situation[:597].rsplit(" ", 1)[0].rstrip() + "…"
+            context_parts.append("CURRENT STORY SITUATION\n" + situation)
+
+        character_supporting_text = str(supporting_text or "")
+        scene_cast = current_state.get("scene_cast", [])
+        if isinstance(scene_cast, list):
+            cast_names = [
+                str(name).strip()
+                for name in scene_cast
+                if isinstance(name, str) and name.strip()
+            ]
+            if cast_names:
+                character_supporting_text = "\n".join(
+                    part for part in (
+                        character_supporting_text,
+                        " ".join(cast_names),
+                    ) if part
+                )
+
+        include_all = (
+            current_state.get("status") == "story_start"
+            and not scene_cast
+        )
+        compact_prompt = "\n\n".join(part for part in context_parts if part)
+        compact_prompt = build_character_card_context_prompt(
             novel_path,
             story_bible,
-            prompt,
+            compact_prompt,
             supporting_text=character_supporting_text,
-            include_all=include_all_character_cards,
+            include_all=include_all,
+            compact=True,
         )
 
         locations = story_bible.get("locations", {})
         enriched, names = build_location_context_prompt(
-            prompt,
+            compact_prompt,
             locations if isinstance(locations, dict) else {},
             supporting_text=supporting_text,
         )

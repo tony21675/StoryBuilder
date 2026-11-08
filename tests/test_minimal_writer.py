@@ -293,23 +293,20 @@ class MinimalWriterTests(unittest.TestCase):
 
         self.assertIn("[Tiffany Jones]", prompt)
         self.assertIn("[Maya]", prompt)
-        self.assertIn("Sexual orientation: Straight", prompt)
-        self.assertIn("Sexual orientation: Bisexual", prompt)
-        self.assertIn("Maya: like a sister", prompt)
+        self.assertIn("Gender: female", prompt)
         self.assertIn("Occupation / department: High school student", prompt)
-        self.assertIn("Background / experience: Used to helping with busy family routines.", prompt)
-        self.assertIn("Skills / expertise: organization, first aid basics", prompt)
-        self.assertIn("Interests / hobbies: drawing, photography", prompt)
+        self.assertIn("Skills: organization, first aid basics", prompt)
         self.assertNotIn("[Chloe]", prompt)
-        self.assertIn("CANON RULES", prompt)
-        self.assertIn("Tiffany and Maya have a sister-like friendship.", prompt)
+        self.assertNotIn("Sexual orientation:", prompt)
+        self.assertNotIn("Background / experience:", prompt)
+        self.assertNotIn("Interests / hobbies:", prompt)
+        self.assertNotIn("Tiffany and Maya have a sister-like friendship.", prompt)
+        self.assertNotIn("CANON RULES", prompt)
+        self.assertNotIn("SCENE CRAFT GUIDANCE", prompt)
         self.assertIn("STORY TIMELINE", prompt)
         self.assertIn("Latest saved in-story time: Day 1, 16:00", prompt)
-        self.assertNotIn("STORY OPENING AND PACING", prompt)
-        self.assertIn("SCENE CRAFT GUIDANCE", prompt)
-        self.assertIn("Carry forward the previous scene's location and activity", prompt)
 
-    def test_writer_prompt_has_complete_location_allowlist_and_named_details(self):
+    def test_writer_prompt_adds_only_named_location_details(self):
         locations = {
             "Supply Closet": {},
             "Main Galley": {
@@ -323,12 +320,10 @@ class MinimalWriterTests(unittest.TestCase):
             locations,
         )
 
-        self.assertIn("APPROVED LOCATIONS FROM THIS NOVEL'S STORY BIBLE", prompt)
-        self.assertIn("- Supply Closet", prompt)
-        self.assertIn("- Main Galley", prompt)
+        self.assertNotIn("APPROVED LOCATIONS FROM THIS NOVEL'S STORY BIBLE", prompt)
+        self.assertNotIn("Supply Closet", prompt)
         self.assertIn("[Main Galley]", prompt)
         self.assertIn("Description: A shared meal preparation area.", prompt)
-        self.assertNotIn("[Supply Closet]", prompt)
         self.assertEqual(referenced_names, ["Main Galley"])
 
     def test_writer_context_uses_saved_current_scene_cast(self):
@@ -347,7 +342,7 @@ class MinimalWriterTests(unittest.TestCase):
                 encoding="utf-8",
             )
             (root / "Maya.json").write_text(
-                json.dumps({"name": "Maya", "sexual_orientation": "Bisexual"}),
+                json.dumps({"name": "Maya", "gender": "female", "sexual_orientation": "Bisexual"}),
                 encoding="utf-8",
             )
             (root / "Tiffany.json").write_text(
@@ -363,7 +358,8 @@ class MinimalWriterTests(unittest.TestCase):
             )
 
         self.assertIn("[Maya]", prompt)
-        self.assertIn("Sexual orientation: Bisexual", prompt)
+        self.assertIn("Gender: female", prompt)
+        self.assertNotIn("Sexual orientation:", prompt)
         self.assertNotIn("[Tiffany]", prompt)
 
     def test_writer_context_includes_all_cards_at_fresh_story_start(self):
@@ -382,7 +378,7 @@ class MinimalWriterTests(unittest.TestCase):
                 encoding="utf-8",
             )
             (root / "Maya.json").write_text(
-                json.dumps({"name": "Maya", "sexual_orientation": "Bisexual"}),
+                json.dumps({"name": "Maya", "gender": "female", "sexual_orientation": "Bisexual"}),
                 encoding="utf-8",
             )
             (root / "Tiffany.json").write_text(

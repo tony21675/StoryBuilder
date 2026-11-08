@@ -68,8 +68,9 @@ def build_character_card_context_prompt(
     *,
     supporting_text: str = "",
     include_all: bool = False,
+    compact: bool = False,
 ) -> str:
-    """Append concise, relevant references for characters in the writing context."""
+    """Append relevant character references, with a lean mode for manuscript writing."""
     entries = story_bible.get("character_cards", [])
     if not isinstance(entries, list) or not entries:
         return str(prompt or "")
@@ -108,7 +109,7 @@ def build_character_card_context_prompt(
         return str(prompt or "")
 
     lines: list[str] = []
-    if roster_names:
+    if roster_names and not compact:
         lines.extend(
             [
                 "ESTABLISHED CHARACTER ROSTER",
@@ -118,16 +119,53 @@ def build_character_card_context_prompt(
         )
 
     if selected:
-        lines.extend(
-            [
-                "CHARACTER REFERENCES",
-                "Use each character's documented role, occupation, skills, and background to ground what they know and can do. Do not treat hobbies or general interests as professional qualifications. Characters may ask questions or suggest possibilities outside their specialties, but present those as questions or hypotheses rather than established expertise.",
-                "These are established character facts, not a request for romance. Do not invent romantic or sexual attraction that conflicts with a character's stated orientation; friendship, teasing, and affection can remain platonic.",
-            ]
-        )
+        if compact:
+            lines.extend([
+                "BRIEF CHARACTER REFERENCES",
+                "Short factual reminders for the named characters. Use them when helpful; they are not a checklist.",
+            ])
+        else:
+            lines.extend(
+                [
+                    "CHARACTER REFERENCES",
+                    "Use each character's documented role, occupation, skills, and background to ground what they know and can do. Do not treat hobbies or general interests as professional qualifications. Characters may ask questions or suggest possibilities outside their specialties, but present those as questions or hypotheses rather than established expertise.",
+                    "These are established character facts, not a request for romance. Do not invent romantic or sexual attraction that conflicts with a character's stated orientation; friendship, teasing, and affection can remain platonic.",
+                ]
+            )
     for card in selected:
         name = _clean(card.get("name"), 100)
         lines.append(f"\n[{name}]")
+        if compact:
+            for field, label in (
+                ("gender", "Gender"),
+                ("role", "Role"),
+                ("occupation", "Occupation / department"),
+                ("department", "Department"),
+            ):
+                value = _clean(card.get(field), 160)
+                if value:
+                    lines.append(f"{label}: {value}")
+
+            skills = _combined_list_text(
+                card, ("skills", "expertise", "specialties", "technical_skills"),
+                limit=4,
+            )
+            if len(skills) > 280:
+                skills = skills[:277].rstrip() + "…"
+            if skills:
+                lines.append(f"Skills: {skills}")
+
+            personality = _list_text(card.get("personality"), limit=2)
+            if len(personality) > 140:
+                personality = personality[:137].rstrip() + "…"
+            if personality:
+                lines.append(f"Personality: {personality}")
+
+            voice = _clean(card.get("voice"), 140)
+            if voice:
+                lines.append(f"Voice: {voice}")
+            continue
+
         for field, label in (
             ("role", "Role"),
             ("occupation", "Occupation / department"),

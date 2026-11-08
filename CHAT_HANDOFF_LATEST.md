@@ -15,7 +15,7 @@ These are two separate applications with separate launchers. They share the `ton
 
 ### Novels
 
-- [The Long Way Home](https://github.com/tony21675/The-Long-Way-Home/blob/main/CHAT_HANDOFF_LATEST.md) — current novel priority. Chapter 1 Scenes 01–15 are accepted; Chapter 2 was reset and has no accepted scenes. The existing Chapter 2 Scene 1 trace is pending review. The current broad author-approved direction is in [STORY_DIRECTION.md](https://github.com/tony21675/The-Long-Way-Home/blob/main/STORY_DIRECTION.md).
+- [The Long Way Home](https://github.com/tony21675/The-Long-Way-Home/blob/main/CHAT_HANDOFF_LATEST.md) — current novel priority. Chapter 1 Scenes 01–15 are accepted. Chapter 2 Scene 01 is saved and accepted; Scene 02 is next. The current broad author-approved direction is in [STORY_DIRECTION.md](https://github.com/tony21675/The-Long-Way-Home/blob/main/STORY_DIRECTION.md).
 - [Taken at Dusk](https://github.com/tony21675/MyNovel/blob/main/HANDOFF_LATEST.md) — intentionally on hold until *The Long Way Home* is finished. Its branch reconciliation is deferred until the author resumes it.
 
 A novel's own package is the source for its canon and manuscript: its Story Bible, character cards, locations, current state, and accepted scene files. Do not copy one novel's information into another novel's handoff.
@@ -35,7 +35,7 @@ StoryBuilder now has a two-role model setup for trial:
 
 Author-approved creative philosophy: gaps in canon are creative space, not automatic prohibitions. Encourage plausible inventions, new technical details, character interactions and plot developments. Protect basic survival logic and major established story foundations, but do not smother the models with rigid lists of restrictions. The author chooses which inventions become canon.
 
-StoryBuilder's shared character-card context builder now passes role, occupation/department, skills/expertise, background/experience, training/qualifications, personality, hobbies/interests, descriptive notes, and relationships into Prepare Scene and Write. The Writer's context-budget compactor also preserves the professional and interest fields when shortening card payloads. This directly addresses the earlier problem where character roles were available but their documented skills and occupations were omitted from prompt context.
+StoryBuilder's Writer and Prepare Scene requests have now been simplified. They no longer send the full canon-rules list, complete location allowlist, full creative-direction settings, generic craft/media instructions, or full character biographies on every request. They use short current-state context, brief facts for relevant characters, only named location details, and a short ending from the previous scene. The Story Bible remains unchanged as the detailed source of truth.
 
 Both GitHub Actions workflows passed on StoryBuilder commit `6787b8f601f82e2358a146fead6d148040c51db4`: Python Tests reports 682 passed and 77 subtests passed; StoryBuilder tests reports 682 passed. Tony still needs to pull the update and run the suite locally. No novel manuscript or canon files were changed by this Writer code update.
 
@@ -44,8 +44,9 @@ Separate open issue: Prepare Scene retry still does not pass its previous genera
 ## Repository and verification checkpoint
 
 - The obsolete nested `StoryBuilder/` checkout and its Git submodule pointer have been removed. The active Writer and Story Bible remain in the outer repository; no `.gitmodules` file or nested `StoryBuilder/` tree remains.
-- The latest character-card context change is CI-verified: Python Tests reports 682 passed and 77 subtests passed; StoryBuilder tests reports 682 passed (commit `6787b8f601f82e2358a146fead6d148040c51db4`).
-- The previous full local suite passed 681 tests before this change. Run the updated suite locally after pulling the latest StoryBuilder commit. The focused local handoff-backup test module previously passed (2 tests).
+- Before the lean-context update, the full local suite passed 696 tests. The new prompt-reduction source and tests are committed together; CI and the next local suite run are pending.
+- The focused local handoff-backup tests previously passed (2 tests).
+
 
 ## Local handoff backups
 
@@ -69,4 +70,4 @@ StoryBuilder includes `backup_handoffs.py` and `builder/handoff_backup.py`. The 
 8. When sources disagree, record the conflict and pause. Do not choose a version by guessing.
 9. Preserve the working branch and its autosync behavior unless branch migration is deliberately coordinated and tested.
 
-**Project status:** The Long Way Home's broad crisis direction has been reconstructed from the author's latest decisions. Chapter 2 Scene 1 remains unaccepted and under review. The StoryBuilder character-card context fix and initial two-model planner/writer integration are committed and await Tony's local pull/test. Prepare Scene's retry-direction behavior remains a separate known issue. *Taken at Dusk* remains on hold.
+**Project status:** The Long Way Home's broad crisis direction has been reconstructed from the author's latest decisions. Chapter 2 Scene 01 is saved and accepted; Scene 02 is next. The Writer's lean-context update is committed on the existing branch; CI and Tony's local pull/test are pending. Prepare Scene's retry-direction behavior remains a separate known issue. *Taken at Dusk* remains on hold.

@@ -95,14 +95,13 @@ class BuildLocationPromptTests(unittest.TestCase):
         self.assertIn("A renovated farmhouse.", prompt)
         self.assertNotIn("Not part of this scene.", prompt)
 
-    def test_allowlist_is_included_even_when_no_location_name_matches(self):
+    def test_no_location_details_are_added_when_no_saved_place_is_named(self):
         original = "Write a quiet conversation at home."
         prompt, names = build_location_context_prompt(
             original,
             {"Tony and Tiffany's House": {"description": "Saved details."}},
         )
-        self.assertIn("APPROVED LOCATIONS FROM THIS NOVEL'S STORY BIBLE", prompt)
-        self.assertIn("- Tony and Tiffany's House", prompt)
+        self.assertEqual(prompt, original)
         self.assertNotIn("Saved details.", prompt)
         self.assertEqual(names, [])
 

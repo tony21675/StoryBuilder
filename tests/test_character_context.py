@@ -86,6 +86,25 @@ class CharacterCardContextTests(unittest.TestCase):
         self.assertIn("Skills / expertise: organization, first aid basics", prompt)
         self.assertIn("Interests / hobbies: drawing, photography", prompt)
 
+    def test_compact_mode_keeps_only_short_identity_and_role_facts(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            bible = self.make_novel(root)
+
+            prompt = build_character_card_context_prompt(
+                root, bible, "Tiffany and Maya talk.", compact=True
+            )
+
+        self.assertIn("[Tiffany Jones]", prompt)
+        self.assertIn("Gender: female", prompt)
+        self.assertIn("Occupation / department: High school student", prompt)
+        self.assertIn("Skills: organization, first aid basics", prompt)
+        self.assertNotIn("Sexual orientation:", prompt)
+        self.assertNotIn("Background / experience:", prompt)
+        self.assertNotIn("Interests / hobbies:", prompt)
+        self.assertNotIn("relationships", prompt.casefold())
+        self.assertNotIn("[Chloe]", prompt)
+
     def test_unmentioned_character_cards_add_roster_without_detailed_profiles(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
