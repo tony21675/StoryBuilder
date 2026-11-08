@@ -1,6 +1,6 @@
 # Writer App handoff
 
-**Updated:** November 7, 2026  
+**Updated:** November 8, 2026  
 **Application:** StoryBuilder Minimal Writer  
 **Repository:** `tony21675/StoryBuilder`  
 **Active/default branch:** `redesign/simplified-writing-workflow`  
@@ -67,6 +67,15 @@ After pulling, check three things on the author's laptop:
 2. Write and Rewrite Scene show Gemma as Loading when switching from Qwen, then Generating, then Finished.
 3. After generation, the panel identifies the model that remains loaded. If the process is stopped or fails, it must not show Ready.
 
+## Dialogue-first manuscript guidance
+
+**Implemented:** November 8, 2026  
+**Verification:** Regression tests added; local verification and GitHub Actions are pending after the author's next pull.
+
+Every manuscript-writing request now receives one short automatic instruction: when characters and the Computer are working together, show the work as it happens through their direct exchanges about what they are doing, noticing, and deciding. Do not replace those interactions with summary narration.
+
+This note is appended to Write, Rewrite Scene, Continue, and passage-revision prompts. It is not added to Qwen's Prepare Scene request and does not change the Story Bible, scene direction, or manuscript files. It is a presentation preference, not a requirement to insert the Computer into scenes where it does not belong.
+
 ## Lean model context update
 
 **Implemented:** November 7, 2026  
@@ -127,5 +136,5 @@ The author-approved creative philosophy for this trial:
 
 ## Current status
 
-The lean-context update is committed on the existing branch and is CI-verified. The author still needs to pull and run the full local test suite, then check one ordinary Write and one Rewrite for prompt-size and generation-speed improvements. Prepare Scene's retry-direction behavior remains open.
+The lean-context update is locally verified: Tony pulled it and the full suite passed (697 tests and 77 subtests). The follow-up dialogue-first manuscript guidance is committed on the same branch; its new regression tests and CI run are pending. Tony needs to pull this follow-up, run the suite again, then check ordinary Write and Rewrite behavior. Prepare Scene's retry-direction behavior remains open.
 
