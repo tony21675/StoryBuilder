@@ -215,6 +215,9 @@ class MinimalWriterTests(unittest.TestCase):
 
         self.assertIn("SHOW THE WORK THROUGH DIALOGUE", prompt)
         self.assertIn("speak directly to one another", prompt)
+        self.assertIn("The Computer is a speaking participant", prompt)
+        self.assertIn("report important findings aloud", prompt)
+        self.assertIn("Screen displays may support its spoken report but must not replace it", prompt)
         self.assertIn("do not replace these interactions with summary narration", prompt)
         self.assertTrue(prompt.startswith("Write natural manuscript prose only."))
 
@@ -1127,6 +1130,8 @@ class MinimalWriterTests(unittest.TestCase):
     def test_continue_prompt_requests_only_new_material(self):
         self.assertIn("Continue the current passage", CONTINUE_PROMPT)
         self.assertIn("without repeating", CONTINUE_PROMPT)
+        self.assertIn("several connected paragraphs", CONTINUE_PROMPT)
+        self.assertIn("rather than stopping after a single paragraph", CONTINUE_PROMPT)
 
     def test_continue_prompt_uses_the_visible_passage_ending(self):
         passage = "An opening paragraph.\n\nThe door creaked open."
