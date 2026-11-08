@@ -51,7 +51,10 @@ from builder.writer_continuity import build_previous_scene_context_prompt
 
 CONTINUE_PROMPT = (
     "Continue the current passage from where it ended. "
-    "Write only new material, without repeating the text already written."
+    "Write only new material, without repeating the text already written. "
+    "Write a complete continuation of several connected paragraphs, developing the moment "
+    "rather than stopping after a single paragraph. Let it reach a natural pause; do not "
+    "force a scene ending."
 )
 CONTINUE_CONTEXT_CHARS = 2000
 
@@ -59,7 +62,10 @@ MANUSCRIPT_DIALOGUE_GUIDANCE = (
     "SHOW THE WORK THROUGH DIALOGUE\n"
     "When characters and the Computer are working together, show the work as it happens. "
     "Let them speak directly to one another about what they are doing, noticing, and deciding; "
-    "do not replace these interactions with summary narration."
+    "do not replace these interactions with summary narration. "
+    "The Computer is a speaking participant: when it completes a diagnostic, calculation, scan, "
+    "or requested task, have it report important findings aloud in natural dialogue. Screen "
+    "displays may support its spoken report but must not replace it."
 )
 
 
