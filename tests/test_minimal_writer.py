@@ -910,12 +910,12 @@ class MinimalWriterTests(unittest.TestCase):
             self.assertIn("Source: Chapter 02, Scene 19", captured["prompt"])
             self.assertIn("CURRENT STORY SITUATION", captured["prompt"])
             self.assertIn("The crew has finished charades in the Recreation Room.", captured["prompt"])
-            self.assertIn("OUTSTANDING CHARACTER OBJECTIVES", captured["prompt"])
-            self.assertIn(
+            self.assertNotIn("OUTSTANDING CHARACTER OBJECTIVES", captured["prompt"])
+            self.assertNotIn(
                 "Daniel: Deliver the report Elena requested. It remains undelivered.",
                 captured["prompt"],
             )
-            self.assertIn("Do not assume it happened off-page", captured["prompt"])
+            self.assertNotIn("Do not assume it happened off-page", captured["prompt"])
 
     def test_prompt_trace_is_armed_for_one_scene_and_finished_locally(self):
         with tempfile.TemporaryDirectory() as temporary:

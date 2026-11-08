@@ -72,18 +72,18 @@ class CharacterRosterPromptTests(unittest.TestCase):
             "Registered characters in this novel: Daniel, Morgan, Elena, Priya",
             prompt,
         )
-        self.assertIn("Do not invent extra members", prompt)
+        self.assertNotIn("Do not invent extra members", prompt)
         self.assertIn("Scene direction:", prompt)
         self.assertIn("Natural endpoint:", prompt)
         self.assertIn("two labeled parts", prompt)
-        self.assertIn("Stop at that beat", prompt)
+        self.assertIn("final concrete beat", prompt)
         self.assertIn("do not repeat these labels, and stop at the natural endpoint", prompt)
         self.assertIn("[Daniel]", prompt)
         self.assertIn("[Morgan]", prompt)
         self.assertNotIn("[Elena]", prompt)
         self.assertNotIn("[Priya]", prompt)
 
-    def test_write_context_receives_roster_guard_for_the_selected_novel(self):
+    def test_write_context_receives_a_short_roster_for_the_selected_novel(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             (root / "story_bible.json").write_text(
@@ -110,7 +110,7 @@ class CharacterRosterPromptTests(unittest.TestCase):
             "Registered characters in this novel: Daniel, Morgan, Elena",
             prompt,
         )
-        self.assertIn("Do not invent extra members", prompt)
+        self.assertNotIn("Do not invent extra members", prompt)
 
 
 if __name__ == "__main__":

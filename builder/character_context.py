@@ -109,14 +109,18 @@ def build_character_card_context_prompt(
         return str(prompt or "")
 
     lines: list[str] = []
-    if roster_names and not compact:
-        lines.extend(
-            [
-                "ESTABLISHED CHARACTER ROSTER",
-                "Registered characters in this novel: " + ", ".join(roster_names),
-                "Treat this as the complete roster of established members of any recurring crew, team, household, or similar group. Do not invent extra members or add an unlisted person to a group arrival or group scene. Do not describe someone as arriving if the story context already places them in the scene. New characters may still be introduced when the author's direction or established story events genuinely call for them.",
-            ]
-        )
+    if roster_names:
+        roster_line = "Registered characters in this novel: " + ", ".join(roster_names)
+        if compact:
+            lines.append(roster_line)
+        else:
+            lines.extend(
+                [
+                    "ESTABLISHED CHARACTER ROSTER",
+                    roster_line,
+                    "Treat this as the complete roster of established members of any recurring crew, team, household, or similar group. Do not invent extra members or add an unlisted person to a group arrival or group scene. Do not describe someone as arriving if the story context already places them in the scene. New characters may still be introduced when the author's direction or established story events genuinely call for them.",
+                ]
+            )
 
     if selected:
         if compact:

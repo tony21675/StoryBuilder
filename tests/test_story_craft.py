@@ -45,9 +45,8 @@ class StoryCraftPromptTests(unittest.TestCase):
 
             prompt = build_scene_preparation_prompt(root, "Test Novel", 1, 1)
 
-        self.assertIn("SCENE CRAFT GUIDANCE", prompt)
-        self.assertIn("ordinary moments can matter", prompt.lower())
-        self.assertIn("supplementary guidance", prompt)
+        self.assertNotIn("SCENE CRAFT GUIDANCE", prompt)
+        self.assertNotIn("supplementary guidance", prompt)
         self.assertNotIn("MEDIA AND DEVICE BOUNDARIES", prompt)
 
     def test_previous_scene_device_mention_does_not_trigger_media_guidance(self):
@@ -84,7 +83,7 @@ class StoryCraftPromptTests(unittest.TestCase):
                 author_direction="The crew watches a film on the television.",
             )
 
-        self.assertIn("MEDIA AND DEVICE BOUNDARIES", prompt)
+        self.assertNotIn("MEDIA AND DEVICE BOUNDARIES", prompt)
 
     def test_writer_context_adds_media_guidance_only_when_relevant(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -107,7 +106,7 @@ class StoryCraftPromptTests(unittest.TestCase):
             )
 
         self.assertNotIn("MEDIA AND DEVICE BOUNDARIES", ordinary)
-        self.assertIn("MEDIA AND DEVICE BOUNDARIES", media)
+        self.assertNotIn("MEDIA AND DEVICE BOUNDARIES", media)
         self.assertNotIn("STORY OPENING AND PACING", ordinary)
 
 

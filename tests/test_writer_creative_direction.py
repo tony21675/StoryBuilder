@@ -8,7 +8,7 @@ from minimal_writer import MinimalWriterApp
 
 
 class WriterCreativeDirectionTests(unittest.TestCase):
-    def test_writer_adds_selected_novels_creative_direction_read_only(self):
+    def test_writer_keeps_global_creative_direction_out_of_every_prompt(self):
         with tempfile.TemporaryDirectory() as temporary:
             novel_path = Path(temporary)
             story_bible = {
@@ -35,14 +35,14 @@ class WriterCreativeDirectionTests(unittest.TestCase):
                 app, "Write the next scene."
             )
 
-            self.assertIn("Genres: Science Fiction, Mystery, Comedy", prompt)
-            self.assertIn("Mood and tone: Tense, Humorous", prompt)
-            self.assertIn("Intended audience: Adult", prompt)
+            self.assertNotIn("Genres: Science Fiction, Mystery, Comedy", prompt)
+            self.assertNotIn("Mood and tone: Tense, Humorous", prompt)
+            self.assertNotIn("Intended audience: Adult", prompt)
             self.assertNotIn("Explicit adult content is permitted", prompt)
             self.assertEqual(app.last_location_context_names, [])
             self.assertEqual(bible_path.read_bytes(), original)
 
-    def test_writer_allows_explicit_adult_content_only_when_enabled(self):
+    def test_explicit_adult_setting_stays_in_story_bible_not_every_prompt(self):
         with tempfile.TemporaryDirectory() as temporary:
             novel_path = Path(temporary)
             (novel_path / "story_bible.json").write_text(
@@ -66,8 +66,8 @@ class WriterCreativeDirectionTests(unittest.TestCase):
                 app, "Write the next scene."
             )
 
-            self.assertIn("Explicit adult content is permitted", prompt)
-            self.assertIn("consenting adults", prompt)
+            self.assertNotIn("Explicit adult content is permitted", prompt)
+            self.assertNotIn("consenting adults", prompt)
 
     def test_writer_ignores_absent_or_malformed_optional_story_bible(self):
         with tempfile.TemporaryDirectory() as temporary:

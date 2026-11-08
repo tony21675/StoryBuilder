@@ -244,7 +244,7 @@ class ScenePreparationPromptTests(unittest.TestCase):
             )
 
             self.assertIn("Latest saved in-story time: Day 1, 16:00", prompt)
-            self.assertIn("finished dinner and started a board game", prompt)
+            self.assertIn("The game continued with friendly conversation.", prompt)
             self.assertNotIn("This old opening situation must not be treated as current.", prompt)
             self.assertIn("Return exactly two labeled parts", prompt)
             self.assertNotIn("STORY OPENING AND PACING", prompt)

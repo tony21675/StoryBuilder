@@ -175,11 +175,11 @@ def build_scene_preparation_prompt(
         sections.append(f"Setting: {setting}")
 
     cast_names: list[str] = []
-    if include_state:
-        timeline_note = build_story_timeline_prompt(current_state.get("time_of_day"))
-        if timeline_note:
-            sections.append(timeline_note)
+    timeline_note = build_story_timeline_prompt(current_state.get("time_of_day"))
+    if timeline_note:
+        sections.append(timeline_note)
 
+    if include_state:
         situation = _clean_text(current_state.get("current_situation"), limit=600)
         if situation:
             sections.append("CURRENT STORY SITUATION\n" + situation)
