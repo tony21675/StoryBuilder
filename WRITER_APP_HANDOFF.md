@@ -107,4 +107,6 @@ The author-approved creative philosophy for this trial:
 
 ## Current status
 
-The character-card context fix is committed and CI-verified. After Tony pulls it locally, test Prepare Scene and Write against The Long Way Home cards to confirm that the six leads' documented expertise is available to the model. The separate Prepare Scene retry-direction issue remains open.
+The character-card context change remains CI-verified. The two-model planner/writer integration is committed on the active branch; automated CI status for this latest update has not yet been reported, and Tony's local pull/test is pending.
+
+After pulling, verify that Prepare Scene selects Qwen3.5-4B, manuscript actions select Gemma 4 E4B, and the app unloads one model before loading the other. Then run the full local test suite and the handoff backup script. The separate Prepare Scene retry-direction issue remains open.
