@@ -70,11 +70,15 @@ After pulling, check three things on the author's laptop:
 ## Dialogue-first manuscript guidance
 
 **Implemented:** November 8, 2026  
-**Verification:** Regression tests added; local verification and GitHub Actions are pending after the author's next pull.
+**Verification:** Regression tests added for Computer speech, gender selection from cards, and multi-paragraph Continue guidance. Local verification and GitHub Actions are pending after the author's next pull.
 
-Every manuscript-writing request now receives one short automatic instruction: when characters and the Computer are working together, show the work as it happens through their direct exchanges about what they are doing, noticing, and deciding. Do not replace those interactions with summary narration.
+Every manuscript-writing request now receives a compact automatic instruction to show important work through direct exchanges instead of summary narration. It also makes the Computer an explicitly speaking participant: when it completes a diagnostic, calculation, scan, or requested task, it should report important findings aloud in natural dialogue. Screens may support the spoken report but must not replace it.
 
-This note is appended to Write, Rewrite Scene, Continue, and passage-revision prompts. It is not added to Qwen's Prepare Scene request and does not change the Story Bible, scene direction, or manuscript files. It is a presentation preference, not a requirement to insert the Computer into scenes where it does not belong.
+The instruction is appended to Write, Rewrite Scene, Continue, and passage-revision prompts. It is not added to Qwen's Prepare Scene request and does not change the Story Bible, scene direction, or manuscript files. It does not force the Computer into scenes where it is not relevant.
+
+The Writer's Continue instruction now asks for a complete continuation over several connected paragraphs, developing the moment to a natural pause rather than stopping after one paragraph. This is guidance to the model, not a guaranteed output-length control.
+
+Character-card context now explicitly tells the models to use each character's recorded gender for pronouns, never infer gender from a name, and avoid assuming when gender is not recorded. The existing compact context already passes the card's Gender field; this addition makes its importance clear, including for names that can belong to people of different genders.
 
 ## Lean model context update
 
@@ -136,5 +140,5 @@ The author-approved creative philosophy for this trial:
 
 ## Current status
 
-The lean-context update is locally verified: Tony pulled it and the full suite passed (697 tests and 77 subtests). The follow-up dialogue-first manuscript guidance is committed on the same branch; its new regression tests and CI run are pending. Tony needs to pull this follow-up, run the suite again, then check ordinary Write and Rewrite behavior. Prepare Scene's retry-direction behavior remains open.
+The lean-context update is locally verified: Tony pulled it and the full suite passed (697 tests and 77 subtests). Follow-up Writer changes now make Computer findings explicitly spoken, use recorded character-card gender, and ask Continue for several connected paragraphs. The new regression tests, local run, and CI run are pending. Tony needs to pull these changes and run the suite before testing another scene. Prepare Scene's retry-direction behavior remains open.
 
