@@ -1044,21 +1044,18 @@ class MinimalWriterTests(unittest.TestCase):
             app.write()
 
         self.assertEqual(app._output_text(), "Generated text")
-        self.assertEqual(
-            [call[0] for call in app.engine.generate_calls],
-            [
-                "Write the first scene.",
-                "Write the next scene, picking up where that left off.",
-            ],
-        )
+        generated_prompts = [call[0] for call in app.engine.generate_calls]
+        expected_author_prompts = [
+            "Write the first scene.",
+            "Write the next scene, picking up where that left off.",
+        ]
+        self.assertEqual(len(generated_prompts), len(expected_author_prompts))
+        for generated, author_prompt in zip(generated_prompts, expected_author_prompts):
+            self.assertTrue(generated.startswith(author_prompt))
+            self.assertIn("\\n\\nSHOW THE WORK THROUGH DIALOGUE", generated)
+            self.assertIn("The Computer is a speaking participant", generated)
         self.assertEqual(app.engine.start_calls, starts_after_load)
-        self.assertEqual(
-            app.engine.session_history,
-            [
-                "Write the first scene.",
-                "Write the next scene, picking up where that left off.",
-            ],
-        )
+        self.assertEqual(app.engine.session_history, generated_prompts)
 
     def test_writing_forwards_streamed_text_chunks(self):
         engine = FakeEngine()
