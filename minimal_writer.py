@@ -42,6 +42,11 @@ from builder.novel_git_sync import (
 )
 from builder.prompt_trace import PromptTrace, load_prompt_trace_enabled
 from builder.prompt_trace_sync import upload_prompt_trace
+from builder.model_preferences import (
+    load_model_roles,
+    resolve_model_roles,
+    save_model_roles,
+)
 from builder.scene_state_update import (
     advance_saved_scene_markers,
     build_saved_scene_state_prompt,
@@ -417,8 +422,12 @@ class MinimalWriterApp:
         root.protocol("WM_DELETE_WINDOW", self.close)
         apply_application_appearance(root)
 
+        # The existing selector is the manuscript-writing model.
         self.model_var = tk.StringVar()
-        self.status_var = tk.StringVar(value="Choose a model, then load it.")
+        self.planner_model_var = tk.StringVar()
+        self.status_var = tk.StringVar(
+            value="Choose separate models for Prepare Scene and manuscript writing."
+        )
         self._build_widgets()
         self.refresh_models()
         self.refresh_novels()
@@ -427,27 +436,54 @@ class MinimalWriterApp:
         outer = ttk.Frame(self.root, padding=12)
         outer.pack(fill="both", expand=True)
 
-        model_row = ttk.Frame(outer)
-        model_row.pack(fill="x", pady=(0, 10))
+        planner_model_row = ttk.Frame(outer)
+        planner_model_row.pack(fill="x", pady=(0, 4))
 
-        ttk.Label(model_row, text="Local model").pack(side="left", padx=(0, 8))
+        ttk.Label(planner_model_row, text="Prepare Scene model", width=20).pack(
+            side="left", padx=(0, 8)
+        )
+        self.planner_model_picker = ttk.Combobox(
+            planner_model_row,
+            textvariable=self.planner_model_var,
+            state="readonly",
+            width=56,
+        )
+        self.planner_model_picker.pack(side="left", fill="x", expand=True)
+        self.planner_model_picker.bind(
+            "<<ComboboxSelected>>", self._on_planner_model_selected
+        )
+
+        writer_model_row = ttk.Frame(outer)
+        writer_model_row.pack(fill="x", pady=(0, 2))
+
+        ttk.Label(writer_model_row, text="Writing model", width=20).pack(
+            side="left", padx=(0, 8)
+        )
         self.model_picker = ttk.Combobox(
-            model_row,
+            writer_model_row,
             textvariable=self.model_var,
             state="readonly",
-            width=46,
+            width=56,
         )
         self.model_picker.pack(side="left", fill="x", expand=True)
+        self.model_picker.bind(
+            "<<ComboboxSelected>>", self._on_writer_model_selected
+        )
 
         self.refresh_button = ttk.Button(
-            model_row, text="Refresh", command=self.refresh_models
+            writer_model_row, text="Refresh", command=self.refresh_models
         )
         self.refresh_button.pack(side="left", padx=(8, 0))
 
         self.load_button = ttk.Button(
-            model_row, text="Load Model", command=self.load_selected_model
+            writer_model_row, text="Load Writer", command=self.load_selected_model
         )
         self.load_button.pack(side="left", padx=(8, 0))
+
+        ttk.Label(
+            outer,
+            text="Only the model needed for the selected task is loaded.",
+        ).pack(anchor="w", pady=(0, 10))
 
         # Novel browsing is deliberately read-first. Loading a scene puts a
         # copy in the editor and does not make the accepted manuscript the Save target.
@@ -742,10 +778,10 @@ class MinimalWriterApp:
 
         def preview() -> None:
             if notebook.index("current") == 0:
-                if self.loaded_model is None:
+                if self._selected_role_model("writer") is None:
                     self._showinfo(
-                        "Load a model",
-                        "Load a model before asking the AI to revise the selected passage. "
+                        "Choose a writing model",
+                        "Select a writing model before asking the AI to revise the selected passage. "
                         "Exact text replacement does not require a model.",
                     )
                     return
@@ -779,10 +815,15 @@ class MinimalWriterApp:
 
     def _begin_revision_generation(self, prompt: str) -> None:
         """Generate a proposal without changing the current passage."""
+        writer_model = self._selected_role_model("writer")
+        if writer_model is None:
+            self._showinfo("Choose a writing model", "Select a model for manuscript writing first.")
+            return
+
         self.busy = True
         self.writing = True
         self.stop_requested = False
-        self.status_var.set(f"Revising selected text with {self.loaded_model.name}…")
+        self.status_var.set(f"Revising selected text with {writer_model.name}…")
         try:
             self.output_box.configure(state="disabled")
         except tk.TclError:
@@ -791,6 +832,7 @@ class MinimalWriterApp:
 
         def work() -> None:
             try:
+                self._ensure_model_loaded(writer_model)
                 answer = write_from_prompt(self.engine, prompt)
             except GenerationInterrupted:
                 self.root.after(0, self._revision_stopped)
@@ -818,7 +860,7 @@ class MinimalWriterApp:
         self._enable_revision_editor()
         self._discard_revision()
         self.status_var.set(
-            "Revision stopped. The original passage was kept. Load the model again to continue."
+            "Revision stopped. The original passage was kept. The selected writing model will load automatically next time."
         )
         self._update_controls()
 
@@ -1005,30 +1047,90 @@ class MinimalWriterApp:
             self.status_var.set(f"Could not list models: {exc}")
             return
 
-        previous = self.model_var.get()
+        previous_writer = self.model_var.get().strip()
+        previous_planner = self.planner_model_var.get().strip()
         self.models = {path.name: path for path in paths}
         names = list(self.models)
         self.model_picker.configure(values=names)
+        self.planner_model_picker.configure(values=names)
 
-        if previous in self.models:
-            self.model_var.set(previous)
-        elif self.loaded_model is not None and self.loaded_model.name in self.models:
-            self.model_var.set(self.loaded_model.name)
-        elif names:
-            self.model_var.set(names[0])
-        else:
-            self.model_var.set("")
+        defaults = resolve_model_roles(names, load_model_roles())
+        self.model_var.set(
+            previous_writer if previous_writer in self.models else defaults["writer"]
+        )
+        self.planner_model_var.set(
+            previous_planner if previous_planner in self.models else defaults["planner"]
+        )
+
+        if not names:
             self.status_var.set(f"No GGUF models found in {MODELS_DIR}.")
+        self._update_controls()
+
+    def _selected_role_model(self, role: str) -> Path | None:
+        """Resolve the selected local model for the planner or manuscript writer."""
+        if role == "planner":
+            variable = getattr(self, "planner_model_var", None)
+        elif role == "writer":
+            variable = getattr(self, "model_var", None)
+        else:
+            raise ValueError(f"Unknown model role: {role}")
+        if variable is None:
+            return getattr(self, "loaded_model", None)
+        return getattr(self, "models", {}).get(variable.get().strip())
+
+    def _ensure_model_loaded(self, model_path: str | Path) -> Path:
+        """Load one role's model, replacing the previous llama-cli process if needed."""
+        target = Path(model_path).expanduser().resolve()
+        if getattr(self, "loaded_model", None) == target:
+            if not hasattr(self.engine, "child"):
+                return target
+            child = getattr(self.engine, "child", None)
+            try:
+                if child is not None and child.isalive():
+                    return target
+            except Exception:
+                pass
+        load_model_for_writing(self.engine, target)
+        self.loaded_model = target
+        return target
+
+    def _save_model_role_selection(self) -> None:
+        try:
+            save_model_roles(
+                planner=self.planner_model_var.get().strip(),
+                writer=self.model_var.get().strip(),
+            )
+        except OSError as exc:
+            self.status_var.set(
+                f"Model selection is active, but could not be saved for next launch: {exc}"
+            )
+
+    def _on_planner_model_selected(self, _event=None) -> None:
+        self._save_model_role_selection()
+        name = self.planner_model_var.get().strip()
+        if name:
+            self.status_var.set(
+                f"Prepare Scene will use {name}. It loads automatically when needed."
+            )
+        self._update_controls()
+
+    def _on_writer_model_selected(self, _event=None) -> None:
+        self._save_model_role_selection()
+        name = self.model_var.get().strip()
+        if name:
+            self.status_var.set(
+                f"Writing will use {name}. It loads automatically when needed."
+            )
         self._update_controls()
 
     def load_selected_model(self) -> None:
         if self.busy:
             return
-        name = self.model_var.get().strip()
-        path = self.models.get(name)
+        path = self._selected_role_model("writer")
         if path is None:
             self._showinfo(
-                "Choose a model", f"No model is selected. Check {MODELS_DIR}."
+                "Choose a writing model",
+                f"No writing model is selected. Check {MODELS_DIR}.",
             )
             return
 
@@ -1390,8 +1492,12 @@ class MinimalWriterApp:
         """Ask the loaded local model for a concise starter in the prompt box."""
         if self.busy:
             return
-        if self.loaded_model is None:
-            self._showinfo("Load a model", "Load a model before preparing a scene.")
+        planner_model = self._selected_role_model("planner")
+        if planner_model is None:
+            self._showinfo(
+                "Choose a planner model",
+                "Select a model for Prepare Scene before preparing a scene.",
+            )
             return
 
         novel_name = self.novel_var.get().strip()
@@ -1462,12 +1568,13 @@ class MinimalWriterApp:
         self.stop_requested = False
         self.status_var.set(
             f"Preparing Chapter {target_chapter:02d}, Scene {target_scene:02d} "
-            f"for {novel_name}…"
+            f"for {novel_name} with {planner_model.name}…"
         )
         self._update_controls()
 
         def work() -> None:
             try:
+                self._ensure_model_loaded(planner_model)
                 suggestion = write_from_prompt(self.engine, planning_prompt).strip()
             except GenerationInterrupted:
                 self.root.after(0, self._prepare_scene_stopped)
@@ -1556,15 +1663,16 @@ class MinimalWriterApp:
             self.loaded_model = None
             self.status_var.set(
                 f"Prepared Chapter {chapter_number:02d}, Scene {scene_number:02d}. "
-                "The suggestion was kept, but model history could not be cleared. "
-                "Load the model again before pressing Write. "
+                "The suggestion was kept, but planner history could not be cleared. "
+                "The selected writing model will load automatically when you press Write. "
                 f"Details: {context_reset_error}"
             )
         else:
             self.status_var.set(
                 f"Prepared Chapter {chapter_number:02d}, Scene {scene_number:02d}. "
-                "Model conversation cleared. Press Prepare Scene to try another "
+                "Planner conversation cleared. Press Prepare Scene to try another "
                 "suggestion for this same scene, or edit it and press Write. "
+                "The selected writing model will load automatically for manuscript generation. "
                 "Saving the scene advances to the next number."
             )
         self._update_controls()
@@ -1624,17 +1732,13 @@ class MinimalWriterApp:
         self.stop_requested = False
         self.status_var.set(
             "Scene preparation stopped. Your existing prompt was kept. "
-            "Load the model again before continuing."
+            "The selected planner model will load automatically next time."
         )
         self._update_controls()
 
     def write(self) -> None:
         if self.busy:
             return
-        if self.loaded_model is None:
-            self._showinfo("Load a model", "Load a model before writing.")
-            return
-
         prompt = self.prompt_box.get("1.0", "end-1c")
         if not prompt.strip():
             self._showinfo("Add a prompt", "Enter what you want the model to write.")
@@ -1648,10 +1752,6 @@ class MinimalWriterApp:
         """Regenerate the visible scene using its existing prompt and extra guidance."""
         if self.busy:
             return
-        if self.loaded_model is None:
-            self._showinfo("Load a model", "Load a model before rewriting a scene.")
-            return
-
         scene_prompt = self.prompt_box.get("1.0", "end-1c")
         if not scene_prompt.strip():
             self._showinfo(
@@ -1674,7 +1774,7 @@ class MinimalWriterApp:
         if not self._askyesno(
             "Rewrite current scene?",
             (
-                "Gemma will use the existing What should it write? prompt, with "
+                "The selected writing model will use the existing What should it write? prompt, with "
                 "Author's Direction added as extra guidance. The visible Output draft "
                 "will be replaced only after you confirm.\n\n"
                 "The scene prompt, selected scene number, and saved manuscript files "
@@ -1694,10 +1794,6 @@ class MinimalWriterApp:
     def continue_writing(self) -> None:
         if self.busy:
             return
-        if self.loaded_model is None:
-            self._showinfo("Load a model", "Load a model before continuing.")
-            return
-
         existing_text = self._output_text()
         if not existing_text.strip():
             self._showinfo(
@@ -1821,18 +1917,23 @@ class MinimalWriterApp:
         """Clear model conversation context while preserving the visible draft."""
         if self.busy:
             return
-        if self.loaded_model is None:
-            self._showinfo("Load a model", "Load a model before starting a new session.")
+        writer_model = self._selected_role_model("writer")
+        if writer_model is None:
+            self._showinfo(
+                "Choose a writing model",
+                "Select a writing model before starting a new session.",
+            )
             return
 
         self.busy = True
         self.writing = False
         self.stop_requested = False
-        self.status_var.set(f"Starting a new session with {self.loaded_model.name}…")
+        self.status_var.set(f"Starting a new writer session with {writer_model.name}…")
         self._update_controls()
 
         def work() -> None:
             try:
+                self._ensure_model_loaded(writer_model)
                 self.engine.clear_context()
             except Exception as exc:
                 message = str(exc)
@@ -1866,7 +1967,13 @@ class MinimalWriterApp:
         self._update_controls()
         self._showerror("Could not start a new session", message)
 
-    def _start_prompt_trace(self, prompt: str):
+    def _start_prompt_trace(
+        self,
+        prompt: str,
+        model_path: str | Path | None = None,
+        *,
+        attach: bool = True,
+    ):
         """Arm a local, one-generation capture without affecting normal writing."""
         try:
             if not load_prompt_trace_enabled():
@@ -1914,21 +2021,28 @@ class MinimalWriterApp:
         trace = PromptTrace(
             chapter=int(chapter_number or 1),
             scene=int(scene_number),
-            model_path=getattr(self, "loaded_model", None),
+            model_path=(
+                Path(model_path).expanduser().resolve()
+                if model_path is not None else getattr(self, "loaded_model", None)
+            ),
             current_state=current_state,
             reference_files=reference_files,
             contract={},
             scene_direction=scene_direction,
             author_guidance=author_guidance,
-            system_prompt=getattr(self.engine, "system_prompt", ""),
+            system_prompt=(
+                "" if model_path is not None
+                else getattr(self.engine, "system_prompt", "")
+            ),
         )
-        attach = getattr(self.engine, "attach_prompt_trace", None)
-        if not callable(attach):
-            return None
-        try:
-            attach(trace)
-        except Exception:
-            return None
+        if attach:
+            attach_trace = getattr(self.engine, "attach_prompt_trace", None)
+            if not callable(attach_trace):
+                return None
+            try:
+                attach_trace(trace)
+            except Exception:
+                return None
         return trace
 
     def _finish_prompt_trace(
@@ -1961,6 +2075,14 @@ class MinimalWriterApp:
                 pass
 
     def _begin_generation(self, prompt: str, mode: str) -> None:
+        writer_model = self._selected_role_model("writer")
+        if writer_model is None:
+            self._showinfo(
+                "Choose a writing model",
+                "Select a model for manuscript writing before generating prose.",
+            )
+            return
+
         # Keep the previous document recoverable so errors or an immediate Stop
         # do not destroy the author's text.
         self._pre_generation_text = self._output_text()
@@ -1970,7 +2092,9 @@ class MinimalWriterApp:
         self._generation_had_chunks = False
         self._last_prompt_trace_path = None
         self._last_prompt_trace_upload_result = None
-        prompt_trace = self._start_prompt_trace(prompt)
+        prompt_trace = self._start_prompt_trace(
+            prompt, model_path=writer_model, attach=False
+        )
         if mode == "continue":
             self._generation_prefix = continuation_prefix(self._pre_generation_text)
             self._set_output_text(self._generation_prefix)
@@ -1990,7 +2114,7 @@ class MinimalWriterApp:
             f" Saved locations: {', '.join(location_names)}."
             if location_names else ""
         )
-        self.status_var.set(f"{action} with {self.loaded_model.name}…{location_note}")
+        self.status_var.set(f"{action} with {writer_model.name}…{location_note}")
         self._update_controls()
 
         def stream_delta(chunk: str) -> None:
@@ -2007,6 +2131,13 @@ class MinimalWriterApp:
             trace_error = None
             callback = None
             try:
+                self._ensure_model_loaded(writer_model)
+                attach_trace = getattr(self.engine, "attach_prompt_trace", None)
+                if prompt_trace is not None and callable(attach_trace):
+                    try:
+                        attach_trace(prompt_trace)
+                    except Exception:
+                        pass
                 answer = write_from_prompt(self.engine, prompt, on_delta=stream_delta)
             except GenerationInterrupted as exc:
                 trace_status = "interrupted"
@@ -2132,7 +2263,7 @@ class MinimalWriterApp:
             )
         else:
             self.status_var.set(
-                "Writing stopped. Partial text is kept. Load the model again to continue."
+                "Writing stopped. Partial text is kept. The selected writing model will load automatically next time."
             )
         self._update_controls()
 
@@ -2150,7 +2281,7 @@ class MinimalWriterApp:
         if not still_loaded:
             self.loaded_model = None
         self.stop_requested = False
-        self.status_var.set("Writing failed. Reload the model if it is no longer loaded.")
+        self.status_var.set("Writing failed. The selected writing model will load automatically on the next attempt if needed.")
         self._update_controls()
         self._showerror("Writing failed", message)
 
@@ -2620,6 +2751,7 @@ class MinimalWriterApp:
     def _update_controls(self) -> None:
         idle = not self.busy
         self.model_picker.configure(state="readonly" if idle else "disabled")
+        self.planner_model_picker.configure(state="readonly" if idle else "disabled")
         self.refresh_button.configure(state="normal" if idle else "disabled")
         if hasattr(self, "novel_picker"):
             self.novel_picker.configure(state="readonly" if idle else "disabled")
@@ -2665,7 +2797,11 @@ class MinimalWriterApp:
                 self.assemble_novel_button.configure(
                     state="normal" if idle and has_novel_scenes else "disabled"
                 )
-        self.load_button.configure(state="normal" if idle else "disabled")
+        has_planner_model = self._selected_role_model("planner") is not None
+        has_writer_model = self._selected_role_model("writer") is not None
+        self.load_button.configure(
+            state="normal" if idle and has_writer_model else "disabled"
+        )
         if hasattr(self, "prepare_scene_button"):
             has_selected_novel = (
                 self.novel_var.get().strip() in self.novel_packages
@@ -2673,22 +2809,22 @@ class MinimalWriterApp:
             self.prepare_scene_button.configure(
                 state=(
                     "normal"
-                    if idle and self.loaded_model is not None and has_selected_novel
+                    if idle and has_planner_model and has_selected_novel
                     else "disabled"
                 )
             )
         self.write_button.configure(
-            state="normal" if idle and self.loaded_model is not None else "disabled"
+            state="normal" if idle and has_writer_model else "disabled"
         )
         if hasattr(self, "rewrite_scene_button"):
             self.rewrite_scene_button.configure(
-                state="normal" if idle and self.loaded_model is not None else "disabled"
+                state="normal" if idle and has_writer_model else "disabled"
             )
         self.continue_button.configure(
-            state="normal" if idle and self.loaded_model is not None else "disabled"
+            state="normal" if idle and has_writer_model else "disabled"
         )
         self.new_session_button.configure(
-            state="normal" if idle and self.loaded_model is not None else "disabled"
+            state="normal" if idle and has_writer_model else "disabled"
         )
         self.open_button.configure(state="normal" if idle else "disabled")
         self.save_button.configure(state="normal" if idle else "disabled")
