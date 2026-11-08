@@ -126,13 +126,13 @@ def build_character_card_context_prompt(
         if compact:
             lines.extend([
                 "BRIEF CHARACTER REFERENCES",
-                "Short factual reminders for the named characters. Use them when helpful; they are not a checklist.",
+                "Short factual reminders for the named characters. Use them when helpful; they are not a checklist. Use each character's recorded gender for pronouns; never infer gender from a name. If gender is not recorded, avoid assuming.",
             ])
         else:
             lines.extend(
                 [
                     "CHARACTER REFERENCES",
-                    "Use each character's documented role, occupation, skills, and background to ground what they know and can do. Do not treat hobbies or general interests as professional qualifications. Characters may ask questions or suggest possibilities outside their specialties, but present those as questions or hypotheses rather than established expertise.",
+                    "Use each character's recorded gender for pronouns; never infer gender from a name. If gender is not recorded, avoid assuming. Use documented role, occupation, skills, and background to ground what characters know and can do. Do not treat hobbies or general interests as professional qualifications. Characters may ask questions or suggest possibilities outside their specialties, but present those as questions or hypotheses rather than established expertise.",
                     "These are established character facts, not a request for romance. Do not invent romantic or sexual attraction that conflicts with a character's stated orientation; friendship, teasing, and affection can remain platonic.",
                 ]
             )
