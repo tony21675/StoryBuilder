@@ -10,6 +10,7 @@ from minimal_writer import (
     MinimalWriterApp,
     build_continue_prompt,
     build_location_context_prompt,
+    build_manuscript_generation_prompt,
     build_revision_prompt,
     build_rewrite_scene_prompt,
     continuation_prefix,
@@ -208,6 +209,20 @@ class FakeStatus:
 
 
 class MinimalWriterTests(unittest.TestCase):
+
+    def test_manuscript_prompts_show_work_through_direct_dialogue(self):
+        prompt = build_manuscript_generation_prompt("Write natural manuscript prose only.")
+
+        self.assertIn("SHOW THE WORK THROUGH DIALOGUE", prompt)
+        self.assertIn("speak directly to one another", prompt)
+        self.assertIn("do not replace these interactions with summary narration", prompt)
+        self.assertTrue(prompt.startswith("Write natural manuscript prose only."))
+
+    def test_manuscript_guidance_is_added_to_an_empty_prompt(self):
+        prompt = build_manuscript_generation_prompt("   ")
+
+        self.assertIn("SHOW THE WORK THROUGH DIALOGUE", prompt)
+
     def test_manual_draft_check_is_advisory_and_preserves_output_text(self):
         app = MinimalWriterApp.__new__(MinimalWriterApp)
         app.busy = False
