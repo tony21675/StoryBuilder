@@ -84,41 +84,39 @@ class ScenePreparationPromptTests(unittest.TestCase):
             self.assertIn("Chapter 01, Scene 01", prompt)
             self.assertIn("This is the opening scene; no previous scene has been saved.", prompt)
             self.assertIn("A small coastal town faces an unexpected change.", prompt)
-            self.assertIn("CANON RULES", prompt)
+            self.assertNotIn("CANON RULES", prompt)
             self.assertIn("A working harbor in the present day.", prompt)
-            self.assertIn("The harbor pilot does not leave the harbor during winter storms.", prompt)
+            self.assertNotIn("The harbor pilot does not leave the harbor during winter storms.", prompt)
             self.assertNotIn("Private_Detail.json", prompt)
-            self.assertIn("Genres: Mystery, Comedy", prompt)
-            self.assertIn("Mood and tone: Cozy, Humorous", prompt)
-            self.assertIn("Intended audience: Adult", prompt)
+            self.assertNotIn("Genres: Mystery, Comedy", prompt)
+            self.assertNotIn("Mood and tone: Cozy, Humorous", prompt)
+            self.assertNotIn("Intended audience: Adult", prompt)
             self.assertIn("[Mara]", prompt)
             self.assertIn("[Jonah]", prompt)
             self.assertIn("[Private Detail]", prompt)
-            self.assertIn("Sexual orientation: Straight", prompt)
+            self.assertNotIn("Sexual orientation:", prompt)
             self.assertIn("Occupation / department: Harbor Operations, Pilot", prompt)
+            self.assertNotIn("Background / experience:", prompt)
             self.assertIn(
-                "Background / experience: Experienced harbor pilot who knows local channels and winter conditions.",
+                "Skills: navigation, tide assessment, small-vessel handling",
                 prompt,
             )
-            self.assertIn(
-                "Skills / expertise: navigation, tide assessment, small-vessel handling",
-                prompt,
-            )
-            self.assertIn("Interests / hobbies: sailing, woodworking", prompt)
-            self.assertIn("Skills / expertise: engine maintenance, mechanical troubleshooting", prompt)
+            self.assertNotIn("Interests / hobbies:", prompt)
+            self.assertIn("Skills: engine maintenance, mechanical troubleshooting", prompt)
             self.assertIn("Personality: quiet, witty", prompt)
-            self.assertIn("Do not treat hobbies or general interests as professional qualifications", prompt)
-            self.assertIn("SCENE CRAFT GUIDANCE", prompt)
-            self.assertIn("STORY OPENING AND PACING", prompt)
+            self.assertIn("BRIEF CHARACTER REFERENCES", prompt)
+            self.assertNotIn("Do not treat hobbies or general interests as professional qualifications", prompt)
+            self.assertNotIn("SCENE CRAFT GUIDANCE", prompt)
+            self.assertNotIn("STORY OPENING AND PACING", prompt)
             self.assertNotIn("supplementary guidance", prompt)
-            self.assertIn("A quiet or ordinary moment is valid scene material", prompt)
+            self.assertNotIn("A quiet or ordinary moment is valid scene material", prompt)
             self.assertIn("Return exactly two labeled parts", prompt)
             self.assertIn("Natural endpoint:", prompt)
-            self.assertIn("Stop at that beat", prompt)
+            self.assertIn("final concrete beat", prompt)
             self.assertFalse((root / "Manuscript").exists())
             self.assertFalse((root / "current_state.json").exists())
 
-    def test_scene_preparation_includes_every_saved_location_name(self):
+    def test_scene_preparation_does_not_send_a_full_location_allowlist(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp) / "Novel with Locations"
             self.make_novel(root)
@@ -134,10 +132,10 @@ class ScenePreparationPromptTests(unittest.TestCase):
                 root, "Novel with Locations", 1, 1
             )
 
-        self.assertIn("APPROVED LOCATIONS FROM THIS NOVEL'S STORY BIBLE", prompt)
-        self.assertIn("- Supply Closet", prompt)
-        self.assertIn("- Recreation Room", prompt)
-        self.assertIn("Do not invent, rename, infer, or subdivide", prompt)
+        self.assertNotIn("APPROVED LOCATIONS FROM THIS NOVEL'S STORY BIBLE", prompt)
+        self.assertNotIn("Supply Closet", prompt)
+        self.assertNotIn("Recreation Room", prompt)
+        self.assertNotIn("Do not invent, rename, infer, or subdivide", prompt)
         self.assertNotIn("A simple recreation space.", prompt)
 
     def test_author_direction_is_included_as_supplementary_guidance_when_provided(self):
@@ -152,10 +150,9 @@ class ScenePreparationPromptTests(unittest.TestCase):
                 author_direction=direction,
             )
 
-            self.assertIn("AUTHOR'S DIRECTION (SUPPLEMENTARY)", prompt)
+            self.assertIn("AUTHOR'S DIRECTION", prompt)
             self.assertIn(direction, prompt)
-            self.assertIn("does not replace the scene direction", prompt)
-            self.assertIn("remove established characters", prompt)
+            self.assertIn(direction, prompt)
             self.assertLess(
                 prompt.index("AUTHOR'S DIRECTION"),
                 prompt.index("Return exactly two labeled parts"),
@@ -212,18 +209,17 @@ class ScenePreparationPromptTests(unittest.TestCase):
             self.assertIn("The north pier", prompt)
             self.assertIn("Mara, Jonah", prompt)
             self.assertIn("Why has the ferry not arrived?", prompt)
-            self.assertIn("OUTSTANDING CHARACTER OBJECTIVES", prompt)
-            self.assertIn(
+            self.assertNotIn("OUTSTANDING CHARACTER OBJECTIVES", prompt)
+            self.assertNotIn(
                 "Daniel: Deliver the report Elena requested before the end of the workday.",
                 prompt,
             )
-            self.assertIn("Do not assume it happened off-page", prompt)
             self.assertIn("[Mara]", prompt)
             self.assertIn("[Jonah]", prompt)
             self.assertNotIn("[Private Detail]", prompt)
             self.assertNotIn("This should not be copied", prompt)
             self.assertNotIn("Private knowledge should stay out", prompt)
-            self.assertIn("The harbor pilot does not leave the harbor during winter storms.", prompt)
+            self.assertNotIn("The harbor pilot does not leave the harbor during winter storms.", prompt)
             self.assertEqual((root / "story_bible.json").read_bytes(), original_bible)
             self.assertEqual((root / "current_state.json").read_bytes(), original_state)
             self.assertEqual(source.read_bytes(), original_scene)
