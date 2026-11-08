@@ -1,6 +1,6 @@
 # Writing project handoff index
 
-**Updated:** November 7, 2026
+**Updated:** November 8, 2026
 
 This index covers writing projects only. Each application and novel has one authoritative handoff. The project repositories remain the source of truth; local mirror copies are maintained separately.
 
@@ -70,4 +70,4 @@ StoryBuilder includes `backup_handoffs.py` and `builder/handoff_backup.py`. The 
 8. When sources disagree, record the conflict and pause. Do not choose a version by guessing.
 9. Preserve the working branch and its autosync behavior unless branch migration is deliberately coordinated and tested.
 
-**Project status:** The Long Way Home's broad crisis direction has been reconstructed from the author's latest decisions. Chapter 2 Scene 01 is saved and accepted; Scene 02 is next. The Writer's lean-context update is committed on the existing branch and CI-verified; Tony's local pull/test are pending. Prepare Scene's retry-direction behavior remains a separate known issue. *Taken at Dusk* remains on hold.
+**Project status:** The Long Way Home's broad crisis direction has been reconstructed from the author's latest decisions. Chapter 2 Scene 01 is saved and accepted; Scene 02 is next. The Writer's lean-context update is locally verified by Tony (697 tests and 77 subtests passed). A small follow-up adds a concise dialogue-first instruction to manuscript prompts only; its local verification and CI run are pending. Prepare Scene's retry-direction behavior remains a separate known issue. *Taken at Dusk* remains on hold.
