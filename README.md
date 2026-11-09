@@ -12,6 +12,8 @@ cd ~/Documents/StoryBuilder && ./start.sh
 
 The launcher synchronizes the current StoryBuilder branch before starting the app.
 
+The active Minimal Writer and Prepare Scene paths do not hard-code novel characters, settings, or plot rules. They read novel-specific information from the currently selected package's own Story Bible, character cards, locations, current state, and accepted manuscript. Shared Python prompts provide only general workflow guidance; a novel's special requirements belong in that novel's own files.
+
 After the safe app-code pull, both launchers refresh a separate local mirror of the project handoffs in `~/Documents/Project_Handoff_Backups`. A successful Writer or Story Bible sync of a selected novel refreshes that mirror again. The mirror contains only named Markdown handoff and story-direction files, not manuscripts, model files, credentials, encrypted files, or secret-letter assets. Run `python3 ~/Documents/StoryBuilder/backup_handoffs.py` to refresh it manually. Set `STORY_HANDOFF_BACKUP_DIR` to use a different backup directory. The GitHub repositories remain authoritative; this folder is an independent local safety copy.
 
 ## App #2: Story Bible

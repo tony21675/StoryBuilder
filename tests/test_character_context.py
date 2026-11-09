@@ -66,8 +66,9 @@ class CharacterCardContextTests(unittest.TestCase):
         self.assertIn("Additional established notes: Usually quiet in unfamiliar groups", prompt)
         self.assertIn("Maya: close friend; feels like a sister", prompt)
         self.assertNotIn("[Chloe]", prompt)
-        self.assertIn("Do not invent romantic or sexual attraction", prompt)
-        self.assertIn("friendship, teasing, and affection can remain platonic", prompt)
+        self.assertIn("These are factual reference notes, not a checklist.", prompt)
+        self.assertNotIn("not a request for romance", prompt)
+        self.assertNotIn("Do not invent romantic or sexual attraction", prompt)
         self.assertIn("Do not treat hobbies or general interests as professional qualifications", prompt)
         self.assertIn("questions or hypotheses rather than established expertise", prompt)
 
@@ -114,11 +115,13 @@ class CharacterCardContextTests(unittest.TestCase):
                 root, bible, "The crew worked through the afternoon."
             )
 
-        self.assertIn("ESTABLISHED CHARACTER ROSTER", prompt)
+        self.assertIn("REGISTERED CHARACTER CARDS", prompt)
         self.assertIn(
-            "Registered characters in this novel: Tiffany Jones, Maya, Chloe",
+            "Character cards registered for this novel (reference only): Tiffany Jones, Maya, Chloe",
             prompt,
         )
+        self.assertNotIn("complete roster", prompt)
+        self.assertNotIn("Do not invent extra members", prompt)
         self.assertNotIn("CHARACTER REFERENCES", prompt)
         self.assertNotIn("[Tiffany Jones]", prompt)
         self.assertNotIn("[Maya]", prompt)

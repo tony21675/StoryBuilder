@@ -67,18 +67,18 @@ After pulling, check three things on the author's laptop:
 2. Write and Rewrite Scene show Gemma as Loading when switching from Qwen, then Generating, then Finished.
 3. After generation, the panel identifies the model that remains loaded. If the process is stopped or fails, it must not show Ready.
 
-## Dialogue-first manuscript guidance
+## Generic manuscript prompt and character-context cleanup
 
 **Implemented:** November 8, 2026  
-**Verification:** Tony's first local run after pulling the changes reported 699 passed and 1 failed. The failure was an outdated test expectation that still compared raw user prompts rather than the prompts with the new automatic guidance appended. That test was corrected; a fresh local run is pending.
+**Verification:** Regression tests updated; GitHub Actions verification is pending.
 
-Every manuscript-writing request now receives a compact automatic instruction to show important work through direct exchanges instead of summary narration. It also makes the Computer an explicitly speaking participant: when it completes a diagnostic, calculation, scan, or requested task, it should report important findings aloud in natural dialogue. Screens may support the spoken report but must not replace it.
+The shared Writer no longer appends a dialogue-first, Computer-specific, or other narrative-style instruction to manuscript requests. Its manuscript prompt helper passes the author's prompt through unchanged. The general Continue behavior remains: develop the passage over several connected paragraphs and reach a natural pause.
 
-The instruction is appended to Write, Rewrite Scene, Continue, and passage-revision prompts. It is not added to Qwen's Prepare Scene request and does not change the Story Bible, scene direction, or manuscript files. It does not force the Computer into scenes where it is not relevant.
+Character-card names and facts are loaded from the selected novel's own Story Bible. Registered card names are reference data only, not a complete cast list or a restriction on introducing characters. The shared character-context prompt no longer contains a blanket romance/attraction instruction. It retains general factual guidance for interpreting recorded character details and areas of expertise.
 
-The Writer's Continue instruction now asks for a complete continuation over several connected paragraphs, developing the moment to a natural pause rather than stopping after one paragraph. This is guidance to the model, not a guaranteed output-length control.
+After a scene is saved, the active Writer's ending-state update uses neutral story-thread language. It no longer assumes a crisis, investigation, crew, or technical setting. It updates only the supported ending-state fields from the accepted prose.
 
-Character-card context now explicitly tells the models to use each character's recorded gender for pronouns, never infer gender from a name, and avoid assuming when gender is not recorded. The existing compact context already passes the card's Gender field; this addition makes its importance clear, including for names that can belong to people of different genders.
+Novel-specific characters, locations, relationships, plot developments, and any special writing rules belong in that novel's own project files. They are not added to shared Python prompts.
 
 ## Lean model context update
 

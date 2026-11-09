@@ -59,23 +59,9 @@ CONTINUE_PROMPT = (
 )
 CONTINUE_CONTEXT_CHARS = 2000
 
-MANUSCRIPT_DIALOGUE_GUIDANCE = (
-    "SHOW THE WORK THROUGH DIALOGUE\n"
-    "When characters and the Computer are working together, show the work as it happens. "
-    "Let them speak directly to one another about what they are doing, noticing, and deciding; "
-    "do not replace these interactions with summary narration. "
-    "The Computer is a speaking participant: when it completes a diagnostic, calculation, scan, "
-    "or requested task, have it report important findings aloud in natural dialogue. Screen "
-    "displays may support its spoken report but must not replace it."
-)
-
-
 def build_manuscript_generation_prompt(prompt: str) -> str:
-    """Append one concise dialogue-first note to every manuscript-writing request."""
-    original = str(prompt or "").rstrip()
-    if not original:
-        return MANUSCRIPT_DIALOGUE_GUIDANCE
-    return f"{original}\n\n{MANUSCRIPT_DIALOGUE_GUIDANCE}"
+    """Return the author's prompt without app-wide story or character instructions."""
+    return str(prompt or "")
 
 
 

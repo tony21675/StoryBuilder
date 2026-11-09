@@ -237,21 +237,13 @@ class FakePicker:
 
 class MinimalWriterTests(unittest.TestCase):
 
-    def test_manuscript_prompts_show_work_through_direct_dialogue(self):
-        prompt = build_manuscript_generation_prompt("Write natural manuscript prose only.")
+    def test_manuscript_prompt_adds_no_shared_story_or_character_rules(self):
+        original = "Write natural manuscript prose only."
 
-        self.assertIn("SHOW THE WORK THROUGH DIALOGUE", prompt)
-        self.assertIn("speak directly to one another", prompt)
-        self.assertIn("The Computer is a speaking participant", prompt)
-        self.assertIn("report important findings aloud", prompt)
-        self.assertIn("Screen displays may support its spoken report but must not replace it", prompt)
-        self.assertIn("do not replace these interactions with summary narration", prompt)
-        self.assertTrue(prompt.startswith("Write natural manuscript prose only."))
-
-    def test_manuscript_guidance_is_added_to_an_empty_prompt(self):
-        prompt = build_manuscript_generation_prompt("   ")
-
-        self.assertIn("SHOW THE WORK THROUGH DIALOGUE", prompt)
+        self.assertEqual(build_manuscript_generation_prompt(original), original)
+        self.assertEqual(build_manuscript_generation_prompt("   "), "")
+        self.assertNotIn("Computer", build_manuscript_generation_prompt(original))
+        self.assertNotIn("SHOW THE WORK THROUGH DIALOGUE", build_manuscript_generation_prompt(original))
 
     def test_manual_draft_check_is_advisory_and_preserves_output_text(self):
         app = MinimalWriterApp.__new__(MinimalWriterApp)
@@ -1236,8 +1228,8 @@ class MinimalWriterTests(unittest.TestCase):
         self.assertEqual(len(generated_prompts), len(expected_author_prompts))
         for generated, author_prompt in zip(generated_prompts, expected_author_prompts):
             self.assertTrue(generated.startswith(author_prompt))
-            self.assertIn("\n\nSHOW THE WORK THROUGH DIALOGUE", generated)
-            self.assertIn("The Computer is a speaking participant", generated)
+            self.assertNotIn("SHOW THE WORK THROUGH DIALOGUE", generated)
+            self.assertNotIn("Computer is a speaking participant", generated)
         self.assertEqual(app.engine.start_calls, starts_after_load)
         self.assertEqual(app.engine.session_history, generated_prompts)
 

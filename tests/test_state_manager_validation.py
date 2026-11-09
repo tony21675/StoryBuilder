@@ -22,19 +22,24 @@ from builder.state_manager import (
 
 
 class StateUpdateValidationTests(unittest.TestCase):
-    def test_state_analysis_prompts_preserve_open_crises_and_filter_routine_clues(self):
+    def test_state_analysis_prompts_keep_ending_state_guidance_story_generic(self):
         ending_prompt = state_manager_module.ENDING_STATE_SYSTEM_PROMPT
         evidence_prompt = state_manager_module.SCENE_EVIDENCE_SYSTEM_PROMPT
         state_prompt = state_manager_module.STATE_SYSTEM_PROMPT
 
         self.assertIn(
-            "Preserve every important unresolved situation or crisis named in the before-state",
+            "Preserve each important unresolved story thread or situation",
             ending_prompt,
         )
         self.assertIn(
-            "attention to a secondary investigation is not resolution",
+            "attention to another thread does not by itself resolve it",
             ending_prompt,
         )
+        self.assertNotIn("investigation", ending_prompt.casefold())
+        self.assertNotIn("crew", ending_prompt.casefold())
+        self.assertNotIn("external equipment", ending_prompt.casefold())
+        self.assertNotIn("Mars", ending_prompt)
+        self.assertNotIn("Computer", ending_prompt)
         self.assertIn(
             "Not every true detail is a clue.",
             evidence_prompt,

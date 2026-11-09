@@ -150,25 +150,24 @@ Keep the summary concise and natural, usually two to four sentences. Include eno
 """
 
 
-ENDING_STATE_SYSTEM_PROMPT = """You determine only the actual ending state of a completed scene in an ongoing fictional story.
+ENDING_STATE_SYSTEM_PROMPT = """Determine only the actual ending state of a completed scene in a fictional story.
 
 Return exactly one JSON object. Allowed keys are current_situation, location, physical_state, and time_of_day. current_situation is required and must be concise, factual, non-empty text.
 
-The input contains the saved state before the scene and only the final few paragraphs of accepted prose. The accepted prose is the evidence. The saved state is a baseline, not proof that old positions stayed the same. The final paragraph is the strongest evidence for what remains true at the end. current_situation is a concise carry-forward summary of the whole active story situation, not merely a summary of what receives attention in the final paragraphs.
+The input contains the saved state before the scene and only the final few paragraphs of accepted prose. The accepted prose is the evidence. The saved state is a baseline, not proof that earlier positions or conditions stayed the same. The final paragraph is the strongest evidence for what remains true at the end. current_situation is a concise carry-forward summary of the whole active story situation, not only the details receiving attention in the final paragraphs.
 
-- Preserve every important unresolved situation or crisis named in the before-state unless the accepted prose clearly resolves it, changes its status, or establishes a materially different condition. A shift in viewpoint, location, or attention to a secondary investigation is not resolution.
-- If two important problems remain open at the end, keep both in current_situation. Summarize the current endpoint of the main crisis alongside any secondary activity, without inventing a connection between them.
-
+- Preserve each important unresolved story thread or situation named in the before-state unless the accepted prose clearly resolves it, changes its status, or establishes a materially different condition. A change in viewpoint, location, or attention to another thread does not by itself resolve it.
+- If multiple important situations remain open at the end, keep each in current_situation without inventing a connection between them.
 - Describe what is true at the absolute end, not what happened earlier, what was planned, or what might happen next.
-- Earlier movement toward a place does not mean the character entered it or started work there. If the final prose says someone remains outside or is checking external equipment, preserve that endpoint.
-- Change a location or physical-state field only when the ending excerpt explicitly establishes a different value. Do not infer walking, sitting, standing, closing devices, posture, interaction, or activity from mood, role, or narrative implication alone.
+- Earlier movement toward a place does not establish that a character entered it or began an activity there. Record only the final state supported by the accepted prose.
+- Change a location or physical-state field only when the ending excerpt explicitly establishes a different value. Do not infer movement, position, contact, or activity from mood, role, or narrative implication alone.
 - If the final excerpt does not establish a change to a character's physical state or location, omit that character from the patch. Do not invent a more descriptive replacement for an unchanged value.
 - Keep location and physical_state.<character>.location consistent when both change. Do not add physical_state.location if the prose does not establish a location change.
 - Do not change active_objectives. This pass is not an objective audit.
-- Preserve uncertainty and do not invent causes, readings, diagnoses, events, or technical findings.
-- Treat time_of_day as the running story clock. Carry forward the latest established day and local time. When the completed prose establishes that time has passed, update it to the time at the absolute end of the scene; advance the day when the prose establishes an overnight transition or a new day. If the prose does not establish a meaningful time change, preserve the existing value or omit time_of_day. Never reset to the story's starting time at a new scene, and do not invent an exact clock time when only a broad period such as evening or the next morning is supported.
-- Do not output clues, questions, event logs, character knowledge, objectives, or any other keys. Do not echo the entire existing state.
-- Use null only to remove an explicitly obsolete physical-state subfield. Never use null merely because the final excerpt doesn't mention something.
+- Preserve uncertainty. Do not invent causes, explanations, events, or details that are not established by the accepted prose.
+- Treat time_of_day as the running story clock. Carry forward the latest established story day/time or broad time period. When the completed prose establishes that time has passed, update it to the time at the absolute end of the scene; advance the day when the prose establishes an overnight transition or a new day. If the prose does not establish a meaningful time change, preserve the existing value or omit time_of_day. Never reset to the story's starting time at a new scene, and do not invent an exact clock time when only a broad period such as evening or the next morning is supported.
+- Do not output additional fields or echo the entire existing state.
+- Use null only to remove an explicitly obsolete physical-state subfield. Never use null merely because the final excerpt does not mention something.
 - Output JSON only, without markdown or explanations.
 """
 

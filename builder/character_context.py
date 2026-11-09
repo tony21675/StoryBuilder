@@ -110,15 +110,17 @@ def build_character_card_context_prompt(
 
     lines: list[str] = []
     if roster_names:
-        roster_line = "Registered characters in this novel: " + ", ".join(roster_names)
+        roster_line = (
+            "Character cards registered for this novel (reference only): "
+            + ", ".join(roster_names)
+        )
         if compact:
             lines.append(roster_line)
         else:
             lines.extend(
                 [
-                    "ESTABLISHED CHARACTER ROSTER",
+                    "REGISTERED CHARACTER CARDS",
                     roster_line,
-                    "Treat this as the complete roster of established members of any recurring crew, team, household, or similar group. Do not invent extra members or add an unlisted person to a group arrival or group scene. Do not describe someone as arriving if the story context already places them in the scene. New characters may still be introduced when the author's direction or established story events genuinely call for them.",
                 ]
             )
 
@@ -132,8 +134,7 @@ def build_character_card_context_prompt(
             lines.extend(
                 [
                     "CHARACTER REFERENCES",
-                    "Use each character's recorded gender for pronouns; never infer gender from a name. If gender is not recorded, avoid assuming. Use documented role, occupation, skills, and background to ground what characters know and can do. Do not treat hobbies or general interests as professional qualifications. Characters may ask questions or suggest possibilities outside their specialties, but present those as questions or hypotheses rather than established expertise.",
-                    "These are established character facts, not a request for romance. Do not invent romantic or sexual attraction that conflicts with a character's stated orientation; friendship, teasing, and affection can remain platonic.",
+                    "These are factual reference notes, not a checklist. Use each character's recorded gender for pronouns; never infer gender from a name. If gender is not recorded, avoid assuming. Use documented role, occupation, skills, and background to ground what characters know and can do. Do not treat hobbies or general interests as professional qualifications. Characters may ask questions or suggest possibilities outside their specialties, but present those as questions or hypotheses rather than established expertise.",
                 ]
             )
     for card in selected:
