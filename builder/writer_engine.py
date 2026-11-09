@@ -172,7 +172,9 @@ class WriterEngine:
                 pass
             return None
 
-    def attach_prompt_trace(self, trace) -> None:
+    def attach_prompt_trace(
+        self, trace, *, role: str = "scene_writer"
+    ) -> None:
         """Capture the already-running CLI session for one explicitly armed scene."""
         with self.lock:
             self.prompt_trace = trace
@@ -206,6 +208,7 @@ class WriterEngine:
                     "top_k": "llama.cpp default (not explicitly set by WriterEngine)",
                     "top_p": "llama.cpp default (not explicitly set by WriterEngine)",
                 },
+                role=role,
             )
 
     def detach_prompt_trace(self, trace) -> None:
