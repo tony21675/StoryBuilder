@@ -1148,6 +1148,52 @@ class MinimalWriterTests(unittest.TestCase):
             )
             self.assertNotIn("Do not assume it happened off-page", captured["prompt"])
 
+    def test_prepared_scene_trace_is_claimed_only_for_its_matching_scene(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+
+            class Trace:
+                def __init__(self):
+                    self.data = {"inputs": {}}
+                    self.events = []
+
+                def record_event(self, event, **details):
+                    self.events.append((event, details))
+
+            trace = Trace()
+            app = MinimalWriterApp.__new__(MinimalWriterApp)
+            app.novel_var = FakeVar("Test Novel")
+            app.novel_packages = {"Test Novel": root}
+            app.chapter_var = FakeVar("Chapter 02")
+            app.chapter_numbers = {"Chapter 02": 2}
+            app.scene_var = FakeVar("Scene 07")
+            app._prepared_scene_destination = (2, 7)
+            app._prepared_scene_novel_path = root
+            app._pending_scene_prompt_trace = trace
+            app.prompt_box = FakePromptBox(
+                "Scene direction: The author made a final adjustment."
+            )
+            app.author_direction_box = FakePromptBox("Keep the moment understated.")
+
+            with patch("minimal_writer.load_prompt_trace_enabled", return_value=True):
+                claimed = app._claim_prepared_scene_prompt_trace("write")
+
+            self.assertIs(claimed, trace)
+            self.assertIsNone(app._pending_scene_prompt_trace)
+            self.assertEqual(
+                trace.events[0][0],
+                "prepared_direction_sent_to_writer",
+            )
+            self.assertEqual(trace.events[0][1]["generation_mode"], "write")
+            self.assertEqual(
+                trace.events[0][1]["final_scene_direction"],
+                "Scene direction: The author made a final adjustment.",
+            )
+            self.assertEqual(
+                trace.events[0][1]["final_author_guidance"],
+                "Keep the moment understated.",
+            )
+
     def test_prompt_trace_is_armed_for_one_scene_and_finished_locally(self):
         with tempfile.TemporaryDirectory() as temporary:
             trace_path = Path(temporary) / "prompt_trace.json"
