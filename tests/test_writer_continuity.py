@@ -3,7 +3,6 @@ import unittest
 from pathlib import Path
 
 from builder.writer_continuity import (
-    DEFAULT_PREVIOUS_SCENE_CONTEXT_CHARS,
     build_previous_scene_context_prompt,
     previous_saved_scene,
 )
@@ -65,23 +64,35 @@ class PreviousSceneContinuityTests(unittest.TestCase):
                 prompt,
             )
 
-    def test_long_previous_scene_is_bounded_and_keeps_its_ending(self):
+    def test_long_previous_scene_is_included_in_full_without_truncation(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
+            opening = "THE OPENING DETAIL THAT MUST SURVIVE."
+            middle = "AN IMPORTANT DETAIL FROM THE MIDDLE OF THE SCENE."
             ending = "THE PREVIOUS SCENE'S FINAL MOMENT."
-            self.write_scene(root, 1, 1, "Beginning.\n\n" + ("x" * 9000) + "\n\n" + ending)
+            scene_text = (
+                opening
+                + "\n\n"
+                + ("intervening prose " * 250)
+                + middle
+                + (" more intervening prose" * 250)
+                + "\n\n"
+                + ending
+            )
+            self.write_scene(root, 1, 1, scene_text)
 
             result = build_previous_scene_context_prompt(
                 "Continue.",
                 root,
                 1,
                 2,
-                max_chars=DEFAULT_PREVIOUS_SCENE_CONTEXT_CHARS,
             )
 
             context = result.split("IMMEDIATELY PRECEDING SAVED SCENE", 1)[1]
+            self.assertIn(opening, context)
+            self.assertIn(middle, context)
             self.assertIn(ending, context)
-            self.assertLessEqual(len(context), DEFAULT_PREVIOUS_SCENE_CONTEXT_CHARS + 500)
+            self.assertTrue(result.endswith(scene_text))
 
 
 if __name__ == "__main__":

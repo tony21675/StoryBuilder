@@ -98,6 +98,15 @@ When a previous saved scene has text, Prepare Scene now asks the planner to cont
 
 This guidance is generic and conditional. It does not add story, character, relationship, or genre assumptions, and it is not added to an opening-scene prompt with no previous ending.
 
+## Full previous-scene context
+
+**Implemented:** November 9, 2026  
+**Verification:** Regression tests cover long saved scenes in both Prepare Scene and manuscript writing. GitHub Actions verification and local laptop testing are pending.
+
+Prepare Scene and manuscript Write/Rewrite now receive the complete text of the immediately preceding saved scene. The previous 1,800-character planner excerpt and 2,000-character Writer excerpt have been removed. The existing target-scene selection still determines which saved scene is considered immediately preceding; no older scenes or future scenes are added.
+
+This gives the planner and Writer the whole immediate scene, including details established before its final paragraphs. The context remains limited to one previous scene rather than the entire manuscript. Very long scenes can still consume a substantial portion of the configured model context window.
+
 ## Lean model context update
 
 **Implemented:** November 7, 2026  
@@ -110,13 +119,13 @@ For manuscript writing, the model receives:
 - A short time anchor and current-situation summary (maximum 600 characters).
 - Brief facts for characters actually named in the request or saved scene cast: gender, role, occupation/department, skills, and short personality/voice notes.
 - Short saved details only for locations named in the request. No complete location allowlist is attached.
-- Up to 2,000 characters from the ending of the immediately preceding accepted scene.
+- The full text of the immediately preceding accepted scene.
 
 For Prepare Scene, the planner receives:
 - The novel title, premise and setting (each capped at 600 characters).
 - A short current-situation note, time anchor, current location/cast and up to two unresolved questions when they match the requested scene.
 - Brief facts for relevant characters, not complete character biographies.
-- Up to 1,800 characters from the previous scene's ending.
+- The full text of the immediately preceding saved scene.
 
 The automatic prompt does not dump the complete canon-rules list, full location allowlist, entire profile library, generic scene-craft/media-device instructions, or full character biographies into every request. It adds only the genre and audience profile notes selected for the active novel, plus the separate explicit-content permission. The underlying Story Bible and character-card files remain the detailed source of truth.
 
@@ -158,7 +167,7 @@ The author-approved creative philosophy for this trial:
 
 ## Current status
 
-The lean-context update is locally verified: Tony pulled it and the full suite passed (697 tests and 77 subtests). The latest genericity cleanup removes the app-wide Computer/dialogue instruction, complete-roster and blanket romance constraints, and crisis/investigation assumptions from the active post-save end-state prompt. Both GitHub Actions workflows passed on commit `82a5c795b66b442f06edd53d4cd9f14116d4109c`; Tony still needs to pull and locally test this cleanup. The November 9 endpoint-follow-through and previous-scene continuity improvements now have focused regression tests; GitHub Actions verification and Tony's local pull/test are pending. Prepare Scene's retry-direction behavior remains a separate open issue.
+The lean-context update is locally verified: Tony pulled it and the full suite passed (697 tests and 77 subtests). The latest genericity cleanup removes the app-wide Computer/dialogue instruction, complete-roster and blanket romance constraints, and crisis/investigation assumptions from the active post-save end-state prompt. Both GitHub Actions workflows passed on commit `82a5c795b66b442f06edd53d4cd9f14116d4109c`; Tony still needs to pull and locally test this cleanup. The November 9 endpoint-follow-through and previous-scene continuity improvements have focused regression tests. The full previous-scene context change replaces the earlier 1,800/2,000-character excerpts; GitHub Actions verification and Tony's local pull/test are pending. Prepare Scene's retry-direction behavior remains a separate open issue.
 
 
 

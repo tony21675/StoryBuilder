@@ -242,6 +242,33 @@ class ScenePreparationPromptTests(unittest.TestCase):
             self.assertEqual((root / "current_state.json").read_bytes(), original_state)
             self.assertEqual(source.read_bytes(), original_scene)
 
+    def test_long_previous_scene_is_included_in_full_without_truncation(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "Novel"
+            opening = "THE OPENING DETAIL THAT MUST SURVIVE."
+            middle = "AN IMPORTANT DETAIL FROM THE MIDDLE OF THE SCENE."
+            ending = "THE FINAL MOMENT OF THE PREVIOUS SCENE."
+            scene_text = (
+                opening
+                + "\n\n"
+                + ("intervening prose " * 180)
+                + middle
+                + (" more intervening prose" * 180)
+                + "\n\n"
+                + ending
+            )
+            source = self.make_novel(root, scene_text=scene_text)
+
+            prompt = build_scene_preparation_prompt(
+                root, "Novel", 1, 11, source_scene_path=source
+            )
+
+            self.assertIn("IMMEDIATELY PRECEDING SAVED SCENE (full continuity reference)", prompt)
+            self.assertIn(opening, prompt)
+            self.assertIn(middle, prompt)
+            self.assertIn(ending, prompt)
+            self.assertIn(scene_text, prompt)
+
     def test_story_time_anchor_is_available_when_saved_state_position_is_older(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp) / "Novel"

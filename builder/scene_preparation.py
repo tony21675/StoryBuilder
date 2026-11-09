@@ -16,8 +16,6 @@ _SCENE_FILENAME_RE = re.compile(
     r"^Chapter_(\d+)_Section_(\d+)\.(?:odt|txt)$",
     re.IGNORECASE,
 )
-_PREVIOUS_SCENE_CHARS = 1800
-
 
 def scene_number_from_label(label: str | None) -> int | None:
     """Read the number from a visible Scene NN selector label."""
@@ -101,16 +99,11 @@ def _clean_text(value: Any, limit: int = 600) -> str:
     return text
 
 
-def _previous_scene_ending(path: str | Path | None) -> str:
+def _previous_scene_text(path: str | Path | None) -> str:
+    """Read the complete immediately preceding saved scene for planning context."""
     if path is None:
         return ""
-    text = read_document(path).strip()
-    if len(text) > _PREVIOUS_SCENE_CHARS:
-        text = text[-_PREVIOUS_SCENE_CHARS:]
-        first_break = text.find("\n")
-        if 0 <= first_break < 240:
-            text = text[first_break + 1 :]
-    return text.strip()
+    return read_document(path).strip()
 
 
 def _state_matches_scene(
@@ -157,7 +150,7 @@ def build_scene_preparation_prompt(
     include_state = _state_matches_scene(
         current_state, int(chapter_number), int(scene_number), source_scene_path
     )
-    previous_ending = _previous_scene_ending(source_scene_path)
+    previous_ending = _previous_scene_text(source_scene_path)
 
     title = _clean_text(story_bible.get("title"), limit=120) or _clean_text(
         novel_name, limit=120
@@ -239,7 +232,7 @@ def build_scene_preparation_prompt(
 
     if previous_ending:
         sections.append(
-            "PREVIOUS SCENE ENDING (brief continuity reference)\n" + previous_ending
+            "IMMEDIATELY PRECEDING SAVED SCENE (full continuity reference)\n" + previous_ending
         )
         sections.append(
             "PREVIOUS SCENE CONTINUITY\n"
