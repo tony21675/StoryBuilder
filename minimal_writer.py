@@ -2021,7 +2021,7 @@ class MinimalWriterApp:
         )
         if not guidance:
             return original
-        return f"{original.rstrip()}\\n\\n{guidance}" if original.strip() else guidance
+        return f"{original.rstrip()}\n\n{guidance}" if original.strip() else guidance
 
     def _prepare_previous_scene_context(self, prompt: str) -> str:
         """Add the immediately preceding accepted scene for grounded continuity."""
