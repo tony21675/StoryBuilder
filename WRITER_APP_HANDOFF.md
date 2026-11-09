@@ -70,7 +70,7 @@ After pulling, check three things on the author's laptop:
 ## Generic manuscript prompt and character-context cleanup
 
 **Implemented:** November 8, 2026  
-**Verification:** Regression tests updated; GitHub Actions verification is pending.
+**Verification:** Both GitHub Actions workflows passed on source/test commit `b7166475842c3e452ef002c6fb4290caa9938fd1`: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/42576439788) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/42576439836). Local verification of this cleanup is pending.
 
 The shared Writer no longer appends a dialogue-first, Computer-specific, or other narrative-style instruction to manuscript requests. Its manuscript prompt helper passes the author's prompt through unchanged. The general Continue behavior remains: develop the passage over several connected paragraphs and reach a natural pause.
 
@@ -140,7 +140,7 @@ The author-approved creative philosophy for this trial:
 
 ## Current status
 
-The lean-context update is locally verified: Tony pulled it and the full suite passed (697 tests and 77 subtests). Follow-up Writer changes now make Computer findings explicitly spoken, use recorded character-card gender, and ask Continue for several connected paragraphs. The new regression tests, local run, and CI run are pending. Tony needs to pull these changes and run the suite before testing another scene. Prepare Scene's retry-direction behavior remains open.
+The lean-context update is locally verified: Tony pulled it and the full suite passed (697 tests and 77 subtests). The latest genericity cleanup removes the app-wide Computer/dialogue instruction, complete-roster and blanket romance constraints, and crisis/investigation assumptions from the active post-save end-state prompt. Both GitHub Actions workflows pass on source/test commit `b7166475842c3e452ef002c6fb4290caa9938fd1`; Tony still needs to pull and locally test this cleanup. Prepare Scene's retry-direction behavior remains open.
 
 
 
