@@ -83,6 +83,7 @@ class ScenePreparationPromptTests(unittest.TestCase):
 
             self.assertIn("Chapter 01, Scene 01", prompt)
             self.assertIn("This is the opening scene; no previous scene has been saved.", prompt)
+            self.assertNotIn("PREVIOUS SCENE CONTINUITY", prompt)
             self.assertIn("A small coastal town faces an unexpected change.", prompt)
             self.assertNotIn("CANON RULES", prompt)
             self.assertIn("A working harbor in the present day.", prompt)
@@ -209,6 +210,19 @@ class ScenePreparationPromptTests(unittest.TestCase):
 
             self.assertIn("Chapter 01, Scene 11", prompt)
             self.assertIn("Mara watched the empty channel.", prompt)
+            self.assertIn("PREVIOUS SCENE CONTINUITY", prompt)
+            self.assertIn(
+                "Continue directly from the final moment of the previous scene.",
+                prompt,
+            )
+            self.assertIn(
+                "unless the author's direction requests a transition.",
+                prompt,
+            )
+            self.assertIn(
+                "Develop what is already happening before introducing major new",
+                prompt,
+            )
             self.assertIn("The harbor lights have gone dark", prompt)
             self.assertIn("The north pier", prompt)
             self.assertIn("Mara, Jonah", prompt)
