@@ -241,6 +241,15 @@ def build_scene_preparation_prompt(
         sections.append(
             "PREVIOUS SCENE ENDING (brief continuity reference)\n" + previous_ending
         )
+        sections.append(
+            "PREVIOUS SCENE CONTINUITY\n"
+            "Continue directly from the final moment of the previous scene. "
+            "Keep the same immediate time, place, and active situation unless "
+            "the author's direction requests a transition. "
+            "Develop what is already happening before introducing major new "
+            "developments or jumping ahead. Begin the Scene direction by "
+            "clearly stating how it continues from that final moment."
+        )
     elif (int(chapter_number), int(scene_number)) == (1, 1):
         sections.append("This is the opening scene; no previous scene has been saved.")
 
