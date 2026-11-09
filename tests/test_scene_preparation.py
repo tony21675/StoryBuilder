@@ -576,8 +576,12 @@ class MinimalWriterPrepareSceneTests(unittest.TestCase):
             retry_prompt = generate.call_args_list[1].args[1]
             self.assertIn("Chapter 01, Scene 11", first_prompt)
             self.assertIn("The accepted ending of Scene 10.", first_prompt)
+            self.assertNotIn("PREVIOUS PREPARED DIRECTION TO REFINE", first_prompt)
             self.assertIn("Chapter 01, Scene 11", retry_prompt)
             self.assertIn("The accepted ending of Scene 10.", retry_prompt)
+            self.assertIn("PREVIOUS PREPARED DIRECTION TO REFINE", retry_prompt)
+            self.assertIn("First suggestion.", retry_prompt)
+            self.assertIn("Refine the previous direction rather than starting over.", retry_prompt)
             self.assertIn("walk over to Elena", retry_prompt)
             self.assertEqual(app._scene_preparation_destination, (1, 11))
             self.assertEqual(app._prepared_scene_destination, (1, 11))
