@@ -1670,7 +1670,7 @@ class MinimalWriterApp:
             target_chapter,
             target_scene,
             source_scene,
-            _is_retry,
+            is_retry,
         ) = resolve_scene_preparation_target(
             chapter_number,
             selected_scene_path,
@@ -1682,6 +1682,7 @@ class MinimalWriterApp:
                 self, "_prepared_scene_source_scene_path", None
             ),
         )
+        existing_prompt = self.prompt_box.get("1.0", "end-1c")
         try:
             planning_prompt = build_scene_preparation_prompt(
                 novel_path,
@@ -1692,12 +1693,12 @@ class MinimalWriterApp:
                 author_direction=self.author_direction_box.get(
                     "1.0", "end-1c"
                 ).strip(),
+                previous_direction=existing_prompt if is_retry else None,
             )
         except (OSError, UnicodeError, ValueError) as exc:
             self._showerror("Could not prepare scene", str(exc))
             return
 
-        existing_prompt = self.prompt_box.get("1.0", "end-1c")
         if existing_prompt.strip() and not self._askyesno(
             "Replace prompt box text?",
             (
