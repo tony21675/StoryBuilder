@@ -39,6 +39,17 @@ The app manages novel setup and reference material, including:
 - Creation and editing of story-bible information for the selected novel.
 - Explicit, previewed synchronization of the selected novel repository.
 
+## Generic genre and audience profile resources
+
+**Implemented:** November 8, 2026  
+**Verification:** Profile-loading and prompt tests were added or updated; GitHub Actions and local GUI verification are pending.
+
+Genre and intended-audience choices are loaded from shared Markdown files under `profiles/genres/` and `profiles/audiences/`. The first Markdown heading is the visible choice name; the remaining text describes the guidance sent to the models. Adding a profile file adds a choice without changing Python code.
+
+Each novel's `story_bible.json` stores only its selected genre labels, mood labels, audience, and the existing `explicit_adult_content` boolean. Profile descriptions remain shared app resources, not novel-specific data. The same selected profile guidance is used by Prepare Scene and manuscript writing.
+
+The Explicit Adult Content checkbox remains a separate setting and is available only for an Adult audience. Adult does not automatically mean explicit. When the setting is off, explicit sexual detail is not permitted; when on, it is allowed only where appropriate and involving consenting adults.
+
 The individual novel package remains the source of that novel's canon. Use that novel's `story_bible.json`, character-card files, location definitions, current state, and accepted manuscript. Do not treat this technical handoff as a substitute.
 
 ## Previously reported behavior to verify before further development
