@@ -89,6 +89,15 @@ When a manuscript-writing prompt contains a non-empty line labeled `Natural endp
 
 The instruction contains no character, setting, genre, plot, relationship, or novel-specific facts. The author- and novel-specific endpoint remains entirely in the current prompt and the selected novel's own files.
 
+## Previous-scene continuity in Prepare Scene
+
+**Implemented:** November 9, 2026  
+**Verification:** Focused regression tests added; GitHub Actions verification is pending.
+
+When a previous saved scene has text, Prepare Scene now asks the planner to continue directly from that scene's final moment, preserve the immediate time, place, and active situation unless the author's direction requests a transition, and develop the event or interaction already underway before jumping to major new developments. The planner is also asked to make that continuation clear at the start of the new Scene direction.
+
+This guidance is generic and conditional. It does not add story, character, relationship, or genre assumptions, and it is not added to an opening-scene prompt with no previous ending.
+
 ## Lean model context update
 
 **Implemented:** November 7, 2026  
@@ -149,7 +158,7 @@ The author-approved creative philosophy for this trial:
 
 ## Current status
 
-The lean-context update is locally verified: Tony pulled it and the full suite passed (697 tests and 77 subtests). The latest genericity cleanup removes the app-wide Computer/dialogue instruction, complete-roster and blanket romance constraints, and crisis/investigation assumptions from the active post-save end-state prompt. Both GitHub Actions workflows passed on commit `82a5c795b66b442f06edd53d4cd9f14116d4109c`; Tony still needs to pull and locally test this cleanup. Prepare Scene's retry-direction behavior remains open.
+The lean-context update is locally verified: Tony pulled it and the full suite passed (697 tests and 77 subtests). The latest genericity cleanup removes the app-wide Computer/dialogue instruction, complete-roster and blanket romance constraints, and crisis/investigation assumptions from the active post-save end-state prompt. Both GitHub Actions workflows passed on commit `82a5c795b66b442f06edd53d4cd9f14116d4109c`; Tony still needs to pull and locally test this cleanup. The November 9 endpoint-follow-through and previous-scene continuity improvements now have focused regression tests; GitHub Actions verification and Tony's local pull/test are pending. Prepare Scene's retry-direction behavior remains a separate open issue.
 
 
 
