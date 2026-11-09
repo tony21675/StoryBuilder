@@ -411,6 +411,7 @@ class MinimalWriterApp:
         self.selected_scene_source: Path | None = None
         self.saved_output_text = ""
         self.novel_packages: dict[str, Path] = {}
+        self._active_novel_path: Path | None = None
         self.last_location_context_names: list[str] = []
         self._scene_preparation_destination = (1, 1)
         self._scene_preparation_original_prompt = ""
@@ -1340,30 +1341,21 @@ class MinimalWriterApp:
         names = list(self.novel_packages)
         self.novel_picker.configure(values=names)
 
-        if not names:
-            self.novel_var.set("")
-            self.chapter_var.set("")
-            self.chapter_numbers = {}
-            self.chapter_picker.configure(values=[])
-            self.scene_var.set("")
-            self.scene_files = {}
-            self.scene_picker.configure(values=[])
-            self.status_var.set(f"No novel packages found in {NOVEL_ROOT}.")
-            self._update_controls()
-            return
-
-        self.novel_var.set(previous if previous in self.novel_packages else names[0])
+        # Preserve an existing selection, but never pick a novel automatically.
+        selected = previous if previous in self.novel_packages else ""
+        self.novel_var.set(selected)
         self._on_novel_selected()
+        if not names:
+            self.status_var.set(f"No novel packages found in {NOVEL_ROOT}.")
+        elif not selected:
+            self.status_var.set("Choose a novel to load its chapters and scenes.")
+        self._update_controls()
 
     def _on_novel_selected(self, _event=None) -> None:
-        """Populate the chapter picker for the selected novel."""
+        """Populate chapter and scene pickers, isolating each model session by novel."""
         novel_path = self.novel_packages.get(self.novel_var.get().strip())
-        pending_novel_path = getattr(self, "_prepared_scene_novel_path", None)
-        if (
-            getattr(self, "_prepared_scene_destination", None) is not None
-            and pending_novel_path != novel_path
-        ):
-            self._clear_prepared_scene_target()
+        self._handle_novel_context_change(novel_path)
+
         self.chapter_numbers = {}
         if novel_path is not None:
             numbers = list_scene_chapters(novel_path)
@@ -1376,7 +1368,9 @@ class MinimalWriterApp:
             self.scene_var.set("")
             self.scene_files = {}
             self.scene_picker.configure(values=[])
-            if novel_path is not None:
+            if novel_path is None:
+                self.status_var.set("No novel selected. Choose a novel to load its chapters and scenes.")
+            else:
                 self.status_var.set(
                     f"No Manuscript/Chapters folders found for {novel_path.name}."
                 )
@@ -1386,6 +1380,116 @@ class MinimalWriterApp:
         current = self.chapter_var.get().strip()
         self.chapter_var.set(current if current in self.chapter_numbers else labels[0])
         self._on_chapter_selected()
+
+    def _handle_novel_context_change(self, novel_path: Path | None) -> None:
+        """Clear novel-specific directions and model history only when selection changes."""
+        previous = getattr(self, "_active_novel_path", None)
+        selected = (
+            Path(novel_path).expanduser().resolve()
+            if novel_path is not None else None
+        )
+        if previous == selected:
+            return
+
+        self._active_novel_path = selected
+        self._clear_novel_specific_directions()
+        self._reset_model_context_for_novel_switch()
+
+    def _clear_novel_specific_directions(self) -> None:
+        """Discard pending directions from the previous novel, not manuscript text."""
+        for attribute in ("prompt_box", "author_direction_box"):
+            widget = getattr(self, attribute, None)
+            if widget is not None:
+                widget.delete("1.0", "end")
+
+        self._clear_prepared_scene_target()
+        self._scene_preparation_destination = None
+        self._scene_preparation_original_prompt = ""
+        self._scene_preparation_original_author_direction = ""
+        self._scene_preparation_novel_path = None
+        self._scene_preparation_source_scene_path = None
+        self._preparing_scene = False
+        self.last_location_context_names = []
+
+    def _reset_model_context_for_novel_switch(self) -> None:
+        """Clear the live model conversation before writing for another novel."""
+        model_path = getattr(self, "loaded_model", None)
+        selected_name = self.novel_var.get().strip()
+        if model_path is None:
+            self._set_activity_status("Switch Novel", None, "Not loaded")
+            self.status_var.set(
+                f"Selected {selected_name or 'no novel'}. Old scene directions cleared; "
+                "no model session was loaded. Manuscript text was kept."
+            )
+            return
+
+        self.busy = True
+        self.writing = False
+        self.stop_requested = False
+        self.status_var.set(
+            f"Clearing the previous model conversation before switching to "
+            f"{selected_name or 'no novel'}…"
+        )
+        self._set_activity_status("Switch Novel", model_path, "Loading")
+        self._update_controls()
+
+        def work() -> None:
+            try:
+                self.engine.clear_context()
+            except Exception as exc:
+                # A failed clear must never leave a reusable session containing
+                # the previous novel's conversation.
+                try:
+                    self.engine.stop()
+                except Exception:
+                    pass
+                message = str(exc)
+                self.root.after(
+                    0,
+                    lambda message=message, model_path=model_path:
+                        self._novel_context_reset_failed(model_path, message),
+                )
+            else:
+                self.root.after(
+                    0,
+                    lambda model_path=model_path, selected_name=selected_name:
+                        self._novel_context_reset_succeeded(model_path, selected_name),
+                )
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _novel_context_reset_succeeded(
+        self, model_path: str | Path, selected_name: str
+    ) -> None:
+        self.busy = False
+        self.writing = False
+        self.stop_requested = False
+        self._set_activity_status("Switch Novel", model_path, "Finished")
+        self.status_var.set(
+            f"Selected {selected_name or 'no novel'}. Model conversation cleared. "
+            "Your manuscript text and file tracking were kept."
+        )
+        self._update_controls()
+
+    def _novel_context_reset_failed(
+        self, model_path: str | Path, message: str
+    ) -> None:
+        self.loaded_model = None
+        self.busy = False
+        self.writing = False
+        self.stop_requested = False
+        self._set_activity_status("Switch Novel", model_path, "Error")
+        self.status_var.set(
+            "Previous model history could not be cleared, so the model was stopped. "
+            "It will start with a fresh session the next time you write."
+        )
+        self._update_controls()
+        self._showerror(
+            "Model session stopped for safety",
+            "StoryBuilder could not confirm that the previous novel's conversation "
+            "was cleared. The model was stopped to prevent that history from carrying "
+            f"into another novel. It will reload fresh when needed.\n\nDetails: {message}",
+        )
 
     def _on_chapter_selected(self, _event=None) -> None:
         """Populate the scene picker using only numbered manuscript text files."""

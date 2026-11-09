@@ -30,9 +30,16 @@ class FakeEngine:
         self.generate_calls = []
         self.session_history = []
         self.clear_context_calls = 0
+        self.stop_calls = 0
+        self.clear_context_error = None
 
     def clear_context(self):
         self.clear_context_calls += 1
+        if self.clear_context_error is not None:
+            raise self.clear_context_error
+
+    def stop(self):
+        self.stop_calls += 1
 
     def start(self, model_path, system_prompt):
         self.start_calls.append((model_path, system_prompt))
@@ -206,6 +213,26 @@ class FakeStatus:
 
     def set(self, value):
         self.value = value
+
+
+class FakeVar:
+    def __init__(self, value=""):
+        self.value = value
+
+    def get(self):
+        return self.value
+
+    def set(self, value):
+        self.value = value
+
+
+class FakePicker:
+    def __init__(self):
+        self.values = []
+
+    def configure(self, **kwargs):
+        if "values" in kwargs:
+            self.values = list(kwargs["values"])
 
 
 class MinimalWriterTests(unittest.TestCase):
@@ -520,6 +547,163 @@ class MinimalWriterTests(unittest.TestCase):
         self.assertFalse(app.writing)
         self.assertIn("Visible text was kept", app.status_var.value)
 
+
+    def _make_novel_switch_app(self, temporary, *, loaded_model=True):
+        root = Path(temporary)
+        novel_a = root / "Novel A"
+        novel_b = root / "Novel B"
+        novel_a.mkdir()
+        novel_b.mkdir()
+
+        app = MinimalWriterApp.__new__(MinimalWriterApp)
+        app.root = FakeRoot()
+        app.engine = FakeEngine()
+        app.loaded_model = Path("/models/example.gguf") if loaded_model else None
+        app.busy = False
+        app.writing = False
+        app.stop_requested = False
+        app.novel_packages = {"Novel A": novel_a, "Novel B": novel_b}
+        app.novel_var = FakeVar("Novel B")
+        app._active_novel_path = novel_a.resolve()
+        app.chapter_var = FakeVar("Chapter 01")
+        app.scene_var = FakeVar("Scene 01")
+        app.chapter_numbers = {"Chapter 01": 1}
+        app.scene_files = {}
+        app.novel_picker = FakePicker()
+        app.chapter_picker = FakePicker()
+        app.scene_picker = FakePicker()
+        app.prompt_box = FakePromptBox("Old novel scene direction.")
+        app.author_direction_box = FakePromptBox("Old novel author guidance.")
+        app.output_box = FakeOutputBox("Manuscript draft from Novel A.")
+        app.current_file = root / "working-draft.odt"
+        app.selected_scene_source = novel_a / "Manuscript" / "scene.odt"
+        app.saved_output_text = "Earlier saved manuscript text."
+        app._prepared_scene_destination = (1, 4)
+        app._prepared_scene_novel_path = novel_a
+        app._prepared_scene_source_scene_path = novel_a / "scene.txt"
+        app._scene_preparation_destination = (1, 4)
+        app._scene_preparation_original_prompt = "Old prompt"
+        app._scene_preparation_original_author_direction = "Old direction"
+        app._scene_preparation_novel_path = novel_a
+        app._scene_preparation_source_scene_path = novel_a / "scene.txt"
+        app._preparing_scene = False
+        app.last_location_context_names = ["Old Location"]
+        app.status_var = FakeStatus()
+        app.activity_task_var = FakeStatus()
+        app.activity_model_var = FakeStatus()
+        app.activity_state_var = FakeStatus()
+        app._activity_model_path = None
+        app._update_controls = lambda: None
+        app._showerror = lambda *args: setattr(app, "shown_error", args)
+        return app, novel_a, novel_b
+
+    def test_writer_starts_with_no_novel_selected_after_refresh(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            app = MinimalWriterApp.__new__(MinimalWriterApp)
+            app.novel_var = FakeVar("")
+            app.novel_picker = FakePicker()
+            app.novel_packages = {}
+            app._active_novel_path = None
+            app.chapter_var = FakeVar("")
+            app.scene_var = FakeVar("")
+            app.chapter_numbers = {}
+            app.scene_files = {}
+            app.chapter_picker = FakePicker()
+            app.scene_picker = FakePicker()
+            app.status_var = FakeStatus()
+            app._update_controls = lambda: None
+            novel = Path(temporary) / "First Novel"
+            novel.mkdir()
+
+            with patch("minimal_writer.list_novel_packages", return_value=[novel]):
+                app.refresh_novels()
+
+            self.assertEqual(app.novel_var.get(), "")
+            self.assertEqual(app.novel_picker.values, ["First Novel"])
+            self.assertEqual(app.chapter_var.get(), "")
+            self.assertEqual(app.scene_var.get(), "")
+            self.assertIn("Choose a novel", app.status_var.value)
+
+    def test_switching_novels_clears_directions_and_model_history_but_keeps_manuscript(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            app, novel_a, novel_b = self._make_novel_switch_app(temporary)
+            original_document = app._output_text()
+            current_file = app.current_file
+            selected_scene_source = app.selected_scene_source
+            saved_text = app.saved_output_text
+
+            with patch("minimal_writer.list_scene_chapters", return_value=[1]), patch(
+                "minimal_writer.list_scene_files", return_value=[]
+            ), patch("minimal_writer.threading.Thread", ImmediateThread):
+                app._on_novel_selected()
+
+            self.assertEqual(app._active_novel_path, novel_b.resolve())
+            self.assertEqual(app.engine.clear_context_calls, 1)
+            self.assertEqual(app.prompt_box.get("1.0", "end-1c"), "")
+            self.assertEqual(app.author_direction_box.get("1.0", "end-1c"), "")
+            self.assertIsNone(app._prepared_scene_destination)
+            self.assertIsNone(app._scene_preparation_destination)
+            self.assertEqual(app.last_location_context_names, [])
+            self.assertEqual(app._output_text(), original_document)
+            self.assertEqual(app.current_file, current_file)
+            self.assertEqual(app.selected_scene_source, selected_scene_source)
+            self.assertEqual(app.saved_output_text, saved_text)
+            self.assertEqual(app.loaded_model, Path("/models/example.gguf"))
+            self.assertFalse(app.busy)
+            self.assertIn("file tracking were kept", app.status_var.value)
+
+    def test_refreshing_the_same_novel_does_not_clear_model_history_or_directions(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            app, novel_a, _novel_b = self._make_novel_switch_app(temporary)
+            app.novel_var.set("Novel A")
+            app._active_novel_path = novel_a.resolve()
+            app.prompt_box.text = "Keep this direction."
+            app.author_direction_box.text = "Keep this author guidance."
+
+            with patch("minimal_writer.list_scene_chapters", return_value=[1]), patch(
+                "minimal_writer.list_scene_files", return_value=[]
+            ):
+                app._on_novel_selected()
+
+            self.assertEqual(app.engine.clear_context_calls, 0)
+            self.assertEqual(app.prompt_box.text, "Keep this direction.")
+            self.assertEqual(app.author_direction_box.text, "Keep this author guidance.")
+            self.assertEqual(app._active_novel_path, novel_a.resolve())
+
+    def test_switching_novels_without_a_loaded_model_only_clears_directions(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            app, _novel_a, novel_b = self._make_novel_switch_app(
+                temporary, loaded_model=False
+            )
+
+            with patch("minimal_writer.list_scene_chapters", return_value=[1]), patch(
+                "minimal_writer.list_scene_files", return_value=[]
+            ):
+                app._on_novel_selected()
+
+            self.assertEqual(app._active_novel_path, novel_b.resolve())
+            self.assertEqual(app.engine.clear_context_calls, 0)
+            self.assertEqual(app.prompt_box.text, "")
+            self.assertEqual(app.author_direction_box.text, "")
+            self.assertEqual(app._output_text(), "Manuscript draft from Novel A.")
+            self.assertFalse(app.busy)
+
+    def test_switching_novels_stops_model_if_old_history_cannot_be_cleared(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            app, _novel_a, _novel_b = self._make_novel_switch_app(temporary)
+            app.engine.clear_context_error = RuntimeError("clear command was not confirmed")
+
+            with patch("minimal_writer.list_scene_chapters", return_value=[1]), patch(
+                "minimal_writer.list_scene_files", return_value=[]
+            ), patch("minimal_writer.threading.Thread", ImmediateThread):
+                app._on_novel_selected()
+
+            self.assertEqual(app.engine.clear_context_calls, 1)
+            self.assertEqual(app.engine.stop_calls, 1)
+            self.assertIsNone(app.loaded_model)
+            self.assertFalse(app.busy)
+            self.assertIn("model was stopped", app.status_var.value.lower())
+            self.assertIn("Model session stopped for safety", app.shown_error[0])
 
     def test_loading_a_novel_scene_uses_a_copy_and_never_targets_the_source_for_save(self):
         with tempfile.TemporaryDirectory() as temporary:
