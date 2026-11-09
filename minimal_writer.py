@@ -59,9 +59,32 @@ CONTINUE_PROMPT = (
 )
 CONTINUE_CONTEXT_CHARS = 2000
 
-def build_manuscript_generation_prompt(prompt: str) -> str:
-    """Return the author's prompt without app-wide story or character instructions."""
-    return str(prompt or "").rstrip()
+def build_manuscript_generation_prompt(
+    prompt: str,
+    *,
+    respect_natural_endpoint: bool = True,
+) -> str:
+    """Add only conditional, generic guidance for an author-supplied scene endpoint."""
+    original = str(prompt or "").rstrip()
+    if not original or not respect_natural_endpoint:
+        return original
+
+    has_natural_endpoint = any(
+        line.strip().casefold().startswith("natural endpoint:")
+        and line.partition(":")[2].strip()
+        for line in original.splitlines()
+    )
+    if not has_natural_endpoint:
+        return original
+
+    return (
+        f"{original}\n\n"
+        "AUTHOR-SUPPLIED NATURAL ENDPOINT\n"
+        "Treat the supplied Natural endpoint as the intended final beat of this scene. "
+        "Write the event or state it describes so it actually occurs in the prose; "
+        "a hint, teaser, or setup that merely points toward it is not enough. "
+        "End the scene at that beat without continuing into a later event."
+    )
 
 
 
@@ -853,7 +876,9 @@ class MinimalWriterApp:
     def _begin_revision_generation(self, prompt: str) -> None:
         """Generate a proposal without changing the current passage."""
         prompt = self._prepare_creative_direction_context(prompt)
-        prompt = build_manuscript_generation_prompt(prompt)
+        prompt = build_manuscript_generation_prompt(
+            prompt, respect_natural_endpoint=False
+        )
         writer_model = self._selected_role_model("writer")
         if writer_model is None:
             self._showinfo("Choose a writing model", "Select a model for manuscript writing first.")

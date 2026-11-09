@@ -80,6 +80,15 @@ After a scene is saved, the active Writer's ending-state update uses neutral sto
 
 Novel-specific characters, locations, relationships, plot developments, and any special writing rules belong in that novel's own project files. They are not added to shared Python prompts.
 
+## Author-supplied natural endpoint follow-through
+
+**Implemented:** November 9, 2026  
+**Verification:** Focused regression tests added; GitHub Actions verification is pending.
+
+When a manuscript-writing prompt contains a non-empty line labeled `Natural endpoint:`, the active Writer appends one short, generic instruction telling the model to make that described final beat actually happen in the prose, rather than stopping at a teaser or continuing beyond it. The instruction is conditional: prompts without a supplied natural endpoint remain unchanged. AI selected-passage revision does not receive this scene-ending instruction.
+
+The instruction contains no character, setting, genre, plot, relationship, or novel-specific facts. The author- and novel-specific endpoint remains entirely in the current prompt and the selected novel's own files.
+
 ## Lean model context update
 
 **Implemented:** November 7, 2026  
@@ -140,7 +149,7 @@ The author-approved creative philosophy for this trial:
 
 ## Current status
 
-The lean-context update is locally verified: Tony pulled it and the full suite passed (697 tests and 77 subtests). The latest genericity cleanup removes the app-wide Computer/dialogue instruction, complete-roster and blanket romance constraints, and crisis/investigation assumptions from the active post-save end-state prompt. Both GitHub Actions workflows pass on source/test commit `b7166475842c3e452ef002c6fb4290caa9938fd1`; Tony still needs to pull and locally test this cleanup. Prepare Scene's retry-direction behavior remains open.
+The lean-context update is locally verified: Tony pulled it and the full suite passed (697 tests and 77 subtests). The latest genericity cleanup removes the app-wide Computer/dialogue instruction, complete-roster and blanket romance constraints, and crisis/investigation assumptions from the active post-save end-state prompt. Both GitHub Actions workflows passed on commit `82a5c795b66b442f06edd53d4cd9f14116d4109c`; Tony still needs to pull and locally test this cleanup. Prepare Scene's retry-direction behavior remains open.
 
 
 

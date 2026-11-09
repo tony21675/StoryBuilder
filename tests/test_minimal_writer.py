@@ -237,13 +237,50 @@ class FakePicker:
 
 class MinimalWriterTests(unittest.TestCase):
 
-    def test_manuscript_prompt_adds_no_shared_story_or_character_rules(self):
+    def test_manuscript_prompt_adds_no_rules_without_an_author_supplied_endpoint(self):
         original = "Write natural manuscript prose only."
 
         self.assertEqual(build_manuscript_generation_prompt(original), original)
         self.assertEqual(build_manuscript_generation_prompt("   "), "")
         self.assertNotIn("Computer", build_manuscript_generation_prompt(original))
         self.assertNotIn("SHOW THE WORK THROUGH DIALOGUE", build_manuscript_generation_prompt(original))
+
+    def test_manuscript_prompt_requires_the_supplied_natural_endpoint_to_occur(self):
+        original = (
+            "Scene direction: Noah begins telling Mara the badger's story.\n"
+            "Natural endpoint: Mara settles back and listens as Noah recounts the lost-heirloom legend.\n"
+            "Write natural manuscript prose only; stop at the natural endpoint."
+        )
+
+        prompt = build_manuscript_generation_prompt(original)
+
+        self.assertTrue(prompt.startswith(original))
+        self.assertIn("AUTHOR-SUPPLIED NATURAL ENDPOINT", prompt)
+        self.assertIn("so it actually occurs in the prose", prompt)
+        self.assertIn("a hint, teaser, or setup that merely points toward it is not enough", prompt)
+        self.assertIn("End the scene at that beat without continuing into a later event", prompt)
+        self.assertNotIn("Mara", prompt[len(original):])
+        self.assertNotIn("Noah", prompt[len(original):])
+
+    def test_natural_endpoint_detection_is_case_insensitive(self):
+        prompt = build_manuscript_generation_prompt(
+            "SCENE DIRECTION: Continue the scene.\nNATURAL ENDPOINT: End with a clear decision."
+        )
+
+        self.assertIn("AUTHOR-SUPPLIED NATURAL ENDPOINT", prompt)
+
+    def test_selected_passage_revision_does_not_add_scene_endpoint_guidance(self):
+        original = (
+            "Revise only the selected passage.\n"
+            "Natural endpoint: End the scene with the reunion."
+        )
+
+        self.assertEqual(
+            build_manuscript_generation_prompt(
+                original, respect_natural_endpoint=False
+            ),
+            original,
+        )
 
     def test_manual_draft_check_is_advisory_and_preserves_output_text(self):
         app = MinimalWriterApp.__new__(MinimalWriterApp)
