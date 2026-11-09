@@ -143,6 +143,7 @@ def build_scene_preparation_prompt(
     scene_number: int,
     source_scene_path: str | Path | None = None,
     author_direction: str | None = None,
+    previous_direction: str | None = None,
 ) -> str:
     """Build a lean planning request with only the current scene's useful context."""
     root = Path(novel_path).expanduser()
@@ -161,6 +162,7 @@ def build_scene_preparation_prompt(
         novel_name, limit=120
     )
     author_direction_text = str(author_direction or "").strip()
+    previous_direction_text = _clean_text(previous_direction, limit=1200)
     sections = [
         "Help the author prepare a natural direction for the next scene. This is planning, not manuscript prose.",
         f"Destination: Chapter {int(chapter_number):02d}, Scene {int(scene_number):02d}.",
@@ -234,6 +236,14 @@ def build_scene_preparation_prompt(
         )
     elif (int(chapter_number), int(scene_number)) == (1, 1):
         sections.append("This is the opening scene; no previous scene has been saved.")
+
+    if previous_direction_text:
+        sections.append(
+            "PREVIOUS PREPARED DIRECTION TO REFINE\n" + previous_direction_text
+        )
+        sections.append(
+            "Refine the previous direction rather than starting over."
+        )
 
     if author_direction_text:
         sections.append("AUTHOR'S DIRECTION\n" + author_direction_text)
