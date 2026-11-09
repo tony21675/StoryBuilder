@@ -61,7 +61,7 @@ CONTINUE_CONTEXT_CHARS = 2000
 
 def build_manuscript_generation_prompt(prompt: str) -> str:
     """Return the author's prompt without app-wide story or character instructions."""
-    return str(prompt or "")
+    return str(prompt or "").rstrip()
 
 
 

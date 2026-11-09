@@ -10,7 +10,7 @@ from minimal_writer import MinimalWriterApp
 
 
 class CharacterRosterPromptTests(unittest.TestCase):
-    def test_complete_roster_is_shared_even_when_card_details_are_scoped(self):
+    def test_registered_card_names_are_reference_only_when_card_details_are_scoped(self):
         story_bible = {
             "character_cards": [
                 {"name": "Daniel", "role": "Biologist", "personality": ["patient"]},
@@ -27,16 +27,16 @@ class CharacterRosterPromptTests(unittest.TestCase):
         )
 
         self.assertIn(
-            "Registered characters in this novel: Daniel, Morgan, Elena",
+            "Character cards registered for this novel (reference only): Daniel, Morgan, Elena",
             prompt,
         )
-        self.assertIn("complete roster of established members", prompt)
-        self.assertIn("Do not invent extra members", prompt)
+        self.assertNotIn("complete roster of established members", prompt)
+        self.assertNotIn("Do not invent extra members", prompt)
         self.assertIn("[Daniel]", prompt)
         self.assertIn("[Morgan]", prompt)
         self.assertNotIn("[Elena]", prompt)
 
-    def test_prepare_scene_gets_whole_roster_even_when_previous_scene_cast_is_smaller(self):
+    def test_prepare_scene_gets_registered_card_references_when_previous_scene_cast_is_smaller(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             story_bible = {
@@ -69,7 +69,7 @@ class CharacterRosterPromptTests(unittest.TestCase):
             )
 
         self.assertIn(
-            "Registered characters in this novel: Daniel, Morgan, Elena, Priya",
+            "Character cards registered for this novel (reference only): Daniel, Morgan, Elena, Priya",
             prompt,
         )
         self.assertNotIn("Do not invent extra members", prompt)
@@ -107,7 +107,7 @@ class CharacterRosterPromptTests(unittest.TestCase):
             )
 
         self.assertIn(
-            "Registered characters in this novel: Daniel, Morgan, Elena",
+            "Character cards registered for this novel (reference only): Daniel, Morgan, Elena",
             prompt,
         )
         self.assertNotIn("Do not invent extra members", prompt)

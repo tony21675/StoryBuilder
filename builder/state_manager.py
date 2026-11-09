@@ -150,7 +150,7 @@ Keep the summary concise and natural, usually two to four sentences. Include eno
 """
 
 
-ENDING_STATE_SYSTEM_PROMPT = """Determine only the actual ending state of a completed scene in a fictional story.
+ENDING_STATE_SYSTEM_PROMPT = """You determine only the actual ending state of a completed scene in a fictional story.
 
 Return exactly one JSON object. Allowed keys are current_situation, location, physical_state, and time_of_day. current_situation is required and must be concise, factual, non-empty text.
 
