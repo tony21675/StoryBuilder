@@ -222,3 +222,14 @@ The visible manuscript draft, current file path, selected source-scene path, and
 If the model conversation cannot be cleared and confirmed, StoryBuilder stops the model and marks it unloaded. The next writing task must load a fresh process, rather than risking use of the previous novel's history.
 
 Regression tests cover blank startup, switching projects, refreshing the same project, switching without a loaded model, preserving manuscript contents and file tracking, and stopping the model when history cannot be cleared.
+
+
+## Planner-to-writer diagnostic trace — November 9, 2026
+
+**Implemented:** The scene trace now records both halves of a prepared scene: the exact Prepare Scene input and raw planner response, followed by the final direction present in the prompt box when the author presses Write and the Writer's complete assembled prompt and generated response. Trace sessions label planner and writer roles separately, including when both roles use the same model file.
+
+The planner trace remains in memory between Prepare Scene and manuscript generation. It is saved locally and uploaded to the existing private, single-file trace repository only when the prose-generation attempt finishes. A retry for the same prepared scene appends another planner attempt to that scene trace. Changing novels, preparing a different destination, or abandoning a planner result discards the unused in-memory trace without uploading it.
+
+This change is diagnostic only. It does not modify planner or writer prompts, model selection, context assembly, prose generation, novel files, or the one-file overwrite retention policy.
+
+**Verification:** Focused tests were added for separate planner/writer session labels and matching-scene trace handoff. GitHub Actions verification is pending.
