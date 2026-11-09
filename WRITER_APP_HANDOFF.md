@@ -100,7 +100,7 @@ For Prepare Scene, the planner receives:
 - Brief facts for relevant characters, not complete character biographies.
 - Up to 1,800 characters from the previous scene's ending.
 
-The automatic prompt no longer dumps the complete canon-rules list, full location allowlist, full creative-direction settings, generic scene-craft/media-device instructions, or full character biographies into every request. The underlying Story Bible and character-card files are unchanged and remain the detailed source of truth.
+The automatic prompt does not dump the complete canon-rules list, full location allowlist, entire profile library, generic scene-craft/media-device instructions, or full character biographies into every request. It adds only the genre and audience profile notes selected for the active novel, plus the separate explicit-content permission. The underlying Story Bible and character-card files remain the detailed source of truth.
 
 This is a simple relevance reduction, not a new rules engine. Unknown details remain creative space. The app should not turn every gap into a prohibition or add new permanent rules because a draft needs correction.
 
@@ -142,3 +142,20 @@ The author-approved creative philosophy for this trial:
 
 The lean-context update is locally verified: Tony pulled it and the full suite passed (697 tests and 77 subtests). Follow-up Writer changes now make Computer findings explicitly spoken, use recorded character-card gender, and ask Continue for several connected paragraphs. The new regression tests, local run, and CI run are pending. Tony needs to pull these changes and run the suite before testing another scene. Prepare Scene's retry-direction behavior remains open.
 
+
+
+## Generic genre, audience, and content profiles
+
+**Implemented:** November 8, 2026  
+**Verification:** Focused unit tests were updated. GitHub Actions and local laptop verification are pending.
+
+Reusable Markdown profiles live in the shared application repository:
+- `profiles/genres/*.md` supplies the available genre choices and their concise writing guidance.
+- `profiles/audiences/*.md` supplies audience choices and age-appropriateness guidance.
+- Each file uses its first `# Heading` as the display name; the remaining text is the guidance given to the model. Add a file to extend the available options without editing Python.
+
+The Story Bible stores only the selected genre and audience labels, moods, and the existing `explicit_adult_content` boolean in that novel's own `story_bible.json`. Profile text stays in the shared app resources and is never copied into a novel package.
+
+Both Prepare Scene and manuscript generation receive only the profiles selected in the active novel. Children's guidance explicitly excludes profanity, sexual content, and graphic violence. Middle Grade and Young Adult have their own age-appropriate guidance. The Explicit Adult Content setting remains independent: selecting Adult does not enable it, and when enabled it grants permission rather than requiring explicit material.
+
+The selected-project prompt helper reads the currently selected novel's Story Bible at generation time. This change does not yet resolve the separately identified issue where a live model conversation can retain prior context after switching novels; project-switch session reset remains a separate required fix.
