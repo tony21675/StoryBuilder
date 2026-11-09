@@ -35,9 +35,11 @@ StoryBuilder now has a two-role model setup for trial:
 
 Author-approved creative philosophy: gaps in canon are creative space, not automatic prohibitions. Encourage plausible inventions, new technical details, character interactions and plot developments. Protect basic survival logic and major established story foundations, but do not smother the models with rigid lists of restrictions. The author chooses which inventions become canon.
 
-StoryBuilder's Writer and Prepare Scene requests have now been simplified. They no longer send the full canon-rules list, complete location allowlist, full creative-direction settings, generic craft/media instructions, or full character biographies on every request. They use short current-state context, brief facts for relevant characters, only named location details, and a short ending from the previous scene. The Story Bible remains unchanged as the detailed source of truth.
+StoryBuilder's Writer and Prepare Scene requests use short current-state context, brief facts for relevant characters, named location details, and a short ending from the previous scene. A shared Markdown profile library now supplies only the selected novel's genre and intended-audience guidance; its full profile library is never sent. Each novel stores only its selected labels and separate explicit-content setting in its own Story Bible. The Story Bible remains the source of each novel's canon.
 
 The lean-context update passed both GitHub Actions workflows on commit `1c5ad3c9d2b633ae9a08a3941227f414e4cc0484`: Python Tests reports 697 passed and 77 subtests passed; StoryBuilder tests reports 697 passed. Tony still needs to pull the update and run the suite locally. No novel manuscript, Story Bible, character-card, or model files were changed.
+
+New Writer/Story Bible milestone: reusable genre and audience profiles now live outside Python in shared Markdown resource folders. Both Prepare Scene and manuscript writing receive only the profiles selected for the active novel. The existing Explicit Adult Content checkbox remains separate from audience selection and is now connected to an explicit permission boundary. Focused tests were updated; CI and local laptop verification are pending. Model-session reset on novel switching remains a separate known issue.
 
 Separate open issue: Prepare Scene retry still does not pass its previous generated direction back into the planner. Do not treat that behavior as fixed.
 
