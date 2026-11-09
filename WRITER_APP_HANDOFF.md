@@ -1,6 +1,6 @@
 # Writer App handoff
 
-**Updated:** November 8, 2026  
+**Updated:** November 9, 2026  
 **Application:** StoryBuilder Minimal Writer  
 **Repository:** `tony21675/StoryBuilder`  
 **Active/default branch:** `redesign/simplified-writing-workflow`  
@@ -83,7 +83,7 @@ Novel-specific characters, locations, relationships, plot developments, and any 
 ## Author-supplied natural endpoint follow-through
 
 **Implemented:** November 9, 2026  
-**Verification:** Focused regression tests added; GitHub Actions verification is pending.
+**Verification:** Focused regression tests are included. Both GitHub Actions workflows passed on commit `c96281a191fb08e1438fc5b5c09b6a829b216bfb`: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/42626452515) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/42626452537). Local full-suite verification remains separate from the live scene-output trial below.
 
 When a manuscript-writing prompt contains a non-empty line labeled `Natural endpoint:`, the active Writer appends one short, generic instruction telling the model to make that described final beat actually happen in the prose, rather than stopping at a teaser or continuing beyond it. The instruction is conditional: prompts without a supplied natural endpoint remain unchanged. AI selected-passage revision does not receive this scene-ending instruction.
 
@@ -92,7 +92,7 @@ The instruction contains no character, setting, genre, plot, relationship, or no
 ## Previous-scene continuity in Prepare Scene
 
 **Implemented:** November 9, 2026  
-**Verification:** Focused regression tests added; GitHub Actions verification is pending.
+**Verification:** Focused regression tests are included, and both GitHub Actions workflows passed on commit `c96281a191fb08e1438fc5b5c09b6a829b216bfb`. The five-scene live trial below evaluated manuscript continuation, not Prepare Scene's planner output.
 
 When a previous saved scene has text, Prepare Scene now asks the planner to continue directly from that scene's final moment, preserve the immediate time, place, and active situation unless the author's direction requests a transition, and develop the event or interaction already underway before jumping to major new developments. The planner is also asked to make that continuation clear at the start of the new Scene direction.
 
@@ -101,11 +101,31 @@ This guidance is generic and conditional. It does not add story, character, rela
 ## Full previous-scene context
 
 **Implemented:** November 9, 2026  
-**Verification:** Regression tests cover long saved scenes in both Prepare Scene and manuscript writing. GitHub Actions verification and local laptop testing are pending.
+**Verification:** Regression tests cover long saved scenes in both Prepare Scene and manuscript writing. Both GitHub Actions workflows passed on commit `c96281a191fb08e1438fc5b5c09b6a829b216bfb`. A five-scene live manuscript trial was completed on the laptop; its behavioral findings and limits are recorded below.
 
 Prepare Scene and manuscript Write/Rewrite now receive the complete text of the immediately preceding saved scene. The previous 1,800-character planner excerpt and 2,000-character Writer excerpt have been removed. The existing target-scene selection still determines which saved scene is considered immediately preceding; no older scenes or future scenes are added.
 
 This gives the planner and Writer the whole immediate scene, including details established before its final paragraphs. The context remains limited to one previous scene rather than the entire manuscript. Very long scenes can still consume a substantial portion of the configured model context window.
+
+## Five-scene live manuscript trial — November 9, 2026
+
+**Test setup:** A disposable test novel was reset and five consecutive scenes were generated and reviewed. No code, prompt, or model-setting changes were made during this test. The test was intended to evaluate the new previous-scene context behavior; it did not capture the actual runtime prompt, so observed prose cannot prove exactly how much prior-scene text the model received.
+
+**Observed results:**
+- **Scene 1:** Readable opening and useful character introduction. The requested porch admission was rendered as Mara's private thought rather than spoken to Noah, so the endpoint was only partially met.
+- **Scene 2:** Continued from the extension-cord situation and gave Noah a response hook for the prior scene. It closely restated the direction's psychological interpretation in explanatory narration. It stopped before the requested exchange and Noah's admission, so the endpoint was missed.
+- **Scene 3:** Continued the unfinished exchange from Scene 2, introduced a fountain/pump problem, and reached the approaching-footsteps interruption. Direction interpretation still appeared explicitly in the narration.
+- **Scene 4:** Did not continue from Scene 3's approaching footsteps. It restarted the pump-inspection moment, omitted the planned awkward wave, introduced an unrequested hand touch, and then brought in Mara's aunt. The endpoint was reached, but chronological continuity failed.
+- **Scene 5:** Carried forward the aunt, pump setup, and invented hand touch, then took Mara away with her tools. The endpoint was reached, although the physical staging was unclear and the invented romantic beat received more emphasis than the original progression required.
+
+**Run-level findings:**
+- Natural endpoints were substantially reached in 3 of 5 scenes. Scenes 1 and 2 stopped short of their requested final interactions.
+- The Writer carried useful immediate details and unfinished dialogue across some scene boundaries. That is evidence of useful carry-over, not proof of the exact previous-scene prompt payload.
+- Chronological continuity was inconsistent. Scene 4 is the clearest failure because it skipped the approaching footsteps at the end of Scene 3 and returned to an earlier activity.
+- Scene directions were repeatedly converted into explanatory narration instead of being dramatized through behavior and dialogue. Scene 2 showed the strongest example.
+- The Writer also accepted and amplified its own invented romantic/physical detail from Scene 4 into Scene 5, illustrating that continuity can preserve an invention even when it shifts the intended pacing.
+
+**Conclusion / next discussion:** Keep the full immediately preceding saved scene context. This trial does not show that the change fixed continuity or direction echoing. The next issue to examine is how scene directions are translated into manuscript prose, while preserving the author's intended beats without turning the direction itself into narration. Do not add more shared rules or change prompts/models based only on this single run. Discuss the next focused change with the author first.
 
 ## Lean model context update
 
@@ -167,7 +187,7 @@ The author-approved creative philosophy for this trial:
 
 ## Current status
 
-The lean-context update is locally verified: Tony pulled it and the full suite passed (697 tests and 77 subtests). The latest genericity cleanup removes the app-wide Computer/dialogue instruction, complete-roster and blanket romance constraints, and crisis/investigation assumptions from the active post-save end-state prompt. Both GitHub Actions workflows passed on commit `82a5c795b66b442f06edd53d4cd9f14116d4109c`; Tony still needs to pull and locally test this cleanup. The November 9 endpoint-follow-through and previous-scene continuity improvements have focused regression tests. The full previous-scene context change replaces the earlier 1,800/2,000-character excerpts; GitHub Actions verification and Tony's local pull/test are pending. Prepare Scene's retry-direction behavior remains a separate open issue.
+The lean-context update is locally verified: Tony pulled it and the full suite passed (697 tests and 77 subtests). The latest genericity cleanup removes the app-wide Computer/dialogue instruction, complete-roster and blanket romance constraints, and crisis/investigation assumptions from the active post-save end-state prompt. Both GitHub Actions workflows passed on commit `82a5c795b66b442f06edd53d4cd9f14116d4109c`; Tony still needs to pull and locally test this cleanup. The November 9 endpoint-follow-through and previous-scene continuity improvements have focused regression tests. Both GitHub Actions workflows passed on commit `c96281a191fb08e1438fc5b5c09b6a829b216bfb`. A five-scene live manuscript test was completed after resetting a disposable test novel. It showed useful immediate detail carry-over but inconsistent chronological continuity and repeated conversion of scene-direction explanations into narration. The output alone cannot prove the exact text of the prompt payload, and the local full test suite has not been reconfirmed in this session. Prepare Scene's retry-direction behavior remains a separate open issue.
 
 
 
