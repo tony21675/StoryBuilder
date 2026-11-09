@@ -430,6 +430,8 @@ class MinimalWriterApp:
         self._prepared_scene_destination: tuple[int, int] | None = None
         self._prepared_scene_novel_path: Path | None = None
         self._prepared_scene_source_scene_path: Path | None = None
+        self._pending_scene_prompt_trace = None
+        self._active_scene_preparation_trace = None
         self._preparing_scene = False
         self.chapter_numbers: dict[str, int] = {}
         self.scene_files: dict[str, Path] = {}
@@ -1408,6 +1410,7 @@ class MinimalWriterApp:
 
     def _clear_novel_specific_directions(self) -> None:
         """Discard pending directions from the previous novel, not manuscript text."""
+        self._discard_scene_prompt_trace()
         for attribute in ("prompt_box", "author_direction_box"):
             widget = getattr(self, attribute, None)
             if widget is not None:
@@ -1829,6 +1832,39 @@ class MinimalWriterApp:
         ):
             return
 
+        pending_trace = getattr(self, "_pending_scene_prompt_trace", None)
+        can_extend_pending_trace = (
+            pending_trace is not None
+            and getattr(self, "_prepared_scene_novel_path", None) == novel_path
+            and getattr(self, "_prepared_scene_destination", None)
+            == (target_chapter, target_scene)
+        )
+        if can_extend_pending_trace:
+            planner_trace = pending_trace
+            self._pending_scene_prompt_trace = None
+        else:
+            self._discard_scene_prompt_trace()
+            planner_trace = self._start_prompt_trace(
+                planning_prompt,
+                model_path=planner_model,
+                attach=False,
+                chapter_number=target_chapter,
+                scene_number=target_scene,
+                scene_direction=existing_prompt,
+                author_guidance=self.author_direction_box.get(
+                    "1.0", "end-1c"
+                ).strip(),
+            )
+        self._active_scene_preparation_trace = planner_trace
+        if planner_trace is not None:
+            planner_trace.record_event(
+                "scene_preparation_attempt_started",
+                target_chapter=target_chapter,
+                target_scene=target_scene,
+                retry=bool(is_retry),
+                source_scene=Path(source_scene).name if source_scene else None,
+            )
+
         self._scene_preparation_destination = (target_chapter, target_scene)
         self._scene_preparation_novel_path = novel_path
         self._scene_preparation_source_scene_path = source_scene
@@ -1848,18 +1884,32 @@ class MinimalWriterApp:
         self._update_controls()
 
         def work() -> None:
+            trace_attached = False
             try:
                 self._ensure_model_loaded(planner_model)
+                attach_trace = getattr(self.engine, "attach_prompt_trace", None)
+                if planner_trace is not None and callable(attach_trace):
+                    try:
+                        attach_trace(planner_trace, role="scene_planner")
+                    except TypeError:
+                        # Keep tracing compatible with lightweight test doubles.
+                        attach_trace(planner_trace)
+                    trace_attached = True
                 self._schedule_activity_status(
                     "Prepare Scene", planner_model, "Generating"
                 )
                 suggestion = write_from_prompt(self.engine, planning_prompt).strip()
             except GenerationInterrupted:
-                self.root.after(0, self._prepare_scene_stopped)
+                self.root.after(
+                    0,
+                    lambda trace=planner_trace: self._prepare_scene_stopped(trace),
+                )
             except Exception as exc:
                 message = str(exc)
                 self.root.after(
-                    0, lambda message=message: self._prepare_scene_failed(message)
+                    0,
+                    lambda message=message, trace=planner_trace:
+                        self._prepare_scene_failed(message, trace),
                 )
             else:
                 context_reset_error = None
@@ -1872,16 +1922,29 @@ class MinimalWriterApp:
                     context_reset_error = str(exc)
                 self.root.after(
                     0,
-                    lambda suggestion=suggestion, error=context_reset_error:
-                        self._prepare_scene_succeeded(suggestion, error),
+                    lambda suggestion=suggestion, error=context_reset_error,
+                    trace=planner_trace:
+                        self._prepare_scene_succeeded(suggestion, error, trace),
                 )
+            finally:
+                if trace_attached:
+                    detach_trace = getattr(self.engine, "detach_prompt_trace", None)
+                    if callable(detach_trace):
+                        try:
+                            detach_trace(planner_trace)
+                        except Exception:
+                            pass
 
         threading.Thread(target=work, daemon=True).start()
 
     def _prepare_scene_succeeded(
-        self, suggestion: str, context_reset_error: str | None = None
+        self,
+        suggestion: str,
+        context_reset_error: str | None = None,
+        trace=None,
     ) -> None:
         if self.stop_requested:
+            self._discard_scene_prompt_trace(trace)
             self._prepare_scene_stopped()
             return
         current_prompt = self.prompt_box.get("1.0", "end-1c")
@@ -1896,6 +1959,7 @@ class MinimalWriterApp:
             current_prompt != original_prompt
             or current_author_direction != original_author_direction
         ):
+            self._discard_scene_prompt_trace(trace)
             self._preparing_scene = False
             self.busy = False
             self.writing = False
@@ -1910,6 +1974,7 @@ class MinimalWriterApp:
             self._update_controls()
             return
         if not suggestion.strip():
+            self._discard_scene_prompt_trace(trace)
             self._preparing_scene = False
             self.busy = False
             self.writing = False
@@ -1934,6 +1999,17 @@ class MinimalWriterApp:
         self._prepared_scene_source_scene_path = (
             self._scene_preparation_source_scene_path
         )
+        if trace is not None:
+            trace.data["inputs"]["scene_direction"] = suggestion.strip()
+            trace.record_event(
+                "scene_preparation_result_accepted",
+                scene_direction=suggestion.strip(),
+                target_chapter=chapter_number,
+                target_scene=scene_number,
+            )
+            self._pending_scene_prompt_trace = trace
+        if getattr(self, "_active_scene_preparation_trace", None) is trace:
+            self._active_scene_preparation_trace = None
         self._select_scene_destination(
             chapter_number, scene_number, self._scene_preparation_novel_path
         )
@@ -1998,7 +2074,8 @@ class MinimalWriterApp:
         self.scene_picker.configure(values=scene_labels)
         self.scene_var.set(scene_label)
 
-    def _prepare_scene_failed(self, message: str) -> None:
+    def _prepare_scene_failed(self, message: str, trace=None) -> None:
+        self._discard_scene_prompt_trace(trace)
         self._preparing_scene = False
         self.busy = False
         self.writing = False
@@ -2017,7 +2094,8 @@ class MinimalWriterApp:
         self._update_controls()
         self._showerror("Scene preparation failed", message)
 
-    def _prepare_scene_stopped(self) -> None:
+    def _prepare_scene_stopped(self, trace=None) -> None:
+        self._discard_scene_prompt_trace(trace)
         self._preparing_scene = False
         self.busy = False
         self.writing = False
@@ -2299,14 +2377,109 @@ class MinimalWriterApp:
         self._update_controls()
         self._showerror("Could not start a new session", message)
 
+    def _discard_scene_prompt_trace(self, trace=None) -> None:
+        """Detach and forget an unused planner trace without saving or uploading it."""
+        if trace is None:
+            trace = getattr(self, "_active_scene_preparation_trace", None)
+        if trace is None:
+            trace = getattr(self, "_pending_scene_prompt_trace", None)
+        if trace is None:
+            return
+
+        detach_trace = getattr(
+            getattr(self, "engine", None), "detach_prompt_trace", None
+        )
+        if callable(detach_trace):
+            try:
+                detach_trace(trace)
+            except Exception:
+                pass
+        for attribute in (
+            "_active_scene_preparation_trace",
+            "_pending_scene_prompt_trace",
+        ):
+            if getattr(self, attribute, None) is trace:
+                setattr(self, attribute, None)
+
+    def _claim_prepared_scene_prompt_trace(self, mode: str):
+        """Reuse the planner trace only for the same novel and prepared scene."""
+        trace = getattr(self, "_pending_scene_prompt_trace", None)
+        if trace is None:
+            return None
+        try:
+            tracing_enabled = load_prompt_trace_enabled()
+        except Exception:
+            tracing_enabled = False
+        if not tracing_enabled:
+            self._discard_scene_prompt_trace(trace)
+            return None
+
+        novel_var = getattr(self, "novel_var", None)
+        novel_packages = getattr(self, "novel_packages", {})
+        chapter_var = getattr(self, "chapter_var", None)
+        scene_var = getattr(self, "scene_var", None)
+        novel_name = novel_var.get().strip() if novel_var is not None else ""
+        novel_path = novel_packages.get(novel_name)
+        chapter_label = chapter_var.get().strip() if chapter_var is not None else ""
+        chapter_number = getattr(self, "chapter_numbers", {}).get(chapter_label)
+        scene_number = (
+            scene_number_from_label(scene_var.get().strip())
+            if scene_var is not None else None
+        )
+        expected_destination = (
+            (int(chapter_number), int(scene_number))
+            if chapter_number is not None and scene_number is not None
+            else None
+        )
+        prepared_path = getattr(self, "_prepared_scene_novel_path", None)
+        try:
+            same_novel = (
+                novel_path is not None
+                and prepared_path is not None
+                and Path(novel_path).expanduser().resolve()
+                == Path(prepared_path).expanduser().resolve()
+            )
+        except (OSError, TypeError, ValueError):
+            same_novel = False
+
+        if (
+            not same_novel
+            or expected_destination is None
+            or getattr(self, "_prepared_scene_destination", None)
+            != expected_destination
+        ):
+            self._discard_scene_prompt_trace(trace)
+            return None
+
+        self._pending_scene_prompt_trace = None
+        direction_box = getattr(self, "prompt_box", None)
+        author_box = getattr(self, "author_direction_box", None)
+        final_direction = (
+            direction_box.get("1.0", "end-1c") if direction_box is not None else ""
+        )
+        final_author_guidance = (
+            author_box.get("1.0", "end-1c").strip() if author_box is not None else ""
+        )
+        trace.record_event(
+            "prepared_direction_sent_to_writer",
+            generation_mode=str(mode),
+            final_scene_direction=final_direction,
+            final_author_guidance=final_author_guidance,
+        )
+        return trace
+
     def _start_prompt_trace(
         self,
         prompt: str,
         model_path: str | Path | None = None,
         *,
         attach: bool = True,
+        chapter_number: int | None = None,
+        scene_number: int | None = None,
+        scene_direction: str | None = None,
+        author_guidance: str | None = None,
     ):
-        """Arm a local, one-generation capture without affecting normal writing."""
+        """Arm a local scene capture without affecting normal writing."""
         try:
             if not load_prompt_trace_enabled():
                 return None
@@ -2315,13 +2488,21 @@ class MinimalWriterApp:
 
         novel_name = getattr(getattr(self, "novel_var", None), "get", lambda: "")().strip()
         novel_path = getattr(self, "novel_packages", {}).get(novel_name)
-        chapter_number = getattr(self, "chapter_numbers", {}).get(
-            getattr(getattr(self, "chapter_var", None), "get", lambda: "")().strip(),
-            1,
+        selected_chapter = (
+            chapter_number
+            if chapter_number is not None
+            else getattr(self, "chapter_numbers", {}).get(
+                getattr(getattr(self, "chapter_var", None), "get", lambda: "")().strip(),
+                1,
+            )
         )
-        scene_number = scene_number_from_label(
-            getattr(getattr(self, "scene_var", None), "get", lambda: "")()
-        ) or 1
+        selected_scene = (
+            scene_number
+            if scene_number is not None
+            else scene_number_from_label(
+                getattr(getattr(self, "scene_var", None), "get", lambda: "")()
+            ) or 1
+        )
 
         current_state = {}
         reference_files = []
@@ -2343,16 +2524,23 @@ class MinimalWriterApp:
 
         prompt_box = getattr(self, "prompt_box", None)
         direction_box = getattr(self, "author_direction_box", None)
-        scene_direction = (
-            prompt_box.get("1.0", "end-1c") if prompt_box is not None else str(prompt or "")
+        captured_scene_direction = (
+            scene_direction
+            if scene_direction is not None
+            else prompt_box.get("1.0", "end-1c")
+            if prompt_box is not None
+            else str(prompt or "")
         )
-        author_guidance = (
-            direction_box.get("1.0", "end-1c").strip()
-            if direction_box is not None else ""
+        captured_author_guidance = (
+            author_guidance
+            if author_guidance is not None
+            else direction_box.get("1.0", "end-1c").strip()
+            if direction_box is not None
+            else ""
         )
         trace = PromptTrace(
-            chapter=int(chapter_number or 1),
-            scene=int(scene_number),
+            chapter=int(selected_chapter or 1),
+            scene=int(selected_scene),
             model_path=(
                 Path(model_path).expanduser().resolve()
                 if model_path is not None else getattr(self, "loaded_model", None)
@@ -2360,8 +2548,8 @@ class MinimalWriterApp:
             current_state=current_state,
             reference_files=reference_files,
             contract={},
-            scene_direction=scene_direction,
-            author_guidance=author_guidance,
+            scene_direction=captured_scene_direction,
+            author_guidance=captured_author_guidance,
             system_prompt=(
                 "" if model_path is not None
                 else getattr(self.engine, "system_prompt", "")
@@ -2426,9 +2614,11 @@ class MinimalWriterApp:
         self._generation_had_chunks = False
         self._last_prompt_trace_path = None
         self._last_prompt_trace_upload_result = None
-        prompt_trace = self._start_prompt_trace(
-            prompt, model_path=writer_model, attach=False
-        )
+        prompt_trace = self._claim_prepared_scene_prompt_trace(mode)
+        if prompt_trace is None:
+            prompt_trace = self._start_prompt_trace(
+                prompt, model_path=writer_model, attach=False
+            )
         if mode == "continue":
             self._generation_prefix = continuation_prefix(self._pre_generation_text)
             self._set_output_text(self._generation_prefix)
@@ -2476,7 +2666,10 @@ class MinimalWriterApp:
                 attach_trace = getattr(self.engine, "attach_prompt_trace", None)
                 if prompt_trace is not None and callable(attach_trace):
                     try:
-                        attach_trace(prompt_trace)
+                        try:
+                            attach_trace(prompt_trace, role="scene_writer")
+                        except TypeError:
+                            attach_trace(prompt_trace)
                     except Exception:
                         pass
                 answer = write_from_prompt(self.engine, prompt, on_delta=stream_delta)
