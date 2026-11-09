@@ -50,6 +50,12 @@ Separate open issue: Prepare Scene retry still does not pass its previous genera
 - The focused local handoff-backup tests previously passed (2 tests).
 
 
+## Latest five-scene Writer trial — November 9, 2026
+
+A disposable test novel was reset and five scenes were generated and reviewed without changing code, prompts, or model settings. The Writer met the requested natural endpoints in 3 of 5 scenes. It often carried immediate details forward, but Scene 4 skipped the approaching footsteps at the end of Scene 3 and restarted an earlier pump-inspection moment. Scene directions were frequently repeated as explanatory narration instead of dramatized. Scene 4 also introduced an unrequested physical/romantic beat that Scene 5 then carried forward.
+
+**Working conclusion:** Keep the full previous-scene context change. This test does not prove the exact prompt payload or establish that continuity is fixed. The next discussion should focus on how scene directions become manuscript prose. No additional shared prompt rules, code changes, or model changes have been approved.
+
 ## Local handoff backups
 
 StoryBuilder includes `backup_handoffs.py` and `builder/handoff_backup.py`. The Writer and Story Bible launchers refresh a local mirror after the StoryBuilder pull, and successful app or novel GitHub syncs refresh it again.
@@ -72,6 +78,6 @@ StoryBuilder includes `backup_handoffs.py` and `builder/handoff_backup.py`. The 
 8. When sources disagree, record the conflict and pause. Do not choose a version by guessing.
 9. Preserve the working branch and its autosync behavior unless branch migration is deliberately coordinated and tested.
 
-**Latest Writer context change:** Prepare Scene and manuscript Write/Rewrite now receive the entire immediately preceding saved scene instead of the former 1,800/2,000-character tail excerpts. Regression tests cover long scenes. CI and local laptop verification are pending.
+**Latest Writer context change:** Prepare Scene and manuscript Write/Rewrite now receive the entire immediately preceding saved scene instead of the former 1,800/2,000-character tail excerpts. Regression tests cover long scenes. Both GitHub Actions workflows passed on commit `c96281a191fb08e1438fc5b5c09b6a829b216bfb`. A five-scene live manuscript trial was completed on the laptop; it showed useful immediate detail carry-over but inconsistent chronological continuity and persistent scene-direction echoing. The test did not capture the runtime prompt, so it cannot prove the exact previous-scene payload.
 
 **Project status:** The Long Way Home's broad crisis direction has been reconstructed from the author's latest decisions. Chapter 2 Scene 01 is saved and accepted; Scene 02 is next. The Writer's lean-context update is locally verified by Tony (697 tests and 77 subtests passed). The latest genericity cleanup removes the shared Computer/dialogue instruction, removes the complete-roster and blanket romance constraints from shared character context, and makes the active post-save ending-state prompt neutral across story types. Character names and story facts continue to come from the selected novel's own files. Both GitHub Actions workflows passed on source/test commit `b7166475842c3e452ef002c6fb4290caa9938fd1`; Tony's local test of this cleanup is pending. The November 9 endpoint-follow-through improvement is conditional on an author-supplied `Natural endpoint:` line, and Prepare Scene now uses the immediately previous saved scene ending as a continuity anchor when one exists. Both changes are generic and have focused regression tests; GitHub Actions verification and local laptop testing are pending. Prepare Scene's retry-direction behavior remains a separate known issue. *Taken at Dusk* remains on hold.
