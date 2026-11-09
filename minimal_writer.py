@@ -8,6 +8,7 @@ from tkinter import filedialog, ttk
 from tkinter.scrolledtext import ScrolledText
 
 from builder.appearance import apply_application_appearance
+from builder.creative_direction import build_creative_direction_prompt
 from builder.writer_engine import GenerationInterrupted, WriterEngine
 from builder.workspace import MODELS_DIR, NOVEL_ROOT
 from builder.continuity_context import select_relevant_locations
@@ -864,6 +865,7 @@ class MinimalWriterApp:
 
     def _begin_revision_generation(self, prompt: str) -> None:
         """Generate a proposal without changing the current passage."""
+        prompt = self._prepare_creative_direction_context(prompt)
         prompt = build_manuscript_generation_prompt(prompt)
         writer_model = self._selected_role_model("writer")
         if writer_model is None:
@@ -1993,6 +1995,34 @@ class MinimalWriterApp:
         )
         self._begin_generation(prompt, mode="continue")
 
+    def _prepare_creative_direction_context(self, prompt: str) -> str:
+        """Attach only the selected novel's genre and audience profile guidance."""
+        original = str(prompt or "")
+        novel_var = getattr(self, "novel_var", None)
+        get_value = getattr(novel_var, "get", None)
+        if not callable(get_value):
+            return original
+
+        novel_name = str(get_value() or "").strip()
+        novel_packages = getattr(self, "novel_packages", {})
+        if not isinstance(novel_packages, dict):
+            return original
+        novel_path = novel_packages.get(novel_name)
+        if novel_path is None:
+            return original
+
+        try:
+            story_bible = load_story_bible(novel_path)
+        except (OSError, UnicodeError, ValueError):
+            return original
+
+        guidance = build_creative_direction_prompt(
+            story_bible.get("creative_direction")
+        )
+        if not guidance:
+            return original
+        return f"{original.rstrip()}\\n\\n{guidance}" if original.strip() else guidance
+
     def _prepare_previous_scene_context(self, prompt: str) -> str:
         """Add the immediately preceding accepted scene for grounded continuity."""
         novel_name = getattr(getattr(self, "novel_var", None), "get", lambda: "")().strip()
@@ -2262,6 +2292,7 @@ class MinimalWriterApp:
                 pass
 
     def _begin_generation(self, prompt: str, mode: str) -> None:
+        prompt = self._prepare_creative_direction_context(prompt)
         prompt = build_manuscript_generation_prompt(prompt)
         writer_model = self._selected_role_model("writer")
         if writer_model is None:

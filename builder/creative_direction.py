@@ -1,24 +1,53 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 
-GENRE_OPTIONS = (
-    "Adventure",
-    "Comedy",
-    "Crime",
-    "Drama",
-    "Fantasy",
-    "Historical",
-    "Horror",
-    "Literary",
-    "Mystery",
-    "Romance",
-    "Science Fiction",
-    "Suspense",
-    "Thriller",
-    "Western",
-)
+_PROFILE_ROOT = Path(__file__).resolve().parents[1] / "profiles"
+
+
+def _load_profiles(category: str) -> dict[str, str]:
+    """Load reusable, app-wide prompt profiles from Markdown data files."""
+    directory = _PROFILE_ROOT / category
+    profiles: dict[str, str] = {}
+    try:
+        paths = sorted(directory.glob("*.md"))
+    except OSError:
+        return profiles
+
+    for path in paths:
+        try:
+            content = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeError):
+            continue
+
+        lines = content.splitlines()
+        heading_index = next(
+            (index for index, line in enumerate(lines) if line.strip()),
+            None,
+        )
+        if heading_index is None:
+            continue
+
+        heading = lines[heading_index].strip()
+        if not heading.startswith("# "):
+            continue
+
+        label = heading[2:].strip()
+        description = "\n".join(lines[heading_index + 1 :]).strip()
+        if label and description and label not in profiles:
+            profiles[label] = description
+
+    return profiles
+
+
+# Profile files, not Python constants, define the available genre and audience
+# choices. Add a Markdown file to extend either list.
+GENRE_PROFILES = _load_profiles("genres")
+AUDIENCE_PROFILES = _load_profiles("audiences")
+GENRE_OPTIONS = tuple(GENRE_PROFILES)
+AUDIENCE_OPTIONS = tuple(AUDIENCE_PROFILES)
 
 MOOD_OPTIONS = (
     "Cozy",
@@ -33,8 +62,6 @@ MOOD_OPTIONS = (
     "Tense",
     "Whimsical",
 )
-
-AUDIENCE_OPTIONS = ("Children's", "Middle Grade", "Young Adult", "Adult")
 
 DEFAULT_CREATIVE_DIRECTION = {
     "genres": [],
@@ -126,26 +153,43 @@ def format_creative_direction_preview(value: Any) -> str:
 
 
 def build_creative_direction_prompt(value: Any) -> str:
-    """Create a light-touch creative note for local writing and planning prompts."""
+    """Build concise guidance from only the profiles selected for this novel."""
     profile = normalize_creative_direction(value, strict=False)
     lines: list[str] = []
+
     if profile["genres"]:
         lines.append("Genres: " + ", ".join(profile["genres"]))
+        for genre in profile["genres"]:
+            guidance = GENRE_PROFILES.get(genre)
+            if guidance:
+                lines.append(f"{genre} guidance: {guidance}")
+
     if profile["moods"]:
         lines.append("Mood and tone: " + ", ".join(profile["moods"]))
+
     if profile["audience"]:
-        lines.append("Intended audience: " + profile["audience"])
+        audience = profile["audience"]
+        lines.append(f"Intended audience: {audience}")
+        guidance = AUDIENCE_PROFILES.get(audience)
+        if guidance:
+            lines.append(f"{audience} audience guidance: {guidance}")
+
     if profile["explicit_adult_content"]:
         lines.append(
-            "Explicit adult content is permitted when it suits the story; "
-            "any sexual content must involve consenting adults."
+            "Explicit adult content is permitted when it serves the story; "
+            "any sexual content must involve consenting adults. This is permission, "
+            "not a request to include it."
         )
-    if not lines:
-        return ""
+    else:
+        lines.append(
+            "Explicit adult content is not enabled. Do not include explicit sexual "
+            "detail; keep intimacy non-graphic and consistent with the selected audience."
+        )
+
     return (
         "CREATIVE DIRECTION (loose guidance, not a checklist)\n"
         + "\n".join(lines)
-        + "\nLet these choices influence the overall flavor without forcing "
-        "every genre or mood into every scene. Let the scene and characters "
-        "develop naturally."
+        + "\nLet these choices influence the overall flavor without forcing every "
+        "genre or mood into every scene. Audience and explicit-content boundaries "
+        "take priority over genre and mood conventions."
     )

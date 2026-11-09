@@ -5,6 +5,7 @@ import re
 from pathlib import Path
 from typing import Any
 
+from builder.creative_direction import build_creative_direction_prompt
 from builder.odt_document import read_document
 from builder.story_bible_reader import load_story_bible
 from builder.character_context import build_character_card_context_prompt
@@ -175,6 +176,12 @@ def build_scene_preparation_prompt(
         sections.append(f"Premise: {premise}")
     if setting:
         sections.append(f"Setting: {setting}")
+
+    creative_direction = build_creative_direction_prompt(
+        story_bible.get("creative_direction")
+    )
+    if creative_direction:
+        sections.append(creative_direction)
 
     cast_names: list[str] = []
     timeline_note = build_story_timeline_prompt(current_state.get("time_of_day"))
