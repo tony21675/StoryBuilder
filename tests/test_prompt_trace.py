@@ -120,6 +120,26 @@ class PromptTraceTests(unittest.TestCase):
             stored = trace.data["system_prompts"][trace.primary_system_prompt_id]
             self.assertEqual(stored["role"], "state_main_plot_summary")
 
+    def test_session_roles_can_distinguish_planner_from_writer(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            trace = self.make_trace(Path(tmp) / "prompt_trace.json")
+            common = {
+                "model_path": "/home/test/Models/test.gguf",
+                "runtime_binary": "/usr/local/bin/llama-cli",
+                "system_prompt": "",
+                "context_size": 16384,
+                "max_tokens": 3000,
+                "device": None,
+                "runtime_options": {"reasoning": "off"},
+            }
+            trace.record_session(**common, role="scene_planner")
+            trace.record_session(**common, role="scene_writer")
+
+            self.assertEqual(
+                [session["role"] for session in trace.data["sessions"]],
+                ["scene_planner", "scene_writer"],
+            )
+
     def test_trace_keeps_exact_original_and_sent_prompts_and_runtime_response(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "prompt_trace.json"
