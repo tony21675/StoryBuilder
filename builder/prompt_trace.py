@@ -182,11 +182,12 @@ class PromptTrace:
         max_tokens: int,
         device: str | None,
         runtime_options: dict[str, Any],
+        role: str | None = None,
     ) -> str:
         prompt = str(system_prompt or "")
-        role = self._classify_system_prompt(
+        role = str(role or self._classify_system_prompt(
             prompt, _prompt_id(prompt) == self.primary_system_prompt_id
-        )
+        ))
         prompt_id = self._store_system_prompt(prompt, role)
         self._session_number += 1
         session_id = f"session_{self._session_number:02d}"
