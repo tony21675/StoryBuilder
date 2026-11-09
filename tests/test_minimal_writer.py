@@ -650,7 +650,7 @@ class MinimalWriterTests(unittest.TestCase):
             self.assertEqual(app.saved_output_text, saved_text)
             self.assertEqual(app.loaded_model, Path("/models/example.gguf"))
             self.assertFalse(app.busy)
-            self.assertIn("file tracking were kept", app.status_var.value)
+            self.assertEqual(app.activity_state_var.value, "Finished")
 
     def test_refreshing_the_same_novel_does_not_clear_model_history_or_directions(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -702,7 +702,7 @@ class MinimalWriterTests(unittest.TestCase):
             self.assertEqual(app.engine.stop_calls, 1)
             self.assertIsNone(app.loaded_model)
             self.assertFalse(app.busy)
-            self.assertIn("model was stopped", app.status_var.value.lower())
+            self.assertEqual(app.activity_state_var.value, "Error")
             self.assertIn("Model session stopped for safety", app.shown_error[0])
 
     def test_loading_a_novel_scene_uses_a_copy_and_never_targets_the_source_for_save(self):
