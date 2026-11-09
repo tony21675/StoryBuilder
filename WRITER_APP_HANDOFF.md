@@ -158,4 +158,20 @@ The Story Bible stores only the selected genre and audience labels, moods, and t
 
 Both Prepare Scene and manuscript generation receive only the profiles selected in the active novel. Children's guidance explicitly excludes profanity, sexual content, and graphic violence. Middle Grade and Young Adult have their own age-appropriate guidance. The Explicit Adult Content setting remains independent: selecting Adult does not enable it, and when enabled it grants permission rather than requiring explicit material.
 
-The selected-project prompt helper reads the currently selected novel's Story Bible at generation time. This change does not yet resolve the separately identified issue where a live model conversation can retain prior context after switching novels; project-switch session reset remains a separate required fix.
+The selected-project prompt helper reads the currently selected novel's Story Bible at generation time. Novel-switch session isolation has since been implemented; see the section below.
+
+
+## Novel-switching session isolation
+
+**Implemented:** November 9, 2026  
+**Verification:** Focused regression tests and both GitHub Actions workflows passed on commit `aac2d380ebefeedc24b4863f73b3051995dc591a`. Local GUI verification is pending.
+
+The Writer opens with no novel selected. Refreshing the library preserves a still-valid selection, but does not automatically choose the first available novel.
+
+When the selected novel's path changes, the Writer clears the two novel-specific direction fields and pending Prepare Scene state, then clears the live llama.cpp conversation in a background task. Refreshing the same selected novel does not clear the model session.
+
+The visible manuscript draft, current file path, selected source-scene path, and saved-text baseline are preserved. This prevents switching projects from silently discarding an open manuscript or changing its save tracking.
+
+If the model conversation cannot be cleared and confirmed, StoryBuilder stops the model and marks it unloaded. The next writing task must load a fresh process, rather than risking use of the previous novel's history.
+
+Regression tests cover blank startup, switching projects, refreshing the same project, switching without a loaded model, preserving manuscript contents and file tracking, and stopping the model when history cannot be cleared.
