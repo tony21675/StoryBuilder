@@ -2156,7 +2156,7 @@ class MinimalWriterApp:
         self._begin_generation(prompt, mode="continue")
 
     def _prepare_creative_direction_context(self, prompt: str) -> str:
-        """Attach only the selected novel's genre and audience profile guidance."""
+        """Attach the selected novel's creative profiles and writing preferences."""
         original = str(prompt or "")
         novel_var = getattr(self, "novel_var", None)
         get_value = getattr(novel_var, "get", None)
