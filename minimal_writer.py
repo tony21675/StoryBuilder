@@ -2176,11 +2176,25 @@ class MinimalWriterApp:
         except (OSError, UnicodeError, ValueError):
             return original
 
-        guidance = build_creative_direction_prompt(
+        sections: list[str] = []
+        creative_guidance = build_creative_direction_prompt(
             story_bible.get("creative_direction")
         )
-        if not guidance:
+        if creative_guidance:
+            sections.append(creative_guidance)
+
+        writing_preferences = story_bible.get("writing_preferences")
+        if isinstance(writing_preferences, str) and writing_preferences.strip():
+            sections.append(
+                "HOW THIS NOVEL SHOULD READ\n"
+                "The following optional preferences were written by the author for this novel. "
+                "Use them as flexible creative guidance, not as a rigid checklist:\n"
+                + writing_preferences.strip()
+            )
+
+        if not sections:
             return original
+        guidance = "\n\n".join(sections)
         return f"{original.rstrip()}\n\n{guidance}" if original.strip() else guidance
 
     def _prepare_previous_scene_context(self, prompt: str) -> str:
