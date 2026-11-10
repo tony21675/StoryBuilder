@@ -2535,7 +2535,7 @@ class StoryBibleApp:
     def sync_selected_novel_to_github(self) -> None:
         """Preview and explicitly confirm syncing only the selected novel repo."""
         if (self._sync_in_progress or self._premise_editing or self._setting_editing
-                or self._canon_rules_editing or self._writing_preferences_editing
+                or self._canon_rules_editing or getattr(self, "_writing_preferences_editing", False)
                 or self._character_cards_managing
                 or getattr(self, "_locations_managing", False)
                 or self._character_card_editor_window is not None):
