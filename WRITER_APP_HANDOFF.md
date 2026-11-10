@@ -40,7 +40,7 @@ The Writer creates and edits manuscript prose. Novel canon, character cards, loc
 - The existing **Load Writer** button preloads the selected manuscript-writing model. Prepare Scene and manuscript actions also load their selected role automatically when needed.
 - Write, Continue, Prepare Scene (a planning-only helper that fills the prompt box), and Rewrite Scene (an explicitly confirmed fresh generation of the visible draft) workflows.
 - Rewrite Scene keeps the existing draft if canceled, stopped, or generation fails.
-- Editable scene direction and natural endpoint supplied by Prepare Scene.
+- Editable author direction supplied by Prepare Scene.
 - Open and save manuscript drafts and scenes, including ODT support.
 - Browse and save the selected scene.
 - Revise or replace an explicitly selected passage with a preview/accept workflow.
@@ -80,23 +80,27 @@ After a scene is saved, the active Writer's ending-state update uses neutral sto
 
 Novel-specific characters, locations, relationships, plot developments, and any special writing rules belong in that novel's own project files. They are not added to shared Python prompts.
 
-## Author-supplied natural endpoint follow-through
+## Author intent and scene-to-scene flow
 
 **Implemented:** November 9, 2026  
-**Verification:** Focused regression tests are included. Both GitHub Actions workflows passed on commit `c96281a191fb08e1438fc5b5c09b6a829b216bfb`: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/42626452515) and [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/42626452537). Local full-suite verification remains separate from the live scene-output trial below.
+**Verification:** Focused regression tests updated. GitHub Actions verification and local laptop testing are pending.
 
-When a manuscript-writing prompt contains a non-empty line labeled `Natural endpoint:`, the active Writer appends one short, generic instruction telling the model to make that described final beat actually happen in the prose, rather than stopping at a teaser or continuing beyond it. The instruction is conditional: prompts without a supplied natural endpoint remain unchanged. AI selected-passage revision does not receive this scene-ending instruction.
+The active Prepare Scene prompt no longer requires a `Natural endpoint:` field or a prescribed final beat. It asks for a concise direction expressing the author's intent. Events the author explicitly asks to happen remain intended events; the Writer is free to decide how they unfold and where the scene ends.
 
-The instruction contains no character, setting, genre, plot, relationship, or novel-specific facts. The author- and novel-specific endpoint remains entirely in the current prompt and the selected novel's own files.
+The active Writer no longer appends endpoint-enforcement instructions, and Rewrite Scene no longer preserves an endpoint as a mandatory boundary. Continue also no longer asks the prose to stop at an imposed natural pause.
+
+The full preceding saved scene remains available as context. The handoff now asks for a natural continuation of the same story without requiring the next scene to begin in the very next second or remain in the same place. Time, place, focus, and pacing can move when the story calls for it.
+
+**Author-approved principle:** The author's direction determines what the author wants to happen. The Writer determines how it happens and where the scene ends. The only scene-to-scene requirement is that the novel continues coherently from what actually happened.
 
 ## Previous-scene continuity in Prepare Scene
 
 **Implemented:** November 9, 2026  
 **Verification:** Focused regression tests are included, and both GitHub Actions workflows passed on commit `c96281a191fb08e1438fc5b5c09b6a829b216bfb`. The five-scene live trial below evaluated manuscript continuation, not Prepare Scene's planner output.
 
-When a previous saved scene has text, Prepare Scene now asks the planner to continue directly from that scene's final moment, preserve the immediate time, place, and active situation unless the author's direction requests a transition, and develop the event or interaction already underway before jumping to major new developments. The planner is also asked to make that continuation clear at the start of the new Scene direction.
+When a previous saved scene has text, Prepare Scene gives the planner the full scene and asks for a direction that continues the same story naturally. The next scene may begin later or elsewhere when that makes sense; it is not required to begin in the next second or repeat the previous scene's final action.
 
-This guidance is generic and conditional. It does not add story, character, relationship, or genre assumptions, and it is not added to an opening-scene prompt with no previous ending.
+This guidance is generic. It does not add story, character, relationship, or genre assumptions, and it is not added to an opening-scene prompt with no previous ending.
 
 ## Full previous-scene context
 
@@ -187,7 +191,7 @@ The author-approved creative philosophy for this trial:
 
 ## Current status
 
-The lean-context update is locally verified: Tony pulled it and the full suite passed (697 tests and 77 subtests). The latest genericity cleanup removes the app-wide Computer/dialogue instruction, complete-roster and blanket romance constraints, and crisis/investigation assumptions from the active post-save end-state prompt. Both GitHub Actions workflows passed on commit `82a5c795b66b442f06edd53d4cd9f14116d4109c`; Tony still needs to pull and locally test this cleanup. The November 9 endpoint-follow-through and previous-scene continuity improvements have focused regression tests. Both GitHub Actions workflows passed on commit `c96281a191fb08e1438fc5b5c09b6a829b216bfb`. A five-scene live manuscript test was completed after resetting a disposable test novel. It showed useful immediate detail carry-over but inconsistent chronological continuity and repeated conversion of scene-direction explanations into narration. The output alone cannot prove the exact text of the prompt payload, and the local full test suite has not been reconfirmed in this session. Prepare Scene's retry-direction behavior remains a separate open issue.
+The lean-context update is locally verified: Tony pulled it and the full suite passed (697 tests and 77 subtests). The latest genericity cleanup removes the app-wide Computer/dialogue instruction, complete-roster and blanket romance constraints, and crisis/investigation assumptions from the active post-save end-state prompt. Both GitHub Actions workflows passed on commit `82a5c795b66b442f06edd53d4cd9f14116d4109c`; Tony still needs to pull and locally test this cleanup. The November 9 scene-flow update removes mandatory natural endpoints from Prepare Scene and the active Writer while preserving author-requested events and full preceding-scene context. Focused tests have been updated; CI and local verification are pending. The same five-scene Summer at Willow Bay test package is reset to its clean Chapter 1, Scene 1 starting point for a repeat run. Prepare Scene's retry-direction behavior remains a separate open issue.
 
 
 

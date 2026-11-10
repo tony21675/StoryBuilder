@@ -236,12 +236,9 @@ def build_scene_preparation_prompt(
         )
         sections.append(
             "PREVIOUS SCENE CONTINUITY\n"
-            "Continue directly from the final moment of the previous scene. "
-            "Keep the same immediate time, place, and active situation unless "
-            "the author's direction requests a transition. "
-            "Develop what is already happening before introducing major new "
-            "developments or jumping ahead. Begin the Scene direction by "
-            "clearly stating how it continues from that final moment."
+            "Use the previous scene as context, not as a template. "
+            "Let the new scene feel like a natural continuation of the same story; "
+            "time, place, and focus may change when it makes sense."
         )
     elif (int(chapter_number), int(scene_number)) == (1, 1):
         sections.append("This is the opening scene; no previous scene has been saved.")
@@ -260,7 +257,9 @@ def build_scene_preparation_prompt(
     sections.extend(
         [
             "Use the scene context as a starting point. Gaps are creative space; develop plausible details and interactions without treating every unknown as a prohibition.",
-            "Return exactly two labeled parts: 'Scene direction:' in two to four concise sentences, and 'Natural endpoint:' in one sentence naming the final concrete beat. Do not write manuscript prose. Finish with: 'Write natural manuscript prose only; do not repeat these labels, and stop at the natural endpoint.'",
+            "Return a concise Scene direction that expresses the author's intent for this scene. "
+            "Treat events the author explicitly asks to happen as intended events, not optional possibilities. "
+            "Leave how they unfold and where the scene ends to the Writer. Do not write manuscript prose.",
         ]
     )
     return "\n\n".join(part for part in sections if part)

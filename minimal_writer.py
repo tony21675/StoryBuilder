@@ -53,40 +53,9 @@ from builder.writer_continuity import build_previous_scene_context_prompt
 CONTINUE_PROMPT = (
     "Continue the current passage from where it ended. "
     "Write only new material, without repeating the text already written. "
-    "Write a complete continuation of several connected paragraphs, developing the moment "
-    "rather than stopping after a single paragraph. Let it reach a natural pause; do not "
-    "force a scene ending."
+    "Develop the moment in natural manuscript prose, following where the story leads."
 )
 CONTINUE_CONTEXT_CHARS = 2000
-
-def build_manuscript_generation_prompt(
-    prompt: str,
-    *,
-    respect_natural_endpoint: bool = True,
-) -> str:
-    """Add only conditional, generic guidance for an author-supplied scene endpoint."""
-    original = str(prompt or "").rstrip()
-    if not original or not respect_natural_endpoint:
-        return original
-
-    has_natural_endpoint = any(
-        line.strip().casefold().startswith("natural endpoint:")
-        and line.partition(":")[2].strip()
-        for line in original.splitlines()
-    )
-    if not has_natural_endpoint:
-        return original
-
-    return (
-        f"{original}\n\n"
-        "AUTHOR-SUPPLIED NATURAL ENDPOINT\n"
-        "Treat the supplied Natural endpoint as the intended final beat of this scene. "
-        "Write the event or state it describes so it actually occurs in the prose; "
-        "a hint, teaser, or setup that merely points toward it is not enough. "
-        "End the scene at that beat without continuing into a later event."
-    )
-
-
 
 def select_all_text(event):
     """Select all text in a Tk Text-compatible widget for Ctrl+A."""
@@ -258,7 +227,7 @@ def build_rewrite_scene_prompt(scene_prompt: str, author_direction: str = "") ->
         "Treat this as supplementary guidance for the same scene, not a replacement "
         "scene plan or a request to prepare or advance to another scene. Use it to refine "
         "or add detail while preserving the existing scene's location, characters, intended "
-        "events, and natural endpoint unless the author explicitly asks to change them. "
+        "events unless the author explicitly asks to change them. "
         "Write a complete replacement scene as natural manuscript prose only."
     )
 
@@ -878,9 +847,6 @@ class MinimalWriterApp:
     def _begin_revision_generation(self, prompt: str) -> None:
         """Generate a proposal without changing the current passage."""
         prompt = self._prepare_creative_direction_context(prompt)
-        prompt = build_manuscript_generation_prompt(
-            prompt, respect_natural_endpoint=False
-        )
         writer_model = self._selected_role_model("writer")
         if writer_model is None:
             self._showinfo("Choose a writing model", "Select a model for manuscript writing first.")
@@ -2596,7 +2562,6 @@ class MinimalWriterApp:
 
     def _begin_generation(self, prompt: str, mode: str) -> None:
         prompt = self._prepare_creative_direction_context(prompt)
-        prompt = build_manuscript_generation_prompt(prompt)
         writer_model = self._selected_role_model("writer")
         if writer_model is None:
             self._showinfo(

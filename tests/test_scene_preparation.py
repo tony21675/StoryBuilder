@@ -115,9 +115,11 @@ class ScenePreparationPromptTests(unittest.TestCase):
             self.assertNotIn("STORY OPENING AND PACING", prompt)
             self.assertNotIn("supplementary guidance", prompt)
             self.assertNotIn("A quiet or ordinary moment is valid scene material", prompt)
-            self.assertIn("Return exactly two labeled parts", prompt)
-            self.assertIn("Natural endpoint:", prompt)
-            self.assertIn("final concrete beat", prompt)
+            self.assertIn("Return a concise Scene direction", prompt)
+            self.assertIn("events the author explicitly asks to happen as intended events", prompt)
+            self.assertIn("where the scene ends to the Writer", prompt)
+            self.assertNotIn("Natural endpoint:", prompt)
+            self.assertNotIn("stop at the natural endpoint", prompt.casefold())
             self.assertFalse((root / "Manuscript").exists())
             self.assertFalse((root / "current_state.json").exists())
 
@@ -212,17 +214,12 @@ class ScenePreparationPromptTests(unittest.TestCase):
             self.assertIn("Mara watched the empty channel.", prompt)
             self.assertIn("PREVIOUS SCENE CONTINUITY", prompt)
             self.assertIn(
-                "Continue directly from the final moment of the previous scene.",
+                "Let the new scene feel like a natural continuation of the same story",
                 prompt,
             )
-            self.assertIn(
-                "unless the author's direction requests a transition.",
-                prompt,
-            )
-            self.assertIn(
-                "Develop what is already happening before introducing major new",
-                prompt,
-            )
+            self.assertIn("time, place, and focus may change when it makes sense", prompt)
+            self.assertNotIn("Continue directly from the final moment", prompt)
+            self.assertNotIn("Begin the Scene direction by", prompt)
             self.assertIn("The harbor lights have gone dark", prompt)
             self.assertIn("The north pier", prompt)
             self.assertIn("Mara, Jonah", prompt)
@@ -291,7 +288,8 @@ class ScenePreparationPromptTests(unittest.TestCase):
             self.assertIn("Latest saved in-story time: Day 1, 16:00", prompt)
             self.assertIn("The game continued with friendly conversation.", prompt)
             self.assertNotIn("This old opening situation must not be treated as current.", prompt)
-            self.assertIn("Return exactly two labeled parts", prompt)
+            self.assertIn("Return a concise Scene direction", prompt)
+            self.assertNotIn("Natural endpoint:", prompt)
             self.assertNotIn("STORY OPENING AND PACING", prompt)
             self.assertLess(len(scene_text), 6000)
 

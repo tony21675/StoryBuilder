@@ -50,9 +50,9 @@ def build_previous_scene_context_prompt(
     continuity_context = (
         "IMMEDIATELY PRECEDING SAVED SCENE (full text, continuity reference only)\n"
         f"Source: Chapter {source_chapter:02d}, Scene {source_scene:02d}\n"
-        "Use this accepted scene to maintain continuity of people, place, objects, "
-        "conversation, and events. It is context, not text to repeat or summarize. "
-        "Begin after its final moment and follow the current scene direction.\n\n"
+        "Use this accepted scene as context for continuity. "
+        "Let the next scene feel like a natural continuation of the same story, "
+        "without repeating or summarizing the previous scene.\n\n"
         f"{previous_text}"
     )
     base = str(prompt or "").rstrip()

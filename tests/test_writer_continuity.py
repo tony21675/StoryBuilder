@@ -92,6 +92,9 @@ class PreviousSceneContinuityTests(unittest.TestCase):
             self.assertIn(opening, context)
             self.assertIn(middle, context)
             self.assertIn(ending, context)
+            self.assertIn("natural continuation of the same story", result)
+            self.assertNotIn("Begin after its final moment", result)
+            self.assertNotIn("endpoint", result.casefold())
             self.assertTrue(result.endswith(scene_text))
 
 
