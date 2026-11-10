@@ -89,3 +89,19 @@ Implementation details:
 The goal is one generic Writer that can support distinct novel voices without imposing one writing personality on every project.
 
 **Verification:** Both GitHub Actions workflows passed on source/test commit `4fbeea85d80d95dbe125b5c18f2415e5b8584e49`: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/42783731649) report 714 passed and 77 subtests passed; [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/42783731793) report 714 tests passed. Local pull and GUI verification remain pending.
+
+## AI-assisted story planning and idea organization — discussion only, November 10, 2026
+
+The author would like AI help developing story outlines without having to write a conventional outline. The desired experience is free-form brainstorming: the author supplies ideas in any order, and the AI helps organize and place them. This is a future design discussion only; no Story Bible schema, UI, or code changes have been approved.
+
+Potential planning material for each novel should distinguish:
+- **Confirmed:** author-approved story decisions.
+- **Proposed:** possibilities under consideration.
+- **Open:** unresolved questions.
+- **Needs placement:** ideas to retain before deciding where they belong.
+
+The author should be able to brainstorm conversationally and review the AI's proposed organization. Nothing becomes official until approved. Approved material could be arranged into an overall story roadmap and broad chapter roadmaps; these should steer the story rather than prescribe every scene.
+
+A future chapter-preparation workflow could assemble a focused packet for the Writer from the active novel's chapter direction, current state, relevant character cards/knowledge, essential canon, necessary prior continuity, and only the boundaries relevant to that chapter. The manuscript-writing model should not receive unrelated chapter histories or future revelations simply because they exist elsewhere in the project.
+
+Keep planning data generic in the app and isolated per novel. Do not hard-code characters, story arcs, genre assumptions, or plot structures in shared application code. Before implementation, discuss where the idea bank and roadmaps should live in a novel package and how the Writer should retrieve only the active chapter's information. The previous checklist-heavy approach repeatedly made generated prose mechanical; chapter roadmaps must remain broad guidance, not mandatory beat checklists, scene counts, or forced endings.
