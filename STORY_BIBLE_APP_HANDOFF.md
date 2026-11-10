@@ -76,3 +76,25 @@ Other improvements previously reported include plain-English character fields, o
 ## Current status
 
 Story Bible is being maintained as a separate app with a shared code repository. The current focus is preserving project records and handoffs reliably, not changing the app's story-data model.
+
+
+## Future feature proposal: per-novel prose style preference
+
+**Status:** Author-approved concept for the future backlog. Not implemented. Do not begin implementation until the author chooses to prioritize it and discusses the design.
+
+Add an optional, editable **Prose Style** / **How This Novel Should Read** field to each novel's Story Bible. Its purpose is to let the author describe the prose voice they want for that specific novel in plain English.
+
+Examples:
+- A cozy romance might request natural, conversational prose, warmth and humor without constant ornate descriptions, and emotional moments that are allowed to speak for themselves.
+- A horror novel might request darker atmosphere, restraint, unease, and sharper or more unsettling description.
+- A suspense novel might request clear, controlled prose, deliberate pacing, and mounting tension.
+
+Design principles:
+- Keep prose style separate from genre, mood/tone, intended audience, and explicit-content settings. Those answer different questions.
+- Make it optional and editable at any time. Blank means no additional prose-style preference.
+- Store the value in that novel's own story_bible.json; never hard-code a style into the shared application or global prompt.
+- When writing, pass only the currently selected novel's prose-style preference to the Writer. Switching novels must switch the preference with the novel and must not leak it across projects.
+- Treat it as flexible creative guidance, not a checklist, restrictive rule set, or guaranteed style switch. The novel's chosen genre and tone still contribute to the story's identity.
+- Keep the UI simple: a clearly labelled multi-line plain-English field is the initial concept. Do not build a large style taxonomy or force the author to choose from a fixed list.
+
+The goal is one generic Writer that can write different novels in distinct voices, rather than imposing one default writing personality on every project.
