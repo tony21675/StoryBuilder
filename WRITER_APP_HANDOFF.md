@@ -83,7 +83,7 @@ Novel-specific characters, locations, relationships, plot developments, and any 
 ## Author intent and scene-to-scene flow
 
 **Implemented:** November 9, 2026  
-**Verification:** Focused regression tests updated. GitHub Actions verification and local laptop testing are pending.
+**Verification:** Focused regression tests updated. Both GitHub Actions workflows passed on commit `48e0edff4bad52aa1bf3a039dc7c8cb2764465c5`: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/42759403074) report 710 passed and 77 subtests passed; [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/42759402861) report 710 passed. Local pull and live laptop retest are pending.
 
 The active Prepare Scene prompt no longer requires a `Natural endpoint:` field or a prescribed final beat. It asks for a concise direction expressing the author's intent. Events the author explicitly asks to happen remain intended events; the Writer is free to decide how they unfold and where the scene ends.
 
@@ -191,7 +191,7 @@ The author-approved creative philosophy for this trial:
 
 ## Current status
 
-The lean-context update is locally verified: Tony pulled it and the full suite passed (697 tests and 77 subtests). The latest genericity cleanup removes the app-wide Computer/dialogue instruction, complete-roster and blanket romance constraints, and crisis/investigation assumptions from the active post-save end-state prompt. Both GitHub Actions workflows passed on commit `82a5c795b66b442f06edd53d4cd9f14116d4109c`; Tony still needs to pull and locally test this cleanup. The November 9 scene-flow update removes mandatory natural endpoints from Prepare Scene and the active Writer while preserving author-requested events and full preceding-scene context. Focused tests have been updated; CI and local verification are pending. The same five-scene Summer at Willow Bay test package is reset to its clean Chapter 1, Scene 1 starting point for a repeat run. Prepare Scene's retry-direction behavior remains a separate open issue.
+The lean-context update is locally verified: Tony pulled it and the full suite passed (697 tests and 77 subtests). The latest genericity cleanup removes the app-wide Computer/dialogue instruction, complete-roster and blanket romance constraints, and crisis/investigation assumptions from the active post-save end-state prompt. Both GitHub Actions workflows passed on commit `82a5c795b66b442f06edd53d4cd9f14116d4109c`; Tony still needs to pull and locally test this cleanup. The November 9 scene-flow update removes mandatory natural endpoints from Prepare Scene and the active Writer while preserving author-requested events and full preceding-scene context. Both GitHub Actions workflows passed on commit `48e0edff4bad52aa1bf3a039dc7c8cb2764465c5` (710 tests in each workflow; Python tests also report 77 subtests passed). Local pull and live laptop retest are pending. The same five-scene Summer at Willow Bay test package is reset to its clean Chapter 1, Scene 1 starting point for a repeat run. Prepare Scene's retry-direction behavior remains a separate open issue.
 
 
 
