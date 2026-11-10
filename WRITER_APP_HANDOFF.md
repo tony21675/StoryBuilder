@@ -237,3 +237,22 @@ The planner trace remains in memory between Prepare Scene and manuscript generat
 This change is diagnostic only. It does not modify planner or writer prompts, model selection, context assembly, prose generation, novel files, or the one-file overwrite retention policy.
 
 **Verification:** Focused tests were added for separate planner/writer session labels and matching-scene trace handoff. GitHub Actions verification is pending.
+
+
+## Reader-first working standard — November 9, 2026
+
+This is the author's current, preferred approach for developing and reviewing manuscript prose. It takes priority over earlier trial methods that emphasized structural checks or beat-by-beat scoring.
+
+**Default review mode:** Read the scenes as an ordinary reader, without consulting scene directions, planner output, prompts, or traces. Judge whether the story flows naturally from one scene to the next, whether events and character behavior make sense in context, and whether the people and interactions hold the reader's interest.
+
+The reader's experience comes before the underlying story "bone structure." Preserve coherence where a reader would notice a contradiction, repeated event, confusing transition, unearned character shift, or break in immersion. Do not treat every scene as a checklist or a structural audit. Scene directions express author intent; they are not a scorecard for ordinary reader reviews.
+
+Fiction does not require every technical, scientific, or logistical detail to be perfect. Allow imaginative license and ordinary imperfection. Correct inaccuracies or inconsistencies when they distract from the story or damage the reading experience, not simply because a more exact version exists.
+
+Let scenes find their own length, focus, and ending. Do not restore hard endpoints or force every requested beat into a prescribed structure. The next scene should continue coherently from what actually happened, even when time, location, or focus changes.
+
+Stylistic tendencies such as overwritten description, repeated thematic explanation, fast romantic progression, and minor realism questions are observations, not automatic defects. Recommend edits when they materially improve the reader's experience; do not chase perfection.
+
+Trace inspection and direction-adherence analysis remain useful, but they are separate diagnostic modes. Use them when the author asks how a prompt or workflow behaved, or when a technical issue needs investigation. Do not let technical diagnostics override the default reader-only review.
+
+The five-scene *Summer at Willow Bay* retest was reviewed in reader-only mode. Overall, the story flowed coherently from Mara's arrival through her growing involvement in Willow Bay and her developing connection with Noah. The clearest reader-facing continuity blemish was Scene 5 replaying the wagon being freed after Scene 4 had already resolved it. Repeated thematic explanation, ornate prose, and somewhat quick physical familiarity were lesser editorial observations. The test supports keeping scene endings flexible; it does not justify restoring forced endpoints. No code or prompt changes were approved by this review.
