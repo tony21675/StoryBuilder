@@ -103,3 +103,10 @@ This is the author's current, preferred way to develop and evaluate the project.
 - Do not make code, prompt, model, or workflow changes from a minor draft imperfection. Discuss a proposed change with the author first. Keep the one-change-at-a-time approach.
 
 The November 9 *Summer at Willow Bay* five-scene retest was also read independently, as if the reviewer had never seen the directions. The story was judged coherent and readable overall, with a clear progression from Mara's arrival as an outsider to growing involvement in Willow Bay and a developing connection with Noah. The most noticeable reader-facing continuity bump was Scene 5 briefly replaying the wagon being freed, already resolved in Scene 4. Other observations (some repeated thematic explanation, ornate prose, and a slightly quick increase in physical familiarity) were editorial refinements rather than failures of story flow. No forced endpoint should be reintroduced on the basis of this test. The novel is on hold after Scene 5 pending the author's next decision.
+
+
+## Future Story Bible feature: per-novel prose style — November 9, 2026
+
+The author approved the concept of an optional, editable **Prose Style** / **How This Novel Should Read** preference in the Story Bible app. It should be plain-English creative guidance stored separately in each novel's own story_bible.json, independent of genre, mood/tone, intended audience, and explicit-content settings. The Writer would receive only the selected novel's preference. Examples include conversational/cozy, atmospheric/horror, and controlled/tension-building suspense prose.
+
+This is a future backlog item only. No code, schema, prompt, or UI changes are approved or implemented. Discuss its design with the author before starting. Keep it optional, generic, lightweight, and novel-specific; avoid fixed style taxonomies or restrictive checklists.
