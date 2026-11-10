@@ -25,6 +25,7 @@ class StoryBibleReaderTests(unittest.TestCase):
 
             self.assertEqual(result["title"], "The Long Way Home")
             self.assertEqual(result["premise"], "")
+            self.assertEqual(result["writing_preferences"], "")
             self.assertEqual(result["character_cards"], [])
             self.assertEqual(bible_path.read_bytes(), before)
 
@@ -146,6 +147,41 @@ class StoryBibleReaderTests(unittest.TestCase):
                 save_story_bible_text_field(package, "setting", None)
             with self.assertRaisesRegex(ValueError, "Only these Story Bible text fields"):
                 save_story_bible_text_field(package, "title", "Should not be editable here.")
+
+            self.assertEqual(bible_path.read_bytes(), original)
+
+    def test_save_writing_preferences_changes_only_its_field(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            package = create_novel_package("A Novel", novel_root=temporary)
+            bible_path = package / "story_bible.json"
+            original = json.loads(bible_path.read_text(encoding="utf-8"))
+            original["premise"] = "Preserve the premise."
+            original["canon_rules"] = ["Preserve this rule."]
+            original["custom_data"] = {"keep": ["all", "of", "this"]}
+            bible_path.write_text(json.dumps(original, indent=2), encoding="utf-8")
+
+            preferences = (
+                "Use natural, conversational prose. Trust the reader to remember "
+                "what has already been established."
+            )
+            save_story_bible_text_field(package, "writing_preferences", preferences)
+
+            saved = json.loads(bible_path.read_text(encoding="utf-8"))
+            expected = dict(original)
+            expected["writing_preferences"] = preferences
+            self.assertEqual(saved, expected)
+            self.assertEqual(saved["premise"], "Preserve the premise.")
+            self.assertEqual(saved["canon_rules"], ["Preserve this rule."])
+            self.assertEqual(saved["custom_data"], {"keep": ["all", "of", "this"]})
+
+    def test_save_writing_preferences_rejects_non_text_without_modifying_file(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            package = create_novel_package("A Novel", novel_root=temporary)
+            bible_path = package / "story_bible.json"
+            original = bible_path.read_bytes()
+
+            with self.assertRaisesRegex(ValueError, "Writing_preferences must be text"):
+                save_story_bible_text_field(package, "writing_preferences", None)
 
             self.assertEqual(bible_path.read_bytes(), original)
 
