@@ -1286,6 +1286,201 @@ class StoryBibleApp:
         self.refresh_button.configure(state="normal")
         self.load_button.configure(state="normal")
 
+    def start_writing_preferences_edit(self) -> None:
+        if self._loaded_novel_path is None or self._loaded_writing_preferences is None:
+            self.viewer_status_var.set(
+                "Load a Story Bible with a text Writing Preferences field first."
+            )
+            return
+        if (
+            self._writing_preferences_editing
+            or self._premise_editing
+            or self._setting_editing
+            or self._creative_direction_editing
+            or self._canon_rules_editing
+            or self._character_cards_managing
+            or self._locations_managing
+            or self._sync_in_progress
+        ):
+            return
+
+        self._writing_preferences_editing = True
+        self._set_writing_preferences_controls(editable=True)
+        self.novel_combo.configure(state="disabled")
+        self.refresh_button.configure(state="disabled")
+        self.load_button.configure(state="disabled")
+
+        window = tk.Toplevel(self.root)
+        self._writing_preferences_editor_window = window
+        window.title("How This Novel Should Read")
+        window.geometry("720x420")
+        window.minsize(540, 320)
+        window.transient(self.root)
+        window.protocol("WM_DELETE_WINDOW", self.cancel_writing_preferences_edit)
+
+        frame = ttk.Frame(window, padding=12)
+        frame.pack(fill="both", expand=True)
+        frame.columnconfigure(0, weight=1)
+        frame.rowconfigure(1, weight=1)
+
+        ttk.Label(
+            frame,
+            text=f"Writing preferences for: {self._loaded_novel_path.name}",
+            font=("TkDefaultFont", 11, "bold"),
+        ).grid(row=0, column=0, sticky="w", pady=(0, 8))
+
+        editor_frame = ttk.Frame(frame)
+        editor_frame.grid(row=1, column=0, sticky="nsew")
+        editor_frame.columnconfigure(0, weight=1)
+        editor_frame.rowconfigure(0, weight=1)
+        editor = tk.Text(
+            editor_frame,
+            wrap="word",
+            state="normal",
+            undo=True,
+            padx=8,
+            pady=8,
+        )
+        self._writing_preferences_editor_text = editor
+        scrollbar = ttk.Scrollbar(
+            editor_frame, orient="vertical", command=editor.yview
+        )
+        editor.configure(yscrollcommand=scrollbar.set)
+        editor.grid(row=0, column=0, sticky="nsew")
+        scrollbar.grid(row=0, column=1, sticky="ns")
+        editor.insert("1.0", self._loaded_writing_preferences)
+        editor.mark_set("insert", "end-1c")
+        editor.bind("<Control-a>", self._select_all_writing_preferences_editor)
+        editor.bind("<Control-A>", self._select_all_writing_preferences_editor)
+        editor.bind("<Control-c>", self._copy_selected_writing_preferences_editor)
+        editor.bind("<Control-C>", self._copy_selected_writing_preferences_editor)
+
+        button_row = ttk.Frame(frame)
+        button_row.grid(row=2, column=0, sticky="w", pady=(10, 0))
+        ttk.Button(
+            button_row,
+            text="Save Writing Preferences",
+            command=self.save_writing_preferences,
+        ).pack(side="left", padx=(0, 8))
+        ttk.Button(
+            button_row,
+            text="Cancel Edit",
+            command=self.cancel_writing_preferences_edit,
+        ).pack(side="left")
+
+        ttk.Label(
+            frame,
+            text=(
+                "Only this novel's Writing Preferences field will be saved. "
+                "Leave it blank to remove extra guidance."
+            ),
+            foreground=self.colors["muted"],
+            wraplength=680,
+        ).grid(row=3, column=0, sticky="w", pady=(8, 0))
+
+        window.grab_set()
+        window.after_idle(editor.focus_set)
+        self.viewer_status_var.set(
+            "Editing this novel's writing preferences. Save to keep them, "
+            "or Cancel Edit to discard."
+        )
+
+    def save_writing_preferences(self) -> None:
+        if (
+            not self._writing_preferences_editing
+            or self._loaded_novel_path is None
+            or self._writing_preferences_editor_text is None
+        ):
+            self.viewer_status_var.set(
+                "Choose Edit Writing Preferences before saving."
+            )
+            return
+
+        new_preferences = self._writing_preferences_editor_text.get("1.0", "end-1c")
+        try:
+            save_story_bible_text_field(
+                self._loaded_novel_path, "writing_preferences", new_preferences
+            )
+            data = load_story_bible(self._loaded_novel_path)
+        except (OSError, ValueError, RuntimeError) as exc:
+            error = f"Writing Preferences were not saved:\n{exc}"
+            self.viewer_status_var.set(error)
+            messagebox.showerror(
+                "Writing Preferences were not saved",
+                str(exc),
+                parent=self._writing_preferences_editor_window,
+            )
+            return
+        except Exception as exc:
+            error = f"Writing Preferences were not saved because of an unexpected error:\n{exc}"
+            self.viewer_status_var.set(error)
+            messagebox.showerror(
+                "Writing Preferences were not saved",
+                error,
+                parent=self._writing_preferences_editor_window,
+            )
+            return
+
+        self._loaded_writing_preferences = new_preferences
+        self._set_story_bible_text(
+            json.dumps(data, indent=2, ensure_ascii=False) + "\n"
+        )
+        self._set_writing_preferences_text(new_preferences)
+        self._finish_writing_preferences_edit()
+        self.viewer_status_var.set(
+            f"Saved Writing Preferences only: {self._loaded_novel_path / 'story_bible.json'}. "
+            "Other Story Bible fields were preserved."
+        )
+
+    def cancel_writing_preferences_edit(self) -> None:
+        if not self._writing_preferences_editing:
+            return
+        self._finish_writing_preferences_edit()
+        self.viewer_status_var.set(
+            "Writing Preferences edit cancelled; no file changes were made."
+        )
+
+    def _finish_writing_preferences_edit(self) -> None:
+        self._writing_preferences_editing = False
+        window = self._writing_preferences_editor_window
+        self._writing_preferences_editor_window = None
+        self._writing_preferences_editor_text = None
+        if window is not None:
+            try:
+                if window.winfo_exists():
+                    window.grab_release()
+                    window.destroy()
+            except tk.TclError:
+                pass
+
+        self._set_writing_preferences_text(self._loaded_writing_preferences or "")
+        self._set_writing_preferences_controls(editable=False)
+        self.novel_combo.configure(state="readonly")
+        self.refresh_button.configure(state="normal")
+        self.load_button.configure(state="normal")
+
+    def _set_writing_preferences_controls(self, editable: bool) -> None:
+        has_writing_preferences = (
+            self._loaded_novel_path is not None
+            and self._loaded_writing_preferences is not None
+        )
+        self.edit_writing_preferences_button.configure(
+            state="normal" if has_writing_preferences and not editable else "disabled"
+        )
+
+    def _set_writing_preferences_text(self, content: str) -> None:
+        self.writing_preferences_text.configure(state="normal")
+        self.writing_preferences_text.delete("1.0", "end")
+        self.writing_preferences_text.insert("1.0", content)
+        self.writing_preferences_text.configure(state="disabled")
+        self.writing_preferences_text.tag_remove("sel", "1.0", "end")
+
+    def _select_all_writing_preferences_editor(self, _event=None):
+        return self._select_all_text(self._writing_preferences_editor_text)
+
+    def _copy_selected_writing_preferences_editor(self, _event=None):
+        return self._copy_selected_text(self._writing_preferences_editor_text)
+
     def _set_setting_controls(self, editable: bool) -> None:
         # The on-page field is always read-only; edits use a dedicated window.
         has_text_setting = (
