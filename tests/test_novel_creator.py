@@ -35,6 +35,7 @@ class NovelCreatorTests(unittest.TestCase):
             self.assertEqual(story_bible["story_format_version"], "1.0")
             self.assertEqual(story_bible["premise"], "")
             self.assertEqual(story_bible["setting"], "")
+            self.assertEqual(story_bible["writing_preferences"], "")
             self.assertEqual(
                 story_bible["creative_direction"],
                 {"genres": [], "moods": [], "audience": "", "explicit_adult_content": False},
