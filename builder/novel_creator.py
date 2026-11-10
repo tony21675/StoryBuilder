@@ -72,6 +72,7 @@ def create_novel_package(
             "status": "active",
             "premise": "",
             "setting": "",
+            "writing_preferences": "",
             "creative_direction": profile,
             "canon_rules": [],
             "character_cards": [],
