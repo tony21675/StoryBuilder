@@ -270,3 +270,21 @@ Before manuscript generation, the Writer reads the `writing_preferences` field f
 - The preference is author-written and stored in the novel's own Story Bible. No style is hard-coded globally.
 
 **Verification:** Both GitHub Actions workflows passed on commit `4fbeea85d80d95dbe125b5c18f2415e5b8584e49`: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/42783731649) report 714 passed and 77 subtests passed; [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/42783731793) report 714 tests passed. Local pull and live laptop testing remain pending.
+
+## AI-assisted story planning expansion — discussion only, November 10, 2026
+
+**No code, prompt, or model changes have been approved.** This is a design note for a possible future expansion of the existing two-model workflow.
+
+The current routing already assigns Qwen to Prepare Scene/planning and Gemma to manuscript prose. The author does not want a new model arrangement or simultaneous model loading. The proposed change is to broaden Qwen's role from generating an individual scene direction into an interactive planning partner that helps the author:
+- Capture free-form brainstormed ideas without requiring the author to write a formal outline.
+- Organize ideas as confirmed, proposed, open, or needing placement.
+- Arrange approved ideas into an overall story roadmap and broad chapter roadmaps.
+- Prepare a concise, chapter-specific information packet for Gemma.
+
+Gemma should receive the current chapter's broad direction, the current story situation, only relevant character information and established facts, necessary continuity from earlier events, and important boundaries that genuinely matter now. Do not dump the whole novel, unrelated older chapter material, or future revelations into the manuscript-writing prompt. Retain immediate preceding-scene context where needed for coherent continuation.
+
+The roadmap should steer the story without scripting scenes. Avoid checklists, mandatory beat sequences, fixed scene counts, forced endpoints, and repeated explanations of established character traits. Gemma retains freedom over scene structure, dialogue, pacing, and natural endings. Protect approved story direction and important canon without micromanaging creative connective tissue.
+
+Qwen and Gemma should continue loading sequentially, one model at a time, to fit the author's 16 GB laptop. Project files, not model conversation history, hold persistent planning memory. Because small models may misorganize or misunderstand ideas, Qwen's suggestions must remain proposals until the author approves them.
+
+**Next step:** discuss the workflow and data flow before coding. Inspect existing Prepare Scene/context assembly first; do not rebuild the routing or add a third model. Keep all novel-specific roadmaps and idea-bank content inside each novel's own project files.
