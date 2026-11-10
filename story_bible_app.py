@@ -779,6 +779,7 @@ class StoryBibleApp:
             or self._premise_editing
             or self._setting_editing
             or self._canon_rules_editing
+            or self._writing_preferences_editing
             or self._character_cards_managing
             or self._locations_managing
             or self._sync_in_progress
@@ -998,6 +999,7 @@ class StoryBibleApp:
             self.viewer_status_var.set("Load a Story Bible with a text premise first.")
             return
         if (self._premise_editing or self._setting_editing or self._canon_rules_editing
+                or self._writing_preferences_editing
                 or self._character_cards_managing or self._locations_managing):
             return
 
@@ -1145,6 +1147,7 @@ class StoryBibleApp:
             self.viewer_status_var.set("Load a Story Bible with a text setting first.")
             return
         if (self._setting_editing or self._premise_editing or self._canon_rules_editing
+                or self._writing_preferences_editing
                 or self._character_cards_managing or self._locations_managing):
             return
 
@@ -1602,6 +1605,7 @@ class StoryBibleApp:
             )
             return
         if (self._canon_rules_editing or self._premise_editing or self._setting_editing
+                or self._writing_preferences_editing
                 or self._character_cards_managing or self._locations_managing):
             return
 
@@ -1892,7 +1896,8 @@ class StoryBibleApp:
             self.viewer_status_var.set("Load a Story Bible with a supported Character Cards list first.")
             return
         if (self._character_cards_managing or self._premise_editing or self._setting_editing
-                or self._canon_rules_editing or self._locations_managing or self._sync_in_progress):
+                or self._canon_rules_editing or self._writing_preferences_editing
+                or self._locations_managing or self._sync_in_progress):
             return
 
         self._character_cards_managing = True
@@ -2459,7 +2464,8 @@ class StoryBibleApp:
         if (
             self._locations_managing or self._character_cards_managing
             or self._premise_editing or self._setting_editing
-            or self._canon_rules_editing or self._sync_in_progress
+            or self._canon_rules_editing or self._writing_preferences_editing
+            or self._sync_in_progress
         ):
             return
         self._locations_managing = True
@@ -2529,7 +2535,8 @@ class StoryBibleApp:
     def sync_selected_novel_to_github(self) -> None:
         """Preview and explicitly confirm syncing only the selected novel repo."""
         if (self._sync_in_progress or self._premise_editing or self._setting_editing
-                or self._canon_rules_editing or self._character_cards_managing
+                or self._canon_rules_editing or self._writing_preferences_editing
+                or self._character_cards_managing
                 or getattr(self, "_locations_managing", False)
                 or self._character_card_editor_window is not None):
             return
