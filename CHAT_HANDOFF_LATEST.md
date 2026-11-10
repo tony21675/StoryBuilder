@@ -136,3 +136,7 @@ Persistent project files should hold the story's memory; do not depend on the sm
 **Next design discussion:** an author-friendly brainstorming/idea bank, an overall story roadmap, broad chapter roadmaps, and a chapter-preparation step that assembles only the relevant information for Gemma. Review the current implementation before proposing code changes. Keep StoryBuilder generic, with each novel's planning material isolated inside its own project package. No code, prompt, model, or schema change has been authorized yet.
 
 *Taken at Dusk* was used as an example during this discussion. Its repository remains on hold under its existing handoff; do not resume branch reconciliation or edit its canon/manuscript as part of this StoryBuilder design discussion.
+
+## Deferred *Taken at Dusk* future-arc note — November 10, 2026
+
+A separate, non-authoritative planning note preserving the author's discussion of *Taken at Dusk*'s two-part ending and longer-term rescue mission is saved in the ChatGPT Library at `/Writing/Taken_at_Dusk_Future_Arc_Notes.md`. It is intentionally outside the on-hold `tony21675/MyNovel` repository. When the author resumes *Taken at Dusk*, reconcile the note with the existing `STORY_PLAN.md` and `kidnapping.json`; do not alter the novel's held branches, manuscript, state, or canon before then.
