@@ -112,3 +112,27 @@ Story Bible now has an optional **How This Novel Should Read** text field, store
 The Writer appends only the selected novel's non-empty preferences to manuscript-writing context as flexible creative guidance. Prepare Scene / Planner prompts are not modified. No global prose style is hard-coded.
 
 Both GitHub Actions workflows passed on commit `4fbeea85d80d95dbe125b5c18f2415e5b8584e49`: Python tests report 714 passed and 77 subtests passed; StoryBuilder tests report 714 passed. Local app pull and GUI testing remain pending. See the [Story Bible App handoff](STORY_BIBLE_APP_HANDOFF.md) and [Writer App handoff](WRITER_APP_HANDOFF.md) for details.
+
+## AI-assisted story planning discussion — November 10, 2026
+
+**Status: Design discussion only. No implementation or prompt changes have been approved.**
+
+The author wants to brainstorm freely in ordinary language, without having to write or format a traditional outline. The planning AI should help sort ideas, identify relationships or conflicts, and arrange the author's ideas into a coherent overall story direction and broad chapter roadmap. Keep distinctions clear between:
+- **Confirmed:** decisions the author has approved.
+- **Proposed:** ideas the author is considering.
+- **Open:** questions not yet decided.
+- **Needs placement:** ideas worth retaining but not yet assigned to a story phase or chapter.
+
+Nothing becomes official story direction until the author approves it.
+
+This builds on the existing two-model Writer architecture, not a new model arrangement: Qwen already handles Prepare Scene/planning, and Gemma writes manuscript prose. The proposed evolution is to expand Qwen's role into an interactive story organizer that can help with brainstorming, overall story roadmaps, chapter roadmaps, and concise chapter-specific writing packets. Keep the current sequential model loading; only one model should be loaded at a time on the author's 16 GB laptop.
+
+Gemma should receive only what it needs for the current chapter: its broad direction, current situation, relevant characters and their knowledge, essential established facts, necessary continuity from prior events, and any genuinely important boundaries. Do not send unrelated chapter histories or future revelations just because they exist in the overall plan. Preserve the immediate previous-scene context where it helps continuity.
+
+**Creative philosophy:** broad direction, not a scene checklist. Do not require a fixed number of scenes, prescribed scene beats, or forced scene endings. The prior checklist-heavy approach repeatedly failed and made writing mechanical. Let Gemma decide how scenes unfold and where they naturally end while respecting approved story direction and important canon.
+
+Persistent project files should hold the story's memory; do not depend on the small local models remembering an entire novel in conversation. Use an interactive propose/review/approve workflow to compensate for small-model limitations.
+
+**Next design discussion:** an author-friendly brainstorming/idea bank, an overall story roadmap, broad chapter roadmaps, and a chapter-preparation step that assembles only the relevant information for Gemma. Review the current implementation before proposing code changes. Keep StoryBuilder generic, with each novel's planning material isolated inside its own project package. No code, prompt, model, or schema change has been authorized yet.
+
+*Taken at Dusk* was used as an example during this discussion. Its repository remains on hold under its existing handoff; do not resume branch reconciliation or edit its canon/manuscript as part of this StoryBuilder design discussion.
