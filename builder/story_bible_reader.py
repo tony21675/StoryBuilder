@@ -10,7 +10,7 @@ from typing import Any
 from builder.creative_direction import normalize_creative_direction
 
 
-_TEXT_FIELDS = {"premise", "setting"}
+_TEXT_FIELDS = {"premise", "setting", "writing_preferences"}
 
 
 def _parse_story_bible(content: bytes, bible_path: Path) -> dict[str, Any]:
