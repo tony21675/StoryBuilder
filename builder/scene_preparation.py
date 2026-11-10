@@ -257,7 +257,7 @@ def build_scene_preparation_prompt(
     sections.extend(
         [
             "Use the scene context as a starting point. Gaps are creative space; develop plausible details and interactions without treating every unknown as a prohibition.",
-            "Return a concise Scene direction that expresses the author's intent for this scene. "
+            "Return one concise 'Scene direction:' that expresses the author's intent for this scene. "
             "Treat events the author explicitly asks to happen as intended events, not optional possibilities. "
             "Leave how they unfold and where the scene ends to the Writer. Do not write manuscript prose.",
         ]

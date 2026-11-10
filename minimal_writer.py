@@ -53,7 +53,8 @@ from builder.writer_continuity import build_previous_scene_context_prompt
 CONTINUE_PROMPT = (
     "Continue the current passage from where it ended. "
     "Write only new material, without repeating the text already written. "
-    "Develop the moment in natural manuscript prose, following where the story leads."
+    "Write a complete continuation of several connected paragraphs, developing the moment "
+    "rather than stopping after a single paragraph. Follow where the story leads."
 )
 CONTINUE_CONTEXT_CHARS = 2000
 

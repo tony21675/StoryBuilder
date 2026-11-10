@@ -115,7 +115,7 @@ class ScenePreparationPromptTests(unittest.TestCase):
             self.assertNotIn("STORY OPENING AND PACING", prompt)
             self.assertNotIn("supplementary guidance", prompt)
             self.assertNotIn("A quiet or ordinary moment is valid scene material", prompt)
-            self.assertIn("Return a concise Scene direction", prompt)
+            self.assertIn("Return one concise 'Scene direction:'", prompt)
             self.assertIn("events the author explicitly asks to happen as intended events", prompt)
             self.assertIn("where the scene ends to the Writer", prompt)
             self.assertNotIn("Natural endpoint:", prompt)
@@ -162,7 +162,7 @@ class ScenePreparationPromptTests(unittest.TestCase):
             self.assertIn(direction, prompt)
             self.assertLess(
                 prompt.index("AUTHOR'S DIRECTION"),
-                prompt.index("Return exactly two labeled parts"),
+                prompt.index("Return one concise 'Scene direction:'"),
             )
 
     def test_blank_author_direction_adds_no_extra_direction_section(self):
@@ -288,7 +288,7 @@ class ScenePreparationPromptTests(unittest.TestCase):
             self.assertIn("Latest saved in-story time: Day 1, 16:00", prompt)
             self.assertIn("The game continued with friendly conversation.", prompt)
             self.assertNotIn("This old opening situation must not be treated as current.", prompt)
-            self.assertIn("Return a concise Scene direction", prompt)
+            self.assertIn("Return one concise 'Scene direction:'", prompt)
             self.assertNotIn("Natural endpoint:", prompt)
             self.assertNotIn("STORY OPENING AND PACING", prompt)
             self.assertLess(len(scene_text), 6000)
