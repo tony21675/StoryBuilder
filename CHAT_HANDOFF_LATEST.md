@@ -88,3 +88,18 @@ StoryBuilder includes `backup_handoffs.py` and `builder/handoff_backup.py`. The 
 The diagnostic capture now joins Prepare Scene and manuscript generation for one prepared scene. It records the planner's exact input and raw generated direction, the final direction and additional author guidance present when Write is pressed, and the Writer's exact assembled input and prose response. Planner and Writer runtime sessions are labelled separately.
 
 The pending trace stays in memory until prose generation finishes, then replaces the one existing trace file locally and in the private trace repository. Retries for the same scene append to the same capture. Novel switches, a different scene destination, or an abandoned/failed planner result discard the pending capture rather than letting it cross into another scene. No writing behavior, model choices, or prompts were changed. Focused tests were added; CI verification is pending.
+
+
+## Reader-first working standard — November 9, 2026
+
+This is the author's current, preferred way to develop and evaluate the project. It supersedes earlier trial notes wherever their evaluation approach conflicts.
+
+- Review manuscript prose first as an ordinary reader, without looking at scene directions, planner output, prompts, or traces. Ask whether the story flows naturally from scene to scene, makes sense, and gives the reader people and events they can follow and care about.
+- Put the reader's experience ahead of the story's underlying "bone structure." Continuity matters when a reader can feel a contradiction, repetition, confusing transition, unearned character shift, or other break in immersion. Do not turn every scene into a structural audit.
+- A fictional story does not need every technical, scientific, logistical, or factual detail to be perfect. Allow imaginative license and ordinary imperfection. Correct a detail when it distracts or damages the reader's experience, not merely because it could be more exact.
+- Do not expect every scene to resolve a prescribed beat or end at a planned point. Let scenes have the length, focus, and ending that suit the story. The next scene should carry the story forward coherently from what actually happened.
+- Treat overwritten prose, repeated thematic ideas, rapid relationship progression, and similar tendencies as editorial observations. Fix only what materially weakens the reading experience; do not chase perfection.
+- Scene-direction adherence and trace inspection are separate diagnostic tasks. Use them when the author specifically asks to assess prompt execution or investigate a technical issue, not as the default way to judge whether a story works.
+- Do not make code, prompt, model, or workflow changes from a minor draft imperfection. Discuss a proposed change with the author first. Keep the one-change-at-a-time approach.
+
+The November 9 *Summer at Willow Bay* five-scene retest was also read independently, as if the reviewer had never seen the directions. The story was judged coherent and readable overall, with a clear progression from Mara's arrival as an outsider to growing involvement in Willow Bay and a developing connection with Noah. The most noticeable reader-facing continuity bump was Scene 5 briefly replaying the wagon being freed, already resolved in Scene 4. Other observations (some repeated thematic explanation, ornate prose, and a slightly quick increase in physical familiarity) were editorial refinements rather than failures of story flow. No forced endpoint should be reintroduced on the basis of this test. The novel is on hold after Scene 5 pending the author's next decision.
