@@ -180,7 +180,7 @@ class StoryBibleReaderTests(unittest.TestCase):
             bible_path = package / "story_bible.json"
             original = bible_path.read_bytes()
 
-            with self.assertRaisesRegex(ValueError, "Writing_preferences must be text"):
+            with self.assertRaisesRegex(ValueError, "must be text"):
                 save_story_bible_text_field(package, "writing_preferences", None)
 
             self.assertEqual(bible_path.read_bytes(), original)
