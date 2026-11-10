@@ -75,6 +75,10 @@ class StoryBibleApp:
         self._premise_editor_window: tk.Toplevel | None = None
         self._premise_editor_text: tk.Text | None = None
         self._loaded_setting: str | None = None
+        self._loaded_writing_preferences: str | None = None
+        self._writing_preferences_editing = False
+        self._writing_preferences_editor_window: tk.Toplevel | None = None
+        self._writing_preferences_editor_text: tk.Text | None = None
         self._loaded_creative_direction = dict(DEFAULT_CREATIVE_DIRECTION)
         self._creative_direction_editing = False
         self._creative_direction_editor_window: tk.Toplevel | None = None
@@ -270,7 +274,7 @@ class StoryBibleApp:
         # All tab content is placed inside the canvas window.
         parent = content
         parent.columnconfigure(0, weight=1)
-        parent.rowconfigure(11, weight=1)
+        parent.rowconfigure(12, weight=1)
 
         ttk.Label(
             parent, text="View Story Bible", font=("TkDefaultFont", 16, "bold")
@@ -389,8 +393,42 @@ class StoryBibleApp:
             row=1, column=0, sticky="w", pady=(8, 0)
         )
 
+        writing_preferences_frame = ttk.LabelFrame(
+            parent, text="How This Novel Should Read", padding=8
+        )
+        writing_preferences_frame.grid(row=8, column=0, sticky="ew", pady=(0, 10))
+        writing_preferences_frame.columnconfigure(0, weight=1)
+        self.writing_preferences_text = tk.Text(
+            writing_preferences_frame,
+            wrap="word",
+            height=4,
+            state="disabled",
+            undo=False,
+            padx=8,
+            pady=6,
+        )
+        self.writing_preferences_text.grid(row=0, column=0, sticky="ew")
+        self.edit_writing_preferences_button = ttk.Button(
+            writing_preferences_frame,
+            text="Edit Writing Preferences",
+            command=self.start_writing_preferences_edit,
+            state="disabled",
+        )
+        self.edit_writing_preferences_button.grid(
+            row=1, column=0, sticky="w", pady=(8, 0)
+        )
+        ttk.Label(
+            writing_preferences_frame,
+            text=(
+                "Optional. Describe the prose style and storytelling preferences for this novel "
+                "in your own words. Leave blank to add no extra guidance."
+            ),
+            foreground=self.colors["muted"],
+            wraplength=740,
+        ).grid(row=2, column=0, sticky="w", pady=(6, 0))
+
         canon_rules_frame = ttk.LabelFrame(parent, text="Canon Rules", padding=8)
-        canon_rules_frame.grid(row=8, column=0, sticky="ew", pady=(0, 10))
+        canon_rules_frame.grid(row=9, column=0, sticky="ew", pady=(0, 10))
         canon_rules_frame.columnconfigure(0, weight=1)
         self.canon_rules_text = tk.Text(
             canon_rules_frame,
@@ -420,7 +458,7 @@ class StoryBibleApp:
         ).grid(row=2, column=0, sticky="w", pady=(6, 0))
 
         character_cards_frame = ttk.LabelFrame(parent, text="Character Cards", padding=8)
-        character_cards_frame.grid(row=9, column=0, sticky="ew", pady=(0, 10))
+        character_cards_frame.grid(row=10, column=0, sticky="ew", pady=(0, 10))
         character_cards_frame.columnconfigure(0, weight=1)
         self.character_cards_text = tk.Text(
             character_cards_frame,
@@ -450,7 +488,7 @@ class StoryBibleApp:
         ).grid(row=2, column=0, sticky="w", pady=(6, 0))
 
         locations_frame = ttk.LabelFrame(parent, text="Locations", padding=8)
-        locations_frame.grid(row=10, column=0, sticky="ew", pady=(0, 10))
+        locations_frame.grid(row=11, column=0, sticky="ew", pady=(0, 10))
         locations_frame.columnconfigure(0, weight=1)
         self.locations_text = tk.Text(
             locations_frame,
@@ -480,7 +518,7 @@ class StoryBibleApp:
         ).grid(row=2, column=0, sticky="w", pady=(6, 0))
 
         viewer_frame = ttk.Frame(parent)
-        viewer_frame.grid(row=11, column=0, sticky="nsew")
+        viewer_frame.grid(row=12, column=0, sticky="nsew")
         viewer_frame.columnconfigure(0, weight=1)
         viewer_frame.rowconfigure(0, weight=1)
 
@@ -512,7 +550,7 @@ class StoryBibleApp:
             justify="left",
             wraplength=760,
         )
-        status_label.grid(row=12, column=0, sticky="ew", pady=(8, 0))
+        status_label.grid(row=13, column=0, sticky="ew", pady=(8, 0))
 
     def _view_canvas_contains_pointer(self, event) -> bool:
         canvas = self._view_canvas
@@ -672,10 +710,18 @@ class StoryBibleApp:
         setting = data.get("setting", "")
         self._loaded_setting = setting if isinstance(setting, str) else None
         self._set_setting_text(setting if isinstance(setting, str) else "")
+        writing_preferences = data.get("writing_preferences", "")
+        self._loaded_writing_preferences = (
+            writing_preferences if isinstance(writing_preferences, str) else None
+        )
+        self._set_writing_preferences_text(
+            writing_preferences if isinstance(writing_preferences, str) else ""
+        )
         self._load_creative_direction_from_data(data)
         self._set_story_bible_text(formatted)
         self._set_premise_controls(editable=False)
         self._set_setting_controls(editable=False)
+        self._set_writing_preferences_controls(editable=False)
         self._load_canon_rules_from_data(data)
         self._load_character_cards_from_data(data)
         self._load_locations_from_data(data)
@@ -1279,6 +1325,8 @@ class StoryBibleApp:
             self._finish_premise_edit()
         if self._setting_editing:
             self._finish_setting_edit()
+        if self._writing_preferences_editing:
+            self._finish_writing_preferences_edit()
         if self._canon_rules_editing:
             self._finish_canon_rules_edit()
         if self._character_cards_managing:
@@ -1297,6 +1345,11 @@ class StoryBibleApp:
         self._setting_editing = False
         self._set_setting_text("")
         self._set_setting_controls(editable=False)
+        self._loaded_writing_preferences = None
+        self._writing_preferences_editing = False
+        if hasattr(self, "writing_preferences_text"):
+            self._set_writing_preferences_text("")
+            self._set_writing_preferences_controls(editable=False)
         self._loaded_creative_direction = dict(DEFAULT_CREATIVE_DIRECTION)
         if hasattr(self, "creative_direction_text"):
             self._set_creative_direction_preview("Choose a novel and load its Story Bible.")
