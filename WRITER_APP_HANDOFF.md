@@ -1,6 +1,6 @@
 # Writer App handoff
 
-**Updated:** November 9, 2026  
+**Updated:** November 10, 2026  
 **Application:** StoryBuilder Minimal Writer  
 **Repository:** `tony21675/StoryBuilder`  
 **Active/default branch:** `redesign/simplified-writing-workflow`  
@@ -256,3 +256,17 @@ Stylistic tendencies such as overwritten description, repeated thematic explanat
 Trace inspection and direction-adherence analysis remain useful, but they are separate diagnostic modes. Use them when the author asks how a prompt or workflow behaved, or when a technical issue needs investigation. Do not let technical diagnostics override the default reader-only review.
 
 The five-scene *Summer at Willow Bay* retest was reviewed in reader-only mode. Overall, the story flowed coherently from Mara's arrival through her growing involvement in Willow Bay and her developing connection with Noah. The clearest reader-facing continuity blemish was Scene 5 replaying the wagon being freed after Scene 4 had already resolved it. Repeated thematic explanation, ornate prose, and somewhat quick physical familiarity were lesser editorial observations. The test supports keeping scene endings flexible; it does not justify restoring forced endpoints. No code or prompt changes were approved by this review.
+
+
+## Selected-novel writing preferences — implemented November 10, 2026
+
+Before manuscript generation, the Writer reads the `writing_preferences` field from the currently selected novel's `story_bible.json`. If it contains non-empty text, that text is appended under **HOW THIS NOVEL SHOULD READ** as flexible, novel-specific creative guidance.
+
+- Applies to manuscript generation flows that use the shared creative-direction context, including Write/Continue/Rewrite and passage revision.
+- Only the currently selected novel's value is used. Switching novels switches the preferences; one novel's value is not reused for another.
+- The Planner / Prepare Scene prompt is not changed by this feature.
+- Existing novels without this field continue to work and receive no additional writing-preference guidance.
+- An empty field adds no extra style guidance.
+- The preference is author-written and stored in the novel's own Story Bible. No style is hard-coded globally.
+
+**Verification:** Both GitHub Actions workflows passed on commit `4fbeea85d80d95dbe125b5c18f2415e5b8584e49`: [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/42783731649) report 714 passed and 77 subtests passed; [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/42783731793) report 714 tests passed. Local pull and live laptop testing remain pending.
