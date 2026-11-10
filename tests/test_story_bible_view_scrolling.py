@@ -61,8 +61,9 @@ class StoryBibleViewScrollingTests(unittest.TestCase):
                 grid_rows[receiver.id] = row
 
         self.assertEqual(grid_rows.get("creative_direction_frame"), 7)
-        self.assertEqual(grid_rows.get("viewer_frame"), 11)
-        self.assertEqual(grid_rows.get("status_label"), 12)
+        self.assertEqual(grid_rows.get("writing_preferences_frame"), 8)
+        self.assertEqual(grid_rows.get("viewer_frame"), 12)
+        self.assertEqual(grid_rows.get("status_label"), 13)
 
     def make_app(self):
         app = object.__new__(StoryBibleApp)
