@@ -1136,6 +1136,9 @@ class MinimalWriterTests(unittest.TestCase):
             app.scene_var = FakeVar("Scene 07")
             app._prepared_scene_destination = (2, 7)
             app._prepared_scene_novel_path = root
+            app._prepared_author_required_direction = (
+                "Have Tony open and read Sarah's letter in this scene."
+            )
             app._pending_scene_prompt_trace = trace
             app.prompt_box = FakePromptBox(
                 "Scene direction: The author made a final adjustment."
@@ -1159,6 +1162,10 @@ class MinimalWriterTests(unittest.TestCase):
             self.assertEqual(
                 trace.events[0][1]["final_author_guidance"],
                 "Keep the moment understated.",
+            )
+            self.assertEqual(
+                trace.events[0][1]["final_author_required_direction"],
+                "Have Tony open and read Sarah's letter in this scene.",
             )
 
     def test_prompt_trace_is_armed_for_one_scene_and_finished_locally(self):
@@ -1496,7 +1503,7 @@ class AuthorRequiredDirectionPromptTests(unittest.TestCase):
         self.assertIn("Have Tony open and read Sarah's letter in this scene.", prompt)
         self.assertIn("AUTHOR PRIORITY: REQUIRED EVENTS AND BEATS", prompt)
         self.assertIn("must actually happen in this scene", prompt)
-        self.assertIn("do not merely mention it", prompt)
+        self.assertIn("do not merely mention it", prompt.casefold())
         self.assertIn("do not defer it to a later scene", prompt)
         self.assertIn("QWEN'S ADDITIONAL BEATS", prompt)
         self.assertIn("must never replace, weaken, or delay them", prompt)
