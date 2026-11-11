@@ -186,3 +186,9 @@ The original direction is retained in memory for the matching prepared novel/Cha
 The planner-to-writer trace remains active and unchanged in its upload flow. The trace now also records the final original author-required direction sent to the Writer. The assembled Writer prompt includes both the original required direction and Qwen's beat plan before it is traced, saved locally, and uploaded to the existing private GitHub trace repository. The uploader still keeps only the latest trace and retains the local copy if upload fails.
 
 **Regression coverage added:** Planner instructions distinguish required author beats from any number of Qwen additions; the original direction survives planner retries; the Writer receives and prioritizes the original direction; prepared directions are scoped to the matching novel and scene; and the trace records the original required direction.
+
+**Automated verification:** Both workflows passed on source/test commit `38be429bf89a7947262d6795b327f4b88f871f31`:
+- [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/42996117903): 722 tests passed.
+- [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/42996117774): 722 passed and 77 subtests passed.
+
+The author's local pull and live Writer test are still pending.
