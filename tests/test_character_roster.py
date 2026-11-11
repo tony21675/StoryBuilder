@@ -82,8 +82,11 @@ class CharacterRosterPromptTests(unittest.TestCase):
         self.assertIn("where the scene ends to the Writer", prompt)
         self.assertIn("[Daniel]", prompt)
         self.assertIn("[Morgan]", prompt)
-        self.assertNotIn("[Elena]", prompt)
-        self.assertNotIn("[Priya]", prompt)
+        # Prepare Scene receives all character cards for broader story awareness.
+        # This is reference context, not an instruction to include everyone.
+        self.assertIn("[Elena]", prompt)
+        self.assertIn("[Priya]", prompt)
+        self.assertIn("not a cast checklist", prompt)
 
     def test_write_context_receives_a_short_roster_for_the_selected_novel(self):
         with tempfile.TemporaryDirectory() as temporary:
