@@ -41,4 +41,4 @@ The app does not turn novel facts into global Writer rules. Character cards, rel
 
 ## Verification
 
-The latest StoryBuilder branch head inspected for this cleanup is `175fc97e9b4e63e48596132a9ea4a573a64eb28c`. Both shared-repository GitHub Actions workflows passed on that commit; see the links in `WRITER_APP_HANDOFF.md`. This is CI evidence, not a claim that every local computer has pulled or tested the latest revision.
+The handoff-backup cleanup and its regression tests passed both shared-repository GitHub Actions workflows on commit `a27bf9773095248e97d2b114cdc4c3c06257214b`; current workflow links are in `WRITER_APP_HANDOFF.md`. This is CI evidence, not a claim that every local computer has pulled or tested the latest revision.
