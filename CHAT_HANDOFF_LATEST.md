@@ -171,3 +171,18 @@ The manuscript Writer adds a **ONE-SCENE SCOPE** to every Write, Continue, and R
 The planner-to-writer diagnostic trace is unchanged and remains enabled by default. The final scoped Writer prompt is included in the captured prompt because the scope is added before trace setup. Existing local trace saving and upload to the private, single-file GitHub trace repository remain in place; each generation attempt finishes and uploads the latest `prompt_trace.json`, replacing the previous latest trace rather than building repository history. Upload failures still leave the local trace available.
 
 **Verification:** Focused regression tests were added for planner scope, Writer scope, and the selected scene destination. GitHub Actions verification and the author's local pull/live test are pending.
+
+## Author-required beats and Qwen-selected additions — implemented November 11, 2026
+
+Prepare Scene now asks Qwen to produce a scene direction with two clearly separated beat groups:
+
+- **AUTHOR-REQUIRED BEATS:** Every concrete event, action, or moment explicitly requested in the author's direction. Qwen must preserve all of them as required in the selected scene; it cannot omit, soften, replace, or defer them.
+- **QWEN-SELECTED ADDITIONAL BEATS:** Qwen uses its own storytelling judgment to choose any number, including none. There is no quota or cap, and it should not pad a scene just to add beats.
+
+The Writer receives the original Author's Direction separately from Qwen's summary. This is deliberate redundancy: Gemma must enact the original author-requested events in the current scene even if Qwen accidentally omits or weakens one in its summary. Qwen's own additional beats are carried into the prose naturally, but cannot displace or delay the author's required events.
+
+The original direction is retained in memory for the matching prepared novel/Chapter/Scene, including when Prepare Scene is retried after the visible Author's Direction box has been cleared. It is discarded when the author switches novels or scenes, or saves the new scene, so it cannot leak into another destination.
+
+The planner-to-writer trace remains active and unchanged in its upload flow. The trace now also records the final original author-required direction sent to the Writer. The assembled Writer prompt includes both the original required direction and Qwen's beat plan before it is traced, saved locally, and uploaded to the existing private GitHub trace repository. The uploader still keeps only the latest trace and retains the local copy if upload fails.
+
+**Regression coverage added:** Planner instructions distinguish required author beats from any number of Qwen additions; the original direction survives planner retries; the Writer receives and prioritizes the original direction; prepared directions are scoped to the matching novel and scene; and the trace records the original required direction.
