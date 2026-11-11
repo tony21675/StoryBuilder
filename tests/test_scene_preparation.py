@@ -164,7 +164,7 @@ class ScenePreparationPromptTests(unittest.TestCase):
             )
 
         self.assertIn("ESTABLISHED LOCATION REFERENCES FROM THIS NOVEL'S STORY BIBLE", prompt)
-        self.assertIn("not a closed location list", prompt)
+        self.assertIn("not a restriction on creative invention", prompt)
         self.assertIn("Supply Closet", prompt)
         self.assertIn("Recreation Room", prompt)
         self.assertIn("A simple recreation space.", prompt)
