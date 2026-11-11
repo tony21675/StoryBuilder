@@ -331,3 +331,9 @@ The original direction is retained for the matching prepared novel/Chapter/Scene
 **Trace preservation:** No trace or uploader behavior was removed. The final original author-required direction is recorded in the planner-to-writer trace event. The fully assembled Writer prompt (including the original direction, Qwen's output, and scene scope) is captured by the existing trace, saved locally, and uploaded after the generation attempt to the existing private, single-file GitHub trace repository. The latest-trace-only repository behavior and local-copy retention on upload failure remain unchanged.
 
 **Regression coverage added:** author-priority prompt text; Qwen's uncapped optional number of additions; persistence of author-required events across retries; matching novel/scene scoping; Writer prompt inclusion; and trace-event capture.
+
+**Automated verification:** Both workflows passed on source/test commit `38be429bf89a7947262d6795b327f4b88f871f31`:
+- [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/42996117903): 722 tests passed.
+- [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/42996117774): 722 passed and 77 subtests passed.
+
+The author's local pull and live Writer test are still pending.
