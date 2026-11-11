@@ -44,6 +44,28 @@ def _relationships_text(value: Any) -> str:
     return _clean(value, 300)
 
 
+def _reference_value_text(value: Any, *, depth: int = 0) -> str:
+    """Render populated character-card values, including nested/custom fields."""
+    if depth > 5 or value is None:
+        return ""
+    if isinstance(value, dict):
+        entries = []
+        for key, nested in value.items():
+            rendered = _reference_value_text(nested, depth=depth + 1)
+            if rendered:
+                label = str(key).replace("_", " ").strip().title()
+                entries.append(f"{label}: {rendered}")
+        return "; ".join(entries)
+    if isinstance(value, list):
+        return "; ".join(
+            rendered
+            for item in value
+            if (rendered := _reference_value_text(item, depth=depth + 1))
+        )
+    rendered = _clean(value, 2200)
+    return rendered
+
+
 def _name_is_mentioned(name: str, text: str) -> bool:
     parts = [part for part in name.strip().split() if part]
     candidates = {name.strip()}
@@ -69,6 +91,7 @@ def build_character_card_context_prompt(
     supporting_text: str = "",
     include_all: bool = False,
     compact: bool = False,
+    comprehensive: bool = False,
 ) -> str:
     """Append relevant character references, with a lean mode for manuscript writing."""
     entries = story_bible.get("character_cards", [])
@@ -125,7 +148,12 @@ def build_character_card_context_prompt(
             )
 
     if selected:
-        if compact:
+        if comprehensive:
+            lines.extend([
+                "COMPLETE CHARACTER CARD REFERENCES",
+                "All populated fields from these cards are included as story reference. Preserve established facts, but do not treat the roster as a cast checklist or force every character into every scene. Use recorded expertise and experience accurately; interests and hobbies are not automatically professional qualifications.",
+            ])
+        elif compact:
             lines.extend([
                 "BRIEF CHARACTER REFERENCES",
                 "Short factual reminders for the named characters. Use them when helpful; they are not a checklist. Use each character's recorded gender for pronouns; never infer gender from a name. If gender is not recorded, avoid assuming.",
@@ -140,6 +168,15 @@ def build_character_card_context_prompt(
     for card in selected:
         name = _clean(card.get("name"), 100)
         lines.append(f"\n[{name}]")
+        if comprehensive:
+            for field, value in card.items():
+                if field == "name":
+                    continue
+                rendered = _reference_value_text(value)
+                if rendered:
+                    label = str(field).replace("_", " ").strip().title()
+                    lines.append(f"{label}: {rendered}")
+            continue
         if compact:
             for field, label in (
                 ("age", "Age"),
