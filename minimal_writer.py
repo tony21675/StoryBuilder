@@ -236,6 +236,41 @@ def build_rewrite_scene_prompt(scene_prompt: str, author_direction: str = "") ->
     )
 
 
+def build_author_required_direction_prompt(
+    prompt: str,
+    author_direction: str,
+) -> str:
+    """Carry the author's original requested events into the Writer as mandatory."""
+    original = str(prompt or "").rstrip()
+    direction = str(author_direction or "").strip()
+    if not direction:
+        return original
+    if direction in original:
+        direction_reference = (
+            "The original direction is already included above. Use that exact text as "
+            "the authoritative source; do not reinterpret it as optional."
+        )
+    else:
+        direction_reference = "ORIGINAL AUTHOR'S DIRECTION\n" + direction
+
+    requirements = (
+        "AUTHOR PRIORITY: REQUIRED EVENTS AND BEATS\n"
+        + direction_reference
+        + "\n\nEvery concrete event, action, or moment the author explicitly requests "
+        "must actually happen in this scene. Do not merely mention it, imply it happened "
+        "off-page, substitute another event, omit it, or defer it to a later scene. "
+        "The original author direction remains authoritative even if the Planner's "
+        "summary leaves something out or phrases it weakly. Preserve the author's other "
+        "stated boundaries and preferences too.\n\n"
+        "QWEN'S ADDITIONAL BEATS\n"
+        "Use the additional beats Qwen selected in the scene direction as creative "
+        "additions. Weave them in naturally where they strengthen the scene. They may "
+        "enrich the author's required events, but must never replace, weaken, or delay "
+        "them. Do not invent a quota or pad the scene with extra beats."
+    )
+    return f"{original}\n\n{requirements}" if original else requirements
+
+
 def build_single_scene_scope_prompt(
     prompt: str,
     chapter_number: int | None = None,
@@ -432,6 +467,8 @@ class MinimalWriterApp:
         self._prepared_scene_destination: tuple[int, int] | None = None
         self._prepared_scene_novel_path: Path | None = None
         self._prepared_scene_source_scene_path: Path | None = None
+        self._prepared_author_required_direction = ""
+        self._scene_preparation_required_author_direction = ""
         self._pending_scene_prompt_trace = None
         self._active_scene_preparation_trace = None
         self._preparing_scene = False
@@ -1419,6 +1456,7 @@ class MinimalWriterApp:
         self._scene_preparation_destination = None
         self._scene_preparation_original_prompt = ""
         self._scene_preparation_original_author_direction = ""
+        self._scene_preparation_required_author_direction = ""
         self._scene_preparation_novel_path = None
         self._scene_preparation_source_scene_path = None
         self._preparing_scene = False
@@ -1541,6 +1579,7 @@ class MinimalWriterApp:
         self._prepared_scene_destination = None
         self._prepared_scene_novel_path = None
         self._prepared_scene_source_scene_path = None
+        self._prepared_author_required_direction = ""
 
     def _on_scene_selected(self, _event=None) -> None:
         """Discard a pending retry target when the author selects another scene."""
@@ -1802,6 +1841,22 @@ class MinimalWriterApp:
             ),
         )
         existing_prompt = self.prompt_box.get("1.0", "end-1c")
+        visible_author_direction = self.author_direction_box.get(
+            "1.0", "end-1c"
+        ).strip()
+        prior_required_direction = (
+            str(getattr(self, "_prepared_author_required_direction", "") or "").strip()
+            if is_retry else ""
+        )
+        if prior_required_direction and visible_author_direction:
+            author_direction = prior_required_direction
+            if visible_author_direction not in prior_required_direction:
+                author_direction += (
+                    "\n\nAdditional author direction for this scene:\n"
+                    + visible_author_direction
+                )
+        else:
+            author_direction = prior_required_direction or visible_author_direction
         try:
             planning_prompt = build_scene_preparation_prompt(
                 novel_path,
@@ -1809,9 +1864,7 @@ class MinimalWriterApp:
                 target_chapter,
                 target_scene,
                 source_scene_path=source_scene,
-                author_direction=self.author_direction_box.get(
-                    "1.0", "end-1c"
-                ).strip(),
+                author_direction=author_direction,
                 previous_direction=existing_prompt if is_retry else None,
             )
         except (OSError, UnicodeError, ValueError) as exc:
@@ -1850,9 +1903,7 @@ class MinimalWriterApp:
                 chapter_number=target_chapter,
                 scene_number=target_scene,
                 scene_direction=existing_prompt,
-                author_guidance=self.author_direction_box.get(
-                    "1.0", "end-1c"
-                ).strip(),
+                author_guidance=author_direction,
             )
         self._active_scene_preparation_trace = planner_trace
         if planner_trace is not None:
@@ -1862,15 +1913,15 @@ class MinimalWriterApp:
                 target_scene=target_scene,
                 retry=bool(is_retry),
                 source_scene=Path(source_scene).name if source_scene else None,
+                author_direction=author_direction,
             )
 
         self._scene_preparation_destination = (target_chapter, target_scene)
         self._scene_preparation_novel_path = novel_path
         self._scene_preparation_source_scene_path = source_scene
         self._scene_preparation_original_prompt = existing_prompt
-        self._scene_preparation_original_author_direction = (
-            self.author_direction_box.get("1.0", "end-1c").strip()
-        )
+        self._scene_preparation_original_author_direction = visible_author_direction
+        self._scene_preparation_required_author_direction = author_direction
         self._preparing_scene = True
         self.busy = True
         self.writing = True
@@ -1998,6 +2049,9 @@ class MinimalWriterApp:
         self._prepared_scene_source_scene_path = (
             self._scene_preparation_source_scene_path
         )
+        self._prepared_author_required_direction = str(
+            getattr(self, "_scene_preparation_required_author_direction", "") or ""
+        ).strip()
         if trace is not None:
             trace.data["inputs"]["scene_direction"] = suggestion.strip()
             trace.record_event(
@@ -2431,6 +2485,44 @@ class MinimalWriterApp:
             if getattr(self, attribute, None) is trace:
                 setattr(self, attribute, None)
 
+    def _prepared_author_required_direction_for_current_scene(self) -> str:
+        """Return required author direction only for its matching novel and scene."""
+        direction = str(
+            getattr(self, "_prepared_author_required_direction", "") or ""
+        ).strip()
+        if not direction:
+            return ""
+
+        novel_name = getattr(
+            getattr(self, "novel_var", None), "get", lambda: ""
+        )().strip()
+        novel_path = getattr(self, "novel_packages", {}).get(novel_name)
+        prepared_path = getattr(self, "_prepared_scene_novel_path", None)
+        chapter_label = getattr(
+            getattr(self, "chapter_var", None), "get", lambda: ""
+        )().strip()
+        chapter_number = getattr(self, "chapter_numbers", {}).get(chapter_label)
+        scene_number = scene_number_from_label(
+            getattr(getattr(self, "scene_var", None), "get", lambda: "")()
+        )
+        destination = getattr(self, "_prepared_scene_destination", None)
+        if (
+            novel_path is None
+            or prepared_path is None
+            or chapter_number is None
+            or scene_number is None
+            or destination != (int(chapter_number), int(scene_number))
+        ):
+            return ""
+        try:
+            same_novel = (
+                Path(novel_path).expanduser().resolve()
+                == Path(prepared_path).expanduser().resolve()
+            )
+        except (OSError, TypeError, ValueError):
+            return ""
+        return direction if same_novel else ""
+
     def _claim_prepared_scene_prompt_trace(self, mode: str):
         """Reuse the planner trace only for the same novel and prepared scene."""
         trace = getattr(self, "_pending_scene_prompt_trace", None)
@@ -2495,6 +2587,9 @@ class MinimalWriterApp:
             generation_mode=str(mode),
             final_scene_direction=final_direction,
             final_author_guidance=final_author_guidance,
+            final_author_required_direction=(
+                self._prepared_author_required_direction_for_current_scene()
+            ),
         )
         return trace
 
@@ -2633,6 +2728,20 @@ class MinimalWriterApp:
             getattr(self, "scene_var", None), "get", lambda: ""
         )()
         scene_number = scene_number_from_label(scene_label)
+        prepared_author_direction = (
+            self._prepared_author_required_direction_for_current_scene()
+        )
+        visible_author_direction = getattr(
+            getattr(self, "author_direction_box", None), "get", lambda *_args: ""
+        )("1.0", "end-1c").strip()
+        required_directions = []
+        for direction in (prepared_author_direction, visible_author_direction):
+            if direction and direction not in required_directions:
+                required_directions.append(direction)
+        author_required_direction = "\n\n".join(required_directions)
+        prompt = build_author_required_direction_prompt(
+            prompt, author_required_direction
+        )
         prompt = build_single_scene_scope_prompt(
             prompt, chapter_number=chapter_number, scene_number=scene_number
         )
@@ -2657,7 +2766,10 @@ class MinimalWriterApp:
         prompt_trace = self._claim_prepared_scene_prompt_trace(mode)
         if prompt_trace is None:
             prompt_trace = self._start_prompt_trace(
-                prompt, model_path=writer_model, attach=False
+                prompt,
+                model_path=writer_model,
+                attach=False,
+                author_guidance=author_required_direction,
             )
         if mode == "continue":
             self._generation_prefix = continuation_prefix(self._pre_generation_text)
