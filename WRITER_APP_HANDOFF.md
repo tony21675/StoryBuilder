@@ -341,10 +341,10 @@ The author's local pull and live Writer test are still pending.
 ## Expanded Prepare Scene Planner context — November 11, 2026
 
 **Implemented:** Planner-only context expansion and beat-classification clarification.  
-**Verification:** Both GitHub Actions workflows passed on commit `714942935328836410a9efcb67f297ba72527f6f`: [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/43032005816) report 723 tests passed; [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/43032005782) report 723 passed and 77 subtests passed. Local pull and live Qwen test are pending.
+**Verification:** Both GitHub Actions workflows passed on commit `f6953d89ed4b0415b5a2689a85da4a27491b42bf`: [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/43032926646) report 723 tests passed; [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/43032926598) report 723 passed and 77 subtests passed. Local pull and live Qwen test are pending.
 
 Prepare Scene now gives Qwen:
-- Every registered character card in detailed reference form, regardless of which names appear in the current direction or previous scene.
+- Every registered character card with every populated field, including custom and nested fields (appearance, relationships, school details, goals, strengths, weaknesses, social details, story-role notes, and knowledge rules), regardless of which names appear in the current direction or previous scene.
 - All Story Bible canon-rule and relationship entries, expanded premise and setting context, and all saved location names/details as non-restrictive background references.
 - Explicit guidance to preserve households, residences, exact relationships, occupations and work-time markers, and ownership/wearing/carrying of important possessions. Chosen-family language must not be mistaken for literal parentage or co-residence. Domestic scenes should distinguish residents from visitors.
 - Explicit time semantics: preserve the author's intended report/arrival time, meeting time, and shift start/end rather than silently reinterpreting them.
