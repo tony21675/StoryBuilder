@@ -77,8 +77,8 @@ The Planner-to-Writer trace is an essential diagnostic and must remain active.
 
 ## Verification
 
-The handoff-backup cleanup and its regression tests passed both GitHub Actions workflows on commit `a27bf9773095248e97d2b114cdc4c3c06257214b`:
-- [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/43115300172)
-- [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/43115300116)
+The handoff-backup cleanup and consolidated handoff set passed both GitHub Actions workflows on the latest StoryBuilder handoff revision, commit `398d8a9bc67440b6feb0e8711f088f877ad48d0d`:
+- [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/43116818275)
+- [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/43116818292)
 
 The tests cover the canonical app/novel handoff mirror, removal of only the two retired duplicate paths, and preservation of secret-letter references and other unrelated local files. CI success does not claim every computer has pulled or locally tested this revision.
