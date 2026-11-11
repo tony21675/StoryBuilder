@@ -8,7 +8,10 @@ from typing import Any
 from builder.creative_direction import build_creative_direction_prompt
 from builder.odt_document import read_document
 from builder.story_bible_reader import load_story_bible
-from builder.character_context import (\n    build_character_card_context_prompt,\n    build_story_bible_reference_context,\n)
+from builder.character_context import (
+    build_character_card_context_prompt,
+    build_story_bible_reference_context,
+)
 from builder.story_timeline import build_story_timeline_prompt
 
 
