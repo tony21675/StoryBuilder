@@ -12,7 +12,7 @@ from builder.creative_direction import build_creative_direction_prompt
 from builder.writer_engine import GenerationInterrupted, WriterEngine
 from builder.workspace import MODELS_DIR, NOVEL_ROOT
 from builder.continuity_context import select_relevant_locations
-from builder.character_context import build_character_card_context_prompt
+from builder.character_context import (\n    build_character_card_context_prompt,\n    build_story_bible_reference_context,\n)
 from builder.story_bible_reader import load_story_bible
 from builder.story_timeline import build_story_timeline_prompt
 from builder.scene_preparation import (
@@ -2240,6 +2240,10 @@ class MinimalWriterApp:
             current_state = {}
 
         context_parts = [str(prompt or "").rstrip()]
+        story_reference = build_story_bible_reference_context(story_bible)
+        if story_reference:
+            context_parts.append(story_reference)
+
         timeline_note = build_story_timeline_prompt(
             current_state.get("time_of_day")
         )
@@ -2252,6 +2256,19 @@ class MinimalWriterApp:
             if len(situation) > 600:
                 situation = situation[:597].rsplit(" ", 1)[0].rstrip() + "…"
             context_parts.append("CURRENT STORY SITUATION\n" + situation)
+
+        continuity_notes = current_state.get("continuity_notes")
+        if isinstance(continuity_notes, list):
+            notes = [
+                " ".join(str(note).split())[:500]
+                for note in continuity_notes
+                if isinstance(note, str) and note.strip()
+            ][:6]
+            if notes:
+                context_parts.append(
+                    "CURRENT CONTINUITY NOTES\n"
+                    + "\n".join(f"- {note}" for note in notes)
+                )
 
         character_supporting_text = str(supporting_text or "")
         scene_cast = current_state.get("scene_cast", [])

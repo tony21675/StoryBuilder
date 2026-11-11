@@ -142,12 +142,16 @@ def build_character_card_context_prompt(
         lines.append(f"\n[{name}]")
         if compact:
             for field, label in (
+                ("age", "Age"),
                 ("gender", "Gender"),
+                ("relationship_status", "Relationship status"),
                 ("role", "Role"),
                 ("occupation", "Occupation / department"),
                 ("department", "Department"),
             ):
                 value = _clean(card.get(field), 160)
+                if field == "relationship_status" and not value:
+                    value = "Not established"
                 if value:
                     lines.append(f"{label}: {value}")
 
@@ -222,3 +226,54 @@ def build_character_card_context_prompt(
     context = "\n".join(lines)
     prefix = str(prompt or "").rstrip()
     return f"{prefix}\n\n{context}" if prefix else context
+
+
+
+def build_story_bible_reference_context(
+    story_bible: dict[str, Any], *, include_preferences: bool = False
+) -> str:
+    """Pass the novel's small canon and relationship reference to the writing model."""
+    if not isinstance(story_bible, dict):
+        return ""
+
+    sections: list[str] = []
+
+    rules = story_bible.get("canon_rules")
+    if isinstance(rules, str) and rules.strip():
+        rules = [rules]
+    if isinstance(rules, list):
+        entries = [
+            _clean(rule, 700)
+            for rule in rules
+            if isinstance(rule, str) and rule.strip()
+        ][:12]
+        if entries:
+            sections.append(
+                "FIXED CANON (preserve these facts; they are not a scene checklist)\n"
+                + "\n".join(f"- {entry}" for entry in entries)
+            )
+
+    relationships = story_bible.get("relationships")
+    if isinstance(relationships, dict):
+        entries = []
+        for name, description in list(relationships.items())[:16]:
+            key = _clean(name, 100)
+            value = _clean(description, 650)
+            if key and value:
+                entries.append(f"{key}: {value}")
+        if entries:
+            sections.append(
+                "ESTABLISHED RELATIONSHIPS (factual reference, not an instruction "
+                "to put everyone in every scene)\n"
+                + "\n".join(entries)
+            )
+
+    if include_preferences:
+        preferences = story_bible.get("writing_preferences")
+        if isinstance(preferences, str) and preferences.strip():
+            sections.append(
+                "AUTHOR'S OVERALL STORY APPROACH (flexible creative guidance)\n"
+                + preferences.strip()
+            )
+
+    return "\n\n".join(sections)

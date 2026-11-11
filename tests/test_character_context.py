@@ -106,6 +106,43 @@ class CharacterCardContextTests(unittest.TestCase):
         self.assertNotIn("relationships", prompt.casefold())
         self.assertNotIn("[Chloe]", prompt)
 
+
+    def test_compact_mode_preserves_age_and_relationship_status(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            bible = {
+                "character_cards": [
+                    {"name": "Tiffany", "age": 18, "relationship_status": "Single"},
+                    {"name": "Maya", "age": 18, "relationship_status": ""},
+                ]
+            }
+
+            prompt = build_character_card_context_prompt(
+                root, bible, "", include_all=True, compact=True
+            )
+
+        self.assertIn("Age: 18", prompt)
+        self.assertIn("Relationship status: Single", prompt)
+        self.assertIn("Relationship status: Not established", prompt)
+
+
+    def test_story_bible_reference_context_includes_authored_reference_data(self):
+        from builder.character_context import build_story_bible_reference_context
+
+        bible = {
+            "canon_rules": ["Tiffany is 18.", "Tony and Tiffany are father and daughter."],
+            "relationships": {"Tony-Sarah": "Sarah is deceased."},
+            "writing_preferences": "Let Chapter One take its time.",
+        }
+
+        prompt = build_story_bible_reference_context(bible, include_preferences=True)
+
+        self.assertIn("FIXED CANON", prompt)
+        self.assertIn("Tiffany is 18.", prompt)
+        self.assertIn("Tony-Sarah: Sarah is deceased.", prompt)
+        self.assertIn("Let Chapter One take its time.", prompt)
+        self.assertIn("not an instruction to put everyone in every scene", prompt)
+
     def test_unmentioned_character_cards_add_roster_without_detailed_profiles(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

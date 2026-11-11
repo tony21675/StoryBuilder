@@ -8,7 +8,7 @@ from typing import Any
 from builder.creative_direction import build_creative_direction_prompt
 from builder.odt_document import read_document
 from builder.story_bible_reader import load_story_bible
-from builder.character_context import build_character_card_context_prompt
+from builder.character_context import (\n    build_character_card_context_prompt,\n    build_story_bible_reference_context,\n)
 from builder.story_timeline import build_story_timeline_prompt
 
 
@@ -170,6 +170,12 @@ def build_scene_preparation_prompt(
     if setting:
         sections.append(f"Setting: {setting}")
 
+    story_reference = build_story_bible_reference_context(
+        story_bible, include_preferences=True
+    )
+    if story_reference:
+        sections.append(story_reference)
+
     creative_direction = build_creative_direction_prompt(
         story_bible.get("creative_direction")
     )
@@ -185,6 +191,18 @@ def build_scene_preparation_prompt(
         situation = _clean_text(current_state.get("current_situation"), limit=600)
         if situation:
             sections.append("CURRENT STORY SITUATION\n" + situation)
+
+        continuity_notes = current_state.get("continuity_notes")
+        if isinstance(continuity_notes, list):
+            notes = [
+                _clean_text(note, limit=500)
+                for note in continuity_notes
+                if isinstance(note, str) and note.strip()
+            ][:6]
+            if notes:
+                sections.append(
+                    "CURRENT CONTINUITY NOTES\n" + "\n".join(f"- {note}" for note in notes)
+                )
 
         locations = current_state.get("location")
         if isinstance(locations, dict):

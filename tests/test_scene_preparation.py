@@ -30,6 +30,8 @@ class ScenePreparationPromptTests(unittest.TestCase):
                 "explicit_adult_content": False,
             },
             "canon_rules": ["The harbor pilot does not leave the harbor during winter storms."],
+            "relationships": {"Mara-Jonah": "Longtime friends and colleagues."},
+            "writing_preferences": "Let Chapter One take its time and introduce the people before the mystery escalates.",
             "character_cards": ["Mara.json", "Jonah.json", "Private_Detail.json"],
         }
         (root / "story_bible.json").write_text(
@@ -85,9 +87,9 @@ class ScenePreparationPromptTests(unittest.TestCase):
             self.assertIn("This is the opening scene; no previous scene has been saved.", prompt)
             self.assertNotIn("PREVIOUS SCENE CONTINUITY", prompt)
             self.assertIn("A small coastal town faces an unexpected change.", prompt)
-            self.assertNotIn("CANON RULES", prompt)
+            self.assertIn("FIXED CANON", prompt)
             self.assertIn("A working harbor in the present day.", prompt)
-            self.assertNotIn("The harbor pilot does not leave the harbor during winter storms.", prompt)
+            self.assertIn("The harbor pilot does not leave the harbor during winter storms.", prompt)\n            self.assertIn("Mara-Jonah: Longtime friends and colleagues.", prompt)\n            self.assertIn("Let Chapter One take its time", prompt)
             self.assertNotIn("Private_Detail.json", prompt)
             self.assertIn("Genres: Mystery, Comedy", prompt)
             self.assertIn("Mystery guidance:", prompt)
@@ -234,7 +236,7 @@ class ScenePreparationPromptTests(unittest.TestCase):
             self.assertNotIn("[Private Detail]", prompt)
             self.assertNotIn("This should not be copied", prompt)
             self.assertNotIn("Private knowledge should stay out", prompt)
-            self.assertNotIn("The harbor pilot does not leave the harbor during winter storms.", prompt)
+            self.assertIn("The harbor pilot does not leave the harbor during winter storms.", prompt)\n            self.assertIn("Mara-Jonah: Longtime friends and colleagues.", prompt)\n            self.assertIn("Let Chapter One take its time", prompt)
             self.assertEqual((root / "story_bible.json").read_bytes(), original_bible)
             self.assertEqual((root / "current_state.json").read_bytes(), original_state)
             self.assertEqual(source.read_bytes(), original_scene)

@@ -274,6 +274,7 @@ class MinimalWriterTests(unittest.TestCase):
                 "creative_direction": {},
                 "locations": {},
                 "canon_rules": ["Tiffany and Maya have a sister-like friendship."],
+                "relationships": {"Tony-Tiffany": "Tony is Tiffany's father. Their relationship is exclusively father-daughter."},
                 "character_cards": ["Tiffany.json", "Maya.json", "Chloe.json"],
             }
             (root / "story_bible.json").write_text(
@@ -286,6 +287,7 @@ class MinimalWriterTests(unittest.TestCase):
             cards = {
                 "Tiffany.json": {
                     "name": "Tiffany Jones", "role": "student", "gender": "female",
+                    "age": 18, "relationship_status": "Single",
                     "occupation": "High school student",
                     "background": "Used to helping with busy family routines.",
                     "skills": ["organization", "first aid basics"],
@@ -322,14 +324,17 @@ class MinimalWriterTests(unittest.TestCase):
         self.assertIn("[Tiffany Jones]", prompt)
         self.assertIn("[Maya]", prompt)
         self.assertIn("Gender: female", prompt)
+        self.assertIn("Age: 18", prompt)
+        self.assertIn("Relationship status: Single", prompt)
         self.assertIn("Occupation / department: High school student", prompt)
         self.assertIn("Skills: organization, first aid basics", prompt)
         self.assertNotIn("[Chloe]", prompt)
         self.assertNotIn("Sexual orientation:", prompt)
         self.assertNotIn("Background / experience:", prompt)
         self.assertNotIn("Interests / hobbies:", prompt)
-        self.assertNotIn("Tiffany and Maya have a sister-like friendship.", prompt)
-        self.assertNotIn("CANON RULES", prompt)
+        self.assertIn("Tiffany and Maya have a sister-like friendship.", prompt)
+        self.assertIn("Tony-Tiffany: Tony is Tiffany's father.", prompt)
+        self.assertIn("FIXED CANON", prompt)
         self.assertNotIn("SCENE CRAFT GUIDANCE", prompt)
         self.assertIn("STORY TIMELINE", prompt)
         self.assertIn("Latest saved in-story time: Day 1, 16:00", prompt)
