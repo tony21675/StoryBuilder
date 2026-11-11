@@ -117,7 +117,7 @@ class ScenePreparationPromptTests(unittest.TestCase):
             self.assertIn("[Mara]", prompt)
             self.assertIn("[Jonah]", prompt)
             self.assertIn("[Private Detail]", prompt)
-            self.assertIn("Sexual orientation: Straight", prompt)
+            self.assertIn("Sexual Orientation: Straight", prompt)
             self.assertIn("Occupation / department: Harbor Operations, Pilot", prompt)
             self.assertIn("Background: Experienced harbor pilot", prompt)
             self.assertIn("Skills: navigation; tide assessment; small-vessel handling", prompt)
