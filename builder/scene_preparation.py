@@ -281,9 +281,16 @@ def build_scene_preparation_prompt(
             "Prepare a direction for this one destination scene only. Do not combine distinct time/place "
             "setups that function as separate scenes; leave a later scene setup for a separate Prepare Scene "
             "request unless the author explicitly asks to include it in this same scene. "
-            "Return one concise 'Scene direction:' that expresses the author's intent for this scene. "
-            "Treat events the author explicitly asks to happen as intended events, not optional possibilities. "
-            "Leave how they unfold and where the scene ends to the Writer. Do not write manuscript prose.",
+            "Identify every concrete event, action, or moment explicitly requested in AUTHOR'S DIRECTION "
+            "as an AUTHOR-REQUIRED BEAT. Every such beat must happen in this destination scene; do not omit, "
+            "soften, replace, or defer any of them. Keep these distinct from your own additions. If no concrete "
+            "event is explicitly requested, say 'None specified' under AUTHOR-REQUIRED BEATS. "
+            "Then use your own storytelling judgment to choose any number of QWEN-SELECTED ADDITIONAL BEATS: "
+            "zero, one, or as many as you believe will genuinely strengthen this scene. There is no quota or cap; "
+            "do not pad the scene just to add beats. These are additions and must never replace an author-required beat. "
+            "Return one concise 'Scene direction:' followed by clearly separate AUTHOR-REQUIRED BEATS and "
+            "QWEN-SELECTED ADDITIONAL BEATS sections. Leave how they unfold and where the scene ends to the Writer. "
+            "Do not write manuscript prose.",
         ]
     )
     return "\n\n".join(part for part in sections if part)
