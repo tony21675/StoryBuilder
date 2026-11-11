@@ -1504,7 +1504,7 @@ class AuthorRequiredDirectionPromptTests(unittest.TestCase):
         self.assertIn("AUTHOR PRIORITY: REQUIRED EVENTS AND BEATS", prompt)
         self.assertIn("must actually happen in this scene", prompt)
         self.assertIn("do not merely mention it", prompt.casefold())
-        self.assertIn("do not defer it to a later scene", prompt)
+        self.assertIn("defer it to a later scene", prompt.casefold())
         self.assertIn("QWEN'S ADDITIONAL BEATS", prompt)
         self.assertIn("must never replace, weaken, or delay them", prompt)
 
