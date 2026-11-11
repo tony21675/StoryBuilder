@@ -103,18 +103,24 @@ class ScenePreparationPromptTests(unittest.TestCase):
             self.assertIn("[Mara]", prompt)
             self.assertIn("[Jonah]", prompt)
             self.assertIn("[Private Detail]", prompt)
-            self.assertNotIn("Sexual orientation:", prompt)
+            self.assertIn("Sexual orientation: Straight", prompt)
             self.assertIn("Occupation / department: Harbor Operations, Pilot", prompt)
-            self.assertNotIn("Background / experience:", prompt)
             self.assertIn(
-                "Skills: navigation, tide assessment, small-vessel handling",
+                "Background / experience: Experienced harbor pilot",
                 prompt,
             )
-            self.assertNotIn("Interests / hobbies:", prompt)
-            self.assertIn("Skills: engine maintenance, mechanical troubleshooting", prompt)
+            self.assertIn(
+                "Skills / expertise: navigation, tide assessment, small-vessel handling",
+                prompt,
+            )
+            self.assertIn("Interests / hobbies: sailing, woodworking", prompt)
+            self.assertIn(
+                "Skills / expertise: engine maintenance, mechanical troubleshooting",
+                prompt,
+            )
             self.assertIn("Personality: quiet, witty", prompt)
-            self.assertIn("BRIEF CHARACTER REFERENCES", prompt)
-            self.assertNotIn("Do not treat hobbies or general interests as professional qualifications", prompt)
+            self.assertIn("CHARACTER REFERENCES", prompt)
+            self.assertIn("Do not treat hobbies or general interests as professional qualifications", prompt)
             self.assertNotIn("SCENE CRAFT GUIDANCE", prompt)
             self.assertNotIn("STORY OPENING AND PACING", prompt)
             self.assertNotIn("supplementary guidance", prompt)
@@ -136,7 +142,7 @@ class ScenePreparationPromptTests(unittest.TestCase):
             self.assertFalse((root / "Manuscript").exists())
             self.assertFalse((root / "current_state.json").exists())
 
-    def test_scene_preparation_does_not_send_a_full_location_allowlist(self):
+    def test_scene_preparation_includes_location_details_as_open_reference_material(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp) / "Novel with Locations"
             self.make_novel(root)
@@ -144,7 +150,12 @@ class ScenePreparationPromptTests(unittest.TestCase):
             bible = json.loads(bible_path.read_text(encoding="utf-8"))
             bible["locations"] = {
                 "Supply Closet": {},
-                "Recreation Room": {"type": "room", "description": "A simple recreation space."},
+                "Recreation Room": {
+                    "type": "room",
+                    "description": "A simple recreation space.",
+                    "geography": "Inside the community center, off the main hall.",
+                    "notable_details": ["A worn couch", "A folding game table"],
+                },
             }
             bible_path.write_text(json.dumps(bible), encoding="utf-8")
 
@@ -152,11 +163,43 @@ class ScenePreparationPromptTests(unittest.TestCase):
                 root, "Novel with Locations", 1, 1
             )
 
-        self.assertNotIn("APPROVED LOCATIONS FROM THIS NOVEL'S STORY BIBLE", prompt)
-        self.assertNotIn("Supply Closet", prompt)
-        self.assertNotIn("Recreation Room", prompt)
-        self.assertNotIn("Do not invent, rename, infer, or subdivide", prompt)
-        self.assertNotIn("A simple recreation space.", prompt)
+        self.assertIn("ESTABLISHED LOCATION REFERENCES FROM THIS NOVEL'S STORY BIBLE", prompt)
+        self.assertIn("not a closed location list", prompt)
+        self.assertIn("Supply Closet", prompt)
+        self.assertIn("Recreation Room", prompt)
+        self.assertIn("A simple recreation space.", prompt)
+        self.assertIn("Inside the community center, off the main hall.", prompt)
+        self.assertIn("A worn couch", prompt)
+        self.assertIn("A folding game table", prompt)
+        self.assertNotIn("a demand to use every location", prompt)
+
+    def test_planner_receives_all_story_bible_canon_and_relationship_entries(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "Comprehensive Novel"
+            self.make_novel(root)
+            bible_path = root / "story_bible.json"
+            bible = json.loads(bible_path.read_text(encoding="utf-8"))
+            bible["premise"] = "Premise opening. " + ("premise detail " * 70) + "Premise ending retained."
+            bible["setting"] = "Household and setting opening. " + ("setting detail " * 70) + "Setting ending retained."
+            bible["canon_rules"] = [
+                f"Canon entry {index}: preserve this established fact."
+                for index in range(1, 15)
+            ]
+            bible["relationships"] = {
+                f"Connection {index}": f"Established relationship detail {index}."
+                for index in range(1, 19)
+            }
+            bible_path.write_text(json.dumps(bible), encoding="utf-8")
+
+            prompt = build_scene_preparation_prompt(
+                root, "Comprehensive Novel", 1, 1,
+                author_direction="Have Mara receive a message.",
+            )
+
+        self.assertIn("Premise ending retained.", prompt)
+        self.assertIn("Setting ending retained.", prompt)
+        self.assertIn("Canon entry 14", prompt)
+        self.assertIn("Connection 18: Established relationship detail 18.", prompt)
 
     def test_author_direction_events_are_required_beats_and_qwen_can_add_its_own(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -173,7 +216,15 @@ class ScenePreparationPromptTests(unittest.TestCase):
             self.assertIn("AUTHOR'S DIRECTION", prompt)
             self.assertIn(direction, prompt)
             self.assertIn("AUTHOR-REQUIRED BEAT", prompt)
+            self.assertIn("Only events the author directly requested", prompt)
+            self.assertIn("do not promote your own ideas", prompt)
             self.assertIn("QWEN-SELECTED ADDITIONAL BEATS", prompt)
+            # A Planner request that names no character still receives every card.
+            self.assertIn("[Mara]", prompt)
+            self.assertIn("[Jonah]", prompt)
+            self.assertIn("[Private Detail]", prompt)
+            self.assertIn("Experienced harbor pilot", prompt)
+            self.assertIn("Longtime friends and colleagues", prompt)
             self.assertIn("There is no quota or cap", prompt)
             self.assertLess(
                 prompt.index("AUTHOR'S DIRECTION"),
