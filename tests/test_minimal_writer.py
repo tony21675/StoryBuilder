@@ -12,6 +12,7 @@ from minimal_writer import (
     build_location_context_prompt,
     build_revision_prompt,
     build_rewrite_scene_prompt,
+    build_single_scene_scope_prompt,
     continuation_prefix,
     load_model_for_writing,
     read_text_document,
@@ -1253,6 +1254,9 @@ class MinimalWriterTests(unittest.TestCase):
         app.output_box = FakeOutputBox("Old prose that will be replaced.")
         app.current_file = None
         app.saved_output_text = ""
+        app.chapter_numbers = {"Chapter 01": 1}
+        app.chapter_var = SimpleNamespace(get=lambda: "Chapter 01")
+        app.scene_var = SimpleNamespace(get=lambda: "Scene 01")
         app.status_var = FakeStatus()
         app._update_controls = lambda: None
 
@@ -1272,6 +1276,8 @@ class MinimalWriterTests(unittest.TestCase):
         self.assertEqual(len(generated_prompts), len(expected_author_prompts))
         for generated, author_prompt in zip(generated_prompts, expected_author_prompts):
             self.assertTrue(generated.startswith(author_prompt))
+            self.assertIn("ONE-SCENE SCOPE", generated)
+            self.assertIn("Write only Chapter 01, Scene 01.", generated)
             self.assertNotIn("SHOW THE WORK THROUGH DIALOGUE", generated)
             self.assertNotIn("Computer is a speaking participant", generated)
         self.assertEqual(app.engine.start_calls, starts_after_load)
@@ -1464,6 +1470,31 @@ class MinimalWriterTests(unittest.TestCase):
             save_text_document(path, original)
 
             self.assertEqual(path.read_text(encoding="utf-8"), original)
+
+
+class SingleSceneScopePromptTests(unittest.TestCase):
+    def test_scope_keeps_distinct_later_scenes_for_separate_generations(self):
+        direction = (
+            "Open with Tony at work, then transition to Beth's house later that evening."
+        )
+
+        prompt = build_single_scene_scope_prompt(
+            direction, chapter_number=1, scene_number=1
+        )
+
+        self.assertTrue(prompt.startswith(direction))
+        self.assertIn("ONE-SCENE SCOPE", prompt)
+        self.assertIn("Write only Chapter 01, Scene 01.", prompt)
+        self.assertIn("Do not combine distinct time/place setups", prompt)
+        self.assertIn("a future generation", prompt)
+        self.assertIn("end naturally", prompt)
+        self.assertNotIn("fixed length", prompt.casefold())
+
+    def test_scope_remains_useful_without_a_selected_novel_scene(self):
+        prompt = build_single_scene_scope_prompt("Write a quiet opening.")
+
+        self.assertIn("Write only one manuscript scene.", prompt)
+        self.assertIn("ONE-SCENE SCOPE", prompt)
 
 
 if __name__ == "__main__":
