@@ -230,7 +230,8 @@ def build_character_card_context_prompt(
 
 
 def build_story_bible_reference_context(
-    story_bible: dict[str, Any], *, include_preferences: bool = False
+    story_bible: dict[str, Any], *, include_preferences: bool = False,
+    comprehensive: bool = False,
 ) -> str:
     """Pass the novel's small canon and relationship reference to the writing model."""
     if not isinstance(story_bible, dict):
@@ -242,11 +243,14 @@ def build_story_bible_reference_context(
     if isinstance(rules, str) and rules.strip():
         rules = [rules]
     if isinstance(rules, list):
-        entries = [
-            _clean(rule, 700)
+        rule_limit = None if comprehensive else 12
+        rule_text_limit = 1800 if comprehensive else 700
+        rule_values = [
+            _clean(rule, rule_text_limit)
             for rule in rules
             if isinstance(rule, str) and rule.strip()
-        ][:12]
+        ]
+        entries = rule_values if rule_limit is None else rule_values[:rule_limit]
         if entries:
             sections.append(
                 "FIXED CANON (preserve these facts; they are not a scene checklist)\n"
@@ -256,9 +260,13 @@ def build_story_bible_reference_context(
     relationships = story_bible.get("relationships")
     if isinstance(relationships, dict):
         entries = []
-        for name, description in list(relationships.items())[:16]:
+        relationship_items = (
+            relationships.items() if comprehensive
+            else list(relationships.items())[:16]
+        )
+        for name, description in relationship_items:
             key = _clean(name, 100)
-            value = _clean(description, 650)
+            value = _clean(description, 1600 if comprehensive else 650)
             if key and value:
                 entries.append(f"{key}: {value}")
         if entries:
