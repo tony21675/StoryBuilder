@@ -3303,7 +3303,7 @@ class MinimalWriterApp:
             return False
 
         chapter_label = self.chapter_var.get().strip()
-        chapter_number = self.chapter_numbers.get(chapter_label)
+        chapter_number = getattr(self, "chapter_numbers", {}).get(chapter_label)
         if chapter_number is None or int(chapter_number) < 1:
             self._showinfo(
                 "Choose a chapter",
