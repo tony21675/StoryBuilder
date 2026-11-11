@@ -252,8 +252,8 @@ def build_single_scene_scope_prompt(
             pass
 
     scope = (
-        "ONE-SCENE SCOPE\\n"
-        f"Write only {destination}.\\n"
+        "ONE-SCENE SCOPE\n"
+        f"Write only {destination}.\n"
         "Keep the prose within that single scene. Do not combine distinct time/place "
         "setups that function as separate scenes, start a second scene, add a second "
         "scene heading, or use a scene break to jump ahead. Treat a later, separate "
@@ -262,7 +262,7 @@ def build_single_scene_scope_prompt(
         "do not force a prescribed ending or checklist."
     )
     original = str(prompt or "").rstrip()
-    return f"{original}\\n\\n{scope}" if original else scope
+    return f"{original}\n\n{scope}" if original else scope
 
 
 def build_location_context_prompt(
