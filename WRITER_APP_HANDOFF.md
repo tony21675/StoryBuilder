@@ -317,3 +317,17 @@ Every manuscript Write, Continue, and Rewrite Scene request receives a **ONE-SCE
 **Prompt trace and GitHub upload remain active and unchanged.** Tracing remains enabled by default. The trace still records the planner input/response, the author's final prepared direction, the fully assembled Writer prompt (including the new scene scope), and the Writer response. It is saved locally and uploaded after the generation attempt to the existing private, single-file GitHub trace repository as the latest `prompt_trace.json`. Upload failure does not discard the local trace.
 
 **Regression coverage added:** planner prompts stay within one destination scene; Writer generations include the selected Chapter/Scene scope; and the existing trace tests continue to verify local saving, GitHub upload attempts, and retention of the local trace when upload fails. CI verification and the author's local pull/live generation test are pending.
+
+## Author-required beats and Qwen-selected additions — implemented November 11, 2026
+
+Prepare Scene's Planner request now tells Qwen to return separate sections for **AUTHOR-REQUIRED BEATS** and **QWEN-SELECTED ADDITIONAL BEATS**.
+
+- Any concrete event, action, or moment explicitly requested in the author's direction is required in the selected scene. Qwen must preserve every requested event and cannot omit, soften, replace, or move it to a later scene.
+- Qwen independently chooses any number of additional beats it believes would strengthen the scene, including none. There is no quota or cap.
+- Gemma receives both the structured Qwen direction and the original Author's Direction as a separate authoritative input. Gemma must enact the author's explicit requested events in the scene, not merely mention them, imply them off-page, or defer them. Qwen's additions are carried into the prose naturally and must not displace author-required events.
+
+The original direction is retained for the matching prepared novel/Chapter/Scene even after the UI clears the Author's Direction box. Retrying Prepare Scene for that same destination carries the original required direction forward and can append newly typed author direction. It is cleared when the author switches scene/novel or saves the new scene, preventing cross-scene leakage.
+
+**Trace preservation:** No trace or uploader behavior was removed. The final original author-required direction is recorded in the planner-to-writer trace event. The fully assembled Writer prompt (including the original direction, Qwen's output, and scene scope) is captured by the existing trace, saved locally, and uploaded after the generation attempt to the existing private, single-file GitHub trace repository. The latest-trace-only repository behavior and local-copy retention on upload failure remain unchanged.
+
+**Regression coverage added:** author-priority prompt text; Qwen's uncapped optional number of additions; persistence of author-required events across retries; matching novel/scene scoping; Writer prompt inclusion; and trace-event capture.
