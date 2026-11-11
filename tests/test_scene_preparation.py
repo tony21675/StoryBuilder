@@ -537,6 +537,8 @@ class MinimalWriterPrepareSceneTests(unittest.TestCase):
         app._prepared_scene_destination = None
         app._prepared_scene_novel_path = None
         app._prepared_scene_source_scene_path = None
+        app._prepared_author_required_direction = ""
+        app._scene_preparation_required_author_direction = ""
         return app
 
     def test_prepare_scene_fills_prompt_box_for_an_empty_novel(self):
@@ -658,13 +660,25 @@ class MinimalWriterPrepareSceneTests(unittest.TestCase):
             app = self.make_app(root, author_direction=direction)
 
             with (
-                patch("minimal_writer.write_from_prompt", return_value="Earth acknowledges receipt.") as generate,
+                patch(
+                    "minimal_writer.write_from_prompt",
+                    side_effect=("Earth acknowledges receipt.", "A fuller direction."),
+                ) as generate,
                 patch("minimal_writer.threading.Thread", _ImmediateThread),
             ):
                 MinimalWriterApp.prepare_scene(app)
 
-            self.assertIn(direction, generate.call_args.args[1])
-            self.assertEqual(app.prompt_box.value, "Earth acknowledges receipt.")
+                self.assertEqual(app._prepared_author_required_direction, direction)
+                self.assertEqual(app.author_direction_box.value, "")
+
+                # Retrying the same prepared scene must retain the original required event
+                # even though the visible Author's Direction box was cleared.
+                MinimalWriterApp.prepare_scene(app)
+
+            self.assertIn(direction, generate.call_args_list[0].args[1])
+            self.assertIn(direction, generate.call_args_list[1].args[1])
+            self.assertEqual(app._prepared_author_required_direction, direction)
+            self.assertEqual(app.prompt_box.value, "A fuller direction.")
             self.assertEqual(app.author_direction_box.value, "")
 
     def test_author_direction_edits_during_preparation_are_kept(self):
