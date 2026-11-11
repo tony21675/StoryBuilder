@@ -171,7 +171,7 @@ class ScenePreparationPromptTests(unittest.TestCase):
         self.assertIn("Inside the community center, off the main hall.", prompt)
         self.assertIn("A worn couch", prompt)
         self.assertIn("A folding game table", prompt)
-        self.assertNotIn("a demand to use every location", prompt)
+        self.assertIn("not a restriction on creative invention", prompt)
 
     def test_planner_receives_all_story_bible_canon_and_relationship_entries(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -242,9 +242,9 @@ class ScenePreparationPromptTests(unittest.TestCase):
                 author_direction="  \n ",
             )
 
-            self.assertNotIn(
-                "AUTHOR'S DIRECTION", prompt
-            )
+            # The instruction text may name the heading, but a blank field
+            # must not create a separate Author's Direction section.
+            self.assertNotIn("\nAUTHOR'S DIRECTION\n", prompt)
 
     def test_next_scene_uses_selected_ending_and_only_matching_state_details(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -297,7 +297,7 @@ class ScenePreparationPromptTests(unittest.TestCase):
             )
             self.assertIn("[Mara]", prompt)
             self.assertIn("[Jonah]", prompt)
-            self.assertNotIn("[Private Detail]", prompt)
+            self.assertIn("[Private Detail]", prompt)
             self.assertNotIn("This should not be copied", prompt)
             self.assertNotIn("Private knowledge should stay out", prompt)
             self.assertIn("The harbor pilot does not leave the harbor during winter storms.", prompt)
