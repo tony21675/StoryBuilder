@@ -133,10 +133,11 @@ def _build_planner_location_context(story_bible: dict[str, Any]) -> str:
 
     lines = [
         "ESTABLISHED LOCATION REFERENCES FROM THIS NOVEL'S STORY BIBLE",
-        "These are descriptions of places already established in this story, not a closed "
-        "location list, a required itinerary, or a demand to use every location. Use them "
-        "when relevant; ordinary new locations and details remain creative space unless "
-        "they contradict established geography or household arrangements.",
+        "These entries describe places already established in this story and provide "
+        "geographic and environmental context. They are references, not a restriction on "
+        "creative invention or a requirement to include these places. Use them when "
+        "relevant; new locations and details remain creative space unless they contradict "
+        "established geography or household arrangements.",
     ]
     for name, details in locations.items():
         location_name = " ".join(str(name).split())
