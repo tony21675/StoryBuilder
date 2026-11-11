@@ -281,7 +281,7 @@ def build_scene_preparation_prompt(
             "Prepare a direction for this one destination scene only. Do not combine distinct time/place "
             "setups that function as separate scenes; leave a later scene setup for a separate Prepare Scene "
             "request unless the author explicitly asks to include it in this same scene. "
-            "Identify every concrete event, action, or moment explicitly requested in AUTHOR'S DIRECTION "
+            "Identify every concrete event, action, or moment explicitly requested by the author "
             "as an AUTHOR-REQUIRED BEAT. Every such beat must happen in this destination scene; do not omit, "
             "soften, replace, or defer any of them. Keep these distinct from your own additions. If no concrete "
             "event is explicitly requested, say 'None specified' under AUTHOR-REQUIRED BEATS. "
