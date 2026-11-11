@@ -102,6 +102,57 @@ def _clean_text(value: Any, limit: int = 600) -> str:
     return text
 
 
+def _planner_location_value(value: Any, *, depth: int = 0) -> str:
+    """Render saved location details as readable Planner reference material."""
+    if depth > 5 or value is None:
+        return ""
+    if isinstance(value, dict):
+        entries = []
+        for key, nested in value.items():
+            rendered = _planner_location_value(nested, depth=depth + 1)
+            if rendered:
+                label = str(key).replace("_", " ").strip().title()
+                entries.append(f"{label}: {rendered}")
+        return "; ".join(entries)
+    if isinstance(value, list):
+        return "; ".join(
+            rendered
+            for item in value
+            if (rendered := _planner_location_value(item, depth=depth + 1))
+        )
+    if isinstance(value, (str, int, float, bool)):
+        return " ".join(str(value).split())
+    return ""
+
+
+def _build_planner_location_context(story_bible: dict[str, Any]) -> str:
+    """Give Qwen the novel's established places without restricting invention."""
+    locations = story_bible.get("locations")
+    if not isinstance(locations, dict) or not locations:
+        return ""
+
+    lines = [
+        "ESTABLISHED LOCATION REFERENCES FROM THIS NOVEL'S STORY BIBLE",
+        "These are descriptions of places already established in this story, not a closed "
+        "location list, a required itinerary, or a demand to use every location. Use them "
+        "when relevant; ordinary new locations and details remain creative space unless "
+        "they contradict established geography or household arrangements.",
+    ]
+    for name, details in locations.items():
+        location_name = " ".join(str(name).split())
+        if not location_name:
+            continue
+        lines.append(f"\n[{location_name}]")
+        rendered = _planner_location_value(details)
+        if rendered:
+            if len(rendered) > 3200:
+                rendered = rendered[:3197].rsplit(" ", 1)[0].rstrip() + "…"
+            lines.append(rendered)
+        else:
+            lines.append("No additional details are recorded.")
+    return "\n".join(lines)
+
+
 def _previous_scene_text(path: str | Path | None) -> str:
     """Read the complete immediately preceding saved scene for planning context."""
     if path is None:
@@ -166,15 +217,17 @@ def build_scene_preparation_prompt(
         f"Story: {title}",
     ]
 
-    premise = _clean_text(story_bible.get("premise"), limit=600)
-    setting = _clean_text(story_bible.get("setting"), limit=600)
+    # Qwen plans rather than writes prose, so preserve substantially more of
+    # the novel's premise and setting context for its decisions.
+    premise = _clean_text(story_bible.get("premise"), limit=3000)
+    setting = _clean_text(story_bible.get("setting"), limit=4000)
     if premise:
         sections.append(f"Premise: {premise}")
     if setting:
         sections.append(f"Setting: {setting}")
 
     story_reference = build_story_bible_reference_context(
-        story_bible, include_preferences=True
+        story_bible, include_preferences=True, comprehensive=True
     )
     if story_reference:
         sections.append(story_reference)
@@ -184,6 +237,10 @@ def build_scene_preparation_prompt(
     )
     if creative_direction:
         sections.append(creative_direction)
+
+    location_context = _build_planner_location_context(story_bible)
+    if location_context:
+        sections.append(location_context)
 
     cast_names: list[str] = []
     timeline_note = build_story_timeline_prompt(current_state.get("time_of_day"))
@@ -233,20 +290,22 @@ def build_scene_preparation_prompt(
             if open_questions:
                 sections.append("Still unresolved: " + " ".join(open_questions))
 
-    character_query = "\n".join(
+    character_supporting_text = "\n".join(
         part for part in (
             " ".join(cast_names),
             previous_ending,
             author_direction_text,
         ) if part
     )
+    # The Planner needs the whole cast for relationship and household awareness,
+    # even when the Author's Direction names only one character.
     character_context = build_character_card_context_prompt(
         root,
         story_bible,
         "",
-        supporting_text=character_query,
-        include_all=not bool(character_query),
-        compact=True,
+        supporting_text=character_supporting_text,
+        include_all=True,
+        compact=False,
     )
     if character_context:
         sections.append(character_context)
@@ -275,6 +334,28 @@ def build_scene_preparation_prompt(
     if author_direction_text:
         sections.append("AUTHOR'S DIRECTION\n" + author_direction_text)
 
+    sections.append(
+        "PLANNER CONTEXT PRIORITIES\n"
+        "Treat the Story Bible's fixed canon, established relationships, complete character "
+        "references, location references, and current continuity as factual story context. "
+        "Preserve established identities, ages, relationships, households, residences, "
+        "occupations, schedules when recorded, and important possessions, including who "
+        "owns, wears, or carries them. Do not turn affectionate or metaphorical family "
+        "language (for example, 'like a daughter' or 'daughter of the heart') into literal "
+        "parentage or a shared household when the recorded relationships say otherwise. "
+        "Do not move a person or possession to another household or owner for convenience. "
+        "These references are for understanding the story, not a cast checklist: do not "
+        "include every character or visit every location just because they are listed. "
+        "Distinguish household residents from visitors: a close neighbor or family friend "
+        "does not become a resident because of the strength of the relationship. For a "
+        "domestic scene at someone's home, consider the recorded household members first; "
+        "do not casually displace or omit residents without a scene-specific reason. "
+        "Preserve any time-of-day marker in an occupation or work routine, such as a night "
+        "shift; do not turn it into a daytime shift or invent unrecorded work hours. "
+        "Preserve the exact meaning of requested times; distinguish a report/arrival time "
+        "from a meeting time or shift start/end."
+    )
+
     sections.extend(
         [
             "Use the scene context as a starting point. Gaps are creative space; develop plausible details and interactions without treating every unknown as a prohibition.",
@@ -282,8 +363,14 @@ def build_scene_preparation_prompt(
             "setups that function as separate scenes; leave a later scene setup for a separate Prepare Scene "
             "request unless the author explicitly asks to include it in this same scene. "
             "Identify every concrete event, action, or moment explicitly requested by the author "
-            "as an AUTHOR-REQUIRED BEAT. Every such beat must happen in this destination scene; do not omit, "
-            "soften, replace, or defer any of them. Keep these distinct from your own additions. If no concrete "
+            "as an AUTHOR-REQUIRED BEAT. Only events the author directly requested in the current "
+            "AUTHOR'S DIRECTION belong in this section; do not promote your own ideas, inferred "
+            "connective actions, or your preferred scene setup into author-required beats. A request "
+            "for one event does not authorize you to add other events to the required section. If a "
+            "current AUTHOR'S DIRECTION is supplied while refining a previous direction, reclassify "
+            "from the current author text rather than copying the previous direction's beat labels. "
+            "Every author-required beat must happen in this destination scene; do not omit, soften, "
+            "replace, or defer any of them. Keep these distinct from your own additions. If no concrete "
             "event is explicitly requested, say 'None specified' under AUTHOR-REQUIRED BEATS. "
             "Then use your own storytelling judgment to choose any number of QWEN-SELECTED ADDITIONAL BEATS: "
             "zero, one, or as many as you believe will genuinely strengthen this scene. There is no quota or cap; "
