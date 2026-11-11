@@ -263,10 +263,11 @@ def build_author_required_direction_prompt(
         "summary leaves something out or phrases it weakly. Preserve the author's other "
         "stated boundaries and preferences too.\n\n"
         "QWEN'S ADDITIONAL BEATS\n"
-        "Use the additional beats Qwen selected in the scene direction as creative "
-        "additions. Weave them in naturally where they strengthen the scene. They may "
-        "enrich the author's required events, but must never replace, weaken, or delay "
-        "them. Do not invent a quota or pad the scene with extra beats."
+        "Treat QWEN-SELECTED ADDITIONAL BEATS as part of the planned scene. Carry them "
+        "into the prose and weave them in naturally; combine overlapping beats when "
+        "helpful rather than silently dropping them. They enrich the author's required "
+        "events, but must never replace, weaken, or delay them. Do not invent a quota "
+        "or pad the scene beyond the beats Qwen chose."
     )
     return f"{original}\n\n{requirements}" if original else requirements
 
