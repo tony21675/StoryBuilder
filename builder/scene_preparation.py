@@ -307,6 +307,7 @@ def build_scene_preparation_prompt(
         supporting_text=character_supporting_text,
         include_all=True,
         compact=False,
+        comprehensive=True,
     )
     if character_context:
         sections.append(character_context)
