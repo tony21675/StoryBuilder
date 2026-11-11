@@ -8,17 +8,26 @@ from pathlib import Path
 
 README_TEXT = """# Local project handoff backups
 
-These are automatic local mirrors of the current project handoffs and story-direction notes.
+These are local mirrors of the current app and novel handoffs plus the separate story-direction/plan references.
 
+- Each application and novel has one authoritative handoff in its own GitHub repository.
 - Source files remain authoritative in their own project repositories.
 - This folder is an independent local safety copy, not a place to edit primary project records.
 - The mirrors refresh when StoryBuilder starts and after a successful app or selected-novel GitHub sync.
 - You can refresh them manually with: `python3 ~/Documents/StoryBuilder/backup_handoffs.py`
-- Only handoff and planning documents are copied. Manuscripts, model files, credentials, encrypted files, secret-letter assets, and other project data are not copied.
-- Missing source files are skipped and are never used as a reason to delete an existing backup.
+- Manuscripts, model files, credentials, encrypted files, secret-letter files/references, and other project data are not mirrored by this utility.
+- Refresh removes only two explicitly retired duplicate handoff copies: the old StoryBuilder handoff index and The Long Way Home's former CHAT_HANDOFF filename. It does not prune other project files or folders.
 
 Default location: `~/Documents/Project_Handoff_Backups`
 """
+
+
+# These are the only obsolete handoff copies this utility is allowed to remove.
+# Secret-letter paths, novel content, and all other files are deliberately excluded.
+_RETIRED_HANDOFF_COPIES = (
+    Path("StoryBuilder/CHAT_HANDOFF_LATEST.md"),
+    Path("The-Long-Way-Home/CHAT_HANDOFF_LATEST.md"),
+)
 
 
 class HandoffBackupError(RuntimeError):
@@ -45,17 +54,35 @@ def _atomic_copy(source: Path, destination: Path) -> bool:
     return True
 
 
+def _remove_retired_handoff_copies(destination_root: Path) -> list[str]:
+    """Remove only the two explicitly retired duplicate handoff paths."""
+    messages: list[str] = []
+    for relative_path in _RETIRED_HANDOFF_COPIES:
+        target = destination_root / relative_path
+        try:
+            # unlink removes a symlink itself rather than following its target.
+            if target.is_file() or target.is_symlink():
+                target.unlink()
+                messages.append(f"REMOVED RETIRED HANDOFF: {target}")
+        except OSError as exc:
+            raise HandoffBackupError(
+                f"Could not remove retired handoff copy '{target}': {exc}"
+            ) from exc
+    return messages
+
+
 def refresh_handoff_backups(
     *,
     storybuilder_root: str | Path | None = None,
     novel_root: str | Path | None = None,
     backup_root: str | Path | None = None,
 ) -> list[str]:
-    """Refresh a small local mirror of current project handoffs.
+    """Refresh the current handoff mirror and prune only named retired copies.
 
-    Only named Markdown handoff/planning files are copied. This never runs Git,
-    changes a source repository, deletes old backups, or copies manuscript/secret
-    assets. Missing source files are skipped.
+    Only the listed Markdown handoffs and story-direction/plan references are copied.
+    This never runs Git or edits source repositories. It removes only the two exact
+    retired duplicate handoff paths above. Secret-letter paths and all other local
+    backup contents are left untouched. Missing source files are skipped.
     """
     home = Path.home()
     app_root = (
@@ -82,12 +109,14 @@ def refresh_handoff_backups(
     )
 
     sources = [
-        (app_root / "CHAT_HANDOFF_LATEST.md", "StoryBuilder/CHAT_HANDOFF_LATEST.md"),
         (app_root / "WRITER_APP_HANDOFF.md", "StoryBuilder/WRITER_APP_HANDOFF.md"),
-        (app_root / "STORY_BIBLE_APP_HANDOFF.md", "StoryBuilder/STORY_BIBLE_APP_HANDOFF.md"),
         (
-            novels / "The-Long-Way-Home" / "CHAT_HANDOFF_LATEST.md",
-            "The-Long-Way-Home/CHAT_HANDOFF_LATEST.md",
+            app_root / "STORY_BIBLE_APP_HANDOFF.md",
+            "StoryBuilder/STORY_BIBLE_APP_HANDOFF.md",
+        ),
+        (
+            novels / "The-Long-Way-Home" / "HANDOFF_LATEST.md",
+            "The-Long-Way-Home/HANDOFF_LATEST.md",
         ),
         (
             novels / "The-Long-Way-Home" / "STORY_DIRECTION.md",
@@ -102,8 +131,8 @@ def refresh_handoff_backups(
             "Taken-at-Dusk/STORY_PLAN.md",
         ),
         (
-            novels / "Taken_at_Dusk" / "SECRET_LETTERS_HANDOFF.md",
-            "Taken-at-Dusk/SECRET_LETTERS_HANDOFF.md",
+            novels / "Summer-at-Willow-Bay" / "HANDOFF_LATEST.md",
+            "Summer-at-Willow-Bay/HANDOFF_LATEST.md",
         ),
     ]
 
@@ -133,6 +162,8 @@ def refresh_handoff_backups(
             "No known handoff source files were found. Check the StoryBuilder and novel paths."
         )
 
+    messages.extend(_remove_retired_handoff_copies(destination_root))
+
     readme = destination_root / "README.md"
     try:
         if not readme.is_file() or readme.read_text(encoding="utf-8") != README_TEXT:
@@ -151,5 +182,8 @@ def refresh_handoff_backups(
     except OSError as exc:
         raise HandoffBackupError(f"Could not write local handoff backup README: {exc}") from exc
 
-    messages.insert(0, f"Local handoff mirror: {destination_root} ({copied} updated, {present} found)")
+    messages.insert(
+        0,
+        f"Local handoff mirror: {destination_root} ({copied} updated, {present} found)",
+    )
     return messages
