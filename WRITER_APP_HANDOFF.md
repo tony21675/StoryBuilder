@@ -1,6 +1,6 @@
 # Writer App handoff
 
-**Updated:** November 10, 2026  
+**Updated:** November 11, 2026  
 **Application:** StoryBuilder Minimal Writer  
 **Repository:** `tony21675/StoryBuilder`  
 **Active/default branch:** `redesign/simplified-writing-workflow`  
@@ -306,3 +306,14 @@ No validator was added. The intent is to protect a few established facts while l
 **Automated verification:** Python tests passed (716 passed, 77 subtests passed); StoryBuilder tests passed (716 passed) on commit `798c3e94e83d84249779ee73c4d5005420b5902f`. [Python workflow](https://github.com/tony21675/StoryBuilder/actions/runs/42985828904) · [StoryBuilder workflow](https://github.com/tony21675/StoryBuilder/actions/runs/42985828913).
 
 The code update is on the existing branch. Local app pull and live generation tests remain pending.
+
+
+## One generation, one scene — implemented November 11, 2026
+
+Prepare Scene's planning prompt now keeps its requested direction within the selected destination scene. It should leave distinct later time/place setups for a separate Prepare Scene request unless the author explicitly asks to combine them in the same scene.
+
+Every manuscript Write, Continue, and Rewrite Scene request receives a **ONE-SCENE SCOPE** immediately before creative preferences are added and before the prompt trace is claimed or created. The scope identifies the selected Chapter/Scene when available, keeps one generation within one scene, and leaves later distinct setups for separate generations. It explicitly preserves natural scene endings and does not introduce forced endpoints, required beats, a scene-count limit for the chapter, or validation.
+
+**Prompt trace and GitHub upload remain active and unchanged.** Tracing remains enabled by default. The trace still records the planner input/response, the author's final prepared direction, the fully assembled Writer prompt (including the new scene scope), and the Writer response. It is saved locally and uploaded after the generation attempt to the existing private, single-file GitHub trace repository as the latest `prompt_trace.json`. Upload failure does not discard the local trace.
+
+**Regression coverage added:** planner prompts stay within one destination scene; Writer generations include the selected Chapter/Scene scope; and the existing trace tests continue to verify local saving, GitHub upload attempts, and retention of the local trace when upload fails. CI verification and the author's local pull/live generation test are pending.
