@@ -1,6 +1,6 @@
 # Writing project handoff index
 
-**Updated:** November 9, 2026
+**Updated:** November 11, 2026
 
 This index covers writing projects only. Each application and novel has one authoritative handoff. The project repositories remain the source of truth; local mirror copies are maintained separately.
 
@@ -160,3 +160,14 @@ This is deliberately a small memory/context fix, not a validator or a new set of
 - https://github.com/tony21675/StoryBuilder/actions/runs/42985828913
 
 Local GUI pull and live model testing remain pending. The updated *Taken at Dusk* package starts at Chapter 1, Scene 1 and keeps most of Chapter 1 for readers to know the seven core characters before the abduction.
+
+
+## One generation, one scene — implemented November 11, 2026
+
+Prepare Scene now asks for a direction for only the selected Chapter/Scene destination. It should not combine distinct time/place setups that function as separate scenes. A later setup can be prepared as its own scene.
+
+The manuscript Writer adds a **ONE-SCENE SCOPE** to every Write, Continue, and Rewrite Scene generation. When the chapter and scene selectors are available, the scope names that exact destination. It keeps a generation within one scene and treats a distinct later setup as material for a separate generation, unless the author explicitly asks to include it in the same scene. This does not impose a fixed ending, required beats, a chapter scene count, or a validator.
+
+The planner-to-writer diagnostic trace is unchanged and remains enabled by default. The final scoped Writer prompt is included in the captured prompt because the scope is added before trace setup. Existing local trace saving and upload to the private, single-file GitHub trace repository remain in place; each generation attempt finishes and uploads the latest `prompt_trace.json`, replacing the previous latest trace rather than building repository history. Upload failures still leave the local trace available.
+
+**Verification:** Focused regression tests were added for planner scope, Writer scope, and the selected scene destination. GitHub Actions verification and the author's local pull/live test are pending.
