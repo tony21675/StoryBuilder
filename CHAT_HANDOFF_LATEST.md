@@ -196,7 +196,7 @@ The author's local pull and live Writer test are still pending.
 ## Latest Writer Planner context expansion — November 11, 2026
 
 The Prepare Scene Planner (Qwen) now receives a substantially fuller view of the selected novel so it can make better-informed scene plans for the manuscript Writer (Gemma):
-- All registered character cards are included in detailed reference form, even when the current Author's Direction or previous scene mentions only a subset. This is story awareness, not a requirement to include every character in each scene.
+- All registered character cards are included with every populated field, including custom and nested fields such as appearance, relationships, school details, goals, strengths, weaknesses, social details, story-role notes, and knowledge rules, even when the current Author's Direction or previous scene mentions only a subset. This is story awareness, not a requirement to include every character in each scene.
 - The Planner receives all Story Bible canon-rule and relationship entries, with expanded per-entry text limits, plus longer premise and setting context.
 - All saved Story Bible locations and their descriptions are included as background references, not an approved-location allowlist or an instruction to visit every location. New locations remain creative space when they do not contradict established facts.
 - New Planner guidance emphasizes preserving household/residence distinctions, exact relationships, occupations and work-time markers, possession ownership/wearers, and the distinction between report time, meeting time, and shift time. Affectionate chosen-family language must not be converted into literal parentage or co-residence.
@@ -204,8 +204,8 @@ The Prepare Scene Planner (Qwen) now receives a substantially fuller view of the
 
 **Scope:** Planner/context only. Gemma's prose-generation path, author-priority handoff, one-scene Writer enforcement, prompt trace capture, local trace retention, and private GitHub trace upload were not changed.
 
-**Verification:** Both GitHub Actions workflows passed on commit `714942935328836410a9efcb67f297ba72527f6f`:
-- [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/43032005816): 723 tests passed.
-- [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/43032005782): 723 passed and 77 subtests passed.
+**Verification:** Both GitHub Actions workflows passed on commit `f6953d89ed4b0415b5a2689a85da4a27491b42bf`:
+- [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/43032926646): 723 tests passed.
+- [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/43032926598): 723 passed and 77 subtests passed.
 
 The author's laptop pull and live Qwen Prepare Scene test are still pending. Review the returned direction and latest trace before evaluating the quality of Gemma's next prose generation.
