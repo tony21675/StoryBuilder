@@ -46,6 +46,20 @@ class ScenePreparationPromptTests(unittest.TestCase):
                 "hobbies": ["sailing", "woodworking"],
                 "gender": "female", "sexual_orientation": "Straight",
                 "personality": ["confident"],
+                "status": "Active",
+                "nickname_from_tony": "Mare",
+                "story_role": "The pilot whose judgment guides the harbor crew.",
+                "protective_nature": "Looks out for the younger crew members.",
+                "knowledge_rule": "Does not know what other crew members have not shared.",
+                "strengths": ["steady under pressure", "patient"],
+                "weaknesses": ["takes on too much"],
+                "goals": ["Keep the harbor safe"],
+                "future_story_role": ["Becomes the crew's trusted coordinator"],
+                "social": ["Close with the harbor crew"],
+                "appearance": {"height": "5 foot 7", "hair": "dark brown"},
+                "school": "Harbor High",
+                "school_performance": "Strong in science",
+                "custom_planner_detail": "This custom story fact must be retained.",
             },
             "Jonah.json": {
                 "name": "Jonah", "role": "mechanic",
@@ -105,22 +119,25 @@ class ScenePreparationPromptTests(unittest.TestCase):
             self.assertIn("[Private Detail]", prompt)
             self.assertIn("Sexual orientation: Straight", prompt)
             self.assertIn("Occupation / department: Harbor Operations, Pilot", prompt)
-            self.assertIn(
-                "Background / experience: Experienced harbor pilot",
-                prompt,
-            )
-            self.assertIn(
-                "Skills / expertise: navigation, tide assessment, small-vessel handling",
-                prompt,
-            )
-            self.assertIn("Interests / hobbies: sailing, woodworking", prompt)
-            self.assertIn(
-                "Skills / expertise: engine maintenance, mechanical troubleshooting",
-                prompt,
-            )
-            self.assertIn("Personality: quiet, witty", prompt)
-            self.assertIn("CHARACTER REFERENCES", prompt)
-            self.assertIn("Do not treat hobbies or general interests as professional qualifications", prompt)
+            self.assertIn("Background: Experienced harbor pilot", prompt)
+            self.assertIn("Skills: navigation; tide assessment; small-vessel handling", prompt)
+            self.assertIn("Hobbies: sailing; woodworking", prompt)
+            self.assertIn("Story Role: The pilot whose judgment guides the harbor crew.", prompt)
+            self.assertIn("Protective Nature: Looks out for the younger crew members.", prompt)
+            self.assertIn("Knowledge Rule: Does not know what other crew members have not shared.", prompt)
+            self.assertIn("Strengths: steady under pressure; patient", prompt)
+            self.assertIn("Weaknesses: takes on too much", prompt)
+            self.assertIn("Goals: Keep the harbor safe", prompt)
+            self.assertIn("Future Story Role: Becomes the crew's trusted coordinator", prompt)
+            self.assertIn("Social: Close with the harbor crew", prompt)
+            self.assertIn("Appearance: Height: 5 foot 7; Hair: dark brown", prompt)
+            self.assertIn("School: Harbor High", prompt)
+            self.assertIn("School Performance: Strong in science", prompt)
+            self.assertIn("Custom Planner Detail: This custom story fact must be retained.", prompt)
+            self.assertIn("Skills: engine maintenance; mechanical troubleshooting", prompt)
+            self.assertIn("Personality: quiet; witty", prompt)
+            self.assertIn("COMPLETE CHARACTER CARD REFERENCES", prompt)
+            self.assertIn("interests and hobbies are not automatically professional qualifications", prompt)
             self.assertNotIn("SCENE CRAFT GUIDANCE", prompt)
             self.assertNotIn("STORY OPENING AND PACING", prompt)
             self.assertNotIn("supplementary guidance", prompt)
