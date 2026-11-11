@@ -109,7 +109,7 @@ The November 9 *Summer at Willow Bay* five-scene retest was also read independen
 
 Story Bible now has an optional **How This Novel Should Read** text field, stored in each novel's own `story_bible.json` as `writing_preferences`. It is separate from genre, mood/tone, audience, explicit-content settings, and canon. New novels start blank; older novels load with a blank value; editing preserves the rest of the Story Bible.
 
-The Writer appends only the selected novel's non-empty preferences to manuscript-writing context as flexible creative guidance. Prepare Scene / Planner prompts are not modified. No global prose style is hard-coded.
+The Writer appends only the selected novel's non-empty preferences to manuscript-writing context as flexible creative guidance. As of November 11, selected-novel writing preferences also enter Prepare Scene / Planner prompts as flexible guidance. No global prose style is hard-coded.
 
 Both GitHub Actions workflows passed on commit `4fbeea85d80d95dbe125b5c18f2415e5b8584e49`: Python tests report 714 passed and 77 subtests passed; StoryBuilder tests report 714 passed. Local app pull and GUI testing remain pending. See the [Story Bible App handoff](STORY_BIBLE_APP_HANDOFF.md) and [Writer App handoff](WRITER_APP_HANDOFF.md) for details.
 
@@ -140,3 +140,23 @@ Persistent project files should hold the story's memory; do not depend on the sm
 ## Deferred *Taken at Dusk* future-arc note — November 10, 2026
 
 A separate, non-authoritative planning note preserving the author's discussion of *Taken at Dusk*'s two-part ending and longer-term rescue mission is saved in the ChatGPT Library at `/Writing/Taken_at_Dusk_Future_Arc_Notes.md`. It is intentionally outside the on-hold `tony21675/MyNovel` repository. When the author resumes *Taken at Dusk*, reconcile the note with the existing `STORY_PLAN.md` and `kidnapping.json`; do not alter the novel's held branches, manuscript, state, or canon before then.
+
+
+## Story Bible canon now reaches planning and writing — November 11, 2026
+
+The first clean *Taken at Dusk* package exposed a context-assembly defect: compact character references omitted ages and relationship status, and the Writer did not pass the novel's `relationships` or `canon_rules` fields into either Prepare Scene or manuscript generation. Current-state continuity notes were also omitted. The package data was present and editable, but the model was not receiving those facts.
+
+**Implemented on `redesign/simplified-writing-workflow`:**
+- Compact character references now include age and relationship status. An intentionally blank status is sent as “Not established,” not guessed.
+- Prepare Scene receives the selected novel's fixed canon, established relationships, and optional writing preferences.
+- Manuscript writing receives the selected novel's fixed canon and established relationships, in addition to its existing creative direction and writing preferences.
+- Both planning and writing receive current-state continuity notes.
+- Relationship references are explicitly described as factual background, not an instruction to place everyone in every scene. Fixed canon is explicitly not a scene checklist.
+
+This is deliberately a small memory/context fix, not a validator or a new set of global writing rules. Each novel supplies its own canon. The Writer retains freedom over ordinary scenes, dialogue, locations, connective events, pacing, and scene endings.
+
+**Verification on commit `798c3e94e83d84249779ee73c4d5005420b5902f`:** Python tests passed (716 passed, 77 subtests passed); StoryBuilder tests passed (716 passed). GitHub Actions:
+- https://github.com/tony21675/StoryBuilder/actions/runs/42985828904
+- https://github.com/tony21675/StoryBuilder/actions/runs/42985828913
+
+Local GUI pull and live model testing remain pending. The updated *Taken at Dusk* package starts at Chapter 1, Scene 1 and keeps most of Chapter 1 for readers to know the seven core characters before the abduction.

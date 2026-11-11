@@ -264,7 +264,7 @@ Before manuscript generation, the Writer reads the `writing_preferences` field f
 
 - Applies to manuscript generation flows that use the shared creative-direction context, including Write/Continue/Rewrite and passage revision.
 - Only the currently selected novel's value is used. Switching novels switches the preferences; one novel's value is not reused for another.
-- The Planner / Prepare Scene prompt is not changed by this feature.
+- The Planner / Prepare Scene prompt was initially unchanged; as of November 11, it also receives the selected novel's writing preferences as flexible guidance.
 - Existing novels without this field continue to work and receive no additional writing-preference guidance.
 - An empty field adds no extra style guidance.
 - The preference is author-written and stored in the novel's own Story Bible. No style is hard-coded globally.
@@ -288,3 +288,21 @@ The roadmap should steer the story without scripting scenes. Avoid checklists, m
 Qwen and Gemma should continue loading sequentially, one model at a time, to fit the author's 16 GB laptop. Project files, not model conversation history, hold persistent planning memory. Because small models may misorganize or misunderstand ideas, Qwen's suggestions must remain proposals until the author approves them.
 
 **Next step:** discuss the workflow and data flow before coding. Inspect existing Prepare Scene/context assembly first; do not rebuild the routing or add a third model. Keep all novel-specific roadmaps and idea-bank content inside each novel's own project files.
+
+
+## Story Bible canon and relationships in planner/writer context — November 11, 2026
+
+A live *Taken at Dusk* opening test revealed that the app could load and save character cards correctly while still omitting important fields from model context. The compact character profile left out age and relationship status. The selected novel's Story Bible `relationships` and `canon_rules` fields were not included in Prepare Scene or manuscript generation, and current-state continuity notes were not passed through. This allowed the model to invent an incorrect age, treat a deceased character as alive in the present, and jump prematurely to later plot events.
+
+**Focused fix committed:** `798c3e94e83d84249779ee73c4d5005420b5902f`
+- Compact character references now carry age and relationship status (blank stays explicitly “Not established”).
+- Prepare Scene receives the selected novel's canon facts, relationship reference, and flexible writing preferences.
+- Manuscript generation receives the selected novel's canon facts and relationship reference alongside the existing creative preferences.
+- Current-state continuity notes reach both planner and writer.
+- The prompt labels make clear that relationships are reference information, not a cast checklist, and canon facts are anchors rather than scene-by-scene instructions.
+
+No validator was added. The intent is to protect a few established facts while leaving ordinary creative decisions to the model.
+
+**Automated verification:** Python tests passed (716 passed, 77 subtests passed); StoryBuilder tests passed (716 passed) on commit `798c3e94e83d84249779ee73c4d5005420b5902f`. [Python workflow](https://github.com/tony21675/StoryBuilder/actions/runs/42985828904) · [StoryBuilder workflow](https://github.com/tony21675/StoryBuilder/actions/runs/42985828913).
+
+The code update is on the existing branch. Local app pull and live generation tests remain pending.
