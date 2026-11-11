@@ -236,6 +236,35 @@ def build_rewrite_scene_prompt(scene_prompt: str, author_direction: str = "") ->
     )
 
 
+def build_single_scene_scope_prompt(
+    prompt: str,
+    chapter_number: int | None = None,
+    scene_number: int | None = None,
+) -> str:
+    """Keep one manuscript generation focused on its selected scene."""
+    destination = "one manuscript scene"
+    if chapter_number is not None and scene_number is not None:
+        try:
+            destination = (
+                f"Chapter {int(chapter_number):02d}, Scene {int(scene_number):02d}"
+            )
+        except (TypeError, ValueError):
+            pass
+
+    scope = (
+        "ONE-SCENE SCOPE\\n"
+        f"Write only {destination}.\\n"
+        "Keep the prose within that single scene. Do not combine distinct time/place "
+        "setups that function as separate scenes, start a second scene, add a second "
+        "scene heading, or use a scene break to jump ahead. Treat a later, separate "
+        "scene setup as material for a future generation unless the author explicitly "
+        "asks to include it in this same scene. Let this scene unfold and end naturally; "
+        "do not force a prescribed ending or checklist."
+    )
+    original = str(prompt or "").rstrip()
+    return f"{original}\\n\\n{scope}" if original else scope
+
+
 def build_location_context_prompt(
     prompt: str,
     locations: dict,
@@ -2596,6 +2625,17 @@ class MinimalWriterApp:
                 pass
 
     def _begin_generation(self, prompt: str, mode: str) -> None:
+        chapter_label = getattr(
+            getattr(self, "chapter_var", None), "get", lambda: ""
+        )().strip()
+        chapter_number = getattr(self, "chapter_numbers", {}).get(chapter_label)
+        scene_label = getattr(
+            getattr(self, "scene_var", None), "get", lambda: ""
+        )()
+        scene_number = scene_number_from_label(scene_label)
+        prompt = build_single_scene_scope_prompt(
+            prompt, chapter_number=chapter_number, scene_number=scene_number
+        )
         prompt = self._prepare_creative_direction_context(prompt)
         writer_model = self._selected_role_model("writer")
         if writer_model is None:
