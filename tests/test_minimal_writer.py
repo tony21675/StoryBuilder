@@ -8,6 +8,7 @@ from unittest.mock import patch
 from minimal_writer import (
     CONTINUE_PROMPT,
     MinimalWriterApp,
+    build_author_required_direction_prompt,
     build_continue_prompt,
     build_location_context_prompt,
     build_revision_prompt,
@@ -570,6 +571,9 @@ class MinimalWriterTests(unittest.TestCase):
         app._prepared_scene_destination = (1, 4)
         app._prepared_scene_novel_path = novel_a
         app._prepared_scene_source_scene_path = novel_a / "scene.txt"
+        app._prepared_author_required_direction = (
+            "Keep the author-required moment in Novel A."
+        )
         app._scene_preparation_destination = (1, 4)
         app._scene_preparation_original_prompt = "Old prompt"
         app._scene_preparation_original_author_direction = "Old direction"
@@ -631,6 +635,7 @@ class MinimalWriterTests(unittest.TestCase):
             self.assertEqual(app.prompt_box.get("1.0", "end-1c"), "")
             self.assertEqual(app.author_direction_box.get("1.0", "end-1c"), "")
             self.assertIsNone(app._prepared_scene_destination)
+            self.assertEqual(app._prepared_author_required_direction, "")
             self.assertIsNone(app._scene_preparation_destination)
             self.assertEqual(app.last_location_context_names, [])
             self.assertEqual(app._output_text(), original_document)
@@ -1258,6 +1263,11 @@ class MinimalWriterTests(unittest.TestCase):
         app.chapter_var = SimpleNamespace(get=lambda: "Chapter 01")
         app.scene_var = SimpleNamespace(get=lambda: "Scene 01")
         app.status_var = FakeStatus()
+        required_direction = "Have Tony open and read Sarah's letter in this scene."
+        app.author_direction_box = FakePromptBox("")
+        app._prepared_author_required_direction_for_current_scene = (
+            lambda: required_direction
+        )
         app._update_controls = lambda: None
 
         with patch("minimal_writer.threading.Thread", ImmediateThread):
@@ -1278,6 +1288,9 @@ class MinimalWriterTests(unittest.TestCase):
             self.assertTrue(generated.startswith(author_prompt))
             self.assertIn("ONE-SCENE SCOPE", generated)
             self.assertIn("Write only Chapter 01, Scene 01.", generated)
+            self.assertIn("AUTHOR PRIORITY: REQUIRED EVENTS AND BEATS", generated)
+            self.assertIn(required_direction, generated)
+            self.assertIn("must actually happen in this scene", generated)
             self.assertNotIn("SHOW THE WORK THROUGH DIALOGUE", generated)
             self.assertNotIn("Computer is a speaking participant", generated)
         self.assertEqual(app.engine.start_calls, starts_after_load)
@@ -1470,6 +1483,75 @@ class MinimalWriterTests(unittest.TestCase):
             save_text_document(path, original)
 
             self.assertEqual(path.read_text(encoding="utf-8"), original)
+
+
+class AuthorRequiredDirectionPromptTests(unittest.TestCase):
+    def test_original_author_direction_is_sent_as_mandatory_not_optional(self):
+        prompt = build_author_required_direction_prompt(
+            "Scene direction: Tony is home for the evening.",
+            "Have Tony open and read Sarah's letter in this scene.",
+        )
+
+        self.assertIn("ORIGINAL AUTHOR'S DIRECTION", prompt)
+        self.assertIn("Have Tony open and read Sarah's letter in this scene.", prompt)
+        self.assertIn("AUTHOR PRIORITY: REQUIRED EVENTS AND BEATS", prompt)
+        self.assertIn("must actually happen in this scene", prompt)
+        self.assertIn("do not merely mention it", prompt)
+        self.assertIn("do not defer it to a later scene", prompt)
+        self.assertIn("QWEN'S ADDITIONAL BEATS", prompt)
+        self.assertIn("must never replace, weaken, or delay them", prompt)
+
+    def test_author_direction_is_not_added_twice_when_already_in_prompt(self):
+        direction = "Have Tony open and read Sarah's letter in this scene."
+        prompt = build_author_required_direction_prompt(
+            f"AUTHOR'S DIRECTION\n{direction}",
+            direction,
+        )
+
+        self.assertEqual(prompt.count(direction), 1)
+        self.assertIn("already included above", prompt)
+
+    def test_empty_author_direction_leaves_prompt_unchanged(self):
+        prompt = "Scene direction: A quiet evening."
+
+        self.assertEqual(build_author_required_direction_prompt(prompt, ""), prompt)
+
+
+class PreparedAuthorDirectionScopeTests(unittest.TestCase):
+    def test_prepared_author_direction_is_only_used_for_matching_novel_and_scene(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            novel_a = Path(temporary) / "Novel A"
+            novel_b = Path(temporary) / "Novel B"
+            novel_a.mkdir()
+            novel_b.mkdir()
+
+            app = MinimalWriterApp.__new__(MinimalWriterApp)
+            app.novel_var = FakeVar("Novel A")
+            app.novel_packages = {"Novel A": novel_a, "Novel B": novel_b}
+            app.chapter_var = FakeVar("Chapter 01")
+            app.chapter_numbers = {"Chapter 01": 1}
+            app.scene_var = FakeVar("Scene 03")
+            app._prepared_scene_destination = (1, 3)
+            app._prepared_scene_novel_path = novel_a
+            app._prepared_author_required_direction = (
+                "Have Tony open and read Sarah's letter in this scene."
+            )
+
+            self.assertEqual(
+                app._prepared_author_required_direction_for_current_scene(),
+                "Have Tony open and read Sarah's letter in this scene.",
+            )
+
+            app.scene_var.set("Scene 04")
+            self.assertEqual(
+                app._prepared_author_required_direction_for_current_scene(), ""
+            )
+
+            app.scene_var.set("Scene 03")
+            app.novel_var.set("Novel B")
+            self.assertEqual(
+                app._prepared_author_required_direction_for_current_scene(), ""
+            )
 
 
 class SingleSceneScopePromptTests(unittest.TestCase):
