@@ -337,3 +337,20 @@ The original direction is retained for the matching prepared novel/Chapter/Scene
 - [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/42996117774): 722 passed and 77 subtests passed.
 
 The author's local pull and live Writer test are still pending.
+
+## Expanded Prepare Scene Planner context — November 11, 2026
+
+**Implemented:** Planner-only context expansion and beat-classification clarification.  
+**Verification:** Both GitHub Actions workflows passed on commit `714942935328836410a9efcb67f297ba72527f6f`: [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/43032005816) report 723 tests passed; [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/43032005782) report 723 passed and 77 subtests passed. Local pull and live Qwen test are pending.
+
+Prepare Scene now gives Qwen:
+- Every registered character card in detailed reference form, regardless of which names appear in the current direction or previous scene.
+- All Story Bible canon-rule and relationship entries, expanded premise and setting context, and all saved location names/details as non-restrictive background references.
+- Explicit guidance to preserve households, residences, exact relationships, occupations and work-time markers, and ownership/wearing/carrying of important possessions. Chosen-family language must not be mistaken for literal parentage or co-residence. Domestic scenes should distinguish residents from visitors.
+- Explicit time semantics: preserve the author's intended report/arrival time, meeting time, and shift start/end rather than silently reinterpreting them.
+
+All character and location information is reference context, not a roster checklist or required itinerary. Qwen remains free to choose the scene's cast and invent plausible new places and details when consistent with canon.
+
+Beat classification is also clearer: only events directly requested in the current Author's Direction may be marked AUTHOR-REQUIRED. Qwen's own ideas and inferred connective actions belong in QWEN-SELECTED ADDITIONAL BEATS. When a current Author's Direction accompanies a retry/refinement, it is the authority for required-beat classification rather than old labels in the previous prepared direction.
+
+This change affects only Prepare Scene and its reference-context builder. It does not change Gemma's prose prompts or generation behavior, the original-author-direction handoff, one-scene scope, or any prompt trace and upload behavior.
