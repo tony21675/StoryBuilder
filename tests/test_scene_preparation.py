@@ -123,7 +123,13 @@ class ScenePreparationPromptTests(unittest.TestCase):
             self.assertIn("one destination scene only", prompt)
             self.assertIn("Do not combine distinct time/place setups", prompt)
             self.assertIn("separate Prepare Scene request", prompt)
-            self.assertIn("events the author explicitly asks to happen as intended events", prompt)
+            self.assertIn("every concrete event, action, or moment explicitly requested", prompt)
+            self.assertIn("as an AUTHOR-REQUIRED BEAT", prompt)
+            self.assertIn("must happen in this destination scene", prompt)
+            self.assertIn("do not omit, soften, replace, or defer", prompt)
+            self.assertIn("QWEN-SELECTED ADDITIONAL BEATS", prompt)
+            self.assertIn("zero, one, or as many", prompt)
+            self.assertIn("There is no quota or cap", prompt)
             self.assertIn("where the scene ends to the Writer", prompt)
             self.assertNotIn("Natural endpoint:", prompt)
             self.assertNotIn("stop at the natural endpoint", prompt.casefold())
@@ -152,7 +158,7 @@ class ScenePreparationPromptTests(unittest.TestCase):
         self.assertNotIn("Do not invent, rename, infer, or subdivide", prompt)
         self.assertNotIn("A simple recreation space.", prompt)
 
-    def test_author_direction_is_included_as_supplementary_guidance_when_provided(self):
+    def test_author_direction_events_are_required_beats_and_qwen_can_add_its_own(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp) / "Directed Novel"
             source = self.make_novel(root, scene_text="The crew finished their diagnostics.")
@@ -166,10 +172,12 @@ class ScenePreparationPromptTests(unittest.TestCase):
 
             self.assertIn("AUTHOR'S DIRECTION", prompt)
             self.assertIn(direction, prompt)
-            self.assertIn(direction, prompt)
+            self.assertIn("AUTHOR-REQUIRED BEAT", prompt)
+            self.assertIn("QWEN-SELECTED ADDITIONAL BEATS", prompt)
+            self.assertIn("There is no quota or cap", prompt)
             self.assertLess(
                 prompt.index("AUTHOR'S DIRECTION"),
-                prompt.index("Return one concise 'Scene direction:'"),
+                prompt.index("AUTHOR-REQUIRED BEAT"),
             )
 
     def test_blank_author_direction_adds_no_extra_direction_section(self):
