@@ -41,4 +41,4 @@ The app does not turn novel facts into global Writer rules. Character cards, rel
 
 ## Verification
 
-The handoff-backup cleanup and its regression tests passed both shared-repository GitHub Actions workflows on commit `a27bf9773095248e97d2b114cdc4c3c06257214b`; current workflow links are in `WRITER_APP_HANDOFF.md`. This is CI evidence, not a claim that every local computer has pulled or tested the latest revision.
+The latest handoff cleanup and consolidated handoff set passed both shared-repository GitHub Actions workflows on commit `398d8a9bc67440b6feb0e8711f088f877ad48d0d`; current workflow links are in `WRITER_APP_HANDOFF.md`. This is CI evidence, not a claim that every local computer has pulled or tested the latest revision.
