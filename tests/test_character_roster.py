@@ -79,7 +79,7 @@ class CharacterRosterPromptTests(unittest.TestCase):
         self.assertNotIn("final concrete beat", prompt)
         self.assertIn("No current AUTHOR'S DIRECTION was supplied.", prompt)
         self.assertIn("Leave the AUTHOR-REQUIRED BEATS section completely blank", prompt)
-        self.assertIn("as an AUTHOR-REQUIRED BEAT", prompt)
+        self.assertIn("AUTHOR-REQUIRED BEATS SOURCE (STRICT)", prompt)
         self.assertIn("where the scene ends to the Writer", prompt)
         self.assertIn("[Daniel]", prompt)
         self.assertIn("[Morgan]", prompt)
