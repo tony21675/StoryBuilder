@@ -51,7 +51,7 @@ These facts are reference context, not a requirement to include every character 
 
 Prepare Scene asks Qwen to return separate **AUTHOR-REQUIRED BEATS** and **QWEN-SELECTED ADDITIONAL BEATS** sections:
 - The current Author's Direction is the **only source** for AUTHOR-REQUIRED BEATS. Only concrete events, actions, or moments explicitly requested in that field qualify. The Story Bible, current state, continuity notes, character cards, locations, preceding scene, previous prepared direction, earlier conversation, and Qwen's own ideas are context only and cannot create required beats.
-- If the current Author's Direction is empty, AUTHOR-REQUIRED BEATS must be completely blank. Do not insert a placeholder such as "None specified" or infer a required beat from surrounding context. If the field contains only tone, mood, general goals, or preferences without a concrete requested event, leave the section blank as well.
+- If the current Author's Direction is empty, AUTHOR-REQUIRED BEATS must be completely blank. Do not insert a placeholder such as "None specified" or infer a required beat from surrounding context. If the field contains only tone, mood, general goals, or preferences without a concrete requested event, leave the section blank as well. The app also clears any model-generated content from this section when the original Author's Direction is empty, while preserving QWEN-SELECTED ADDITIONAL BEATS.
 - Every concrete event explicitly requested in the current Author's Direction must happen in that destination scene; do not omit, soften, replace, or defer it.
 - Qwen may choose zero, one, or any number of additional beats. There is no quota or cap. All ideas Qwen adds belong only under QWEN-SELECTED ADDITIONAL BEATS.
 - When refining a previous direction, the current Author's Direction controls classification; old beat labels must not be treated as authoritative.
@@ -79,8 +79,8 @@ The Planner-to-Writer trace is an essential diagnostic and must remain active.
 
 ## Verification
 
-The strict Author-Required Beats source rule was implemented in commit 7726b79bd30eb7c5c3072e18aa0d4ab280aadf39. Both GitHub Actions workflows passed on that code revision:
-- [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/43184533931)
-- [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/43184534052)
+The strict Author-Required Beats source rule and empty-input output safeguard are implemented in commit fbd6a69a1163bc5e04b54dd9c516e6de43be54cb. Both GitHub Actions workflows passed on that code revision:
+- [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/43185289330)
+- [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/43185289198)
 
-The regression tests cover an empty Author's Direction (including when a previous prepared direction contains event language), current-direction-only sourcing, and preservation of separate Qwen-selected additions. The wider suite also covers the existing Planner and Writer workflows. CI success does not claim every computer has pulled or locally tested this revision.
+The regression tests cover an empty Author's Direction (including when a previous prepared direction contains event language), Markdown-formatted section headings, preservation of Qwen-selected additions, and non-empty Author's Direction behavior. The wider suite also covers the existing Planner and Writer workflows. CI success does not claim every computer has pulled or locally tested this revision.
