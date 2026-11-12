@@ -146,7 +146,7 @@ class ScenePreparationPromptTests(unittest.TestCase):
             self.assertIn("one destination scene only", prompt)
             self.assertIn("Do not combine distinct time/place setups", prompt)
             self.assertIn("separate Prepare Scene request", prompt)
-            self.assertIn("every concrete event, action, or moment explicitly requested", prompt)
+            self.assertIn("The ONLY permitted source for AUTHOR-REQUIRED BEATS", prompt)
             self.assertIn("as an AUTHOR-REQUIRED BEAT", prompt)
             self.assertIn("must happen in this destination scene", prompt)
             self.assertIn("do not omit, soften, replace, or defer", prompt)
