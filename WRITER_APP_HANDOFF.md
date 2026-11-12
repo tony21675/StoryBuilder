@@ -1,6 +1,6 @@
 # Writer App handoff
 
-**Updated:** November 11, 2026  
+**Updated:** November 12, 2026  
 **Repository:** `tony21675/StoryBuilder`  
 **Branch:** `redesign/simplified-writing-workflow` (GitHub default and only branch)  
 **Local path:** `~/Documents/StoryBuilder`
@@ -50,8 +50,10 @@ The Planner is deliberately given substantial novel-specific reference context b
 These facts are reference context, not a requirement to include every character or location in every scene. Qwen can invent plausible connective details and choose any number of additional beats while preserving established canon.
 
 Prepare Scene asks Qwen to return separate **AUTHOR-REQUIRED BEATS** and **QWEN-SELECTED ADDITIONAL BEATS** sections:
-- Only concrete events or actions explicitly requested in the current Author's Direction belong under AUTHOR-REQUIRED BEATS.
-- Qwen may choose zero, one, or any number of additional beats. There is no quota or cap.
+- The current Author's Direction is the **only source** for AUTHOR-REQUIRED BEATS. Only concrete events, actions, or moments explicitly requested in that field qualify. The Story Bible, current state, continuity notes, character cards, locations, preceding scene, previous prepared direction, earlier conversation, and Qwen's own ideas are context only and cannot create required beats.
+- If the current Author's Direction is empty, AUTHOR-REQUIRED BEATS must be completely blank. Do not insert a placeholder such as "None specified" or infer a required beat from surrounding context. If the field contains only tone, mood, general goals, or preferences without a concrete requested event, leave the section blank as well.
+- Every concrete event explicitly requested in the current Author's Direction must happen in that destination scene; do not omit, soften, replace, or defer it.
+- Qwen may choose zero, one, or any number of additional beats. There is no quota or cap. All ideas Qwen adds belong only under QWEN-SELECTED ADDITIONAL BEATS.
 - When refining a previous direction, the current Author's Direction controls classification; old beat labels must not be treated as authoritative.
 
 When the author presses Write, Gemma receives Qwen's prepared direction and the original Author's Direction as a separate authoritative instruction. Qwen's omission or misclassification must not erase the author's original required event.
@@ -77,8 +79,8 @@ The Planner-to-Writer trace is an essential diagnostic and must remain active.
 
 ## Verification
 
-The handoff-backup cleanup and consolidated handoff set passed both GitHub Actions workflows on the latest StoryBuilder handoff revision, commit `398d8a9bc67440b6feb0e8711f088f877ad48d0d`:
-- [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/43116818275)
-- [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/43116818292)
+The strict Author-Required Beats source rule was implemented in commit 7726b79bd30eb7c5c3072e18aa0d4ab280aadf39. Both GitHub Actions workflows passed on that code revision:
+- [StoryBuilder tests](https://github.com/tony21675/StoryBuilder/actions/runs/43184533931)
+- [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/43184534052)
 
-The tests cover the canonical app/novel handoff mirror, removal of only the two retired duplicate paths, and preservation of secret-letter references and other unrelated local files. CI success does not claim every computer has pulled or locally tested this revision.
+The regression tests cover an empty Author's Direction (including when a previous prepared direction contains event language), current-direction-only sourcing, and preservation of separate Qwen-selected additions. The wider suite also covers the existing Planner and Writer workflows. CI success does not claim every computer has pulled or locally tested this revision.
