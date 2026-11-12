@@ -77,7 +77,7 @@ class CharacterRosterPromptTests(unittest.TestCase):
         self.assertNotIn("Natural endpoint:", prompt)
         self.assertNotIn("two labeled parts", prompt)
         self.assertNotIn("final concrete beat", prompt)
-        self.assertIn("every concrete event, action, or moment explicitly requested by the author", prompt)
+        self.assertIn("The ONLY permitted source for AUTHOR-REQUIRED BEATS", prompt)
         self.assertIn("as an AUTHOR-REQUIRED BEAT", prompt)
         self.assertIn("where the scene ends to the Writer", prompt)
         self.assertIn("[Daniel]", prompt)
