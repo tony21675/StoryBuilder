@@ -371,6 +371,8 @@ def build_scene_preparation_prompt(
             "direction, earlier conversation, or your own suggestions; those sources are context only. "
             "If the current direction contains no concrete requested event, leave AUTHOR-REQUIRED "
             "BEATS completely blank, with no placeholder or explanatory text."
+            "Every concrete event, action, or moment requested in this section must happen in "
+            "this destination scene; do not omit, soften, replace, or defer any of them."
         )
     else:
         author_beats_rule = (
