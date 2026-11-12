@@ -19,6 +19,7 @@ from builder.character_context import (
 from builder.story_bible_reader import load_story_bible
 from builder.story_timeline import build_story_timeline_prompt
 from builder.scene_preparation import (
+    blank_author_required_beats_when_unsteered,
     build_scene_preparation_prompt,
     resolve_scene_preparation_target,
     scene_number_from_label,
@@ -2041,6 +2042,10 @@ class MinimalWriterApp:
             )
             return
 
+        suggestion = blank_author_required_beats_when_unsteered(
+            suggestion,
+            getattr(self, "_scene_preparation_required_author_direction", ""),
+        )
         self.prompt_box.delete("1.0", "end")
         self.prompt_box.insert("1.0", suggestion.strip())
         self.author_direction_box.delete("1.0", "end")
