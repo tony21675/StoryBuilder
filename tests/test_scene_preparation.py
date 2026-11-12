@@ -233,8 +233,8 @@ class ScenePreparationPromptTests(unittest.TestCase):
             self.assertIn("AUTHOR'S DIRECTION", prompt)
             self.assertIn(direction, prompt)
             self.assertIn("AUTHOR-REQUIRED BEAT", prompt)
-            self.assertIn("Only events the author directly requested", prompt)
-            self.assertIn("do not promote your own ideas", prompt)
+            self.assertIn("List only concrete events, actions, or moments the author explicitly requests", prompt)
+            self.assertIn("Do not invent, infer, expand, or promote anything", prompt)
             self.assertIn("QWEN-SELECTED ADDITIONAL BEATS", prompt)
             # A Planner request that names no character still receives every card.
             self.assertIn("[Mara]", prompt)
@@ -248,7 +248,7 @@ class ScenePreparationPromptTests(unittest.TestCase):
                 prompt.index("AUTHOR-REQUIRED BEAT"),
             )
 
-    def test_blank_author_direction_adds_no_extra_direction_section(self):
+    def test_blank_author_direction_leaves_required_beats_blank_even_with_prior_direction(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp) / "Unsteered Novel"
             source = self.make_novel(root, scene_text="The crew finished their diagnostics.")
@@ -257,11 +257,37 @@ class ScenePreparationPromptTests(unittest.TestCase):
                 root, "Unsteered Novel", 1, 2,
                 source_scene_path=source,
                 author_direction="  \n ",
+                previous_direction="Earlier prepared direction: Have Jonah send a message.",
             )
 
-            # The instruction text may name the heading, but a blank field
-            # must not create a separate Author's Direction section.
+            # Earlier planner output is reference material, not a source of
+            # author-required beats. An empty current field produces a blank section.
             self.assertNotIn("\nAUTHOR'S DIRECTION\n", prompt)
+            self.assertIn("No current AUTHOR'S DIRECTION was supplied.", prompt)
+            self.assertIn("Leave the AUTHOR-REQUIRED BEATS section completely blank", prompt)
+            self.assertIn("prior prepared direction", prompt)
+            self.assertIn("cannot create AUTHOR-REQUIRED BEATS", prompt)
+            self.assertNotIn("None specified", prompt)
+
+    def test_only_current_author_direction_can_supply_required_beats(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "Directed Novel"
+            source = self.make_novel(root, scene_text="The crew finished their diagnostics.")
+            direction = "Have Mission Control acknowledge the advisory and request updated readings."
+
+            prompt = build_scene_preparation_prompt(
+                root, "Directed Novel", 1, 2,
+                source_scene_path=source,
+                author_direction=direction,
+                previous_direction="Have Jonah open the workshop door.",
+            )
+
+            self.assertIn(direction, prompt)
+            self.assertIn("The ONLY permitted source for AUTHOR-REQUIRED BEATS", prompt)
+            self.assertIn("exact text in the current AUTHOR'S DIRECTION section", prompt)
+            self.assertIn("prior prepared direction", prompt)
+            self.assertIn("those sources are context only", prompt)
+            self.assertIn("QWEN-SELECTED ADDITIONAL BEATS", prompt)
 
     def test_next_scene_uses_selected_ending_and_only_matching_state_details(self):
         with tempfile.TemporaryDirectory() as temp:
