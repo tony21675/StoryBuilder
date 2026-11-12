@@ -185,6 +185,55 @@ def _state_matches_scene(
     return False
 
 
+
+def _normalized_scene_plan_section_heading(line: str) -> str:
+    """Normalize a plain or Markdown-formatted scene-plan section heading."""
+    value = re.sub(r"^\s*#{1,6}\s*", "", str(line or "").strip())
+    value = re.sub(r"^\s*[-*+]\s+", "", value).strip()
+    value = value.strip("*_").rstrip(":：").strip().strip("*_")
+    return re.sub(r"[-_\s]+", " ", value).casefold()
+
+
+def blank_author_required_beats_when_unsteered(
+    suggestion: str, author_direction: str | None
+) -> str:
+    """Clear model-filled required beats when the current author direction is empty.
+
+    This is a deterministic safeguard for the empty-input case. Qwen's independently
+    selected additions are preserved. With non-empty author input, semantic beat
+    selection remains governed by the strict source rules in the Planner prompt.
+    """
+    text = str(suggestion or "")
+    if str(author_direction or "").strip():
+        return text
+
+    lines = text.splitlines()
+    required_index = next(
+        (
+            index for index, line in enumerate(lines)
+            if _normalized_scene_plan_section_heading(line) == "author required beats"
+        ),
+        None,
+    )
+    if required_index is None:
+        return text
+
+    additional_index = next(
+        (
+            index for index in range(required_index + 1, len(lines))
+            if _normalized_scene_plan_section_heading(lines[index])
+            == "qwen selected additional beats"
+        ),
+        None,
+    )
+    if additional_index is None:
+        return text
+
+    # Keep both headings and all Qwen-selected additions, but remove every
+    # generated item or explanation from the author-required section.
+    cleaned = lines[:required_index + 1] + [""] + lines[additional_index:]
+    return "\n".join(cleaned).strip()
+
 def build_scene_preparation_prompt(
     novel_path: str | Path,
     novel_name: str,
