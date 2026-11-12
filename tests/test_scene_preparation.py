@@ -8,6 +8,7 @@ from unittest.mock import Mock, patch
 from builder.odt_document import read_document
 from builder.novel_browser import list_scene_files
 from builder.scene_preparation import (
+    blank_author_required_beats_when_unsteered,
     build_scene_preparation_prompt,
     next_scene_coordinates,
     resolve_scene_preparation_target,
@@ -449,6 +450,52 @@ class ScenePreparationPromptTests(unittest.TestCase):
 
             self.assertIn("Story: Bare Novel", prompt)
             self.assertIn("opening scene", prompt.lower())
+
+
+    def test_empty_author_direction_clears_generated_required_beats_but_preserves_qwen_additions(self):
+        suggestion = (
+            "Scene direction:\n\n"
+            "AUTHOR-REQUIRED BEATS\n"
+            "- Repeat Tony's departure from the previous scene.\n"
+            "- Have Maya worry because the current state mentions concern.\n\n"
+            "QWEN-SELECTED ADDITIONAL BEATS\n"
+            "- Let the remaining group settle into an ordinary evening.\n"
+        )
+
+        cleaned = blank_author_required_beats_when_unsteered(suggestion, "")
+
+        self.assertIn("AUTHOR-REQUIRED BEATS\n\nQWEN-SELECTED ADDITIONAL BEATS", cleaned)
+        self.assertNotIn("Repeat Tony's departure", cleaned)
+        self.assertNotIn("Have Maya worry", cleaned)
+        self.assertIn("Let the remaining group settle into an ordinary evening.", cleaned)
+
+    def test_empty_author_direction_sanitizer_supports_markdown_headings(self):
+        suggestion = (
+            "Scene direction:\n\n"
+            "### **AUTHOR-REQUIRED BEATS:**\n"
+            "- An inferred action.\n\n"
+            "### **QWEN-SELECTED ADDITIONAL BEATS:**\n"
+            "- A planner-selected idea.\n"
+        )
+
+        cleaned = blank_author_required_beats_when_unsteered(suggestion, " \n ")
+
+        self.assertNotIn("An inferred action.", cleaned)
+        self.assertIn("A planner-selected idea.", cleaned)
+
+    def test_nonempty_author_direction_does_not_rewrite_qwens_section(self):
+        suggestion = (
+            "Scene direction:\n\nAUTHOR-REQUIRED BEATS\n"
+            "- Have Mara receive the message.\n\n"
+            "QWEN-SELECTED ADDITIONAL BEATS\n- Add natural dialogue.\n"
+        )
+
+        self.assertEqual(
+            blank_author_required_beats_when_unsteered(
+                suggestion, "Have Mara receive the message."
+            ),
+            suggestion,
+        )
 
 
 class ScenePreparationDestinationTests(unittest.TestCase):
