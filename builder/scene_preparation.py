@@ -358,28 +358,47 @@ def build_scene_preparation_prompt(
         "from a meeting time or shift start/end."
     )
 
+    if author_direction_text:
+        author_beats_rule = (
+            "AUTHOR-REQUIRED BEATS SOURCE (STRICT)\n"
+            "The ONLY permitted source for AUTHOR-REQUIRED BEATS is the exact text in the current "
+            "AUTHOR'S DIRECTION section above. List only concrete events, actions, or moments the "
+            "author explicitly requests in that section. Tone, mood, background facts, general goals, "
+            "questions, options, and preferences are not required beats unless they explicitly request "
+            "a concrete event, action, or moment. Do not invent, infer, expand, or promote anything "
+            "into this section. Do not take required beats from the Story Bible, current state, "
+            "continuity notes, location references, character cards, preceding scene, prior prepared "
+            "direction, earlier conversation, or your own suggestions; those sources are context only. "
+            "If the current direction contains no concrete requested event, leave AUTHOR-REQUIRED "
+            "BEATS completely blank, with no placeholder or explanatory text."
+        )
+    else:
+        author_beats_rule = (
+            "AUTHOR-REQUIRED BEATS SOURCE (STRICT)\n"
+            "No current AUTHOR'S DIRECTION was supplied. Leave the AUTHOR-REQUIRED BEATS section "
+            "completely blank: no bullets, placeholder, explanation, or inferred requirement. "
+            "Do not take required beats from the Story Bible, current state, continuity notes, "
+            "location references, character cards, preceding scene, prior prepared direction, "
+            "earlier conversation, or your own suggestions. Those sources are context only and "
+            "cannot create AUTHOR-REQUIRED BEATS."
+        )
+
     sections.extend(
         [
             "Use the scene context as a starting point. Gaps are creative space; develop plausible details and interactions without treating every unknown as a prohibition.",
             "Prepare a direction for this one destination scene only. Do not combine distinct time/place "
             "setups that function as separate scenes; leave a later scene setup for a separate Prepare Scene "
-            "request unless the author explicitly asks to include it in this same scene. "
-            "Identify every concrete event, action, or moment explicitly requested by the author "
-            "as an AUTHOR-REQUIRED BEAT. Only events the author directly requested in the current "
-            "AUTHOR'S DIRECTION belong in this section; do not promote your own ideas, inferred "
-            "connective actions, or your preferred scene setup into author-required beats. A request "
-            "for one event does not authorize you to add other events to the required section. If a "
-            "current AUTHOR'S DIRECTION is supplied while refining a previous direction, reclassify "
-            "from the current author text rather than copying the previous direction's beat labels. "
-            "Every author-required beat must happen in this destination scene; do not omit, soften, "
-            "replace, or defer any of them. Keep these distinct from your own additions. If no concrete "
-            "event is explicitly requested, say 'None specified' under AUTHOR-REQUIRED BEATS. "
-            "Then use your own storytelling judgment to choose any number of QWEN-SELECTED ADDITIONAL BEATS: "
-            "zero, one, or as many as you believe will genuinely strengthen this scene. There is no quota or cap; "
-            "do not pad the scene just to add beats. These are additions and must never replace an author-required beat. "
-            "Return one concise 'Scene direction:' followed by clearly separate AUTHOR-REQUIRED BEATS and "
-            "QWEN-SELECTED ADDITIONAL BEATS sections. Leave how they unfold and where the scene ends to the Writer. "
-            "Do not write manuscript prose.",
+            "request unless the author explicitly asks to include it in this same scene.",
+            author_beats_rule,
+            "Choose any number of QWEN-SELECTED ADDITIONAL BEATS: zero, one, or as many as you "
+            "believe will genuinely strengthen this scene. There is no quota or cap; do not pad the "
+            "scene just to add beats. Every idea you add yourself belongs only in QWEN-SELECTED "
+            "ADDITIONAL BEATS and must never replace, weaken, or be mislabeled as an author-required beat.",
+            "Return one concise 'Scene direction:' followed by clearly separate AUTHOR-REQUIRED BEATS "
+            "and QWEN-SELECTED ADDITIONAL BEATS sections, in that order. When the author-required "
+            "section is required to be blank, put absolutely nothing under its heading before the "
+            "QWEN-SELECTED ADDITIONAL BEATS heading. Leave how the beats unfold and where the scene "
+            "ends to the Writer. Do not write manuscript prose.",
         ]
     )
     return "\n\n".join(part for part in sections if part)
