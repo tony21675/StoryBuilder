@@ -712,6 +712,12 @@ class MinimalWriterPrepareSceneTests(unittest.TestCase):
         app._prepared_scene_source_scene_path = None
         app._prepared_author_required_direction = ""
         app._scene_preparation_required_author_direction = ""
+        # Existing preparation tests use an explicitly empty cast so the
+        # modal selector is not opened inside these UI-independent tests.
+        app._scene_cast_names = []
+        app._scene_cast_novel_path = Path(novel_path).expanduser().resolve()
+        app._scene_cast_destination = None
+        app.scene_cast_summary_var = SimpleNamespace(set=Mock())
         return app
 
     def test_prepare_scene_fills_prompt_box_for_an_empty_novel(self):
