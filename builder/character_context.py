@@ -144,11 +144,12 @@ def build_scene_cast_boundary_prompt(
         + cast_line
         + "\n"
         + participation
-        + " Every unlisted character is excluded, even if mentioned in the previous scene, "
-        "continuity notes, Story Bible, relationships, or Author's Direction. Do not bring "
-        "an unlisted character into the scene through a cutaway, flashback, phone call, text, "
-        "email, or off-page interaction. An unlisted person may be mentioned only as brief "
-        "background/status context when necessary; do not depict them acting or participating."
+        + " Do not name or refer to any unlisted character in the manuscript at all, "
+        "including through pronouns, relationship labels, narration, dialogue, offstage "
+        "references, cutaways, flashbacks, phone calls, texts, or emails. Unlisted characters "
+        "are unavailable for this scene even when the preceding scene, continuity notes, "
+        "Story Bible, relationships, or Author's Direction mention them. Use that information "
+        "only to understand continuity; do not reproduce it in this scene."
     )
     prefix = str(prompt or "").rstrip()
     return f"{prefix}\n\n{boundary}" if prefix else boundary
