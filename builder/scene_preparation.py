@@ -10,6 +10,7 @@ from builder.odt_document import read_document
 from builder.story_bible_reader import load_story_bible
 from builder.character_context import (
     build_character_card_context_prompt,
+    build_scene_cast_boundary_prompt,
     build_story_bible_reference_context,
 )
 from builder.story_timeline import build_story_timeline_prompt
@@ -242,6 +243,7 @@ def build_scene_preparation_prompt(
     source_scene_path: str | Path | None = None,
     author_direction: str | None = None,
     previous_direction: str | None = None,
+    scene_cast: list[str] | None = None,
 ) -> str:
     """Build a lean planning request with only the current scene's useful context."""
     root = Path(novel_path).expanduser()
@@ -293,6 +295,12 @@ def build_scene_preparation_prompt(
         sections.append(location_context)
 
     cast_names: list[str] = []
+    if scene_cast is not None:
+        cast_names = [
+            _clean_text(name, limit=80)
+            for name in scene_cast
+            if isinstance(name, str) and name.strip()
+        ]
     timeline_note = build_story_timeline_prompt(current_state.get("time_of_day"))
     if timeline_note:
         sections.append(timeline_note)
@@ -320,15 +328,16 @@ def build_scene_preparation_prompt(
             if primary_location:
                 sections.append(f"Current location: {primary_location}")
 
-        cast_value = current_state.get("scene_cast")
-        if isinstance(cast_value, list):
-            cast_names = [
-                _clean_text(name, limit=80)
-                for name in cast_value
-                if isinstance(name, str) and name.strip()
-            ][:8]
-            if cast_names:
-                sections.append("People currently involved: " + ", ".join(cast_names))
+        if scene_cast is None:
+            cast_value = current_state.get("scene_cast")
+            if isinstance(cast_value, list):
+                cast_names = [
+                    _clean_text(name, limit=80)
+                    for name in cast_value
+                    if isinstance(name, str) and name.strip()
+                ][:8]
+                if cast_names:
+                    sections.append("People currently involved: " + ", ".join(cast_names))
 
         questions = current_state.get("unresolved_questions")
         if isinstance(questions, list):
@@ -347,16 +356,16 @@ def build_scene_preparation_prompt(
             author_direction_text,
         ) if part
     )
-    # The Planner needs the whole cast for relationship and household awareness,
-    # even when the Author's Direction names only one character.
+    # An explicit scene cast is authoritative: do not load cards for anyone else.
     character_context = build_character_card_context_prompt(
         root,
         story_bible,
         "",
         supporting_text=character_supporting_text,
-        include_all=True,
+        include_all=scene_cast is None,
         compact=False,
         comprehensive=True,
+        selected_names=scene_cast,
     )
     if character_context:
         sections.append(character_context)
@@ -452,4 +461,6 @@ def build_scene_preparation_prompt(
             "ends to the Writer. Do not write manuscript prose.",
         ]
     )
+    if scene_cast is not None:
+        sections.append(build_scene_cast_boundary_prompt("", scene_cast))
     return "\n\n".join(part for part in sections if part)
