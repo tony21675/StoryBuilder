@@ -140,9 +140,9 @@ def build_scene_cast_boundary_prompt(
         )
 
     boundary = (
-        "SCENE CAST BOUNDARY (AUTHOR-SELECTED AND BINDING)\\n"
+        "SCENE CAST BOUNDARY (AUTHOR-SELECTED AND BINDING)\n"
         + cast_line
-        + "\\n"
+        + "\n"
         + participation
         + " Every unlisted character is excluded, even if mentioned in the previous scene, "
         "continuity notes, Story Bible, relationships, or Author's Direction. Do not bring "
@@ -151,7 +151,7 @@ def build_scene_cast_boundary_prompt(
         "background/status context when necessary; do not depict them acting or participating."
     )
     prefix = str(prompt or "").rstrip()
-    return f"{prefix}\\n\\n{boundary}" if prefix else boundary
+    return f"{prefix}\n\n{boundary}" if prefix else boundary
 
 
 def build_character_card_context_prompt(
