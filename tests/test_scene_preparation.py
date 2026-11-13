@@ -176,7 +176,7 @@ class ScenePreparationPromptTests(unittest.TestCase):
         self.assertNotIn("[Private Detail]", prompt)
         self.assertIn("SCENE CAST BOUNDARY (AUTHOR-SELECTED AND BINDING)", prompt)
         self.assertIn("Allowed characters: Mara.", prompt)
-        self.assertIn("Every unlisted character is excluded", prompt)
+        self.assertIn("Do not name or refer to any unlisted character", prompt)
 
     def test_empty_scene_cast_does_not_load_any_character_cards(self):
         with tempfile.TemporaryDirectory() as temp:
