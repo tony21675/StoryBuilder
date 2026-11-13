@@ -1635,9 +1635,30 @@ class MinimalWriterApp:
         names = self._choose_scene_cast(novel_path)
         if names is None:
             return
+        chapter_number = self.chapter_numbers.get(self.chapter_var.get().strip())
+        selected_scene_label = self.scene_var.get().strip()
+        selected_scene_number = scene_number_from_label(selected_scene_label)
+        selected_scene_path = self.scene_files.get(selected_scene_label)
+        if chapter_number is None:
+            self._showinfo(
+                "Choose a chapter",
+                "Select a chapter before choosing the cast for its next scene.",
+            )
+            return
+        target_chapter, target_scene, _source, _retry = resolve_scene_preparation_target(
+            chapter_number,
+            selected_scene_path,
+            selected_scene_number,
+            novel_path=novel_path,
+            pending_destination=getattr(self, "_prepared_scene_destination", None),
+            pending_novel_path=getattr(self, "_prepared_scene_novel_path", None),
+            pending_source_scene_path=getattr(
+                self, "_prepared_scene_source_scene_path", None
+            ),
+        )
         self._scene_cast_names = names
         self._scene_cast_novel_path = Path(novel_path).expanduser().resolve()
-        self._scene_cast_destination = getattr(self, "_prepared_scene_destination", None)
+        self._scene_cast_destination = (int(target_chapter), int(target_scene))
         self._update_scene_cast_summary()
         self.status_var.set(
             "Scene cast selected. Only those characters will be supplied to the models."
