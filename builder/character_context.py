@@ -83,6 +83,77 @@ def _name_is_mentioned(name: str, text: str) -> bool:
     )
 
 
+def load_character_card_names(
+    novel_path: str | Path, story_bible: dict[str, Any]
+) -> list[str]:
+    """Return the names of valid character cards registered in this novel."""
+    entries = story_bible.get("character_cards", [])
+    if not isinstance(entries, list):
+        return []
+
+    names: list[str] = []
+    seen: set[str] = set()
+    for entry in entries:
+        if isinstance(entry, dict):
+            card = entry
+        elif isinstance(entry, str) and entry.strip():
+            try:
+                card = load_story_bible_character_card(novel_path, entry.strip())
+            except (OSError, UnicodeError, ValueError):
+                continue
+        else:
+            continue
+        name = _clean(card.get("name"), 100)
+        key = name.casefold()
+        if name and key not in seen:
+            names.append(name)
+            seen.add(key)
+    return names
+
+
+def build_scene_cast_boundary_prompt(
+    prompt: str, scene_cast: list[str] | None
+) -> str:
+    """Append the author's binding list of characters allowed in one scene."""
+    if scene_cast is None:
+        return str(prompt or "")
+
+    names: list[str] = []
+    seen: set[str] = set()
+    for value in scene_cast:
+        name = _clean(value, 100)
+        key = name.casefold()
+        if name and key not in seen:
+            names.append(name)
+            seen.add(key)
+
+    if names:
+        cast_line = "Allowed characters: " + ", ".join(names) + "."
+        participation = (
+            "Only the characters listed above may be physically present, appear on-page, "
+            "speak, act, interact, enter or leave, or participate in this scene."
+        )
+    else:
+        cast_line = "Allowed characters: none."
+        participation = (
+            "No character may appear, speak, act, interact, or participate in this scene."
+        )
+
+    boundary = (
+        "SCENE CAST BOUNDARY (AUTHOR-SELECTED AND BINDING)\\n"
+        + cast_line
+        + "\\n"
+        + participation
+        + " Every unlisted character is excluded, even if mentioned in the previous scene, "
+        "continuity notes, Story Bible, relationships, or Author's Direction. Do not bring "
+        "an unlisted character into the scene through a cutaway, flashback, phone call, text, "
+        "email, or off-page interaction. An unlisted person may be mentioned only as brief "
+        "background/status context when necessary; do not depict them acting or participating."
+    )
+    prefix = str(prompt or "").rstrip()
+    return f"{prefix}\\n\\n{boundary}" if prefix else boundary
+
+
 def build_character_card_context_prompt(
     novel_path: str | Path,
     story_bible: dict[str, Any],
@@ -92,6 +163,7 @@ def build_character_card_context_prompt(
     include_all: bool = False,
     compact: bool = False,
     comprehensive: bool = False,
+    selected_names: list[str] | None = None,
 ) -> str:
     """Append relevant character references, with a lean mode for manuscript writing."""
     entries = story_bible.get("character_cards", [])
@@ -104,6 +176,11 @@ def build_character_card_context_prompt(
     selected: list[dict[str, Any]] = []
     roster_names: list[str] = []
     seen_names: set[str] = set()
+    selected_name_keys = {
+        _clean(name, 100).casefold()
+        for name in (selected_names or [])
+        if isinstance(name, str) and _clean(name, 100)
+    }
 
     for entry in entries:
         if isinstance(entry, dict):
@@ -125,14 +202,19 @@ def build_character_card_context_prompt(
             roster_names.append(name)
             seen_names.add(normalized_name)
 
-        if include_all or _name_is_mentioned(name, query):
+        if selected_names is not None:
+            if normalized_name in selected_name_keys:
+                selected.append(card)
+        elif include_all or _name_is_mentioned(name, query):
             selected.append(card)
 
+    if selected_names is not None and not selected:
+        return str(prompt or "")
     if not roster_names and not selected:
         return str(prompt or "")
 
     lines: list[str] = []
-    if roster_names:
+    if roster_names and selected_names is None:
         roster_line = (
             "Character cards registered for this novel (reference only): "
             + ", ".join(roster_names)
