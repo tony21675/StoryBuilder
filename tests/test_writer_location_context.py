@@ -167,9 +167,8 @@ class MinimalWriterLocationIntegrationTests(unittest.TestCase):
             prompt = MinimalWriterApp._prepare_location_context(
                 app, "Tiffany is alone in her room. Tony is still at work."
             )
-
-        self.assertIn("[Tiffany]", prompt)
-        self.assertNotIn("[Tony]", prompt)
+            self.assertIn("[Tiffany]", prompt)
+            self.assertNotIn("[Tony]", prompt)
         finally:
             temporary.cleanup()
 
