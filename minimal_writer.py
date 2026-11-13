@@ -14,7 +14,9 @@ from builder.workspace import MODELS_DIR, NOVEL_ROOT
 from builder.continuity_context import select_relevant_locations
 from builder.character_context import (
     build_character_card_context_prompt,
+    build_scene_cast_boundary_prompt,
     build_story_bible_reference_context,
+    load_character_card_names,
 )
 from builder.story_bible_reader import load_story_bible
 from builder.story_timeline import build_story_timeline_prompt
@@ -461,6 +463,9 @@ class MinimalWriterApp:
         self.novel_packages: dict[str, Path] = {}
         self._active_novel_path: Path | None = None
         self.last_location_context_names: list[str] = []
+        self._scene_cast_names: list[str] | None = None
+        self._scene_cast_novel_path: Path | None = None
+        self._scene_cast_destination: tuple[int, int] | None = None
         self._scene_preparation_destination = (1, 1)
         self._scene_preparation_original_prompt = ""
         self._scene_preparation_original_author_direction = ""
@@ -501,6 +506,9 @@ class MinimalWriterApp:
         self.planner_model_var = tk.StringVar()
         self.status_var = tk.StringVar(
             value="Choose separate models for Prepare Scene and manuscript writing."
+        )
+        self.scene_cast_summary_var = tk.StringVar(
+            value="Not selected. Choose who may appear in this scene."
         )
         self.activity_task_var = tk.StringVar(value="Idle")
         self.activity_model_var = tk.StringVar(value="None loaded")
@@ -670,6 +678,20 @@ class MinimalWriterApp:
         )
         self.author_direction_box.pack(fill="x", expand=False, pady=(4, 8))
         bind_ctrl_a_select_all(self.author_direction_box)
+
+        scene_cast_row = ttk.Frame(outer)
+        scene_cast_row.pack(fill="x", pady=(0, 8))
+        self.scene_cast_button = ttk.Button(
+            scene_cast_row,
+            text="Select Scene Cast",
+            command=self.select_scene_cast,
+        )
+        self.scene_cast_button.pack(side="left", padx=(0, 8))
+        ttk.Label(
+            scene_cast_row,
+            textvariable=self.scene_cast_summary_var,
+            wraplength=760,
+        ).pack(side="left", fill="x", expand=True)
 
         prompt_header = ttk.Frame(outer)
         prompt_header.pack(fill="x")
@@ -919,6 +941,9 @@ class MinimalWriterApp:
     def _begin_revision_generation(self, prompt: str) -> None:
         """Generate a proposal without changing the current passage."""
         prompt = self._prepare_creative_direction_context(prompt)
+        scene_cast = self._active_scene_cast()
+        if scene_cast is not None:
+            prompt = build_scene_cast_boundary_prompt(prompt, scene_cast)
         writer_model = self._selected_role_model("writer")
         if writer_model is None:
             self._showinfo("Choose a writing model", "Select a model for manuscript writing first.")
@@ -1463,6 +1488,163 @@ class MinimalWriterApp:
         self._scene_preparation_source_scene_path = None
         self._preparing_scene = False
         self.last_location_context_names = []
+        self._clear_scene_cast_selection()
+
+    def _clear_scene_cast_selection(self) -> None:
+        self._scene_cast_names = None
+        self._scene_cast_novel_path = None
+        self._scene_cast_destination = None
+        summary = getattr(self, "scene_cast_summary_var", None)
+        if summary is not None:
+            summary.set("Not selected. Choose who may appear in this scene.")
+
+    def _active_scene_cast(self) -> list[str] | None:
+        names = getattr(self, "_scene_cast_names", None)
+        if names is None:
+            return None
+        selected_path = getattr(self, "_scene_cast_novel_path", None)
+        novel_name = getattr(getattr(self, "novel_var", None), "get", lambda: "")().strip()
+        current_path = getattr(self, "novel_packages", {}).get(novel_name)
+        if current_path is None or selected_path is None:
+            return None
+        if Path(current_path).expanduser().resolve() != Path(selected_path).expanduser().resolve():
+            return None
+
+        destination = getattr(self, "_scene_cast_destination", None)
+        if destination is not None:
+            chapter_number = getattr(self, "chapter_numbers", {}).get(
+                getattr(getattr(self, "chapter_var", None), "get", lambda: "")().strip()
+            )
+            scene_number = scene_number_from_label(
+                getattr(getattr(self, "scene_var", None), "get", lambda: "")()
+            )
+            if (chapter_number, scene_number) != destination:
+                return None
+        return list(names)
+
+    def _update_scene_cast_summary(self) -> None:
+        summary = getattr(self, "scene_cast_summary_var", None)
+        if summary is None:
+            return
+        names = getattr(self, "_scene_cast_names", None)
+        if names is None:
+            summary.set("Not selected. Choose who may appear in this scene.")
+        elif names:
+            summary.set("Allowed: " + ", ".join(names))
+        else:
+            summary.set("No characters selected. This scene will have no character appearances.")
+
+    def _choose_scene_cast(self, novel_path: str | Path) -> list[str] | None:
+        """Show the registered character roster and return the author's selection."""
+        try:
+            story_bible = load_story_bible(novel_path)
+            names = load_character_card_names(novel_path, story_bible)
+        except (OSError, UnicodeError, ValueError) as exc:
+            self._showerror("Could not load character roster", str(exc))
+            return None
+
+        if not names:
+            self._showinfo(
+                "No character cards found",
+                "This novel has no readable character cards registered in its Story Bible.",
+            )
+            return None
+
+        window = tk.Toplevel(self.root)
+        window.title("Select Scene Cast")
+        window.transient(self.root)
+        window.resizable(True, True)
+        window.geometry("440x520")
+        window.grab_set()
+
+        ttk.Label(
+            window,
+            text=(
+                "Select only the characters allowed to appear in this scene. "
+                "Anyone left unselected is excluded from the scene."
+            ),
+            wraplength=400,
+            justify="left",
+        ).pack(fill="x", padx=12, pady=(12, 8))
+
+        list_frame = ttk.Frame(window, padding=(12, 0))
+        list_frame.pack(fill="both", expand=True)
+        scrollbar = ttk.Scrollbar(list_frame, orient="vertical")
+        roster = tk.Listbox(
+            list_frame,
+            selectmode=tk.EXTENDED,
+            exportselection=False,
+            height=min(18, max(5, len(names))),
+            width=42,
+        )
+        roster.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        roster.configure(yscrollcommand=scrollbar.set)
+        scrollbar.configure(command=roster.yview)
+
+        selected_before = (
+            set(self._scene_cast_names or [])
+            if getattr(self, "_scene_cast_novel_path", None) is not None
+            and Path(self._scene_cast_novel_path).expanduser().resolve()
+            == Path(novel_path).expanduser().resolve()
+            else set()
+        )
+        for index, name in enumerate(names):
+            roster.insert("end", name)
+            if name in selected_before:
+                roster.selection_set(index)
+
+        quick_row = ttk.Frame(window, padding=(12, 8))
+        quick_row.pack(fill="x")
+        ttk.Button(
+            quick_row,
+            text="Select All",
+            command=lambda: roster.selection_set(0, "end"),
+        ).pack(side="left")
+        ttk.Button(
+            quick_row,
+            text="Clear",
+            command=lambda: roster.selection_clear(0, "end"),
+        ).pack(side="left", padx=(8, 0))
+
+        result: dict[str, list[str] | None] = {"names": None}
+
+        def accept() -> None:
+            result["names"] = [names[index] for index in roster.curselection()]
+            window.destroy()
+
+        def cancel() -> None:
+            window.destroy()
+
+        action_row = ttk.Frame(window, padding=(12, 0, 12, 12))
+        action_row.pack(fill="x")
+        ttk.Button(action_row, text="Cancel", command=cancel).pack(side="right")
+        ttk.Button(action_row, text="Use Selected", command=accept).pack(
+            side="right", padx=(0, 8)
+        )
+        window.protocol("WM_DELETE_WINDOW", cancel)
+        self.root.wait_window(window)
+        return result["names"]
+
+    def select_scene_cast(self) -> None:
+        """Let the author choose the only characters allowed in the active scene."""
+        if self.busy:
+            return
+        novel_name = self.novel_var.get().strip()
+        novel_path = self.novel_packages.get(novel_name)
+        if novel_path is None:
+            self._showinfo("Choose a novel", "Select a novel before choosing its scene cast.")
+            return
+        names = self._choose_scene_cast(novel_path)
+        if names is None:
+            return
+        self._scene_cast_names = names
+        self._scene_cast_novel_path = Path(novel_path).expanduser().resolve()
+        self._scene_cast_destination = getattr(self, "_prepared_scene_destination", None)
+        self._update_scene_cast_summary()
+        self.status_var.set(
+            "Scene cast selected. Only those characters will be supplied to the models."
+        )
 
     def _reset_model_context_for_novel_switch(self) -> None:
         """Clear the live model conversation before writing for another novel."""
@@ -1549,6 +1731,9 @@ class MinimalWriterApp:
         novel_path = self.novel_packages.get(self.novel_var.get().strip())
         chapter_number = self.chapter_numbers.get(self.chapter_var.get().strip())
         pending_destination = getattr(self, "_prepared_scene_destination", None)
+        cast_destination = getattr(self, "_scene_cast_destination", None)
+        if cast_destination is not None and chapter_number != cast_destination[0]:
+            self._clear_scene_cast_selection()
         if pending_destination is not None and chapter_number != pending_destination[0]:
             self._clear_prepared_scene_target()
         self.scene_files = {};
@@ -1584,13 +1769,17 @@ class MinimalWriterApp:
         self._prepared_author_required_direction = ""
 
     def _on_scene_selected(self, _event=None) -> None:
-        """Discard a pending retry target when the author selects another scene."""
-        pending_destination = getattr(self, "_prepared_scene_destination", None)
-        if pending_destination is None:
-            return
+        """Discard scene-specific planning and cast choices when another scene is selected."""
         chapter_number = self.chapter_numbers.get(self.chapter_var.get().strip())
         scene_number = scene_number_from_label(self.scene_var.get().strip())
-        if (chapter_number, scene_number) != pending_destination:
+        selected_destination = (chapter_number, scene_number)
+
+        cast_destination = getattr(self, "_scene_cast_destination", None)
+        if cast_destination is not None and selected_destination != cast_destination:
+            self._clear_scene_cast_selection()
+
+        pending_destination = getattr(self, "_prepared_scene_destination", None)
+        if pending_destination is not None and selected_destination != pending_destination:
             self._clear_prepared_scene_target()
 
     def load_selected_scene_copy(self) -> None:
@@ -1842,6 +2031,29 @@ class MinimalWriterApp:
                 self, "_prepared_scene_source_scene_path", None
             ),
         )
+        scene_destination = (int(target_chapter), int(target_scene))
+        selected_cast = getattr(self, "_scene_cast_names", None)
+        selected_cast_path = getattr(self, "_scene_cast_novel_path", None)
+        selected_cast_destination = getattr(self, "_scene_cast_destination", None)
+        if (
+            selected_cast is None
+            or selected_cast_path is None
+            or Path(selected_cast_path).expanduser().resolve()
+            != Path(novel_path).expanduser().resolve()
+            or (
+                selected_cast_destination is not None
+                and selected_cast_destination != scene_destination
+            )
+        ):
+            selected_cast = self._choose_scene_cast(novel_path)
+            if selected_cast is None:
+                return
+            self._scene_cast_names = selected_cast
+            self._scene_cast_novel_path = Path(novel_path).expanduser().resolve()
+
+        self._scene_cast_destination = scene_destination
+        self._update_scene_cast_summary()
+
         existing_prompt = self.prompt_box.get("1.0", "end-1c")
         visible_author_direction = self.author_direction_box.get(
             "1.0", "end-1c"
@@ -1868,6 +2080,7 @@ class MinimalWriterApp:
                 source_scene_path=source_scene,
                 author_direction=author_direction,
                 previous_direction=existing_prompt if is_retry else None,
+                scene_cast=list(selected_cast),
             )
         except (OSError, UnicodeError, ValueError) as exc:
             self._showerror("Could not prepare scene", str(exc))
@@ -2363,11 +2576,12 @@ class MinimalWriterApp:
                 )
 
         character_supporting_text = str(supporting_text or "")
-        scene_cast = current_state.get("scene_cast", [])
-        if isinstance(scene_cast, list):
+        selected_scene_cast = self._active_scene_cast()
+        prior_scene_cast = current_state.get("scene_cast", [])
+        if selected_scene_cast is None and isinstance(prior_scene_cast, list):
             cast_names = [
                 str(name).strip()
-                for name in scene_cast
+                for name in prior_scene_cast
                 if isinstance(name, str) and name.strip()
             ]
             if cast_names:
@@ -2379,8 +2593,9 @@ class MinimalWriterApp:
                 )
 
         include_all = (
-            current_state.get("status") == "story_start"
-            and not scene_cast
+            selected_scene_cast is None
+            and current_state.get("status") == "story_start"
+            and not prior_scene_cast
         )
         compact_prompt = "\n\n".join(part for part in context_parts if part)
         compact_prompt = build_character_card_context_prompt(
@@ -2390,6 +2605,7 @@ class MinimalWriterApp:
             supporting_text=character_supporting_text,
             include_all=include_all,
             compact=True,
+            selected_names=selected_scene_cast,
         )
 
         locations = story_bible.get("locations", {})
@@ -3527,6 +3743,11 @@ class MinimalWriterApp:
         self.load_button.configure(
             state="normal" if idle and has_writer_model else "disabled"
         )
+        if hasattr(self, "scene_cast_button"):
+            has_selected_novel = self.novel_var.get().strip() in self.novel_packages
+            self.scene_cast_button.configure(
+                state="normal" if idle and has_selected_novel else "disabled"
+            )
         if hasattr(self, "prepare_scene_button"):
             has_selected_novel = (
                 self.novel_var.get().strip() in self.novel_packages
