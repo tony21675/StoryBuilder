@@ -1506,8 +1506,10 @@ class AuthorRequiredDirectionPromptTests(unittest.TestCase):
         self.assertIn("do not merely mention it", prompt.casefold())
         self.assertIn("defer it to a later scene", prompt.casefold())
         self.assertIn("QWEN'S ADDITIONAL BEATS", prompt)
-        self.assertIn("carry them into the prose", prompt.casefold())
-        self.assertIn("must never replace, weaken, or delay them", prompt)
+        self.assertIn("fully compatible with every part", prompt)
+        self.assertIn("the requested order of the original author's direction", prompt.casefold())
+        self.assertIn("If an additional beat conflicts with the author's direction or cast selection", prompt)
+        self.assertIn("omit that beat", prompt)
 
     def test_author_direction_is_not_added_twice_when_already_in_prompt(self):
         direction = "Have Tony open and read Sarah's letter in this scene."

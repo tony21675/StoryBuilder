@@ -130,13 +130,14 @@ def build_scene_cast_boundary_prompt(
     if names:
         cast_line = "Allowed characters: " + ", ".join(names) + "."
         participation = (
-            "Only the characters listed above may be physically present, appear on-page, "
-            "speak, act, interact, enter or leave, or participate in this scene."
+            "Only the listed characters may be physically present, speak, act, interact, "
+            "arrive, depart, communicate, or otherwise participate in this scene."
         )
     else:
         cast_line = "Allowed characters: none."
         participation = (
-            "No character may appear, speak, act, interact, or participate in this scene."
+            "No character may appear, speak, act, interact, communicate, or otherwise "
+            "participate in this scene."
         )
 
     boundary = (
@@ -144,12 +145,14 @@ def build_scene_cast_boundary_prompt(
         + cast_line
         + "\n"
         + participation
-        + " Do not name or refer to any unlisted character in the manuscript at all, "
-        "including through pronouns, relationship labels, narration, dialogue, offstage "
-        "references, cutaways, flashbacks, phone calls, texts, or emails. Unlisted characters "
-        "are unavailable for this scene even when the preceding scene, continuity notes, "
-        "Story Bible, relationships, or Author's Direction mention them. Use that information "
-        "only to understand continuity; do not reproduce it in this scene."
+        + " An unselected character cannot enter, take an action, deliver dialogue, call, "
+        "text, email, or appear as an active participant in a cutaway or flashback. "
+        "Names and references to unselected people are allowed when needed for the author's "
+        "direction or story continuity, including memories, grief, photographs, letters, "
+        "and discussion of someone who is absent or deceased. A still photograph or other "
+        "static keepsake depicting an absent or deceased person is allowed when the author "
+        "requests it; this does not make that person a scene participant. Mentioning someone "
+        "does not authorize them to appear, speak, act, or communicate in the scene."
     )
     prefix = str(prompt or "").rstrip()
     return f"{prefix}\n\n{boundary}" if prefix else boundary

@@ -21,7 +21,7 @@ from builder.character_context import (
 from builder.story_bible_reader import load_story_bible
 from builder.story_timeline import build_story_timeline_prompt
 from builder.scene_preparation import (
-    blank_author_required_beats_when_unsteered,
+    apply_author_required_beats,
     build_scene_preparation_prompt,
     resolve_scene_preparation_target,
     scene_number_from_label,
@@ -266,11 +266,14 @@ def build_author_required_direction_prompt(
         "summary leaves something out or phrases it weakly. Preserve the author's other "
         "stated boundaries and preferences too.\n\n"
         "QWEN'S ADDITIONAL BEATS\n"
-        "Treat QWEN-SELECTED ADDITIONAL BEATS as part of the planned scene. Carry them "
-        "into the prose and weave them in naturally; combine overlapping beats when "
-        "helpful rather than silently dropping them. They enrich the author's required "
-        "events, but must never replace, weaken, or delay them. Do not invent a quota "
-        "or pad the scene beyond the beats Qwen chose."
+        "These are secondary creative additions, not authority over the author. Include "
+        "only additions that fit naturally and are fully compatible with every part and "
+        "the requested order of the original Author's Direction, the selected Scene Cast, "
+        "and fixed canon. Do not use an additional beat to repeat, replace, reorder, "
+        "weaken, delay, or contradict an author-requested event. If an additional beat "
+        "conflicts with the author's direction or cast selection, omit that beat. "
+        "Compatible additions may enrich the scene, but they are never a reason to change "
+        "what the author asked to happen."
     )
     return f"{original}\n\n{requirements}" if original else requirements
 
@@ -2273,7 +2276,7 @@ class MinimalWriterApp:
             )
             return
 
-        suggestion = blank_author_required_beats_when_unsteered(
+        suggestion = apply_author_required_beats(
             suggestion,
             getattr(self, "_scene_preparation_required_author_direction", ""),
         )

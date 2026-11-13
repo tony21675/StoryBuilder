@@ -8,7 +8,7 @@ from unittest.mock import Mock, patch
 from builder.odt_document import read_document
 from builder.novel_browser import list_scene_files
 from builder.scene_preparation import (
-    blank_author_required_beats_when_unsteered,
+    apply_author_required_beats,
     build_scene_preparation_prompt,
     next_scene_coordinates,
     resolve_scene_preparation_target,
@@ -148,7 +148,7 @@ class ScenePreparationPromptTests(unittest.TestCase):
             self.assertIn("Do not combine distinct time/place setups", prompt)
             self.assertIn("separate Prepare Scene request", prompt)
             self.assertIn("No current AUTHOR'S DIRECTION was supplied.", prompt)
-            self.assertIn("Leave the AUTHOR-REQUIRED BEATS section completely blank", prompt)
+            self.assertIn("StoryBuilder will leave this section completely blank", prompt)
             self.assertIn("cannot create AUTHOR-REQUIRED BEATS", prompt)
             self.assertNotIn("None specified", prompt)
             self.assertIn("QWEN-SELECTED ADDITIONAL BEATS", prompt)
@@ -176,7 +176,9 @@ class ScenePreparationPromptTests(unittest.TestCase):
         self.assertNotIn("[Private Detail]", prompt)
         self.assertIn("SCENE CAST BOUNDARY (AUTHOR-SELECTED AND BINDING)", prompt)
         self.assertIn("Allowed characters: Mara.", prompt)
-        self.assertIn("Do not name or refer to any unlisted character", prompt)
+        self.assertIn("Only the listed characters may be physically present", prompt)
+        self.assertIn("Names and references to unselected people are allowed", prompt)
+        self.assertIn("A still photograph or other static keepsake", prompt)
 
     def test_empty_scene_cast_does_not_load_any_character_cards(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -266,8 +268,9 @@ class ScenePreparationPromptTests(unittest.TestCase):
             self.assertIn("AUTHOR'S DIRECTION", prompt)
             self.assertIn(direction, prompt)
             self.assertIn("AUTHOR-REQUIRED BEAT", prompt)
-            self.assertIn("List only concrete events, actions, or moments the author explicitly requests", prompt)
-            self.assertIn("Do not invent, infer, expand, or promote anything", prompt)
+            self.assertIn("StoryBuilder will insert the exact, unchanged contents", prompt)
+            self.assertIn("Do not extract, classify, summarize, paraphrase, reorder, or write entries", prompt)
+            self.assertIn("Do not move the author's requested events into QWEN-SELECTED ADDITIONAL BEATS", prompt)
             self.assertIn("QWEN-SELECTED ADDITIONAL BEATS", prompt)
             # A Planner request that names no character still receives every card.
             self.assertIn("[Mara]", prompt)
@@ -297,7 +300,7 @@ class ScenePreparationPromptTests(unittest.TestCase):
             # author-required beats. An empty current field produces a blank section.
             self.assertNotIn("\nAUTHOR'S DIRECTION\n", prompt)
             self.assertIn("No current AUTHOR'S DIRECTION was supplied.", prompt)
-            self.assertIn("Leave the AUTHOR-REQUIRED BEATS section completely blank", prompt)
+            self.assertIn("StoryBuilder will leave this section completely blank", prompt)
             self.assertIn("prior prepared direction", prompt)
             self.assertIn("cannot create AUTHOR-REQUIRED BEATS", prompt)
             self.assertNotIn("None specified", prompt)
@@ -316,10 +319,10 @@ class ScenePreparationPromptTests(unittest.TestCase):
             )
 
             self.assertIn(direction, prompt)
-            self.assertIn("The ONLY permitted source for AUTHOR-REQUIRED BEATS", prompt)
-            self.assertIn("exact text in the current AUTHOR'S DIRECTION section", prompt)
+            self.assertIn("StoryBuilder will insert the exact, unchanged contents", prompt)
+            self.assertIn("Do not extract, classify, summarize, paraphrase, reorder, or write entries", prompt)
             self.assertIn("prior prepared direction", prompt)
-            self.assertIn("those sources are context only", prompt)
+            self.assertIn("StoryBuilder will insert the exact, unchanged contents", prompt)
             self.assertIn("QWEN-SELECTED ADDITIONAL BEATS", prompt)
 
     def test_next_scene_uses_selected_ending_and_only_matching_state_details(self):
@@ -494,7 +497,7 @@ class ScenePreparationPromptTests(unittest.TestCase):
             "- Let the remaining group settle into an ordinary evening.\n"
         )
 
-        cleaned = blank_author_required_beats_when_unsteered(suggestion, "")
+        cleaned = apply_author_required_beats(suggestion, "")
 
         self.assertIn("AUTHOR-REQUIRED BEATS\n\nQWEN-SELECTED ADDITIONAL BEATS", cleaned)
         self.assertNotIn("Repeat Tony's departure", cleaned)
@@ -510,24 +513,64 @@ class ScenePreparationPromptTests(unittest.TestCase):
             "- A planner-selected idea.\n"
         )
 
-        cleaned = blank_author_required_beats_when_unsteered(suggestion, " \n ")
+        cleaned = apply_author_required_beats(suggestion, " \n ")
 
         self.assertNotIn("An inferred action.", cleaned)
         self.assertIn("A planner-selected idea.", cleaned)
 
-    def test_nonempty_author_direction_does_not_rewrite_qwens_section(self):
+    def test_author_direction_is_inserted_verbatim_and_qwen_additions_are_preserved(self):
+        direction = (
+            "Tony remains gone until 0600 when his shift is over and he comes home. Leave him out of the scene.\n"
+            "Have the group eat dinner then Beth and Maya go home.\n"
+            "Tiffany picks up a photograph of Sarah and wishes she had known her mother."
+        )
         suggestion = (
-            "Scene direction:\n\nAUTHOR-REQUIRED BEATS\n"
-            "- Have Mara receive the message.\n\n"
-            "QWEN-SELECTED ADDITIONAL BEATS\n- Add natural dialogue.\n"
+            "Scene direction:\n\n"
+            "AUTHOR-REQUIRED BEATS\n"
+            "*(None requested in current direction)*\n\n"
+            "QWEN-SELECTED ADDITIONAL BEATS\n"
+            "1. Have Tiffany touch her dog tags.\n"
         )
 
-        self.assertEqual(
-            blank_author_required_beats_when_unsteered(
-                suggestion, "Have Mara receive the message."
-            ),
-            suggestion,
+        cleaned = apply_author_required_beats(suggestion, direction)
+
+        required_section = cleaned.split("AUTHOR-REQUIRED BEATS", 1)[1].split(
+            "QWEN-SELECTED ADDITIONAL BEATS", 1
+        )[0]
+        self.assertEqual(required_section.strip(), direction)
+        self.assertNotIn("None requested", cleaned)
+        self.assertIn("1. Have Tiffany touch her dog tags.", cleaned)
+
+    def test_author_direction_is_inserted_when_qwen_omits_the_required_heading(self):
+        direction = "Have Tiffany pick up Sarah's photograph."
+        suggestion = (
+            "Scene direction:\n\n"
+            "QWEN-SELECTED ADDITIONAL BEATS\n"
+            "- Let the room grow quiet.\n"
         )
+
+        cleaned = apply_author_required_beats(suggestion, direction)
+
+        required_section = cleaned.split("AUTHOR-REQUIRED BEATS", 1)[1].split(
+            "QWEN-SELECTED ADDITIONAL BEATS", 1
+        )[0]
+        self.assertEqual(required_section.strip(), direction)
+        self.assertIn("- Let the room grow quiet.", cleaned)
+
+    def test_empty_author_direction_still_leaves_required_section_blank(self):
+        suggestion = (
+            "Scene direction:\n\n"
+            "AUTHOR-REQUIRED BEATS\n"
+            "- An inferred action.\n\n"
+            "QWEN-SELECTED ADDITIONAL BEATS\n"
+            "- A planner-selected idea.\n"
+        )
+
+        cleaned = apply_author_required_beats(suggestion, "")
+
+        self.assertIn("AUTHOR-REQUIRED BEATS\n\nQWEN-SELECTED ADDITIONAL BEATS", cleaned)
+        self.assertNotIn("An inferred action.", cleaned)
+        self.assertIn("A planner-selected idea.", cleaned)
 
 
 class ScenePreparationDestinationTests(unittest.TestCase):

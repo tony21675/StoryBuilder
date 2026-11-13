@@ -195,20 +195,18 @@ def _normalized_scene_plan_section_heading(line: str) -> str:
     return re.sub(r"[-_\s]+", " ", value).casefold()
 
 
-def blank_author_required_beats_when_unsteered(
+def apply_author_required_beats(
     suggestion: str, author_direction: str | None
 ) -> str:
-    """Clear model-filled required beats when the current author direction is empty.
+    """Place the author's exact direction in the required-beats section.
 
-    This is a deterministic safeguard for the empty-input case. Qwen's independently
-    selected additions are preserved. With non-empty author input, semantic beat
-    selection remains governed by the strict source rules in the Planner prompt.
+    Qwen is not trusted to classify or summarize author intent. StoryBuilder
+    replaces its required-beat section after generation with the original
+    Author's Direction, preserving every requested event and its wording.
     """
-    text = str(suggestion or "")
-    if str(author_direction or "").strip():
-        return text
+    lines = str(suggestion or "").strip().splitlines()
+    direction = str(author_direction or "").strip()
 
-    lines = text.splitlines()
     required_index = next(
         (
             index for index, line in enumerate(lines)
@@ -216,24 +214,55 @@ def blank_author_required_beats_when_unsteered(
         ),
         None,
     )
-    if required_index is None:
-        return text
-
-    additional_index = next(
+    qwen_index = next(
         (
-            index for index in range(required_index + 1, len(lines))
-            if _normalized_scene_plan_section_heading(lines[index])
+            index for index, line in enumerate(lines)
+            if _normalized_scene_plan_section_heading(line)
             == "qwen selected additional beats"
         ),
         None,
     )
-    if additional_index is None:
-        return text
 
-    # Keep both headings and all Qwen-selected additions, but remove every
-    # generated item or explanation from the author-required section.
-    cleaned = lines[:required_index + 1] + [""] + lines[additional_index:]
-    return "\n".join(cleaned).strip()
+    if required_index is None:
+        if qwen_index is not None:
+            lines.insert(qwen_index, "AUTHOR-REQUIRED BEATS")
+            required_index = qwen_index
+            qwen_index += 1
+        else:
+            lines.extend(["", "AUTHOR-REQUIRED BEATS", "", "QWEN-SELECTED ADDITIONAL BEATS"])
+            required_index = len(lines) - 4
+            qwen_index = required_index + 2
+    elif qwen_index is None:
+        trailing = lines[required_index + 1:]
+        lines = lines[:required_index + 1] + ["QWEN-SELECTED ADDITIONAL BEATS"] + trailing
+        qwen_index = required_index + 1
+    elif qwen_index < required_index:
+        before_qwen = lines[:qwen_index]
+        qwen_material = lines[qwen_index + 1:required_index]
+        after_required = lines[required_index + 1:]
+        lines = (
+            before_qwen
+            + ["AUTHOR-REQUIRED BEATS", "QWEN-SELECTED ADDITIONAL BEATS"]
+            + qwen_material
+            + after_required
+        )
+        required_index = len(before_qwen)
+        qwen_index = required_index + 1
+
+    author_lines = direction.splitlines() if direction else []
+    return "\n".join(
+        lines[:required_index + 1]
+        + (["", *author_lines] if author_lines else [])
+        + [""]
+        + lines[qwen_index:]
+    ).strip()
+
+
+def blank_author_required_beats_when_unsteered(
+    suggestion: str, author_direction: str | None
+) -> str:
+    """Backward-compatible alias for the deterministic author-beat safeguard."""
+    return apply_author_required_beats(suggestion, author_direction)
 
 def build_scene_preparation_prompt(
     novel_path: str | Path,
@@ -418,29 +447,20 @@ def build_scene_preparation_prompt(
 
     if author_direction_text:
         author_beats_rule = (
-            "AUTHOR-REQUIRED BEATS SOURCE (STRICT)\n"
-            "The ONLY permitted source for AUTHOR-REQUIRED BEATS is the exact text in the current "
-            "AUTHOR'S DIRECTION section above. List only concrete events, actions, or moments the "
-            "author explicitly requests in that section. Tone, mood, background facts, general goals, "
-            "questions, options, and preferences are not required beats unless they explicitly request "
-            "a concrete event, action, or moment. Do not invent, infer, expand, or promote anything "
-            "into this section. Do not take required beats from the Story Bible, current state, "
-            "continuity notes, location references, character cards, preceding scene, prior prepared "
-            "direction, earlier conversation, or your own suggestions; those sources are context only. "
-            "If the current direction contains no concrete requested event, leave AUTHOR-REQUIRED "
-            "BEATS completely blank, with no placeholder or explanatory text."
-            "Every concrete event, action, or moment requested in this section must happen in "
-            "this destination scene; do not omit, soften, replace, or defer any of them."
+            "AUTHOR-REQUIRED BEATS (APPLICATION-CONTROLLED)\n"
+            "Do not extract, classify, summarize, paraphrase, reorder, or write entries in this section. "
+            "StoryBuilder will insert the exact, unchanged contents of the current AUTHOR'S DIRECTION "
+            "here after generation. Leave this section empty in your response. Do not move the author's "
+            "requested events into QWEN-SELECTED ADDITIONAL BEATS. Your additions must be genuinely "
+            "additional and must not repeat, replace, reorder, or contradict the author's requested events."
         )
     else:
         author_beats_rule = (
-            "AUTHOR-REQUIRED BEATS SOURCE (STRICT)\n"
-            "No current AUTHOR'S DIRECTION was supplied. Leave the AUTHOR-REQUIRED BEATS section "
-            "completely blank: no bullets, placeholder, explanation, or inferred requirement. "
-            "Do not take required beats from the Story Bible, current state, continuity notes, "
-            "location references, character cards, preceding scene, prior prepared direction, "
-            "earlier conversation, or your own suggestions. Those sources are context only and "
-            "cannot create AUTHOR-REQUIRED BEATS."
+            "AUTHOR-REQUIRED BEATS (APPLICATION-CONTROLLED)\n"
+            "No current AUTHOR'S DIRECTION was supplied. StoryBuilder will leave this section completely "
+            "blank. Do not invent or infer required beats from any other context. You cannot create "
+            "AUTHOR-REQUIRED BEATS; put only your own genuinely additional ideas under "
+            "QWEN-SELECTED ADDITIONAL BEATS."
         )
 
     sections.extend(
@@ -453,7 +473,7 @@ def build_scene_preparation_prompt(
             "Choose any number of QWEN-SELECTED ADDITIONAL BEATS: zero, one, or as many as you "
             "believe will genuinely strengthen this scene. There is no quota or cap; do not pad the "
             "scene just to add beats. Every idea you add yourself belongs only in QWEN-SELECTED "
-            "ADDITIONAL BEATS and must never replace, weaken, or be mislabeled as an author-required beat.",
+            "ADDITIONAL BEATS and must never replace, weaken, or be mislabeled as an author-required beat. Do not repeat or paraphrase the author's requested events as your own additions. Do not reorder or contradict the author's requested sequence, cast selection, or explicit exclusions.",
             "Return one concise 'Scene direction:' followed by clearly separate AUTHOR-REQUIRED BEATS "
             "and QWEN-SELECTED ADDITIONAL BEATS sections, in that order. When the author-required "
             "section is required to be blank, put absolutely nothing under its heading before the "

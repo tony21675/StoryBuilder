@@ -133,11 +133,13 @@ class CharacterCardContextTests(unittest.TestCase):
         prompt = build_scene_cast_boundary_prompt("Write the scene.", ["Maya", "Tiffany"])
 
         self.assertIn("Allowed characters: Maya, Tiffany.", prompt)
-        self.assertIn("Do not name or refer to any unlisted character", prompt)
+        self.assertIn("Only the listed characters may be physically present", prompt)
+        self.assertIn("Names and references to unselected people are allowed", prompt)
+        self.assertIn("A still photograph or other static keepsake", prompt)
 
         empty_prompt = build_scene_cast_boundary_prompt("Write the scene.", [])
         self.assertIn("Allowed characters: none.", empty_prompt)
-        self.assertIn("No character may appear", empty_prompt)
+        self.assertIn("No character may appear, speak, act, interact, communicate", empty_prompt)
 
     def test_compact_mode_keeps_only_short_identity_and_role_facts(self):
         with tempfile.TemporaryDirectory() as temp:
