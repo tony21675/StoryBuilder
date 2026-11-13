@@ -557,6 +557,23 @@ class ScenePreparationPromptTests(unittest.TestCase):
         self.assertEqual(required_section.strip(), direction)
         self.assertIn("- Let the room grow quiet.", cleaned)
 
+    def test_author_direction_is_added_when_qwen_omits_both_beat_headings(self):
+        direction = "Keep Tony at work until after 0600."
+        suggestion = "Scene direction: Dinner continues at home."
+
+        cleaned = apply_author_required_beats(suggestion, direction)
+
+        required_section = cleaned.split("AUTHOR-REQUIRED BEATS", 1)[1].split(
+            "QWEN-SELECTED ADDITIONAL BEATS", 1
+        )[0]
+        self.assertEqual(required_section.strip(), direction)
+        self.assertIn("Scene direction: Dinner continues at home.", cleaned)
+
+    def test_empty_direction_does_not_add_beat_headings_to_unstructured_suggestion(self):
+        suggestion = "A quiet evening continues."
+
+        self.assertEqual(apply_author_required_beats(suggestion, ""), suggestion)
+
     def test_empty_author_direction_still_leaves_required_section_blank(self):
         suggestion = (
             "Scene direction:\n\n"

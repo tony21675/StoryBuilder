@@ -235,7 +235,7 @@ def apply_author_required_beats(
             qwen_index += 1
         else:
             lines.extend(["", "AUTHOR-REQUIRED BEATS", "", "QWEN-SELECTED ADDITIONAL BEATS"])
-            required_index = len(lines) - 4
+            required_index = len(lines) - 3
             qwen_index = required_index + 2
     elif qwen_index is None:
         trailing = lines[required_index + 1:]
@@ -455,9 +455,11 @@ def build_scene_preparation_prompt(
             "AUTHOR-REQUIRED BEATS (APPLICATION-CONTROLLED)\n"
             "Do not extract, classify, summarize, paraphrase, reorder, or write entries in this section. "
             "StoryBuilder will insert the exact, unchanged contents of the current AUTHOR'S DIRECTION "
-            "here after generation. Leave this section empty in your response. Do not move the author's "
-            "requested events into QWEN-SELECTED ADDITIONAL BEATS. Your additions must be genuinely "
-            "additional and must not repeat, replace, reorder, or contradict the author's requested events."
+            "here after generation. Leave this section empty in your response. The prior prepared direction, "
+            "previous scene, and other background context are not sources for required beats and cannot "
+            "alter the author's current instructions. Do not move the author's requested events into "
+            "QWEN-SELECTED ADDITIONAL BEATS. Your additions must be genuinely additional and must not "
+            "repeat, replace, reorder, or contradict the author's requested events."
         )
     else:
         author_beats_rule = (
