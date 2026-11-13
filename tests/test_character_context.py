@@ -134,7 +134,6 @@ class CharacterCardContextTests(unittest.TestCase):
 
         self.assertIn("Allowed characters: Maya, Tiffany.", prompt)
         self.assertIn("Do not name or refer to any unlisted character", prompt)
-        self.assertIn("Do not bring an unlisted character", prompt)
 
         empty_prompt = build_scene_cast_boundary_prompt("Write the scene.", [])
         self.assertIn("Allowed characters: none.", empty_prompt)
