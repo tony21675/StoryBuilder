@@ -160,6 +160,38 @@ class ScenePreparationPromptTests(unittest.TestCase):
             self.assertFalse((root / "Manuscript").exists())
             self.assertFalse((root / "current_state.json").exists())
 
+    def test_explicit_scene_cast_limits_planner_cards_and_adds_binding_boundary(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "Cast-Limited Novel"
+            self.make_novel(root)
+
+            prompt = build_scene_preparation_prompt(
+                root, "Cast-Limited Novel", 1, 1,
+                author_direction="Have Mara arrange dinner.",
+                scene_cast=["Mara"],
+            )
+
+        self.assertIn("[Mara]", prompt)
+        self.assertNotIn("[Jonah]", prompt)
+        self.assertNotIn("[Private Detail]", prompt)
+        self.assertIn("SCENE CAST BOUNDARY (AUTHOR-SELECTED AND BINDING)", prompt)
+        self.assertIn("Allowed characters: Mara.", prompt)
+        self.assertIn("Do not name or refer to any unlisted character", prompt)
+
+    def test_empty_scene_cast_does_not_load_any_character_cards(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "No Cast Novel"
+            self.make_novel(root)
+
+            prompt = build_scene_preparation_prompt(
+                root, "No Cast Novel", 1, 1, scene_cast=[]
+            )
+
+        self.assertNotIn("[Mara]", prompt)
+        self.assertNotIn("[Jonah]", prompt)
+        self.assertNotIn("[Private Detail]", prompt)
+        self.assertIn("Allowed characters: none.", prompt)
+
     def test_scene_preparation_includes_location_details_as_open_reference_material(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp) / "Novel with Locations"
@@ -680,6 +712,12 @@ class MinimalWriterPrepareSceneTests(unittest.TestCase):
         app._prepared_scene_source_scene_path = None
         app._prepared_author_required_direction = ""
         app._scene_preparation_required_author_direction = ""
+        # Existing preparation tests use an explicitly empty cast so the
+        # modal selector is not opened inside these UI-independent tests.
+        app._scene_cast_names = []
+        app._scene_cast_novel_path = Path(novel_path).expanduser().resolve()
+        app._scene_cast_destination = None
+        app.scene_cast_summary_var = SimpleNamespace(set=Mock())
         return app
 
     def test_prepare_scene_fills_prompt_box_for_an_empty_novel(self):

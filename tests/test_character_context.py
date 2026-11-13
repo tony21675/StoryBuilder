@@ -3,7 +3,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from builder.character_context import build_character_card_context_prompt
+from builder.character_context import (
+    build_character_card_context_prompt,
+    build_scene_cast_boundary_prompt,
+    load_character_card_names,
+)
 
 
 class CharacterCardContextTests(unittest.TestCase):
@@ -86,6 +90,54 @@ class CharacterCardContextTests(unittest.TestCase):
         self.assertIn("[Chloe]", prompt)
         self.assertIn("Skills / expertise: organization, first aid basics", prompt)
         self.assertIn("Interests / hobbies: drawing, photography", prompt)
+
+    def test_explicit_scene_cast_includes_only_the_selected_cards(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            bible = self.make_novel(root)
+
+            prompt = build_character_card_context_prompt(
+                root,
+                bible,
+                "Tiffany, Maya, and Chloe are gathered.",
+                selected_names=["Maya"],
+                comprehensive=True,
+            )
+
+        self.assertIn("[Maya]", prompt)
+        self.assertNotIn("[Tiffany Jones]", prompt)
+        self.assertNotIn("[Chloe]", prompt)
+        self.assertNotIn("Character cards registered for this novel", prompt)
+
+    def test_empty_explicit_scene_cast_loads_no_character_cards(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            bible = self.make_novel(root)
+
+            prompt = build_character_card_context_prompt(
+                root, bible, "A quiet empty kitchen.", selected_names=[]
+            )
+
+        self.assertEqual(prompt, "A quiet empty kitchen.")
+
+    def test_scene_cast_roster_lists_registered_character_names(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            bible = self.make_novel(root)
+
+            names = load_character_card_names(root, bible)
+
+        self.assertEqual(names, ["Tiffany Jones", "Maya", "Chloe"])
+
+    def test_scene_cast_boundary_is_binding_and_allows_an_empty_cast(self):
+        prompt = build_scene_cast_boundary_prompt("Write the scene.", ["Maya", "Tiffany"])
+
+        self.assertIn("Allowed characters: Maya, Tiffany.", prompt)
+        self.assertIn("Do not name or refer to any unlisted character", prompt)
+
+        empty_prompt = build_scene_cast_boundary_prompt("Write the scene.", [])
+        self.assertIn("Allowed characters: none.", empty_prompt)
+        self.assertIn("No character may appear", empty_prompt)
 
     def test_compact_mode_keeps_only_short_identity_and_role_facts(self):
         with tempfile.TemporaryDirectory() as temp:

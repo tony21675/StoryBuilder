@@ -143,6 +143,35 @@ class MinimalWriterLocationIntegrationTests(unittest.TestCase):
         )
         return temporary, path
 
+    def test_explicit_scene_cast_limits_writer_character_cards(self):
+        temporary, novel_path = self.make_package()
+        try:
+            (novel_path / "Tiffany.json").write_text(
+                json.dumps({"name": "Tiffany", "role": "student"}),
+                encoding="utf-8",
+            )
+            (novel_path / "Tony.json").write_text(
+                json.dumps({"name": "Tony", "role": "night security"}),
+                encoding="utf-8",
+            )
+            bible_path = novel_path / "story_bible.json"
+            bible = json.loads(bible_path.read_text(encoding="utf-8"))
+            bible["character_cards"] = ["Tiffany.json", "Tony.json"]
+            bible_path.write_text(json.dumps(bible, indent=2), encoding="utf-8")
+
+            app = self.make_app(novel_path)
+            app._scene_cast_names = ["Tiffany"]
+            app._scene_cast_novel_path = novel_path.resolve()
+            app._scene_cast_destination = None
+
+            prompt = MinimalWriterApp._prepare_location_context(
+                app, "Tiffany is alone in her room. Tony is still at work."
+            )
+            self.assertIn("[Tiffany]", prompt)
+            self.assertNotIn("[Tony]", prompt)
+        finally:
+            temporary.cleanup()
+
     def test_writer_reads_locations_from_selected_novel_without_modifying_story_bible(self):
         temporary, novel_path = self.make_package()
         try:
