@@ -223,6 +223,11 @@ def apply_author_required_beats(
         None,
     )
 
+    # With no author direction there is nothing to inject. If Qwen did not
+    # return a required-beats section, preserve its suggestion unchanged.
+    if not direction and required_index is None:
+        return "\n".join(lines).strip()
+
     if required_index is None:
         if qwen_index is not None:
             lines.insert(qwen_index, "AUTHOR-REQUIRED BEATS")
@@ -458,7 +463,7 @@ def build_scene_preparation_prompt(
         author_beats_rule = (
             "AUTHOR-REQUIRED BEATS (APPLICATION-CONTROLLED)\n"
             "No current AUTHOR'S DIRECTION was supplied. StoryBuilder will leave this section completely "
-            "blank. Do not invent or infer required beats from any other context. You cannot create "
+            "blank. The prior prepared direction, previous scene, and other context are reference only; they cannot supply required beats. Do not invent or infer required beats from any other context. You cannot create "
             "AUTHOR-REQUIRED BEATS; put only your own genuinely additional ideas under "
             "QWEN-SELECTED ADDITIONAL BEATS."
         )

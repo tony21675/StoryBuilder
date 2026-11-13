@@ -870,7 +870,12 @@ class MinimalWriterPrepareSceneTests(unittest.TestCase):
             self.assertEqual(app._scene_preparation_destination, (1, 11))
             self.assertEqual(app._prepared_scene_destination, (1, 11))
             self.assertEqual(app.scene_var.get(), "Scene 11")
-            self.assertEqual(app.prompt_box.value, "Second suggestion.")
+            self.assertIn("Second suggestion.", app.prompt_box.value)
+            self.assertIn("AUTHOR-REQUIRED BEATS", app.prompt_box.value)
+            self.assertIn(
+                "Have Daniel walk over to Elena and talk to her about the overdue report.",
+                app.prompt_box.value,
+            )
             self.assertEqual(app.author_direction_box.value, "")
 
     def test_prepare_scene_uses_and_clears_author_direction_after_success(self):
@@ -900,7 +905,9 @@ class MinimalWriterPrepareSceneTests(unittest.TestCase):
             self.assertIn(direction, generate.call_args_list[0].args[1])
             self.assertIn(direction, generate.call_args_list[1].args[1])
             self.assertEqual(app._prepared_author_required_direction, direction)
-            self.assertEqual(app.prompt_box.value, "A fuller direction.")
+            self.assertIn("A fuller direction.", app.prompt_box.value)
+            self.assertIn("AUTHOR-REQUIRED BEATS", app.prompt_box.value)
+            self.assertIn(direction, app.prompt_box.value)
             self.assertEqual(app.author_direction_box.value, "")
 
     def test_author_direction_edits_during_preparation_are_kept(self):
