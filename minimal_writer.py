@@ -941,9 +941,6 @@ class MinimalWriterApp:
     def _begin_revision_generation(self, prompt: str) -> None:
         """Generate a proposal without changing the current passage."""
         prompt = self._prepare_creative_direction_context(prompt)
-        scene_cast = self._active_scene_cast()
-        if scene_cast is not None:
-            prompt = build_scene_cast_boundary_prompt(prompt, scene_cast)
         writer_model = self._selected_role_model("writer")
         if writer_model is None:
             self._showinfo("Choose a writing model", "Select a model for manuscript writing first.")
@@ -2968,6 +2965,9 @@ class MinimalWriterApp:
             prompt, chapter_number=chapter_number, scene_number=scene_number
         )
         prompt = self._prepare_creative_direction_context(prompt)
+        scene_cast = self._active_scene_cast()
+        if scene_cast is not None:
+            prompt = build_scene_cast_boundary_prompt(prompt, scene_cast)
         writer_model = self._selected_role_model("writer")
         if writer_model is None:
             self._showinfo(
