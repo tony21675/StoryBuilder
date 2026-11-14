@@ -10,6 +10,19 @@ from tkinter.scrolledtext import ScrolledText
 from builder.appearance import apply_application_appearance
 from builder.creative_direction import build_creative_direction_prompt
 from builder.writer_engine import GenerationInterrupted, WriterEngine
+from builder.openrouter import (
+    RoutedWriterEngine,
+    delete_openrouter_api_key,
+    fetch_openrouter_free_models,
+    has_openrouter_api_key,
+    is_openrouter_selection,
+    load_cached_openrouter_models,
+    load_openrouter_api_key,
+    openrouter_model_selection,
+    save_cached_openrouter_models,
+    save_openrouter_api_key,
+    selected_openrouter_model_id,
+)
 from builder.workspace import MODELS_DIR, NOVEL_ROOT
 from builder.continuity_context import select_relevant_locations
 from builder.character_context import (
@@ -457,9 +470,9 @@ class MinimalWriterApp:
 
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
-        self.engine = WriterEngine()
-        self.models: dict[str, Path] = {}
-        self.loaded_model: Path | None = None
+        self.engine = RoutedWriterEngine()
+        self.models: dict[str, Path | str] = {}
+        self.loaded_model: Path | str | None = None
         self.current_file: Path | None = None
         self.selected_scene_source: Path | None = None
         self.saved_output_text = ""
@@ -563,6 +576,12 @@ class MinimalWriterApp:
             writer_model_row, text="Refresh", command=self.refresh_models
         )
         self.refresh_button.pack(side="left", padx=(8, 0))
+        self.openrouter_button = ttk.Button(
+            writer_model_row,
+            text="OpenRouter Settings",
+            command=self.open_openrouter_settings,
+        )
+        self.openrouter_button.pack(side="left", padx=(8, 0))
 
         self.load_button = ttk.Button(
             writer_model_row, text="Load Writer", command=self.load_selected_model
@@ -952,7 +971,7 @@ class MinimalWriterApp:
         self.busy = True
         self.writing = True
         self.stop_requested = False
-        self.status_var.set(f"Revising selected text with {writer_model.name}…")
+        self.status_var.set(f"Revising selected text with {self._activity_model_label(writer_model)}…")
         self._begin_model_activity("Revise Passage", writer_model)
         try:
             self.output_box.configure(state="disabled")
@@ -1185,34 +1204,221 @@ class MinimalWriterApp:
         self._revision_active = False
         self._revision_original = ""
 
+    def open_openrouter_settings(self) -> None:
+        """Manage the remote API key and refresh the cached free-model catalogue."""
+        if self.busy:
+            return
+
+        window = tk.Toplevel(self.root)
+        window.title("OpenRouter Settings")
+        window.geometry("650x340")
+        window.minsize(520, 300)
+        window.transient(self.root)
+
+        outer = ttk.Frame(window, padding=14)
+        outer.pack(fill="both", expand=True)
+        ttk.Label(
+            outer,
+            text=(
+                "OpenRouter model access is optional. Your local GGUF models remain "
+                "available and continue running on this computer."
+            ),
+            wraplength=600,
+            justify="left",
+        ).pack(anchor="w", pady=(0, 8))
+        ttk.Label(
+            outer,
+            text=(
+                "Remote-use privacy: the current prompt, relevant Story Bible/context "
+                "included by StoryBuilder, and generated response are sent through "
+                "OpenRouter to the selected model provider. Review the provider's "
+                "privacy terms and keep strictly local material out of remote prompts."
+            ),
+            wraplength=600,
+            justify="left",
+        ).pack(anchor="w", pady=(0, 12))
+
+        ttk.Label(outer, text="OpenRouter API key").pack(anchor="w")
+        key_row = ttk.Frame(outer)
+        key_row.pack(fill="x", pady=(4, 8))
+        key_var = tk.StringVar()
+        key_entry = ttk.Entry(key_row, textvariable=key_var, show="*", width=52)
+        key_entry.pack(side="left", fill="x", expand=True)
+        ttk.Label(
+            outer,
+            text=(
+                "Get a key at openrouter.ai/keys. A saved key stays in your user "
+                "configuration folder with owner-only file permissions. "
+                "OPENROUTER_API_KEY can also be used instead."
+            ),
+            wraplength=600,
+            justify="left",
+        ).pack(anchor="w", pady=(0, 8))
+
+        status_var = tk.StringVar(
+            value=(
+                "An API key is configured."
+                if has_openrouter_api_key()
+                else "No API key configured yet."
+            )
+        )
+        ttk.Label(
+            outer, textvariable=status_var, wraplength=600, justify="left"
+        ).pack(anchor="w", pady=(0, 10))
+
+        button_row = ttk.Frame(outer)
+        button_row.pack(fill="x", side="bottom")
+        refresh_button = ttk.Button(button_row, text="Save Key & Refresh Free Models")
+        refresh_button.pack(side="left")
+        remove_button = ttk.Button(button_row, text="Remove Saved Key")
+        remove_button.pack(side="left", padx=(8, 0))
+        ttk.Button(button_row, text="Close", command=window.destroy).pack(
+            side="right"
+        )
+
+        def refresh_catalog() -> None:
+            entered_key = key_var.get().strip()
+            if entered_key:
+                try:
+                    save_openrouter_api_key(entered_key)
+                except (OSError, ValueError) as exc:
+                    self._showerror("Could not save OpenRouter key", str(exc))
+                    return
+                key_var.set("")
+
+            api_key = load_openrouter_api_key()
+            if not api_key:
+                status_var.set(
+                    "Add an OpenRouter API key first, then refresh the free-model list."
+                )
+                return
+
+            refresh_button.configure(state="disabled")
+            status_var.set("Contacting OpenRouter and refreshing the free-model list…")
+
+            def refresh_failed(message: str) -> None:
+                try:
+                    refresh_button.configure(state="normal")
+                except tk.TclError:
+                    return
+                status_var.set(
+                    "The model list could not be refreshed. The previous cache was kept."
+                )
+                self._showerror("OpenRouter refresh failed", message)
+
+            def refresh_succeeded(models: list[dict[str, str]]) -> None:
+                try:
+                    refresh_button.configure(state="normal")
+                    self.refresh_models()
+                except tk.TclError:
+                    return
+                free_count = sum(
+                    1 for item in models if str(item.get("id", "")).endswith(":free")
+                )
+                status_var.set(
+                    f"Model list refreshed. {free_count} pinned free models plus "
+                    "the automatic free-model router are available in both selectors."
+                )
+
+            def work() -> None:
+                try:
+                    models = fetch_openrouter_free_models(api_key)
+                    save_cached_openrouter_models(models)
+                except Exception as exc:
+                    message = str(exc)
+                    self.root.after(
+                        0, lambda message=message: refresh_failed(message)
+                    )
+                else:
+                    self.root.after(
+                        0, lambda models=models: refresh_succeeded(models)
+                    )
+
+            threading.Thread(target=work, daemon=True).start()
+
+        def remove_key() -> None:
+            try:
+                delete_openrouter_api_key()
+            except OSError as exc:
+                self._showerror("Could not remove saved key", str(exc))
+                return
+            self.refresh_models()
+            status_var.set(
+                "Saved key removed. Any OPENROUTER_API_KEY environment variable remains active."
+                if has_openrouter_api_key()
+                else "Saved OpenRouter key removed. Local models are unchanged."
+            )
+
+        refresh_button.configure(command=refresh_catalog)
+        remove_button.configure(command=remove_key)
+        key_entry.focus_set()
+
     def refresh_models(self) -> None:
+        """Refresh local GGUF files and append the last cached OpenRouter free catalogue."""
         try:
             paths = WriterEngine.available_models()
         except Exception as exc:
-            self.status_var.set(f"Could not list models: {exc}")
+            self.status_var.set(f"Could not list local models: {exc}")
             return
 
         previous_writer = self.model_var.get().strip()
         previous_planner = self.planner_model_var.get().strip()
-        self.models = {path.name: path for path in paths}
+        local_models = {path.name: path for path in paths}
+        self.models = dict(local_models)
+        self.openrouter_models = load_cached_openrouter_models()
+        self.openrouter_model_labels: dict[str, str] = {}
+
+        if has_openrouter_api_key():
+            for item in self.openrouter_models:
+                model_id = str(item.get("id") or "").strip()
+                if not model_id:
+                    continue
+                label = f"OpenRouter · {item.get('name') or model_id} [{model_id}]"
+                selection = openrouter_model_selection(model_id)
+                self.models[label] = selection
+                self.openrouter_model_labels[model_id] = label
+
         names = list(self.models)
         self.model_picker.configure(values=names)
         self.planner_model_picker.configure(values=names)
 
-        defaults = resolve_model_roles(names, load_model_roles())
+        saved_roles = load_model_roles()
+        defaults = resolve_model_roles(list(local_models), saved_roles)
+
+        def restored_selection(role: str, previous: str, default: str) -> str:
+            if previous in self.models:
+                return previous
+            saved = str(saved_roles.get(role) or "").strip()
+            if is_openrouter_selection(saved):
+                return next(
+                    (
+                        label for label, value in self.models.items()
+                        if value == saved
+                    ),
+                    default,
+                )
+            if saved in local_models:
+                return saved
+            return default
+
         self.model_var.set(
-            previous_writer if previous_writer in self.models else defaults["writer"]
+            restored_selection("writer", previous_writer, defaults["writer"])
         )
         self.planner_model_var.set(
-            previous_planner if previous_planner in self.models else defaults["planner"]
+            restored_selection("planner", previous_planner, defaults["planner"])
         )
 
         if not names:
             self.status_var.set(f"No GGUF models found in {MODELS_DIR}.")
+        elif not self.openrouter_model_labels and not has_openrouter_api_key():
+            self.status_var.set(
+                "Local models are ready. Add an OpenRouter key in OpenRouter Settings "
+                "to enable optional remote models."
+            )
         self._update_controls()
 
-    def _selected_role_model(self, role: str) -> Path | None:
-        """Resolve the selected local model for the planner or manuscript writer."""
+    def _selected_role_model(self, role: str) -> Path | str | None:
+        """Resolve the selected local path or OpenRouter ID for one model role."""
         if role == "planner":
             variable = getattr(self, "planner_model_var", None)
         elif role == "writer":
@@ -1223,9 +1429,14 @@ class MinimalWriterApp:
             return getattr(self, "loaded_model", None)
         return getattr(self, "models", {}).get(variable.get().strip())
 
-    def _ensure_model_loaded(self, model_path: str | Path) -> Path:
-        """Load one role's model, replacing the previous llama-cli process if needed."""
-        target = Path(model_path).expanduser().resolve()
+    def _ensure_model_loaded(self, model_path: str | Path) -> str | Path:
+        """Load the selected local or remote model, replacing the previous backend."""
+        target: str | Path
+        if is_openrouter_selection(model_path):
+            target = str(model_path)
+        else:
+            target = Path(model_path).expanduser().resolve()
+
         if getattr(self, "loaded_model", None) == target:
             if not hasattr(self.engine, "child"):
                 return target
@@ -1240,16 +1451,24 @@ class MinimalWriterApp:
         return target
 
     def _runtime_model_is_ready(self, model_path: str | Path | None) -> bool:
-        """Return true only when this exact model is recorded and its process is live."""
+        """Return true only when this exact local or remote model is configured."""
         if model_path is None:
             return False
-        try:
-            target = Path(model_path).expanduser().resolve()
-            loaded = getattr(self, "loaded_model", None)
-            if loaded is None or Path(loaded).expanduser().resolve() != target:
+        if is_openrouter_selection(model_path):
+            target: str | Path = str(model_path)
+            if getattr(self, "loaded_model", None) != target:
                 return False
-        except (OSError, TypeError, ValueError):
-            return False
+        else:
+            try:
+                target = Path(model_path).expanduser().resolve()
+                loaded = getattr(self, "loaded_model", None)
+                if loaded is None or (
+                    is_openrouter_selection(loaded)
+                    or Path(loaded).expanduser().resolve() != target
+                ):
+                    return False
+            except (OSError, TypeError, ValueError):
+                return False
 
         engine = getattr(self, "engine", None)
         if engine is None or not hasattr(engine, "child"):
@@ -1264,9 +1483,12 @@ class MinimalWriterApp:
     def _activity_model_label(model_path: str | Path | None) -> str:
         if model_path is None:
             return "None loaded"
-        name = Path(model_path).name
-        if "--" in name:
-            name = name.rsplit("--", 1)[-1]
+        if is_openrouter_selection(model_path):
+            name = f"OpenRouter · {selected_openrouter_model_id(str(model_path))}"
+        else:
+            name = Path(model_path).name
+            if "--" in name:
+                name = name.rsplit("--", 1)[-1]
         if len(name) > 64:
             name = f"{name[:30]}…{name[-30:]}"
         return name
@@ -1279,7 +1501,11 @@ class MinimalWriterApp:
     ) -> None:
         """Update the prominent task/model/runtime display from the UI thread."""
         self._activity_model_path = (
-            Path(model_path).expanduser().resolve() if model_path is not None else None
+            str(model_path)
+            if is_openrouter_selection(model_path)
+            else Path(model_path).expanduser().resolve()
+            if model_path is not None
+            else None
         )
         for attribute, value in (
             ("activity_task_var", str(task)),
@@ -1322,11 +1548,23 @@ class MinimalWriterApp:
             self.loaded_model = None
             self._set_activity_status("Idle", None, "Not loaded")
 
+    def _role_selection_token(self, role: str) -> str:
+        variable = (
+            self.planner_model_var if role == "planner" else self.model_var
+        )
+        label = variable.get().strip()
+        selected = getattr(self, "models", {}).get(label)
+        if isinstance(selected, Path):
+            return selected.name
+        if is_openrouter_selection(selected):
+            return str(selected)
+        return label
+
     def _save_model_role_selection(self) -> None:
         try:
             save_model_roles(
-                planner=self.planner_model_var.get().strip(),
-                writer=self.model_var.get().strip(),
+                planner=self._role_selection_token("planner"),
+                writer=self._role_selection_token("writer"),
             )
         except OSError as exc:
             self.status_var.set(
@@ -1360,14 +1598,15 @@ class MinimalWriterApp:
         if path is None:
             self._showinfo(
                 "Choose a writing model",
-                f"No writing model is selected. Check {MODELS_DIR}.",
+                f"No writing model is selected. Check {MODELS_DIR} or configure OpenRouter.",
             )
             return
 
         self.busy = True
         self.writing = False
         self.stop_requested = False
-        self.status_var.set(f"Loading {path.name}…")
+        model_label = self._activity_model_label(path)
+        self.status_var.set(f"Loading {model_label}…")
         self._set_activity_status("Load Writer", path, "Loading")
         self._update_controls()
 
@@ -1382,13 +1621,14 @@ class MinimalWriterApp:
 
         threading.Thread(target=work, daemon=True).start()
 
-    def _load_succeeded(self, path: Path) -> None:
+    def _load_succeeded(self, path: str | Path) -> None:
         self.busy = False
         self.writing = False
         self.stop_requested = False
         self.loaded_model = path
+        label = self._activity_model_label(path)
         self._set_activity_status("Load Writer", path, "Ready")
-        self.status_var.set(f"Loaded: {path.name}")
+        self.status_var.set(f"Loaded: {label}")
         self._update_controls()
 
     def _load_failed(self, message: str) -> None:
@@ -2164,7 +2404,7 @@ class MinimalWriterApp:
         self.stop_requested = False
         self.status_var.set(
             f"Preparing Chapter {target_chapter:02d}, Scene {target_scene:02d} "
-            f"for {novel_name} with {planner_model.name}…"
+            f"for {novel_name} with {self._activity_model_label(planner_model)}…"
         )
         self._begin_model_activity("Prepare Scene", planner_model)
         self._update_controls()
@@ -2653,7 +2893,7 @@ class MinimalWriterApp:
         self.busy = True
         self.writing = False
         self.stop_requested = False
-        self.status_var.set(f"Starting a new writer session with {writer_model.name}…")
+        self.status_var.set(f"Starting a new writer session with {self._activity_model_label(writer_model)}…")
         self._set_activity_status(
             "New Session",
             writer_model,
@@ -2678,7 +2918,7 @@ class MinimalWriterApp:
         self.busy = False
         self.writing = False
         self.stop_requested = False
-        model_name = self.loaded_model.name if self.loaded_model else "model"
+        model_name = self._activity_model_label(self.loaded_model) if self.loaded_model else "model"
         self._set_activity_status(
             "New Session", getattr(self, "_activity_model_path", None), "Finished"
         )
@@ -2910,8 +3150,11 @@ class MinimalWriterApp:
             chapter=int(selected_chapter or 1),
             scene=int(selected_scene),
             model_path=(
-                Path(model_path).expanduser().resolve()
-                if model_path is not None else getattr(self, "loaded_model", None)
+                str(model_path)
+                if is_openrouter_selection(model_path)
+                else Path(model_path).expanduser().resolve()
+                if model_path is not None
+                else getattr(self, "loaded_model", None)
             ),
             current_state=current_state,
             reference_files=reference_files,
@@ -3036,7 +3279,7 @@ class MinimalWriterApp:
             f" Saved locations: {', '.join(location_names)}."
             if location_names else ""
         )
-        self.status_var.set(f"{action} with {writer_model.name}…{location_note}")
+        self.status_var.set(f"{action} with {self._activity_model_label(writer_model)}…{location_note}")
         task_name = {
             "write": "Write",
             "continue": "Continue",
@@ -3127,7 +3370,7 @@ class MinimalWriterApp:
             return
         self.busy = False
         self.writing = False
-        model_name = self.loaded_model.name if self.loaded_model else "model"
+        model_name = self._activity_model_label(self.loaded_model) if self.loaded_model else "model"
         action = {
             "continue": "continuing",
             "rewrite": "rewriting",
@@ -3718,6 +3961,8 @@ class MinimalWriterApp:
         self.model_picker.configure(state="readonly" if idle else "disabled")
         self.planner_model_picker.configure(state="readonly" if idle else "disabled")
         self.refresh_button.configure(state="normal" if idle else "disabled")
+        if hasattr(self, "openrouter_button"):
+            self.openrouter_button.configure(state="normal" if idle else "disabled")
         if hasattr(self, "novel_picker"):
             self.novel_picker.configure(state="readonly" if idle else "disabled")
             self.refresh_novels_button.configure(state="normal" if idle else "disabled")

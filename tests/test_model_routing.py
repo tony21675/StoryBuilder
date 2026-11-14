@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from minimal_writer import MinimalWriterApp
+from builder.openrouter import openrouter_model_selection
 
 
 class FakeValue:
@@ -92,6 +93,61 @@ class ModelRoutingTests(unittest.TestCase):
         self.assertIsNone(app.loaded_model)
         self.assertEqual(app.activity_model_var.value, "None loaded")
         self.assertEqual(app.activity_state_var.value, "Not loaded")
+
+    def test_planner_and_writer_can_select_openrouter_independently(self):
+        app = self.make_app()
+        remote_planner = openrouter_model_selection("vendor/planner:free")
+        remote_writer = openrouter_model_selection("vendor/writer:free")
+        app.models["Remote planner"] = remote_planner
+        app.models["Remote writer"] = remote_writer
+        app.planner_model_var.set("Remote planner")
+        self.assertEqual(app._selected_role_model("planner"), remote_planner)
+        self.assertEqual(
+            app._selected_role_model("writer"),
+            Path("/models/Gemma-4-E4B.gguf"),
+        )
+        app.model_var.set("Remote writer")
+        self.assertEqual(app._selected_role_model("writer"), remote_writer)
+
+    def test_remote_model_activity_uses_provider_and_model_id(self):
+        app = self.make_app()
+        remote = openrouter_model_selection("vendor/model:free")
+        app.engine = SimpleNamespace(child=SimpleNamespace(isalive=lambda: True))
+        app.loaded_model = remote
+        app.activity_task_var = FakeValue("")
+        app.activity_model_var = FakeValue("")
+        app.activity_state_var = FakeValue("")
+
+        app._begin_model_activity("Prepare Scene", remote)
+
+        self.assertEqual(app.activity_task_var.value, "Prepare Scene")
+        self.assertEqual(
+            app.activity_model_var.value, "OpenRouter · vendor/model:free"
+        )
+        self.assertEqual(app.activity_state_var.value, "Generating")
+        self.assertTrue(app._runtime_model_is_ready(remote))
+
+    def test_remote_model_loading_does_not_convert_selection_to_a_filesystem_path(self):
+        app = self.make_app()
+        remote = openrouter_model_selection("vendor/model:free")
+        app.engine = SimpleNamespace(child=None)
+        app.loaded_model = Path("/models/Gemma-4-E4B.gguf")
+
+        with patch("minimal_writer.load_model_for_writing") as load:
+            result = app._ensure_model_loaded(remote)
+
+        load.assert_called_once_with(app.engine, remote)
+        self.assertEqual(result, remote)
+        self.assertEqual(app.loaded_model, remote)
+
+    def test_saved_role_token_is_stable_and_independent_of_display_label(self):
+        app = self.make_app()
+        remote = openrouter_model_selection("vendor/model:free")
+        app.models["OpenRouter · Vendor Model [vendor/model:free]"] = remote
+        app.planner_model_var.set("OpenRouter · Vendor Model [vendor/model:free]")
+        self.assertEqual(
+            app._role_selection_token("planner"), "openrouter:vendor/model:free"
+        )
 
     def test_unknown_role_is_rejected(self):
         with self.assertRaises(ValueError):
