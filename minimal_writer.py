@@ -971,7 +971,7 @@ class MinimalWriterApp:
         self.busy = True
         self.writing = True
         self.stop_requested = False
-        self.status_var.set(f"Revising selected text with {writer_model.name}…")
+        self.status_var.set(f"Revising selected text with {self._activity_model_label(writer_model)}…")
         self._begin_model_activity("Revise Passage", writer_model)
         try:
             self.output_box.configure(state="disabled")
@@ -2404,7 +2404,7 @@ class MinimalWriterApp:
         self.stop_requested = False
         self.status_var.set(
             f"Preparing Chapter {target_chapter:02d}, Scene {target_scene:02d} "
-            f"for {novel_name} with {planner_model.name}…"
+            f"for {novel_name} with {self._activity_model_label(planner_model)}…"
         )
         self._begin_model_activity("Prepare Scene", planner_model)
         self._update_controls()
@@ -2893,7 +2893,7 @@ class MinimalWriterApp:
         self.busy = True
         self.writing = False
         self.stop_requested = False
-        self.status_var.set(f"Starting a new writer session with {writer_model.name}…")
+        self.status_var.set(f"Starting a new writer session with {self._activity_model_label(writer_model)}…")
         self._set_activity_status(
             "New Session",
             writer_model,
@@ -3279,7 +3279,7 @@ class MinimalWriterApp:
             f" Saved locations: {', '.join(location_names)}."
             if location_names else ""
         )
-        self.status_var.set(f"{action} with {writer_model.name}…{location_note}")
+        self.status_var.set(f"{action} with {self._activity_model_label(writer_model)}…{location_note}")
         task_name = {
             "write": "Write",
             "continue": "Continue",
@@ -3961,6 +3961,8 @@ class MinimalWriterApp:
         self.model_picker.configure(state="readonly" if idle else "disabled")
         self.planner_model_picker.configure(state="readonly" if idle else "disabled")
         self.refresh_button.configure(state="normal" if idle else "disabled")
+        if hasattr(self, "openrouter_button"):
+            self.openrouter_button.configure(state="normal" if idle else "disabled")
         if hasattr(self, "novel_picker"):
             self.novel_picker.configure(state="readonly" if idle else "disabled")
             self.refresh_novels_button.configure(state="normal" if idle else "disabled")
