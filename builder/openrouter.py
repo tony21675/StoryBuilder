@@ -555,12 +555,14 @@ class RoutedWriterEngine:
     def start(self, model_selection: str | Path, system_prompt: str = "") -> None:
         if is_openrouter_selection(model_selection):
             model_id = selected_openrouter_model_id(str(model_selection))
-            self.local_engine.stop()
+            # Validate/configure remote access before stopping a working local session.
             self.remote_engine.start(model_id, system_prompt=system_prompt)
+            self.local_engine.stop()
             self.active_backend = "openrouter"
         else:
-            self.remote_engine.stop()
+            # Likewise, keep the remote session available if local startup fails.
             self.local_engine.start(model_selection, system_prompt=system_prompt)
+            self.remote_engine.stop()
             self.active_backend = "local"
         self.active_selection = model_selection
 
