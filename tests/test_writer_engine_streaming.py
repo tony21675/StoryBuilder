@@ -198,7 +198,7 @@ class PromptEncodingTests(unittest.TestCase):
             def expect(self, _pattern, timeout):
                 # Simulate a runtime that echoes the prompt but has already
                 # consumed the trailing slash used to terminate the turn.
-                self.before = f"> {self.sent[:-1]}\\r\\nThe scene starts."
+                self.before = f"> {self.sent[:-1]}\r\nThe scene starts."
                 if self.logfile_read is not None:
                     self.logfile_read.write(self.before)
 
