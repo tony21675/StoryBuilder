@@ -41,11 +41,21 @@ class _PromptEchoStreamFilter:
         self.skip_initial_linebreaks = False
         # Terminal echo may include physical newlines between prompt lines.
         # Compare a compact form while consuming the matching original echo below.
-        self.candidates = tuple(
-            candidate.replace("\r", "").replace("\n", "")
-            for candidate in (self.prompt, "> " + self.prompt)
-            if candidate
-        )
+        # The trailing slash is llama.cpp's interactive turn terminator,
+        # not part of the author's prompt. Depending on the CLI/runtime path,
+        # that marker may or may not appear in the terminal echo. Accept both
+        # forms, preferring the longer exact match so an echoed marker is also
+        # consumed rather than leaking into the manuscript.
+        prompt_variants = [self.prompt]
+        if self.prompt.endswith("/"):
+            prompt_variants.append(self.prompt[:-1])
+        candidates = []
+        for prompt_variant in prompt_variants:
+            for candidate in (prompt_variant, "> " + prompt_variant):
+                normalized = candidate.replace("\r", "").replace("\n", "")
+                if normalized:
+                    candidates.append(normalized)
+        self.candidates = tuple(sorted(set(candidates), key=len, reverse=True))
 
     @staticmethod
     def _consume_visible_chars(raw: str, count: int) -> str:
@@ -567,8 +577,19 @@ class WriterEngine:
             # llama-cli may echo the submitted user turn before returning the model
             # response. Remove that echoed prompt so only prose reaches the editor.
             echoed_prompt = cli_prompt if "cli_prompt" in locals() else ""
-            if echoed_prompt and answer.startswith(echoed_prompt):
-                answer = answer[len(echoed_prompt):].lstrip()
+            echoed_prompt_variants = [echoed_prompt]
+            if echoed_prompt.endswith("/"):
+                # Some interactive CLI builds consume the trailing turn marker
+                # before echoing the submitted text.
+                echoed_prompt_variants.append(echoed_prompt[:-1])
+            for echoed_prompt_variant in sorted(
+                (value for value in echoed_prompt_variants if value),
+                key=len,
+                reverse=True,
+            ):
+                if answer.startswith(echoed_prompt_variant):
+                    answer = answer[len(echoed_prompt_variant):].lstrip()
+                    break
 
             # Remove llama.cpp timing diagnostics accidentally captured with the response.
             answer = re.sub(r"\n?\[ Prompt: .*? \| Generation: .*? \]\s*$", "", answer, flags=re.DOTALL).strip()
