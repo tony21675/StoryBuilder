@@ -469,10 +469,22 @@ class OpenRouterEngine:
                     error_message += f"\n{detail}"
                 raise RuntimeError(error_message) from exc
             except urllib.error.URLError as exc:
+                with self._interrupt_lock:
+                    interrupted = self._cancel_generation_requested
+                if interrupted:
+                    status = "interrupted"
+                    error_message = "Stopped by the author."
+                    raise GenerationInterrupted(error_message) from exc
                 status = "failed"
                 error_message = f"Could not reach OpenRouter: {exc.reason}"
                 raise RuntimeError(error_message) from exc
             except Exception as exc:
+                with self._interrupt_lock:
+                    interrupted = self._cancel_generation_requested
+                if interrupted:
+                    status = "interrupted"
+                    error_message = "Stopped by the author."
+                    raise GenerationInterrupted(error_message) from exc
                 status = "failed"
                 error_message = str(exc)
                 raise
