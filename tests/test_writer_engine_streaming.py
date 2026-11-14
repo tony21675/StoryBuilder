@@ -21,6 +21,26 @@ class PromptEchoStreamFilterTests(unittest.TestCase):
 
         self.assertEqual("".join(pieces), "The scene begins.")
 
+    def test_removes_prompt_echo_when_cli_consumes_trailing_turn_marker(self):
+        authored_prompt = "A multiline scene direction.\n\nRequired beats follow."
+        submitted_prompt = encode_prompt_for_cli(authored_prompt)
+        echoed_without_marker = "> " + submitted_prompt[:-1]
+        pieces = []
+        stream = _PromptEchoStreamFilter(submitted_prompt, pieces.append)
+
+        stream.write(echoed_without_marker[:28])
+        self.assertEqual(pieces, [])
+        stream.write(
+            echoed_without_marker[28:].replace("\n", "\r\n")
+            + "\r\n# Chapter 01, Scene 02\nThe prose begins."
+        )
+        stream.finish()
+
+        self.assertEqual(
+            "".join(pieces),
+            "# Chapter 01, Scene 02\nThe prose begins.",
+        )
+
     def test_streams_immediately_when_no_prompt_echo_is_present(self):
         pieces = []
         stream = _PromptEchoStreamFilter("LONG PROMPT", pieces.append)
@@ -157,6 +177,40 @@ class PromptEncodingTests(unittest.TestCase):
             encode_prompt_for_cli("First\r\nSecond\rThird"),
             "First\nSecond\nThird/",
         )
+
+    def test_generate_cleans_echo_when_cli_omits_turn_marker(self):
+        prompt = "Scene direction.\n\nRequired beats."
+        expected_cli_input = encode_prompt_for_cli(prompt)
+        chunks = []
+
+        class FakeChild:
+            def __init__(self):
+                self.logfile_read = None
+                self.before = ""
+                self.sent = None
+
+            def isalive(self):
+                return True
+
+            def sendline(self, value):
+                self.sent = value
+
+            def expect(self, _pattern, timeout):
+                # Simulate a runtime that echoes the prompt but has already
+                # consumed the trailing slash used to terminate the turn.
+                self.before = f"> {self.sent[:-1]}\r\nThe scene starts."
+                if self.logfile_read is not None:
+                    self.logfile_read.write(self.before)
+
+        engine = WriterEngine()
+        child = FakeChild()
+        engine.child = child
+
+        answer = engine.generate(prompt, on_delta=chunks.append)
+
+        self.assertEqual(child.sent, expected_cli_input)
+        self.assertEqual(answer, "The scene starts.")
+        self.assertEqual("".join(chunks), answer)
 
     def test_generate_sends_raw_multiline_prompt_and_returns_clean_prose(self):
         prompt = "Scene setup.\n\nKeep this literal sequence: \\n\nLast line."
