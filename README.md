@@ -4,7 +4,7 @@ StoryBuilder is being rebuilt piece by piece. The current app keeps local-model 
 
 ## Start the app
 
-From the Linux laptop:
+From the Linux computer:
 
 ```bash
 cd ~/Documents/StoryBuilder && ./start.sh
@@ -35,6 +35,20 @@ Genre and intended-audience choices come from reusable Markdown files in `profil
 Premise, Setting, and Canon Rules saves reread the Story Bible before applying their field-only updates. Character Card edits use a plain-English form but save to JSON internally; untouched fields and nested values are carried forward, and file replacement stops if the source changes during save. New cards are created as separate JSON files; removing a card from the list leaves its source file untouched. Editors use their own active text boxes rather than enabling typing in the read-only page. The separate top-level relationships object and story planning are not editable yet; character-to-character relationships are edited within each Character Card. Locations are edited separately through the name-keyed Locations manager. Character Cards and Canon Rules are reference notes only; the Minimal Writer does not enforce them.
 
 To switch computers, sync the desired real novel on the current computer, then open Story Bible on the other computer and sync that same novel there. Keep the computers on the same GitHub repository and branch.
+
+## Optional OpenRouter models
+
+The Minimal Writer can use local GGUF models through llama.cpp or optional remote models through OpenRouter. Planner and Writer selections are independent, so either role can use a local model or an OpenRouter model. Mixed setups are supported, for example local Qwen planning with an OpenRouter writer, or the reverse. The original local workflow remains available without an OpenRouter account.
+
+To enable OpenRouter, click **OpenRouter Settings**, enter an API key from [openrouter.ai/keys](https://openrouter.ai/keys), and choose **Save Key & Refresh Free Models**. StoryBuilder fetches the current free chat-model catalogue and caches it in the user's configuration folder. Use the settings button to refresh the list as OpenRouter adds, removes, or changes free models. The selectors include both individually pinned `:free` model IDs and OpenRouter's `openrouter/free` automatic free-model router. Pinned IDs keep the chosen model consistent; the automatic router may select a different eligible model on each request.
+
+The key is stored outside the repository at `~/.config/storybuilder/openrouter_api_key` (or the equivalent `XDG_CONFIG_HOME` path) with owner-only file permissions. The `OPENROUTER_API_KEY` environment variable can be used instead. Credentials are not saved in novel folders, source files, prompt traces, or Git.
+
+**Privacy:** When an OpenRouter model is selected, the prompt and any Story Bible, character, location, timeline, or preceding-scene context that StoryBuilder adds are sent to OpenRouter and the selected model provider. Provider data practices vary. Do not send private or secret material to a remote model. Local GGUF models continue to run on the computer and do not send prompts to OpenRouter.
+
+OpenRouter's free-model availability, request limits, and provider capacity can change. A catalogue refresh updates the choices; it cannot guarantee that every listed provider is available at the moment of generation. When a remote model is unavailable or its free quota is exhausted, choose another listed model or switch that role back to a local GGUF model. There is no silent automatic switch from a selected remote model to a local one.
+
+Remote calls are stateless in StoryBuilder: each request contains the prompt supplied for that operation, and the remote backend does not retain a server-side Writer conversation between calls. The app's Continue workflow includes the visible passage in its prompt. **New Session** remains available and clears the local Writer session when local models are selected.
 
 ## What this version does
 
