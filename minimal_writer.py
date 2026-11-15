@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import threading
 import tkinter as tk
 from pathlib import Path
@@ -318,6 +319,27 @@ def build_single_scene_scope_prompt(
     )
     original = str(prompt or "").rstrip()
     return f"{original}\n\n{scope}" if original else scope
+
+
+def scene_coordinates_from_prompt(prompt: str) -> tuple[int, int] | None:
+    """Read an explicit Chapter NN, Scene NN heading from a prepared scene prompt.
+
+    The prompt heading is more authoritative than the scene picker when an
+    unsaved prepared scene is being rewritten or the picker has fallen back to
+    the last saved scene after an app restart.
+    """
+    header_pattern = re.compile(
+        r"^\s*(?:#+\s*)?(?:Scene direction:\s*)?"
+        r"Chapter\s+(\d+)\s*[,;]\s*Scene\s+(\d+)\b",
+        re.IGNORECASE,
+    )
+    for line in str(prompt or "").splitlines()[:5]:
+        match = header_pattern.match(line.strip())
+        if match:
+            chapter_number, scene_number = map(int, match.groups())
+            if chapter_number >= 1 and scene_number >= 1:
+                return chapter_number, scene_number
+    return None
 
 
 def build_location_context_prompt(
@@ -1738,7 +1760,9 @@ class MinimalWriterApp:
         if summary is not None:
             summary.set("Not selected. Choose who may appear in this scene.")
 
-    def _active_scene_cast(self) -> list[str] | None:
+    def _active_scene_cast(
+        self, expected_destination: tuple[int, int] | None = None
+    ) -> list[str] | None:
         names = getattr(self, "_scene_cast_names", None)
         if names is None:
             return None
@@ -1752,13 +1776,19 @@ class MinimalWriterApp:
 
         destination = getattr(self, "_scene_cast_destination", None)
         if destination is not None:
-            chapter_number = getattr(self, "chapter_numbers", {}).get(
-                getattr(getattr(self, "chapter_var", None), "get", lambda: "")().strip()
-            )
-            scene_number = scene_number_from_label(
-                getattr(getattr(self, "scene_var", None), "get", lambda: "")()
-            )
-            if (chapter_number, scene_number) != destination:
+            if expected_destination is None:
+                chapter_number = getattr(self, "chapter_numbers", {}).get(
+                    getattr(getattr(self, "chapter_var", None), "get", lambda: "")().strip()
+                )
+                scene_number = scene_number_from_label(
+                    getattr(getattr(self, "scene_var", None), "get", lambda: "")()
+                )
+                expected_destination = (
+                    (int(chapter_number), int(scene_number))
+                    if chapter_number is not None and scene_number is not None
+                    else None
+                )
+            if expected_destination != destination:
                 return None
         return list(names)
 
@@ -2968,7 +2998,9 @@ class MinimalWriterApp:
             if getattr(self, attribute, None) is trace:
                 setattr(self, attribute, None)
 
-    def _prepared_author_required_direction_for_current_scene(self) -> str:
+    def _prepared_author_required_direction_for_current_scene(
+        self, expected_destination: tuple[int, int] | None = None
+    ) -> str:
         """Return required author direction only for its matching novel and scene."""
         direction = str(
             getattr(self, "_prepared_author_required_direction", "") or ""
@@ -2981,20 +3013,25 @@ class MinimalWriterApp:
         )().strip()
         novel_path = getattr(self, "novel_packages", {}).get(novel_name)
         prepared_path = getattr(self, "_prepared_scene_novel_path", None)
-        chapter_label = getattr(
-            getattr(self, "chapter_var", None), "get", lambda: ""
-        )().strip()
-        chapter_number = getattr(self, "chapter_numbers", {}).get(chapter_label)
-        scene_number = scene_number_from_label(
-            getattr(getattr(self, "scene_var", None), "get", lambda: "")()
-        )
         destination = getattr(self, "_prepared_scene_destination", None)
+        if expected_destination is None:
+            chapter_label = getattr(
+                getattr(self, "chapter_var", None), "get", lambda: ""
+            )().strip()
+            chapter_number = getattr(self, "chapter_numbers", {}).get(chapter_label)
+            scene_number = scene_number_from_label(
+                getattr(getattr(self, "scene_var", None), "get", lambda: "")()
+            )
+            expected_destination = (
+                (int(chapter_number), int(scene_number))
+                if chapter_number is not None and scene_number is not None
+                else None
+            )
         if (
             novel_path is None
             or prepared_path is None
-            or chapter_number is None
-            or scene_number is None
-            or destination != (int(chapter_number), int(scene_number))
+            or expected_destination is None
+            or destination != expected_destination
         ):
             return ""
         try:
@@ -3006,7 +3043,9 @@ class MinimalWriterApp:
             return ""
         return direction if same_novel else ""
 
-    def _claim_prepared_scene_prompt_trace(self, mode: str):
+    def _claim_prepared_scene_prompt_trace(
+        self, mode: str, expected_destination: tuple[int, int] | None = None
+    ):
         """Reuse the planner trace only for the same novel and prepared scene."""
         trace = getattr(self, "_pending_scene_prompt_trace", None)
         if trace is None:
@@ -3025,17 +3064,23 @@ class MinimalWriterApp:
         scene_var = getattr(self, "scene_var", None)
         novel_name = novel_var.get().strip() if novel_var is not None else ""
         novel_path = novel_packages.get(novel_name)
-        chapter_label = chapter_var.get().strip() if chapter_var is not None else ""
-        chapter_number = getattr(self, "chapter_numbers", {}).get(chapter_label)
-        scene_number = (
-            scene_number_from_label(scene_var.get().strip())
-            if scene_var is not None else None
-        )
-        expected_destination = (
-            (int(chapter_number), int(scene_number))
-            if chapter_number is not None and scene_number is not None
-            else None
-        )
+        if expected_destination is None:
+            chapter_label = chapter_var.get().strip() if chapter_var is not None else ""
+            chapter_number = getattr(self, "chapter_numbers", {}).get(chapter_label)
+            scene_number = (
+                scene_number_from_label(scene_var.get().strip())
+                if scene_var is not None else None
+            )
+            expected_destination = (
+                (int(chapter_number), int(scene_number))
+                if chapter_number is not None and scene_number is not None
+                else None
+            )
+        else:
+            expected_destination = (
+                int(expected_destination[0]),
+                int(expected_destination[1]),
+            )
         prepared_path = getattr(self, "_prepared_scene_novel_path", None)
         try:
             same_novel = (
@@ -3206,16 +3251,33 @@ class MinimalWriterApp:
                 pass
 
     def _begin_generation(self, prompt: str, mode: str) -> None:
-        chapter_label = getattr(
-            getattr(self, "chapter_var", None), "get", lambda: ""
-        )().strip()
-        chapter_number = getattr(self, "chapter_numbers", {}).get(chapter_label)
-        scene_label = getattr(
-            getattr(self, "scene_var", None), "get", lambda: ""
-        )()
-        scene_number = scene_number_from_label(scene_label)
+        # An explicit scene heading in the prepared direction wins over the
+        # picker. The picker can still point to the last saved scene when an
+        # unsaved scene is being rewritten or its target was restored from text.
+        generation_destination = scene_coordinates_from_prompt(prompt)
+        if generation_destination is None:
+            chapter_label = getattr(
+                getattr(self, "chapter_var", None), "get", lambda: ""
+            )().strip()
+            chapter_number = getattr(self, "chapter_numbers", {}).get(chapter_label)
+            scene_label = getattr(
+                getattr(self, "scene_var", None), "get", lambda: ""
+            )()
+            scene_number = scene_number_from_label(scene_label)
+            generation_destination = (
+                (int(chapter_number), int(scene_number))
+                if chapter_number is not None and scene_number is not None
+                else None
+            )
+        chapter_number, scene_number = (
+            generation_destination
+            if generation_destination is not None
+            else (None, None)
+        )
         prepared_author_direction = (
-            self._prepared_author_required_direction_for_current_scene()
+            self._prepared_author_required_direction_for_current_scene(
+                generation_destination
+            )
         )
         visible_author_direction = getattr(
             getattr(self, "author_direction_box", None), "get", lambda *_args: ""
@@ -3232,7 +3294,7 @@ class MinimalWriterApp:
             prompt, chapter_number=chapter_number, scene_number=scene_number
         )
         prompt = self._prepare_creative_direction_context(prompt)
-        scene_cast = self._active_scene_cast()
+        scene_cast = self._active_scene_cast(generation_destination)
         if scene_cast is not None:
             prompt = build_scene_cast_boundary_prompt(prompt, scene_cast)
         writer_model = self._selected_role_model("writer")
@@ -3252,7 +3314,9 @@ class MinimalWriterApp:
         self._generation_had_chunks = False
         self._last_prompt_trace_path = None
         self._last_prompt_trace_upload_result = None
-        prompt_trace = self._claim_prepared_scene_prompt_trace(mode)
+        prompt_trace = self._claim_prepared_scene_prompt_trace(
+            mode, expected_destination=generation_destination
+        )
         if prompt_trace is None:
             prompt_trace = self._start_prompt_trace(
                 prompt,
@@ -3303,6 +3367,10 @@ class MinimalWriterApp:
             callback = None
             try:
                 self._ensure_model_loaded(writer_model)
+                if mode == "rewrite":
+                    # A replacement draft must not inherit earlier failed
+                    # drafts or chat turns from the same persistent local session.
+                    self.engine.clear_context()
                 self._schedule_activity_status(task_name, writer_model, "Generating")
                 attach_trace = getattr(self.engine, "attach_prompt_trace", None)
                 if prompt_trace is not None and callable(attach_trace):
