@@ -14,6 +14,7 @@ from minimal_writer import (
     build_revision_prompt,
     build_rewrite_scene_prompt,
     build_single_scene_scope_prompt,
+    scene_coordinates_from_prompt,
     continuation_prefix,
     load_model_for_writing,
     read_text_document,
@@ -1562,6 +1563,36 @@ class PreparedAuthorDirectionScopeTests(unittest.TestCase):
             self.assertEqual(
                 app._prepared_author_required_direction_for_current_scene(), ""
             )
+
+
+class SceneCoordinatesFromPromptTests(unittest.TestCase):
+    def test_reads_prepared_scene_direction_header(self):
+        self.assertEqual(
+            scene_coordinates_from_prompt(
+                "Scene direction: Chapter 01, Scene 02 — quiet evening."
+            ),
+            (1, 2),
+        )
+
+    def test_reads_markdown_scene_heading(self):
+        self.assertEqual(
+            scene_coordinates_from_prompt(
+                "## Chapter 03, Scene 12: A New Day\\n\\nScene details."
+            ),
+            (3, 12),
+        )
+
+    def test_does_not_infer_target_from_mentions_later_in_prompt(self):
+        self.assertIsNone(
+            scene_coordinates_from_prompt(
+                "Continue the current passage.\\nThe last scene was Chapter 01, Scene 01."
+            )
+        )
+
+    def test_rejects_zero_coordinates(self):
+        self.assertIsNone(
+            scene_coordinates_from_prompt("Scene direction: Chapter 00, Scene 02.")
+        )
 
 
 class SingleSceneScopePromptTests(unittest.TestCase):
