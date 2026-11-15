@@ -202,9 +202,9 @@ class OpenRouterEngineTests(unittest.TestCase):
             engine.start("inclusionai/ling-3.2-flash:free")
 
         response = FakeResponse([
-            b'data: {"choices":[{"delta":{"content":"The scene begins."},"finish_reason":null}]}\\n',
-            b'data: {"choices":[{"delta":{},"finish_reason":"stop"}],"usage":{"completion_tokens":4}}\\n',
-            b"data: [DONE]\\n",
+            b'data: {"choices":[{"delta":{"content":"The scene begins."},"finish_reason":null}]}\n',
+            b'data: {"choices":[{"delta":{},"finish_reason":"stop"}],"usage":{"completion_tokens":4}}\n',
+            b"data: [DONE]\n",
         ])
         captured = {}
 
@@ -241,9 +241,9 @@ class OpenRouterEngineTests(unittest.TestCase):
         trace = FakeTrace()
         engine.attach_prompt_trace(trace)
         response = FakeResponse([
-            b'data: {"choices":[{"delta":{"reasoning":"thinking without final text"}}]}\\n',
-            b'data: {"choices":[{"delta":{},"finish_reason":"length","native_finish_reason":"length"}],"usage":{"completion_tokens":4096,"completion_tokens_details":{"reasoning_tokens":4096}}}\\n',
-            b"data: [DONE]\\n",
+            b'data: {"choices":[{"delta":{"reasoning":"thinking without final text"}}]}\n',
+            b'data: {"choices":[{"delta":{},"finish_reason":"length","native_finish_reason":"length"}],"usage":{"completion_tokens":4096,"completion_tokens_details":{"reasoning_tokens":4096}}}\n',
+            b"data: [DONE]\n",
         ], headers={"X-Generation-Id": "gen-test-123"})
 
         with patch("builder.openrouter.load_openrouter_api_key", return_value="test-key"):
