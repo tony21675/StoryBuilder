@@ -19,6 +19,53 @@ OPENROUTER_SELECTION_PREFIX = "openrouter:"
 OPENROUTER_AUTO_MODEL = "openrouter/free"
 DEFAULT_REMOTE_MAX_TOKENS = 4096
 
+# Ling 3.2 Flash is a hybrid reasoning model. Its OpenRouter model card
+# explicitly supports switching thinking off per request. For scene writing,
+# reserve the output budget for manuscript text rather than hidden reasoning.
+LING_32_FLASH_FREE_MODEL = "inclusionai/ling-3.2-flash:free"
+
+
+def _openrouter_model_request_options(model_id: str) -> dict[str, Any]:
+    """Return narrowly scoped request options for models needing special handling."""
+    if str(model_id or "").strip() == LING_32_FLASH_FREE_MODEL:
+        return {"reasoning": {"enabled": False}}
+    return {}
+
+
+def _openrouter_text_from_content(content: object) -> str:
+    """Extract ordinary text from string or OpenRouter multimodal content parts."""
+    if isinstance(content, str):
+        return content
+    if not isinstance(content, list):
+        return ""
+    pieces: list[str] = []
+    for part in content:
+        if isinstance(part, str):
+            pieces.append(part)
+        elif isinstance(part, dict) and part.get("type") in {"text", "output_text"}:
+            text = part.get("text")
+            if isinstance(text, str) and text:
+                pieces.append(text)
+    return "".join(pieces)
+
+
+def _openrouter_reasoning_characters(delta: dict[str, Any]) -> int:
+    """Count reasoning text without retaining private reasoning in prompt traces."""
+    count = 0
+    for key in ("reasoning", "reasoning_content"):
+        value = delta.get(key)
+        if isinstance(value, str):
+            count += len(value)
+    details = delta.get("reasoning_details")
+    if isinstance(details, list):
+        for item in details:
+            if isinstance(item, dict):
+                for key in ("text", "summary"):
+                    value = item.get(key)
+                    if isinstance(value, str):
+                        count += len(value)
+    return count
+
 
 def is_openrouter_selection(value: object) -> bool:
     return isinstance(value, str) and value.startswith(OPENROUTER_SELECTION_PREFIX)
@@ -266,6 +313,7 @@ class OpenRouterEngine:
                         "backend": "OpenRouter",
                         "model_id": self.model_id,
                         "streaming": True,
+                        "request_options": _openrouter_model_request_options(self.model_id),
                         "conversation_state": "stateless; each request contains only its supplied prompt",
                     },
                     role=role,
@@ -372,6 +420,7 @@ class OpenRouterEngine:
                 "stream": True,
                 "max_tokens": max_tokens,
             }
+            request_body.update(_openrouter_model_request_options(model_id))
             request = urllib.request.Request(
                 OPENROUTER_CHAT_URL,
                 data=json.dumps(request_body, ensure_ascii=False).encode("utf-8"),
@@ -391,6 +440,19 @@ class OpenRouterEngine:
             )
             started = time.monotonic()
             answer_parts: list[str] = []
+            response_metadata: dict[str, Any] = {
+                "model_id": model_id,
+                "stream_chunks": 0,
+                "content_delta_chunks": 0,
+                "reasoning_delta_chunks": 0,
+                "reasoning_characters_observed": 0,
+                "finish_reason": None,
+                "native_finish_reason": None,
+                "usage": None,
+                "generation_id": None,
+                "delta_fields_seen": [],
+            }
+            delta_fields_seen: set[str] = set()
             status = "completed"
             error_message = None
             response = None
@@ -402,6 +464,12 @@ class OpenRouterEngine:
                 response = urllib.request.urlopen(
                     request, timeout=max(1, request_timeout)
                 )
+                headers = getattr(response, "headers", None)
+                if headers is not None and hasattr(headers, "get"):
+                    response_metadata["generation_id"] = (
+                        headers.get("X-Generation-Id")
+                        or headers.get("x-generation-id")
+                    )
                 with self._interrupt_lock:
                     self._active_response = response
                     interrupted = self._cancel_generation_requested
@@ -427,17 +495,32 @@ class OpenRouterEngine:
                         chunk = json.loads(data)
                     except ValueError:
                         continue
+                    response_metadata["stream_chunks"] += 1
+                    usage = chunk.get("usage")
+                    if isinstance(usage, dict):
+                        response_metadata["usage"] = usage
                     if chunk.get("error"):
                         raise RuntimeError(self._response_error(chunk))
                     choices = chunk.get("choices") or []
                     if not choices:
                         continue
                     choice = choices[0] if isinstance(choices[0], dict) else {}
+                    if choice.get("finish_reason") is not None:
+                        response_metadata["finish_reason"] = choice.get("finish_reason")
+                    if choice.get("native_finish_reason") is not None:
+                        response_metadata["native_finish_reason"] = choice.get("native_finish_reason")
                     if choice.get("finish_reason") == "error":
                         raise RuntimeError(self._response_error(chunk))
                     delta = choice.get("delta") or {}
-                    content = delta.get("content")
-                    if isinstance(content, str) and content:
+                    if isinstance(delta, dict):
+                        delta_fields_seen.update(str(key) for key in delta)
+                        reasoning_characters = _openrouter_reasoning_characters(delta)
+                        if reasoning_characters:
+                            response_metadata["reasoning_delta_chunks"] += 1
+                            response_metadata["reasoning_characters_observed"] += reasoning_characters
+                    content = _openrouter_text_from_content(delta.get("content"))
+                    if content:
+                        response_metadata["content_delta_chunks"] += 1
                         answer_parts.append(content)
                         if callable(on_delta):
                             try:
@@ -446,10 +529,40 @@ class OpenRouterEngine:
                                 pass
 
                 answer = "".join(answer_parts)
+                response_metadata["delta_fields_seen"] = sorted(delta_fields_seen)
                 if not answer.strip():
+                    finish_reason = response_metadata.get("finish_reason")
+                    usage = response_metadata.get("usage") or {}
+                    completion_details = usage.get("completion_tokens_details") or {}
+                    reasoning_tokens = (
+                        completion_details.get("reasoning_tokens")
+                        if isinstance(completion_details, dict)
+                        else None
+                    )
+                    completion_tokens = usage.get("completion_tokens")
+                    if finish_reason == "length" and (
+                        reasoning_tokens or response_metadata["reasoning_characters_observed"]
+                    ):
+                        raise RuntimeError(
+                            "OpenRouter reached the output-token limit while generating reasoning "
+                            "and returned no visible text "
+                            f"(completion_tokens={completion_tokens}, reasoning_tokens={reasoning_tokens})."
+                        )
+                    diagnostics = []
+                    if finish_reason is not None:
+                        diagnostics.append(f"finish_reason={finish_reason}")
+                    if completion_tokens is not None:
+                        diagnostics.append(f"completion_tokens={completion_tokens}")
+                    if reasoning_tokens is not None:
+                        diagnostics.append(f"reasoning_tokens={reasoning_tokens}")
+                    if response_metadata["reasoning_delta_chunks"]:
+                        diagnostics.append(
+                            f"reasoning_delta_chunks={response_metadata['reasoning_delta_chunks']}"
+                        )
+                    suffix = f" ({', '.join(diagnostics)})" if diagnostics else ""
                     raise RuntimeError(
-                        "OpenRouter returned no text. The selected model may be unavailable "
-                        "or may have returned only non-text output."
+                        "OpenRouter returned no visible text" + suffix
+                        + ". The provider may have returned an empty or unsupported response."
                     )
                 return answer
             except GenerationInterrupted:
@@ -506,6 +619,7 @@ class OpenRouterEngine:
                     status=status,
                     error=error_message,
                     duration_seconds=time.monotonic() - started,
+                    response_metadata=response_metadata,
                 )
 
 

@@ -241,6 +241,7 @@ class PromptTrace:
         cli_diagnostics: str | None = None,
         duration_seconds: float | None = None,
         error: str | None = None,
+        response_metadata: dict[str, Any] | None = None,
     ) -> None:
         if call_id is None:
             return
@@ -261,6 +262,8 @@ class PromptTrace:
             "error": str(error) if error else None,
             "finished_at": _timestamp(),
         })
+        if response_metadata is not None:
+            call["response_metadata"] = _json_copy(response_metadata)
 
     def record_event(self, event_type: str, **details: Any) -> None:
         self.data["workflow_events"].append({
