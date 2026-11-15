@@ -163,6 +163,10 @@ class PromptTraceTests(unittest.TestCase):
                 response="Maya nodded.",
                 cli_diagnostics="[ Prompt: 750 tokens | Generation: 12 tokens ]",
                 duration_seconds=1.25,
+                response_metadata={
+                    "finish_reason": "stop",
+                    "usage": {"completion_tokens": 12},
+                },
             )
             trace.record_event("validator_result", attempt=1, result={"pass": False})
 
@@ -174,6 +178,8 @@ class PromptTraceTests(unittest.TestCase):
             self.assertEqual(call["input_before_runtime_normalization"], original)
             self.assertEqual(call["exact_user_text_sent_to_runtime"], sent)
             self.assertEqual(call["response"], "Maya nodded.")
+            self.assertEqual(call["response_metadata"]["finish_reason"], "stop")
+            self.assertEqual(call["response_metadata"]["usage"]["completion_tokens"], 12)
             self.assertIn("Prompt: 750 tokens", call["cli_diagnostics"])
             self.assertEqual(payload["sessions"][0]["context_size_tokens"], 16384)
             self.assertIn("You write natural prose", next(iter(payload["system_prompts"].values()))["content"])

@@ -25,8 +25,9 @@ from builder.writer_engine import GenerationInterrupted
 
 
 class FakeResponse:
-    def __init__(self, lines):
+    def __init__(self, lines, headers=None):
         self.lines = list(lines)
+        self.headers = headers or {}
         self.closed = False
 
     def __iter__(self):
@@ -186,6 +187,7 @@ class OpenRouterEngineTests(unittest.TestCase):
         self.assertEqual("".join(pieces), answer)
         self.assertEqual(captured["url"], OPENROUTER_CHAT_URL)
         self.assertEqual(captured["body"]["model"], "vendor/model:free")
+        self.assertNotIn("reasoning", captured["body"])
         self.assertTrue(captured["body"]["stream"])
         self.assertEqual(
             captured["body"]["messages"],
@@ -193,6 +195,71 @@ class OpenRouterEngineTests(unittest.TestCase):
         )
         self.assertEqual(captured["headers"]["authorization"], "Bearer test-key")
         self.assertTrue(response.closed)
+
+    def test_ling_32_flash_disables_thinking_for_scene_text_generation(self):
+        engine = OpenRouterEngine()
+        with patch("builder.openrouter.load_openrouter_api_key", return_value="test-key"):
+            engine.start("inclusionai/ling-3.2-flash:free")
+
+        response = FakeResponse([
+            b'data: {"choices":[{"delta":{"content":"The scene begins."},"finish_reason":null}]}\\n',
+            b'data: {"choices":[{"delta":{},"finish_reason":"stop"}],"usage":{"completion_tokens":4}}\\n',
+            b"data: [DONE]\\n",
+        ])
+        captured = {}
+
+        def fake_urlopen(request, timeout):
+            captured["body"] = json.loads(request.data.decode("utf-8"))
+            return response
+
+        with patch("builder.openrouter.load_openrouter_api_key", return_value="test-key"):
+            with patch("builder.openrouter.urllib.request.urlopen", side_effect=fake_urlopen):
+                answer = engine.generate("Write the scene.")
+
+        self.assertEqual(answer, "The scene begins.")
+        self.assertEqual(captured["body"]["reasoning"], {"enabled": False})
+        self.assertTrue(response.closed)
+
+    def test_empty_reasoning_only_stream_records_finish_and_usage_diagnostics(self):
+        engine = OpenRouterEngine()
+        with patch("builder.openrouter.load_openrouter_api_key", return_value="test-key"):
+            engine.start("inclusionai/ling-3.2-flash:free")
+
+        class FakeTrace:
+            def __init__(self):
+                self.finished = None
+
+            def record_session(self, **_details):
+                pass
+
+            def begin_generation(self, **_details):
+                return "call_01"
+
+            def finish_generation(self, **details):
+                self.finished = details
+
+        trace = FakeTrace()
+        engine.attach_prompt_trace(trace)
+        response = FakeResponse([
+            b'data: {"choices":[{"delta":{"reasoning":"thinking without final text"}}]}\\n',
+            b'data: {"choices":[{"delta":{},"finish_reason":"length","native_finish_reason":"length"}],"usage":{"completion_tokens":4096,"completion_tokens_details":{"reasoning_tokens":4096}}}\\n',
+            b"data: [DONE]\\n",
+        ], headers={"X-Generation-Id": "gen-test-123"})
+
+        with patch("builder.openrouter.load_openrouter_api_key", return_value="test-key"):
+            with patch("builder.openrouter.urllib.request.urlopen", return_value=response):
+                with self.assertRaisesRegex(RuntimeError, "output-token limit while generating reasoning"):
+                    engine.generate("Write the scene.")
+
+        self.assertTrue(response.closed)
+        metadata = trace.finished["response_metadata"]
+        self.assertEqual(metadata["generation_id"], "gen-test-123")
+        self.assertEqual(metadata["finish_reason"], "length")
+        self.assertEqual(metadata["native_finish_reason"], "length")
+        self.assertEqual(metadata["reasoning_delta_chunks"], 1)
+        self.assertGreater(metadata["reasoning_characters_observed"], 0)
+        self.assertEqual(metadata["usage"]["completion_tokens"], 4096)
+        self.assertEqual(metadata["usage"]["completion_tokens_details"]["reasoning_tokens"], 4096)
 
     def test_system_prompt_is_forwarded_when_provided(self):
         engine = OpenRouterEngine()
