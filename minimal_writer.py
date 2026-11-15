@@ -3322,6 +3322,8 @@ class MinimalWriterApp:
                 prompt,
                 model_path=writer_model,
                 attach=False,
+                chapter_number=chapter_number,
+                scene_number=scene_number,
                 author_guidance=author_required_direction,
             )
         if mode == "continue":
