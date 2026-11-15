@@ -1275,7 +1275,7 @@ class MinimalWriterTests(unittest.TestCase):
         required_direction = "Have Tony open and read Sarah's letter in this scene."
         app.author_direction_box = FakePromptBox("")
         app._prepared_author_required_direction_for_current_scene = (
-            lambda: required_direction
+            lambda _destination=None: required_direction
         )
         app._update_controls = lambda: None
 
