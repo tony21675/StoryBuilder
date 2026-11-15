@@ -15,6 +15,7 @@ from minimal_writer import (
     build_rewrite_scene_prompt,
     build_single_scene_scope_prompt,
     scene_coordinates_from_prompt,
+    resolve_generation_scene_destination,
     continuation_prefix,
     load_model_for_writing,
     read_text_document,
@@ -1577,7 +1578,7 @@ class SceneCoordinatesFromPromptTests(unittest.TestCase):
     def test_reads_markdown_scene_heading(self):
         self.assertEqual(
             scene_coordinates_from_prompt(
-                "## Chapter 03, Scene 12: A New Day\\n\\nScene details."
+                "## Chapter 03, Scene 12: A New Day\n\nScene details."
             ),
             (3, 12),
         )
@@ -1585,8 +1586,33 @@ class SceneCoordinatesFromPromptTests(unittest.TestCase):
     def test_does_not_infer_target_from_mentions_later_in_prompt(self):
         self.assertIsNone(
             scene_coordinates_from_prompt(
-                "Continue the current passage.\\nThe last scene was Chapter 01, Scene 01."
+                "Continue the current passage.\nThe last scene was Chapter 01, Scene 01."
             )
+        )
+
+    def test_explicit_prompt_scene_overrides_stale_picker(self):
+        self.assertEqual(
+            resolve_generation_scene_destination(
+                "Scene direction: Chapter 01, Scene 02 — quiet evening.",
+                1,
+                "Scene 01",
+            ),
+            (1, 2),
+        )
+
+    def test_picker_remains_fallback_without_explicit_prompt_heading(self):
+        self.assertEqual(
+            resolve_generation_scene_destination(
+                "Write a quiet scene.",
+                1,
+                "Scene 03",
+            ),
+            (1, 3),
+        )
+
+    def test_missing_scene_target_returns_none(self):
+        self.assertIsNone(
+            resolve_generation_scene_destination("Write a quiet scene.", 1, "")
         )
 
     def test_rejects_zero_coordinates(self):
