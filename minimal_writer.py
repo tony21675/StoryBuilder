@@ -342,6 +342,24 @@ def scene_coordinates_from_prompt(prompt: str) -> tuple[int, int] | None:
     return None
 
 
+def resolve_generation_scene_destination(
+    prompt: str,
+    selected_chapter: int | None,
+    selected_scene_label: str | None,
+) -> tuple[int, int] | None:
+    """Prefer the explicit scene named in the prompt over a stale UI selection."""
+    explicit_destination = scene_coordinates_from_prompt(prompt)
+    if explicit_destination is not None:
+        return explicit_destination
+    scene_number = scene_number_from_label(selected_scene_label)
+    if selected_chapter is None or scene_number is None:
+        return None
+    chapter_number = int(selected_chapter)
+    if chapter_number < 1:
+        return None
+    return chapter_number, int(scene_number)
+
+
 def build_location_context_prompt(
     prompt: str,
     locations: dict,
@@ -3254,21 +3272,16 @@ class MinimalWriterApp:
         # An explicit scene heading in the prepared direction wins over the
         # picker. The picker can still point to the last saved scene when an
         # unsaved scene is being rewritten or its target was restored from text.
-        generation_destination = scene_coordinates_from_prompt(prompt)
-        if generation_destination is None:
-            chapter_label = getattr(
-                getattr(self, "chapter_var", None), "get", lambda: ""
-            )().strip()
-            chapter_number = getattr(self, "chapter_numbers", {}).get(chapter_label)
-            scene_label = getattr(
-                getattr(self, "scene_var", None), "get", lambda: ""
-            )()
-            scene_number = scene_number_from_label(scene_label)
-            generation_destination = (
-                (int(chapter_number), int(scene_number))
-                if chapter_number is not None and scene_number is not None
-                else None
-            )
+        chapter_label = getattr(
+            getattr(self, "chapter_var", None), "get", lambda: ""
+        )().strip()
+        selected_chapter = getattr(self, "chapter_numbers", {}).get(chapter_label)
+        scene_label = getattr(
+            getattr(self, "scene_var", None), "get", lambda: ""
+        )()
+        generation_destination = resolve_generation_scene_destination(
+            prompt, selected_chapter, scene_label
+        )
         chapter_number, scene_number = (
             generation_destination
             if generation_destination is not None
