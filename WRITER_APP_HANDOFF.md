@@ -1,6 +1,6 @@
 # Writer App handoff
 
-**Updated:** November 12, 2026  
+**Updated:** November 16, 2026  
 **Repository:** `tony21675/StoryBuilder`  
 **Branch:** `redesign/simplified-writing-workflow` (GitHub default and only branch)  
 **Local path:** `~/Documents/StoryBuilder`
@@ -53,7 +53,10 @@ Prepare Scene asks Qwen to return separate **AUTHOR-REQUIRED BEATS** and **QWEN-
 - The current Author's Direction is the **only source** for AUTHOR-REQUIRED BEATS. Only concrete events, actions, or moments explicitly requested in that field qualify. The Story Bible, current state, continuity notes, character cards, locations, preceding scene, previous prepared direction, earlier conversation, and Qwen's own ideas are context only and cannot create required beats.
 - If the current Author's Direction is empty, AUTHOR-REQUIRED BEATS must be completely blank. Do not insert a placeholder such as "None specified" or infer a required beat from surrounding context. If the field contains only tone, mood, general goals, or preferences without a concrete requested event, leave the section blank as well. The app also clears any model-generated content from this section when the original Author's Direction is empty, while preserving QWEN-SELECTED ADDITIONAL BEATS.
 - Every concrete event explicitly requested in the current Author's Direction must happen in that destination scene; do not omit, soften, replace, or defer it.
-- Qwen may choose zero, one, or any number of additional beats. There is no quota or cap. All ideas Qwen adds belong only under QWEN-SELECTED ADDITIONAL BEATS.
+- Qwen's additional beats are optional. It should add only details that genuinely help the scene, usually zero to three short additions; it must not pad the plan or restate the author's events.
+- Qwen returns a short, plain-language scene direction paragraph (normally two to four sentences), followed by separate AUTHOR-REQUIRED BEATS and QWEN-SELECTED ADDITIONAL BEATS headings. It must not return screenplay formatting, INT./EXT. slug lines, character-name dialogue labels, camera directions, scripted dialogue, a long numbered breakdown, or finished manuscript prose.
+- The application inserts the current Author's Direction unchanged under AUTHOR-REQUIRED BEATS after generation. Qwen must leave that section empty and must not copy, quote, restate, or paraphrase the Author's Direction elsewhere in its output.
+- Qwen should use canon selectively, avoid importing unrelated future plot material, and leave ordinary dialogue, gestures, staging, and connective prose to Gemma. It must not invent specific memories, sensory experiences, calls, messages, props, relationships, backstory, or future events as established facts.
 - When refining a previous direction, the current Author's Direction controls classification; old beat labels must not be treated as authoritative.
 
 When the author presses Write, Gemma receives Qwen's prepared direction and the original Author's Direction as a separate authoritative instruction. Qwen's omission or misclassification must not erase the author's original required event.

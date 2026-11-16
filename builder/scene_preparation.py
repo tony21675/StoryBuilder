@@ -454,12 +454,11 @@ def build_scene_preparation_prompt(
         author_beats_rule = (
             "AUTHOR-REQUIRED BEATS (APPLICATION-CONTROLLED)\n"
             "Do not extract, classify, summarize, paraphrase, reorder, or write entries in this section. "
-            "StoryBuilder will insert the exact, unchanged contents of the current AUTHOR'S DIRECTION "
-            "here after generation. Leave this section empty in your response. The prior prepared direction, "
-            "previous scene, and other background context are not sources for required beats and cannot "
-            "alter the author's current instructions. Do not move the author's requested events into "
-            "QWEN-SELECTED ADDITIONAL BEATS. Your additions must be genuinely additional and must not "
-            "repeat, replace, reorder, or contradict the author's requested events."
+            "StoryBuilder inserts the exact, unchanged AUTHOR'S DIRECTION here after generation. Leave "
+            "this section empty. Do not copy, quote, restate, or paraphrase the author's direction anywhere "
+            "else in your response, including the scene direction and additional beats. The prior prepared "
+            "direction and previous scene are context only, not sources for required beats. Your own "
+            "additional ideas must never repeat, replace, reorder, or contradict the author's requested events."
         )
     else:
         author_beats_rule = (
@@ -472,20 +471,29 @@ def build_scene_preparation_prompt(
 
     sections.extend(
         [
-            "Use the scene context as a starting point. Gaps are creative space; develop plausible details and interactions without treating every unknown as a prohibition.",
-            "Prepare a direction for this one destination scene only. Do not combine distinct time/place "
-            "setups that function as separate scenes; leave a later scene setup for a separate Prepare Scene "
-            "request unless the author explicitly asks to include it in this same scene.",
+            "Use the supplied story information selectively. It is reference for preserving established facts, "
+            "not a checklist of material to include. Do not pull unrelated backstory or future plot details into "
+            "this scene. Treat unknown details as open rather than inventing them as established history.",
+            "Plan only the requested destination scene. Keep its time, place, cast, and endpoint within the "
+            "author's direction and established continuity. Do not replay events that the author says have "
+            "already happened, and do not continue into the next scene or a later time of day.",
             author_beats_rule,
-            "Choose any number of QWEN-SELECTED ADDITIONAL BEATS: zero, one, or as many as you "
-            "believe will genuinely strengthen this scene. There is no quota or cap; do not pad the "
-            "scene just to add beats. Every idea you add yourself belongs only in QWEN-SELECTED "
-            "ADDITIONAL BEATS and must never replace, weaken, or be mislabeled as an author-required beat. Do not repeat or paraphrase the author's requested events as your own additions. Do not reorder or contradict the author's requested sequence, cast selection, or explicit exclusions.",
-            "Return one concise 'Scene direction:' followed by clearly separate AUTHOR-REQUIRED BEATS "
-            "and QWEN-SELECTED ADDITIONAL BEATS sections, in that order. When the author-required "
-            "section is required to be blank, put absolutely nothing under its heading before the "
-            "QWEN-SELECTED ADDITIONAL BEATS heading. Leave how the beats unfold and where the scene "
-            "ends to the Writer. Do not write manuscript prose.",
+            "QWEN-SELECTED ADDITIONAL BEATS are optional. Add only ideas that genuinely improve this "
+            "particular scene without repeating, replacing, reordering, or contradicting the author's events. "
+            "Usually zero to three short additions are enough; do not pad the plan or invent activity just to "
+            "fill the section. If nothing useful is additional, leave it empty.",
+            "Write in plain novel-planning language, not as a screenplay and not as finished manuscript prose. "
+            "Use this compact structure: 'Scene direction:' followed by one short paragraph of two to four "
+            "sentences describing the starting point, broad movement, and intended endpoint; then the two "
+            "beat headings. Do not use INT./EXT. slug lines, screenplay character labels, camera directions, "
+            "scripted dialogue, long numbered scene breakdowns, or separate Setting/Tone/Atmosphere essays. "
+            "Leave ordinary dialogue, gestures, staging, and connective prose to the Writer.",
+            "Do not invent specific memories, sensory experiences, calls, messages, props, relationships, "
+            "backstory, or future events unless the author or established canon supplies them. Do not turn "
+            "speculation into a remembered fact. When the author describes an emotional connection, preserve "
+            "its meaning without dictating the finished prose or explaining every feeling.",
+            "Return the compact structure only. StoryBuilder will insert the unchanged AUTHOR'S DIRECTION "
+            "under AUTHOR-REQUIRED BEATS, so do not repeat it anywhere in the generated direction.",
         ]
     )
     if scene_cast is not None:
