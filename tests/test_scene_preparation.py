@@ -319,27 +319,28 @@ class ScenePreparationPromptTests(unittest.TestCase):
                 root, "Existing Novel", 1, 11, source_scene_path=source
             )
 
-        self.assertIn("Chapter 01, Scene 11", prompt)
-        self.assertIn("Mara watched the empty channel.", prompt)
-        self.assertIn("PREVIOUS SCENE ENDING", prompt)
-        self.assertIn("The harbor lights have gone dark", prompt)
-        self.assertIn("The north pier", prompt)
-        self.assertIn("Mara, Jonah", prompt)
-        self.assertIn("Why has the ferry not arrived?", prompt)
-        self.assertNotIn("OUTSTANDING CHARACTER OBJECTIVES", prompt)
-        self.assertNotIn(
-            "Daniel: Deliver the report Elena requested before the end of the workday.",
-            prompt,
-        )
-        self.assertIn("[Mara]", prompt)
-        self.assertIn("[Jonah]", prompt)
-        self.assertNotIn("[Private Detail]", prompt)
-        self.assertNotIn("This should not be copied", prompt)
-        self.assertNotIn("Private knowledge should stay out", prompt)
-        self.assertNotIn("Let Chapter One take its time", prompt)
-        self.assertEqual((root / "story_bible.json").read_bytes(), original_bible)
-        self.assertEqual((root / "current_state.json").read_bytes(), original_state)
-        self.assertEqual(source.read_bytes(), original_scene)
+            self.assertIn("Chapter 01, Scene 11", prompt)
+            self.assertIn("Mara watched the empty channel.", prompt)
+            self.assertIn("PREVIOUS SCENE ENDING", prompt)
+            self.assertIn("The harbor lights have gone dark", prompt)
+            self.assertIn("The north pier", prompt)
+            self.assertIn("Mara, Jonah", prompt)
+            self.assertIn("Why has the ferry not arrived?", prompt)
+            self.assertNotIn("OUTSTANDING CHARACTER OBJECTIVES", prompt)
+            self.assertNotIn(
+                "Daniel: Deliver the report Elena requested before the end of the workday.",
+                prompt,
+            )
+            self.assertIn("[Mara]", prompt)
+            self.assertIn("[Jonah]", prompt)
+            self.assertNotIn("[Private Detail]", prompt)
+            self.assertNotIn("This should not be copied", prompt)
+            self.assertNotIn("Private knowledge should stay out", prompt)
+            self.assertNotIn("Let Chapter One take its time", prompt)
+            self.assertEqual((root / "story_bible.json").read_bytes(), original_bible)
+            self.assertEqual((root / "current_state.json").read_bytes(), original_state)
+            self.assertEqual(source.read_bytes(), original_scene)
+
 
     def test_long_previous_scene_is_limited_to_a_short_ending_excerpt(self):
         with tempfile.TemporaryDirectory() as temp:
