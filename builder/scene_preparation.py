@@ -457,9 +457,10 @@ def build_scene_preparation_prompt(
             "StoryBuilder will insert the exact, unchanged contents of the current AUTHOR'S DIRECTION "
             "here after generation. Leave this section empty. Do not copy, quote, restate, or paraphrase the "
             "author's direction anywhere else in your response, including the scene direction and additional "
-            "beats. The prior prepared direction and previous scene are context only, not sources for required "
-            "beats. Your own additional ideas must never repeat, replace, reorder, or contradict the author's "
-            "requested events."
+            "beats. Do not move the author's requested events into QWEN-SELECTED ADDITIONAL BEATS. "
+            "The prior prepared direction and previous scene are context only, not sources for required beats. "
+            "Your own additional ideas must never repeat, replace, reorder, or contradict the author's requested "
+            "events."
         )
     else:
         author_beats_rule = (
