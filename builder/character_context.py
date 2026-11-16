@@ -337,7 +337,17 @@ def build_character_card_context_prompt(
                 if rendered:
                     lines.append(f"Defining detail: {_clean(rendered, 200)}")
 
-            related_names = [item for item in roster_names if item.casefold() != name.casefold()]
+            scene_people = (
+                [_clean(item, 100) for item in selected_names if isinstance(item, str)]
+                if selected_names is not None
+                else [
+                    item for item in roster_names
+                    if _name_is_mentioned(item, query)
+                ]
+            )
+            related_names = [
+                item for item in scene_people if item.casefold() != name.casefold()
+            ]
             relationships = _relationships_text(
                 card.get("relationships"), related_names=related_names, max_items=2
             )
@@ -587,8 +597,8 @@ def build_scene_relevant_story_bible_reference_context(
     selected_rules = [item[2] for item in ranked_rules[:max(0, int(max_canon_rules))]]
     if selected_rules:
         sections.append(
-            "SCENE-RELEVANT FIXED CANON (facts to preserve, not extra scene beats)\\n"
-            + "\\n".join(f"- {rule[:520]}" for rule in selected_rules)
+            "SCENE-RELEVANT FIXED CANON (facts to preserve, not extra scene beats)\n"
+            + "\n".join(f"- {rule[:520]}" for rule in selected_rules)
         )
 
     raw_relationships = story_bible.get("relationships")
@@ -611,8 +621,8 @@ def build_scene_relevant_story_bible_reference_context(
     ]
     if selected_relationships:
         sections.append(
-            "SCENE-RELEVANT RELATIONSHIPS (factual reference)\\n"
-            + "\\n".join(f"- {item[:620]}" for item in selected_relationships)
+            "SCENE-RELEVANT RELATIONSHIPS (factual reference)\n"
+            + "\n".join(f"- {item[:620]}" for item in selected_relationships)
         )
 
-    return "\\n\\n".join(sections)
+    return "\n\n".join(sections)
