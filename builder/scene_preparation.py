@@ -541,7 +541,7 @@ def build_scene_preparation_prompt(
                 )
         if unresolved_questions:
             question_terms = _planner_terms(unresolved_questions[0])
-            if len(question_terms & _planner_terms(scene_reference_text)) >= 2:
+            if len(question_terms & _planner_terms(scene_reference_text)) >= 1:
                 sections.append("OPEN QUESTION\n" + unresolved_questions[0])
 
     character_supporting_text = "\n".join(
