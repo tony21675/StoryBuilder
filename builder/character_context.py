@@ -305,6 +305,32 @@ def build_character_card_context_prompt(
                 if rendered:
                     lines.append(f"Appearance: {_clean(rendered, 190)}")
 
+            # Carry only important-item facts whose item name is mentioned in
+            # the current scene. This preserves physical continuity without
+            # dumping every item recorded on a character card.
+            important_items = card.get("important_items")
+            if isinstance(important_items, dict):
+                query_terms = set(re.findall(r"[a-z0-9]+", query.casefold()))
+                matched_items = []
+                for item_name, item_value in important_items.items():
+                    key_terms = [
+                        token
+                        for token in re.findall(
+                            r"[a-z0-9]+", str(item_name).replace("_", " ").casefold()
+                        )
+                        if len(token) >= 3
+                    ]
+                    if not key_terms or not all(token in query_terms for token in key_terms):
+                        continue
+                    rendered = _reference_value_text(item_value)
+                    if rendered:
+                        label = str(item_name).replace("_", " ").strip().title()
+                        matched_items.append(f"{label}: {_clean(rendered, 220)}")
+                    if len(matched_items) >= 2:
+                        break
+                if matched_items:
+                    lines.append("Relevant important items: " + "; ".join(matched_items))
+
             personality = next(
                 (
                     card.get(field)
