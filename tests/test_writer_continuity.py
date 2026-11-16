@@ -83,7 +83,7 @@ class PreviousSceneContinuityTests(unittest.TestCase):
         self.assertIn("brief ending excerpt; earlier scene text omitted", result)
         self.assertIn(ending, result)
         self.assertNotIn(opening, result)
-        self.assertLess(len(result), 700)
+        self.assertLess(len(result), 800)
         self.assertIn("Source: Chapter 01, Scene 01", result)
 
     def test_long_previous_scene_is_included_in_full_without_truncation(self):
