@@ -32,8 +32,10 @@ def build_previous_scene_context_prompt(
     novel_path: str | Path,
     target_chapter: int,
     target_scene: int,
+    *,
+    max_chars: int | None = None,
 ) -> str:
-    """Append the full immediately preceding accepted scene as read-only continuity context."""
+    """Append the prior accepted scene, optionally limited to its ending excerpt."""
     source = previous_saved_scene(novel_path, target_chapter, target_scene)
     if source is None:
         return str(prompt or "")
@@ -47,13 +49,23 @@ def build_previous_scene_context_prompt(
     if not previous_text:
         return str(prompt or "")
 
+    excerpt = previous_text
+    excerpt_note = "full text"
+    if max_chars is not None:
+        limit = max(300, int(max_chars))
+        if len(excerpt) > limit:
+            excerpt = excerpt[-limit:]
+            paragraph_start = excerpt.find("\\n\\n")
+            if 0 <= paragraph_start < min(450, limit // 3):
+                excerpt = excerpt[paragraph_start + 2:]
+            excerpt_note = "brief ending excerpt; earlier scene text omitted"
+
     continuity_context = (
-        "IMMEDIATELY PRECEDING SAVED SCENE (full text, continuity reference only)\n"
-        f"Source: Chapter {source_chapter:02d}, Scene {source_scene:02d}\n"
-        "Use this accepted scene as context for continuity. "
-        "Let the next scene feel like a natural continuation of the same story, "
-        "without repeating or summarizing the previous scene.\n\n"
-        f"{previous_text}"
+        f"IMMEDIATELY PRECEDING SAVED SCENE ({excerpt_note}, continuity reference only)\\n"
+        f"Source: Chapter {source_chapter:02d}, Scene {source_scene:02d}\\n"
+        "Use this accepted passage only to orient the handoff. Continue naturally from "
+        "what the reader has just seen; do not repeat or summarize it.\\n\\n"
+        f"{excerpt}"
     )
     base = str(prompt or "").rstrip()
     return f"{base}\n\n{continuity_context}" if base else continuity_context
