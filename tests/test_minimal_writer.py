@@ -1394,6 +1394,26 @@ class MinimalWriterTests(unittest.TestCase):
             self.assertEqual(app._last_prompt_trace_path, str(trace_path))
             self.assertEqual(app._last_prompt_trace_upload_result, failure)
 
+    def test_normal_write_uses_balanced_context_and_bounded_previous_scene_excerpt(self):
+        app = MinimalWriterApp.__new__(MinimalWriterApp)
+        app.busy = False
+        app.prompt_box = FakePromptBox("Scene direction: A quiet evening.")
+        captured = {}
+        app._prepare_balanced_writer_context = lambda prompt: prompt + "\\nBALANCED CONTEXT"
+        app._prepare_previous_scene_context = lambda prompt, *, max_chars=None: (
+            captured.update(previous_excerpt_limit=max_chars) or prompt + "\\nPREVIOUS ENDING EXCERPT"
+        )
+        app._begin_generation = lambda prompt, mode: captured.update(
+            prompt=prompt, mode=mode
+        )
+
+        app.write()
+
+        self.assertEqual(captured["mode"], "write")
+        self.assertIn("BALANCED CONTEXT", captured["prompt"])
+        self.assertIn("PREVIOUS ENDING EXCERPT", captured["prompt"])
+        self.assertEqual(captured["previous_excerpt_limit"], 1400)
+
     def test_write_replaces_visible_prose_but_preserves_model_session_context(self):
         app = MinimalWriterApp.__new__(MinimalWriterApp)
         app.root = FakeRoot()
