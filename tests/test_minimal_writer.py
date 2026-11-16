@@ -1399,9 +1399,9 @@ class MinimalWriterTests(unittest.TestCase):
         app.busy = False
         app.prompt_box = FakePromptBox("Scene direction: A quiet evening.")
         captured = {}
-        app._prepare_balanced_writer_context = lambda prompt: prompt + "\\nBALANCED CONTEXT"
+        app._prepare_balanced_writer_context = lambda prompt: prompt + "\nBALANCED CONTEXT"
         app._prepare_previous_scene_context = lambda prompt, *, max_chars=None: (
-            captured.update(previous_excerpt_limit=max_chars) or prompt + "\\nPREVIOUS ENDING EXCERPT"
+            captured.update(previous_excerpt_limit=max_chars) or prompt + "\nPREVIOUS ENDING EXCERPT"
         )
         app._begin_generation = lambda prompt, mode: captured.update(
             prompt=prompt, mode=mode
