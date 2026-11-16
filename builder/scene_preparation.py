@@ -10,7 +10,6 @@ from builder.story_bible_reader import load_story_bible
 from builder.character_context import (
     build_character_card_context_prompt,
     build_scene_cast_boundary_prompt,
-    build_scene_relevant_story_bible_reference_context,
 )
 from builder.story_timeline import build_story_timeline_prompt
 
@@ -456,7 +455,7 @@ def build_scene_preparation_prompt(
                 _clean_text(note, limit=260)
                 for note in raw_notes
                 if isinstance(note, str) and note.strip()
-            ][:3]
+            ]
 
         raw_questions = current_state.get("unresolved_questions")
         if isinstance(raw_questions, list):
@@ -574,7 +573,11 @@ def build_scene_preparation_prompt(
         sections.append("This is the opening scene; no previous scene has been saved.")
 
     if previous_direction_text:
-        sections.append("PREVIOUS PREPARED DIRECTION (refine only if useful)\n" + previous_direction_text)
+        sections.append(
+            "PREVIOUS PREPARED DIRECTION TO REFINE\n"
+            + previous_direction_text
+            + "\nRefine the previous direction rather than starting over."
+        )
 
     if author_direction_text:
         sections.append("AUTHOR'S DIRECTION\n" + author_direction_text)
