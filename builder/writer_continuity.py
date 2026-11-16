@@ -55,16 +55,16 @@ def build_previous_scene_context_prompt(
         limit = max(300, int(max_chars))
         if len(excerpt) > limit:
             excerpt = excerpt[-limit:]
-            paragraph_start = excerpt.find("\\n\\n")
+            paragraph_start = excerpt.find("\n\n")
             if 0 <= paragraph_start < min(450, limit // 3):
                 excerpt = excerpt[paragraph_start + 2:]
             excerpt_note = "brief ending excerpt; earlier scene text omitted"
 
     continuity_context = (
-        f"IMMEDIATELY PRECEDING SAVED SCENE ({excerpt_note}, continuity reference only)\\n"
-        f"Source: Chapter {source_chapter:02d}, Scene {source_scene:02d}\\n"
+        f"IMMEDIATELY PRECEDING SAVED SCENE ({excerpt_note}, continuity reference only)\n"
+        f"Source: Chapter {source_chapter:02d}, Scene {source_scene:02d}\n"
         "Use this accepted passage only to orient the handoff. Continue naturally from "
-        "what the reader has just seen; do not repeat or summarize it.\\n\\n"
+        "what the reader has just seen; do not repeat or summarize it.\n\n"
         f"{excerpt}"
     )
     base = str(prompt or "").rstrip()
