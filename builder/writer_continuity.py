@@ -63,8 +63,9 @@ def build_previous_scene_context_prompt(
     continuity_context = (
         f"IMMEDIATELY PRECEDING SAVED SCENE ({excerpt_note}, continuity reference only)\n"
         f"Source: Chapter {source_chapter:02d}, Scene {source_scene:02d}\n"
-        "Use this accepted passage only to orient the handoff. Continue naturally from "
-        "what the reader has just seen; do not repeat or summarize it.\n\n"
+        "Use this accepted passage only to orient the handoff. Let the next scene feel "
+        "like a natural continuation of the same story, starting from what the reader has "
+        "just seen. Do not repeat or summarize it.\n\n"
         f"{excerpt}"
     )
     base = str(prompt or "").rstrip()
