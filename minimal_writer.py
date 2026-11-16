@@ -575,8 +575,42 @@ class MinimalWriterApp:
         self.refresh_novels()
 
     def _build_widgets(self) -> None:
-        outer = ttk.Frame(self.root, padding=12)
-        outer.pack(fill="both", expand=True)
+        # Keep the complete writing form accessible on shorter laptop displays.
+        # The canvas scrolls the form; the text editors retain their own internal
+        # scrollbars for navigating longer prompt and manuscript content.
+        page = ttk.Frame(self.root)
+        page.pack(fill="both", expand=True)
+
+        style = ttk.Style(self.root)
+        canvas_background = style.lookup("TFrame", "background") or self.root.cget("background")
+        self.main_canvas = tk.Canvas(
+            page,
+            borderwidth=0,
+            highlightthickness=0,
+            background=canvas_background,
+        )
+        self.main_scrollbar = ttk.Scrollbar(
+            page, orient="vertical", command=self.main_canvas.yview
+        )
+        self.main_canvas.configure(yscrollcommand=self.main_scrollbar.set)
+        self.main_scrollbar.pack(side="right", fill="y")
+        self.main_canvas.pack(side="left", fill="both", expand=True)
+
+        outer = ttk.Frame(self.main_canvas, padding=12)
+        self._main_canvas_window = self.main_canvas.create_window(
+            (0, 0), window=outer, anchor="nw"
+        )
+
+        def update_scroll_region(_event=None) -> None:
+            self.main_canvas.configure(scrollregion=self.main_canvas.bbox("all"))
+
+        def fit_content_width(event) -> None:
+            self.main_canvas.itemconfigure(
+                self._main_canvas_window, width=max(1, event.width)
+            )
+
+        outer.bind("<Configure>", update_scroll_region)
+        self.main_canvas.bind("<Configure>", fit_content_width)
 
         planner_model_row = ttk.Frame(outer)
         planner_model_row.pack(fill="x", pady=(0, 4))
