@@ -768,6 +768,24 @@ class MinimalWriterApp:
         self.prompt_box.pack(fill="both", expand=False, pady=(4, 12))
         bind_ctrl_a_select_all(self.prompt_box)
 
+        minimal_test_row = ttk.Frame(outer)
+        minimal_test_row.pack(fill="x", pady=(0, 8))
+        self.minimal_test_button = ttk.Button(
+            minimal_test_row,
+            text="Test Minimal Prompt",
+            command=self.write_minimal_test,
+        )
+        self.minimal_test_button.pack(side="left", padx=(0, 8))
+        ttk.Label(
+            minimal_test_row,
+            text=(
+                "One test only: uses the scene direction and required beats, while "
+                "skipping automatic Story Bible, character, location, continuity, "
+                "previous-scene, and style context."
+            ),
+            wraplength=760,
+        ).pack(side="left", fill="x", expand=True)
+
         actions = ttk.Frame(outer)
         actions.pack(fill="x", pady=(0, 8))
 
@@ -2703,6 +2721,22 @@ class MinimalWriterApp:
         prompt = self._prepare_previous_scene_context(prompt)
         self._begin_generation(prompt, mode="write")
 
+    def write_minimal_test(self) -> None:
+        """Run one scene-generation test without automatic novel-context additions."""
+        if self.busy:
+            return
+        prompt = self.prompt_box.get("1.0", "end-1c")
+        if not prompt.strip():
+            self._showinfo(
+                "Add a prompt",
+                "Enter or prepare a scene direction before running the minimal test.",
+            )
+            return
+
+        # Do not carry a location label from an earlier, fully enriched request.
+        self.last_location_context_names = []
+        self._begin_generation(prompt, mode="write", minimal_context=True)
+
     def rewrite_current_scene(self) -> None:
         """Regenerate the visible scene using its existing prompt and extra guidance."""
         if self.busy:
@@ -3268,7 +3302,9 @@ class MinimalWriterApp:
             except Exception:
                 pass
 
-    def _begin_generation(self, prompt: str, mode: str) -> None:
+    def _begin_generation(
+        self, prompt: str, mode: str, *, minimal_context: bool = False
+    ) -> None:
         # An explicit scene heading in the prepared direction wins over the
         # picker. The picker can still point to the last saved scene when an
         # unsaved scene is being rewritten or its target was restored from text.
@@ -3306,7 +3342,8 @@ class MinimalWriterApp:
         prompt = build_single_scene_scope_prompt(
             prompt, chapter_number=chapter_number, scene_number=scene_number
         )
-        prompt = self._prepare_creative_direction_context(prompt)
+        if not minimal_context:
+            prompt = self._prepare_creative_direction_context(prompt)
         scene_cast = self._active_scene_cast(generation_destination)
         if scene_cast is not None:
             prompt = build_scene_cast_boundary_prompt(prompt, scene_cast)
@@ -3339,6 +3376,27 @@ class MinimalWriterApp:
                 scene_number=scene_number,
                 author_guidance=author_required_direction,
             )
+        if minimal_context and prompt_trace is not None:
+            try:
+                prompt_trace.record_event(
+                    "minimal_writer_context_test",
+                    skipped_context=[
+                        "Story Bible canon and relationship references",
+                        "automatic character-card context",
+                        "automatic location context",
+                        "current-state situation and continuity notes",
+                        "previous accepted scene text",
+                        "novel-wide creative direction and writing preferences",
+                    ],
+                    retained_context=[
+                        "visible scene direction",
+                        "author-required direction protection",
+                        "one-scene scope",
+                        "explicit scene-cast boundary when selected",
+                    ],
+                )
+            except Exception:
+                pass
         if mode == "continue":
             self._generation_prefix = continuation_prefix(self._pre_generation_text)
             self._set_output_text(self._generation_prefix)
@@ -4114,6 +4172,10 @@ class MinimalWriterApp:
         self.write_button.configure(
             state="normal" if idle and has_writer_model else "disabled"
         )
+        if hasattr(self, "minimal_test_button"):
+            self.minimal_test_button.configure(
+                state="normal" if idle and has_writer_model else "disabled"
+            )
         if hasattr(self, "rewrite_scene_button"):
             self.rewrite_scene_button.configure(
                 state="normal" if idle and has_writer_model else "disabled"

@@ -1117,6 +1117,45 @@ class MinimalWriterTests(unittest.TestCase):
             )
             self.assertNotIn("Do not assume it happened off-page", captured["prompt"])
 
+    def test_minimal_prompt_test_skips_automatic_novel_context(self):
+        app = MinimalWriterApp.__new__(MinimalWriterApp)
+        app.busy = False
+        app.prompt_box = FakePromptBox(
+            "Scene direction: Dinner continues at Tony and Tiffany's home."
+        )
+        app.last_location_context_names = ["A stale location"]
+        captured = {}
+        app._begin_generation = lambda prompt, mode, *, minimal_context=False: captured.update(
+            prompt=prompt,
+            mode=mode,
+            minimal_context=minimal_context,
+        )
+
+        app.write_minimal_test()
+
+        self.assertEqual(
+            captured["prompt"],
+            "Scene direction: Dinner continues at Tony and Tiffany's home.",
+        )
+        self.assertEqual(captured["mode"], "write")
+        self.assertTrue(captured["minimal_context"])
+        self.assertEqual(app.last_location_context_names, [])
+
+    def test_minimal_prompt_test_rejects_empty_scene_direction(self):
+        app = MinimalWriterApp.__new__(MinimalWriterApp)
+        app.busy = False
+        app.prompt_box = FakePromptBox("")
+        shown = []
+        app._showinfo = lambda title, message: shown.append((title, message))
+        app._begin_generation = lambda *_args, **_kwargs: self.fail(
+            "An empty direction must not start generation."
+        )
+
+        app.write_minimal_test()
+
+        self.assertEqual(len(shown), 1)
+        self.assertIn("scene direction", shown[0][1].lower())
+
     def test_prepared_scene_trace_is_claimed_only_for_its_matching_scene(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
