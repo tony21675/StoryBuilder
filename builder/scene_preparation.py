@@ -524,6 +524,8 @@ def build_scene_preparation_prompt(
     if include_state:
         if situation:
             sections.append("CURRENT SCENE SITUATION\n" + situation)
+        if primary_location:
+            sections.append("CURRENT LOCATION\n" + primary_location)
         if continuity_notes:
             note_terms = _planner_terms(scene_reference_text)
             relevant_notes = [
