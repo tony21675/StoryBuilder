@@ -1228,10 +1228,10 @@ class MinimalWriterTests(unittest.TestCase):
         )
         app.last_location_context_names = ["A stale location"]
         captured = {}
-        app._begin_generation = lambda prompt, mode, *, minimal_context=False: captured.update(
+        app._begin_generation = lambda prompt, mode, *, context_profile="balanced": captured.update(
             prompt=prompt,
             mode=mode,
-            minimal_context=minimal_context,
+            context_profile=context_profile,
         )
 
         app.write_minimal_test()
@@ -1241,7 +1241,7 @@ class MinimalWriterTests(unittest.TestCase):
             "Scene direction: Dinner continues at Tony and Tiffany's home.",
         )
         self.assertEqual(captured["mode"], "write")
-        self.assertTrue(captured["minimal_context"])
+        self.assertEqual(captured["context_profile"], "minimal")
         self.assertEqual(app.last_location_context_names, [])
 
     def test_minimal_prompt_test_rejects_empty_scene_direction(self):
