@@ -1058,7 +1058,109 @@ class MinimalWriterTests(unittest.TestCase):
         self.assertIn("previous draft was restored", app.status_var.value.lower())
         self.assertIsNone(app.loaded_model)
 
-    def test_write_includes_the_immediately_preceding_saved_scene(self):
+    def test_balanced_writer_context_selects_scene_cards_relevant_canon_and_continuity(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            cards = {
+                "Tony.json": {
+                    "name": "Tony",
+                    "age": 46,
+                    "gender": "male",
+                    "role": "Tiffany's father",
+                    "personality": ["practical", "quietly affectionate"],
+                    "voice": "Dry humor; direct, never flowery.",
+                    "relationships": {"Tiffany": "His daughter; they share a home."},
+                    "background": "An extensive military and security history that is not needed here.",
+                },
+                "Tiffany.json": {
+                    "name": "Tiffany",
+                    "age": 18,
+                    "gender": "female",
+                    "role": "student",
+                    "appearance": "Dark curls and Tony's old dog tags on a chain.",
+                    "personality": ["observant", "wry"],
+                    "voice": "Understated, quick with a dry response.",
+                    "relationships": {"Tony": "Her father; they share a home."},
+                },
+                "Maya.json": {
+                    "name": "Maya",
+                    "age": 18,
+                    "gender": "female",
+                    "personality": ["playful", "confident"],
+                    "voice": "Easy laugh and quick teasing.",
+                },
+                "Chloe.json": {
+                    "name": "Chloe",
+                    "personality": ["protective"],
+                },
+            }
+            for filename, card in cards.items():
+                (root / filename).write_text(json.dumps(card), encoding="utf-8")
+
+            bible = {
+                "character_cards": list(cards),
+                "canon_rules": [
+                    "Tony and Tiffany are strictly father and daughter.",
+                    "Tiffany wears Tony's old dog tags on a chain around her neck at all times.",
+                    "The buyer uses a white van near the gas station.",
+                ],
+                "relationships": {
+                    "Tony and Tiffany": "Father and daughter; they share a home.",
+                    "Beth and Maya": "Mother and daughter; they live next door.",
+                },
+                "locations": {
+                    "Tony and Tiffany's home, Cedar Lane": {
+                        "description": "A comfortable family home with a dining room.",
+                    },
+                },
+                "writing_preferences": "Trust the reader to remember established relationships.",
+                "creative_direction": {"genres": ["Thriller"], "moods": ["Warm"], "audience": "Adult"},
+            }
+            (root / "story_bible.json").write_text(json.dumps(bible), encoding="utf-8")
+            (root / "current_state.json").write_text(
+                json.dumps({
+                    "location": {"primary": "Tony and Tiffany's home, Cedar Lane"},
+                    "current_situation": "Tony has left for his 21:00 meeting; Tiffany remains at home with her guests.",
+                    "continuity_notes": [
+                        "Tiffany always wears the dog tags around her neck.",
+                        "The buyer and white van are future plot details.",
+                    ],
+                }),
+                encoding="utf-8",
+            )
+
+            app = MinimalWriterApp.__new__(MinimalWriterApp)
+            app.novel_var = FakeVar("Taken at Dusk")
+            app.novel_packages = {"Taken at Dusk": root}
+            prompt = (
+                "Chapter 01, Scene 02. Continue the quiet evening at Tony and Tiffany's "
+                "home. Tiffany, Tony, and Maya are relevant. Keep Tiffany's dog tags on "
+                "their chain."
+            )
+
+            enriched = app._prepare_balanced_writer_context(prompt)
+
+        self.assertIn("SCENE-RELEVANT FIXED CANON", enriched)
+        self.assertIn("strictly father and daughter", enriched)
+        self.assertIn("dog tags on a chain around her neck", enriched)
+        self.assertIn("[Tony]", enriched)
+        self.assertIn("[Tiffany]", enriched)
+        self.assertIn("[Maya]", enriched)
+        self.assertNotIn("[Chloe]", enriched)
+        self.assertIn("practical, quietly affectionate", enriched)
+        self.assertIn("Easy laugh and quick teasing", enriched)
+        self.assertIn("Trust the reader", enriched)
+        self.assertIn("NOVEL TONE", enriched)
+        self.assertNotIn("white van", enriched)
+        self.assertNotIn("military and security history", enriched)
+        self.assertEqual(
+            app.last_writer_context_summary["continuity_notes_included"], 1
+        )
+        self.assertEqual(
+            app.last_writer_context_summary["characters"], ["Tony", "Tiffany", "Maya"]
+        )
+
+    def test_full_context_fallback_keeps_the_original_broad_context_builder(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             chapter = root / "Manuscript" / "Chapters" / "Chapter_02"
@@ -1098,13 +1200,14 @@ class MinimalWriterTests(unittest.TestCase):
             app.chapter_numbers = {"Chapter 02": 2}
             app.scene_var = Value("Scene 20")
             captured = {}
-            app._begin_generation = lambda prompt, mode: captured.update(
-                prompt=prompt, mode=mode
+            app._begin_generation = lambda prompt, mode, **kwargs: captured.update(
+                prompt=prompt, mode=mode, **kwargs
             )
 
-            app.write()
+            app.write_full_context()
 
             self.assertEqual(captured["mode"], "write")
+            self.assertEqual(captured["context_profile"], "full")
             self.assertIn("IMMEDIATELY PRECEDING SAVED SCENE", captured["prompt"])
             self.assertIn("Morgan finished her charades turn.", captured["prompt"])
             self.assertIn("Source: Chapter 02, Scene 19", captured["prompt"])
@@ -1125,10 +1228,10 @@ class MinimalWriterTests(unittest.TestCase):
         )
         app.last_location_context_names = ["A stale location"]
         captured = {}
-        app._begin_generation = lambda prompt, mode, *, minimal_context=False: captured.update(
+        app._begin_generation = lambda prompt, mode, *, context_profile="balanced": captured.update(
             prompt=prompt,
             mode=mode,
-            minimal_context=minimal_context,
+            context_profile=context_profile,
         )
 
         app.write_minimal_test()
@@ -1138,7 +1241,7 @@ class MinimalWriterTests(unittest.TestCase):
             "Scene direction: Dinner continues at Tony and Tiffany's home.",
         )
         self.assertEqual(captured["mode"], "write")
-        self.assertTrue(captured["minimal_context"])
+        self.assertEqual(captured["context_profile"], "minimal")
         self.assertEqual(app.last_location_context_names, [])
 
     def test_minimal_prompt_test_rejects_empty_scene_direction(self):
@@ -1290,6 +1393,26 @@ class MinimalWriterTests(unittest.TestCase):
             upload.assert_called_once_with(trace_path)
             self.assertEqual(app._last_prompt_trace_path, str(trace_path))
             self.assertEqual(app._last_prompt_trace_upload_result, failure)
+
+    def test_normal_write_uses_balanced_context_and_bounded_previous_scene_excerpt(self):
+        app = MinimalWriterApp.__new__(MinimalWriterApp)
+        app.busy = False
+        app.prompt_box = FakePromptBox("Scene direction: A quiet evening.")
+        captured = {}
+        app._prepare_balanced_writer_context = lambda prompt: prompt + "\nBALANCED CONTEXT"
+        app._prepare_previous_scene_context = lambda prompt, *, max_chars=None: (
+            captured.update(previous_excerpt_limit=max_chars) or prompt + "\nPREVIOUS ENDING EXCERPT"
+        )
+        app._begin_generation = lambda prompt, mode: captured.update(
+            prompt=prompt, mode=mode
+        )
+
+        app.write()
+
+        self.assertEqual(captured["mode"], "write")
+        self.assertIn("BALANCED CONTEXT", captured["prompt"])
+        self.assertIn("PREVIOUS ENDING EXCERPT", captured["prompt"])
+        self.assertEqual(captured["previous_excerpt_limit"], 1400)
 
     def test_write_replaces_visible_prose_but_preserves_model_session_context(self):
         app = MinimalWriterApp.__new__(MinimalWriterApp)

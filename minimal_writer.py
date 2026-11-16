@@ -25,10 +25,11 @@ from builder.openrouter import (
     selected_openrouter_model_id,
 )
 from builder.workspace import MODELS_DIR, NOVEL_ROOT
-from builder.continuity_context import select_relevant_locations
+from builder.continuity_context import relevance_tokens, select_relevant_locations
 from builder.character_context import (
     build_character_card_context_prompt,
     build_scene_cast_boundary_prompt,
+    build_scene_relevant_story_bible_reference_context,
     build_story_bible_reference_context,
     load_character_card_names,
 )
@@ -410,6 +411,26 @@ def build_location_context_prompt(
     base_prompt = str(prompt or "").rstrip()
     enriched = f"{base_prompt}\n\n{context}" if base_prompt else context
     return enriched, list(selected)
+
+
+def _scene_context_is_relevant(candidate: str, scene_text: str) -> bool:
+    """Keep only handoff notes with a clear name or vocabulary connection to this scene."""
+    value = " ".join(str(candidate or "").split())
+    query = " ".join(str(scene_text or "").split())
+    if not value or not query:
+        return False
+    if value.casefold() in query.casefold() or query.casefold() in value.casefold():
+        return True
+    return len(relevance_tokens(value) & relevance_tokens(query)) >= 2
+
+
+def _short_context_text(value: str, limit: int) -> str:
+    text = " ".join(str(value or "").split())
+    if len(text) <= limit:
+        return text
+    shortened = text[: max(1, limit - 1)].rsplit(" ", 1)[0].rstrip()
+    return shortened + "…"
+
 
 def build_revision_prompt(selected_text: str, instruction: str) -> str:
     """Ask the model to revise only the selected passage, following the author's instruction."""
@@ -810,12 +831,17 @@ class MinimalWriterApp:
             command=self.write_minimal_test,
         )
         self.minimal_test_button.pack(side="left", padx=(0, 8))
+        self.full_context_button = ttk.Button(
+            minimal_test_row,
+            text="Write Full Context",
+            command=self.write_full_context,
+        )
+        self.full_context_button.pack(side="left", padx=(0, 8))
         ttk.Label(
             minimal_test_row,
             text=(
-                "One test only: uses the scene direction and required beats, while "
-                "skipping automatic Story Bible, character, location, continuity, "
-                "previous-scene, and style context."
+                "Write uses compact scene-specific context. Minimal skips all automatic "
+                "references; Full Context keeps the original broad context as a fallback."
             ),
             wraplength=760,
         ).pack(side="left", fill="x", expand=True)
@@ -824,7 +850,7 @@ class MinimalWriterApp:
         actions.pack(fill="x", pady=(0, 8))
 
         self.write_button = ttk.Button(
-            actions, text="Write", command=self.write
+            actions, text="Write (Balanced)", command=self.write
         )
         self.write_button.pack(side="left")
 
@@ -2751,9 +2777,21 @@ class MinimalWriterApp:
             self._showinfo("Add a prompt", "Enter what you want the model to write.")
             return
 
+        prompt = self._prepare_balanced_writer_context(prompt)
+        prompt = self._prepare_previous_scene_context(prompt, max_chars=1400)
+        self._begin_generation(prompt, mode="write")
+
+    def write_full_context(self) -> None:
+        """Use the original broad context builder as an explicit fallback."""
+        if self.busy:
+            return
+        prompt = self.prompt_box.get("1.0", "end-1c")
+        if not prompt.strip():
+            self._showinfo("Add a prompt", "Enter what you want the model to write.")
+            return
         prompt = self._prepare_location_context(prompt)
         prompt = self._prepare_previous_scene_context(prompt)
-        self._begin_generation(prompt, mode="write")
+        self._begin_generation(prompt, mode="write", context_profile="full")
 
     def write_minimal_test(self) -> None:
         """Run one scene-generation test without automatic novel-context additions."""
@@ -2769,7 +2807,7 @@ class MinimalWriterApp:
 
         # Do not carry a location label from an earlier, fully enriched request.
         self.last_location_context_names = []
-        self._begin_generation(prompt, mode="write", minimal_context=True)
+        self._begin_generation(prompt, mode="write", context_profile="minimal")
 
     def rewrite_current_scene(self) -> None:
         """Regenerate the visible scene using its existing prompt and extra guidance."""
@@ -2809,8 +2847,8 @@ class MinimalWriterApp:
             return
 
         prompt = build_rewrite_scene_prompt(scene_prompt, author_direction)
-        prompt = self._prepare_location_context(prompt)
-        prompt = self._prepare_previous_scene_context(prompt)
+        prompt = self._prepare_balanced_writer_context(prompt, supporting_text=author_direction)
+        prompt = self._prepare_previous_scene_context(prompt, max_chars=1400)
         self._rewrite_original_author_direction = author_direction
         self._begin_generation(prompt, mode="rewrite")
 
@@ -2831,7 +2869,7 @@ class MinimalWriterApp:
             prompt_box.get("1.0", "end-1c")
             if prompt_box is not None else ""
         )
-        prompt = self._prepare_location_context(
+        prompt = self._prepare_balanced_writer_context(
             prompt,
             "\n".join(part for part in (scene_idea, existing_text) if part),
         )
@@ -2879,8 +2917,10 @@ class MinimalWriterApp:
         guidance = "\n\n".join(sections)
         return f"{original.rstrip()}\n\n{guidance}" if original.strip() else guidance
 
-    def _prepare_previous_scene_context(self, prompt: str) -> str:
-        """Add the immediately preceding accepted scene for grounded continuity."""
+    def _prepare_previous_scene_context(
+        self, prompt: str, *, max_chars: int | None = None
+    ) -> str:
+        """Add the immediately preceding accepted scene or a concise ending excerpt."""
         novel_name = getattr(getattr(self, "novel_var", None), "get", lambda: "")().strip()
         novel_path = getattr(self, "novel_packages", {}).get(novel_name)
         chapter_number = getattr(self, "chapter_numbers", {}).get(
@@ -2892,8 +2932,160 @@ class MinimalWriterApp:
         if novel_path is None or chapter_number is None or scene_number is None:
             return str(prompt or "")
         return build_previous_scene_context_prompt(
-            prompt, novel_path, chapter_number, scene_number
+            prompt,
+            novel_path,
+            chapter_number,
+            scene_number,
+            max_chars=max_chars,
         )
+
+    def _prepare_balanced_writer_context(
+        self, prompt: str, supporting_text: str = ""
+    ) -> str:
+        """Build a small, scene-specific view of canon, people, and current continuity."""
+        self.last_location_context_names = []
+        novel_var = getattr(self, "novel_var", None)
+        packages = getattr(self, "novel_packages", {})
+        if novel_var is None or not isinstance(packages, dict):
+            self.last_writer_context_summary = {"available": False}
+            return str(prompt or "")
+
+        novel_path = packages.get(novel_var.get().strip())
+        if novel_path is None:
+            self.last_writer_context_summary = {"available": False}
+            return str(prompt or "")
+
+        try:
+            story_bible = load_story_bible(novel_path)
+        except (OSError, UnicodeError, ValueError):
+            self.last_writer_context_summary = {"available": False}
+            return str(prompt or "")
+
+        current_state = {}
+        try:
+            state_path = Path(novel_path) / "current_state.json"
+            current_state = json.loads(state_path.read_text(encoding="utf-8"))
+            if not isinstance(current_state, dict):
+                current_state = {}
+        except (OSError, UnicodeError, ValueError):
+            current_state = {}
+
+        author_box = getattr(self, "author_direction_box", None)
+        author_text = (
+            author_box.get("1.0", "end-1c").strip()
+            if author_box is not None else ""
+        )
+        scene_text = "\n".join(
+            part for part in (str(prompt or ""), str(supporting_text or ""), author_text)
+            if part
+        )
+        selected_cast = self._active_scene_cast()
+
+        sections = [str(prompt or "").rstrip()]
+        canon_context = build_scene_relevant_story_bible_reference_context(
+            story_bible, scene_text, selected_names=selected_cast
+        )
+        if canon_context:
+            sections.append(canon_context)
+
+        current_location = current_state.get("location")
+        primary_location = (
+            current_location.get("primary")
+            if isinstance(current_location, dict) else ""
+        )
+        if isinstance(primary_location, str) and primary_location.strip():
+            location_text = _short_context_text(primary_location, 140)
+            if location_text.casefold() not in scene_text.casefold():
+                sections.append("CURRENT STORY LOCATION\n" + location_text)
+
+        timeline_note = build_story_timeline_prompt(current_state.get("time_of_day"))
+        if timeline_note:
+            sections.append(timeline_note)
+
+        situation = current_state.get("current_situation")
+        if isinstance(situation, str) and _scene_context_is_relevant(situation, scene_text):
+            sections.append(
+                "CURRENT SITUATION\n" + _short_context_text(situation, 360)
+            )
+
+        continuity_notes = current_state.get("continuity_notes")
+        relevant_notes = []
+        if isinstance(continuity_notes, list):
+            for note in continuity_notes:
+                if not isinstance(note, str) or not note.strip():
+                    continue
+                if _scene_context_is_relevant(note, scene_text):
+                    relevant_notes.append(_short_context_text(note, 240))
+                if len(relevant_notes) >= 3:
+                    break
+        if relevant_notes:
+            sections.append(
+                "RELEVANT CONTINUITY\n"
+                + "\n".join(f"- {note}" for note in relevant_notes)
+            )
+
+        character_context = build_character_card_context_prompt(
+            novel_path,
+            story_bible,
+            "\n\n".join(part for part in sections if part),
+            supporting_text=scene_text,
+            compact=True,
+            selected_names=selected_cast,
+            scene_focused=True,
+        )
+        sections = [character_context] if character_context else sections
+
+        locations = story_bible.get("locations", {})
+        enriched, names = build_location_context_prompt(
+            "\n\n".join(part for part in sections if part),
+            locations if isinstance(locations, dict) else {},
+            supporting_text=scene_text,
+        )
+        self.last_location_context_names = names
+
+        # Keep overall author style and genre as a small hint, not a second
+        # instruction document with profile descriptions.
+        writing_preferences = story_bible.get("writing_preferences")
+        if isinstance(writing_preferences, str) and writing_preferences.strip():
+            preference = _short_context_text(writing_preferences, 320)
+            enriched = f"{enriched.rstrip()}\n\nBRIEF AUTHOR STYLE PREFERENCE\n{preference}"
+
+        creative = story_bible.get("creative_direction")
+        if isinstance(creative, dict):
+            genres = creative.get("genres", [])
+            moods = creative.get("moods", [])
+            audience = creative.get("audience", "")
+            profile_parts = []
+            if isinstance(genres, list):
+                profile_parts.extend(str(item).strip() for item in genres if str(item).strip())
+            if isinstance(moods, list):
+                profile_parts.extend(str(item).strip() for item in moods if str(item).strip())
+            if isinstance(audience, str) and audience.strip():
+                profile_parts.append(audience.strip())
+            if profile_parts:
+                enriched = (
+                    f"{enriched.rstrip()}\n\n"
+                    "NOVEL TONE\n" + ", ".join(dict.fromkeys(profile_parts[:6]))
+                )
+
+        self.last_writer_context_summary = {
+            "available": True,
+            "characters": [
+                name for name in load_character_card_names(novel_path, story_bible)
+                if re.search(
+                    r"(?<![\w])" + re.escape(name.split()[0]) + r"(?![\w])",
+                    scene_text,
+                    flags=re.IGNORECASE,
+                )
+            ],
+            "canon_context_included": bool(canon_context),
+            "current_situation_included": bool(
+                isinstance(situation, str) and _scene_context_is_relevant(situation, scene_text)
+            ),
+            "continuity_notes_included": len(relevant_notes),
+            "locations_included": list(names),
+        }
+        return enriched
 
     def _prepare_location_context(self, prompt: str, supporting_text: str = "") -> str:
         """Add only brief, relevant facts needed to ground this writing request."""
@@ -3337,7 +3529,7 @@ class MinimalWriterApp:
                 pass
 
     def _begin_generation(
-        self, prompt: str, mode: str, *, minimal_context: bool = False
+        self, prompt: str, mode: str, *, context_profile: str = "balanced"
     ) -> None:
         # An explicit scene heading in the prepared direction wins over the
         # picker. The picker can still point to the last saved scene when an
@@ -3376,7 +3568,7 @@ class MinimalWriterApp:
         prompt = build_single_scene_scope_prompt(
             prompt, chapter_number=chapter_number, scene_number=scene_number
         )
-        if not minimal_context:
+        if context_profile == "full":
             prompt = self._prepare_creative_direction_context(prompt)
         scene_cast = self._active_scene_cast(generation_destination)
         if scene_cast is not None:
@@ -3410,25 +3602,52 @@ class MinimalWriterApp:
                 scene_number=scene_number,
                 author_guidance=author_required_direction,
             )
-        if minimal_context and prompt_trace is not None:
+        if prompt_trace is not None and context_profile in {"balanced", "minimal", "full"}:
             try:
-                prompt_trace.record_event(
-                    "minimal_writer_context_test",
-                    skipped_context=[
-                        "Story Bible canon and relationship references",
-                        "automatic character-card context",
-                        "automatic location context",
-                        "current-state situation and continuity notes",
-                        "previous accepted scene text",
-                        "novel-wide creative direction and writing preferences",
-                    ],
-                    retained_context=[
-                        "visible scene direction",
-                        "author-required direction protection",
-                        "one-scene scope",
-                        "explicit scene-cast boundary when selected",
-                    ],
-                )
+                if context_profile == "minimal":
+                    prompt_trace.record_event(
+                        "minimal_writer_context_test",
+                        skipped_context=[
+                            "Story Bible canon and relationship references",
+                            "automatic character-card context",
+                            "automatic location context",
+                            "current-state situation and continuity notes",
+                            "previous accepted scene text",
+                            "novel-wide creative direction and writing preferences",
+                        ],
+                        retained_context=[
+                            "visible scene direction",
+                            "author-required direction protection",
+                            "one-scene scope",
+                            "explicit scene-cast boundary when selected",
+                        ],
+                    )
+                elif context_profile == "balanced":
+                    prompt_trace.record_event(
+                        "balanced_writer_context",
+                        context_summary=getattr(self, "last_writer_context_summary", {}),
+                        previous_scene_excerpt_char_limit=1400,
+                        retained_context=[
+                            "scene-mentioned character cards in compact form",
+                            "scene-relevant canon and relationship facts",
+                            "relevant current situation and continuity notes",
+                            "named locations and brief descriptions",
+                            "short previous-scene ending excerpt",
+                            "brief novel style and tone hints",
+                        ],
+                        skipped_context=[
+                            "unrelated character biographies and full roster",
+                            "unrelated canon and relationships",
+                            "unrelated locations and continuity notes",
+                            "full previous-scene text",
+                            "long creative-profile instructions",
+                        ],
+                    )
+                else:
+                    prompt_trace.record_event(
+                        "full_writer_context_fallback",
+                        context_summary="Original broad context builder retained for fallback.",
+                    )
             except Exception:
                 pass
         if mode == "continue":
@@ -4208,6 +4427,10 @@ class MinimalWriterApp:
         )
         if hasattr(self, "minimal_test_button"):
             self.minimal_test_button.configure(
+                state="normal" if idle and has_writer_model else "disabled"
+            )
+        if hasattr(self, "full_context_button"):
+            self.full_context_button.configure(
                 state="normal" if idle and has_writer_model else "disabled"
             )
         if hasattr(self, "rewrite_scene_button"):

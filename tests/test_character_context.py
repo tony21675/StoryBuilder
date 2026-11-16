@@ -6,6 +6,7 @@ from pathlib import Path
 from builder.character_context import (
     build_character_card_context_prompt,
     build_scene_cast_boundary_prompt,
+    build_scene_relevant_story_bible_reference_context,
     load_character_card_names,
 )
 
@@ -179,6 +180,86 @@ class CharacterCardContextTests(unittest.TestCase):
         self.assertIn("Relationship status: Single", prompt)
         self.assertIn("Relationship status: Not established", prompt)
 
+
+    def test_scene_focused_cards_keep_personality_voice_appearance_and_in_scene_relationships(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            bible = {
+                "character_cards": [
+                    {
+                        "name": "Tiffany Jones",
+                        "age": 18,
+                        "gender": "female",
+                        "role": "student",
+                        "appearance": "Dark curls and a quick, familiar smile.",
+                        "personality": ["thoughtful", "dry humor"],
+                        "voice": "Usually understated; sharper and more playful with close friends.",
+                        "relationships": {
+                            "Maya": "Close friend; their bond is sister-like.",
+                            "Tony": "Her father; they share a home.",
+                        },
+                        "background": "A long unrelated biography that should not be sent.",
+                    },
+                    {
+                        "name": "Maya",
+                        "personality": ["confident", "playful"],
+                        "voice": "Easy laugh and quick teasing.",
+                    },
+                    {"name": "Chloe", "personality": ["protective"]},
+                ]
+            }
+
+            prompt = build_character_card_context_prompt(
+                root,
+                bible,
+                "Tiffany and Maya are talking at home.",
+                compact=True,
+                scene_focused=True,
+            )
+
+        self.assertIn("[Tiffany Jones]", prompt)
+        self.assertIn("[Maya]", prompt)
+        self.assertIn("Appearance: Dark curls", prompt)
+        self.assertIn("Personality: thoughtful, dry humor", prompt)
+        self.assertIn("Voice: Usually understated", prompt)
+        self.assertIn("Scene relationships: Maya: Close friend", prompt)
+        self.assertNotIn("share a home", prompt)
+        self.assertNotIn("long unrelated biography", prompt)
+        self.assertNotIn("[Chloe]", prompt)
+        self.assertNotIn("Character cards registered for this novel", prompt)
+
+    def test_scene_relevant_story_bible_context_filters_unrelated_canon_and_relationships(self):
+        bible = {
+            "character_cards": [
+                {"name": "Tony"},
+                {"name": "Tiffany"},
+                {"name": "Beth"},
+                {"name": "Maya"},
+            ],
+            "canon_rules": [
+                "Tony and Tiffany are strictly father and daughter.",
+                "Tiffany wears Tony's old dog tags around her neck at all times.",
+                "The buyer uses a white van near the gas station.",
+                "Maya and Beth share a home next door.",
+            ],
+            "relationships": {
+                "Tony and Tiffany": "Father and daughter; their relationship is never romantic.",
+                "Beth and Maya": "Mother and daughter who live together.",
+                "Jessica and Rick": "Married and share a home.",
+            },
+        }
+
+        prompt = build_scene_relevant_story_bible_reference_context(
+            bible,
+            "Tiffany remains at Tony's home and touches the dog tags around her neck.",
+        )
+
+        self.assertIn("Tony and Tiffany are strictly father and daughter.", prompt)
+        self.assertIn("Tiffany wears Tony's old dog tags", prompt)
+        self.assertIn("Tony and Tiffany: Father and daughter", prompt)
+        self.assertNotIn("white van", prompt)
+        self.assertNotIn("Beth and Maya: Mother and daughter", prompt)
+        self.assertNotIn("Jessica and Rick", prompt)
 
     def test_story_bible_reference_context_includes_authored_reference_data(self):
         from builder.character_context import build_story_bible_reference_context

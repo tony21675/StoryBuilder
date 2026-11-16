@@ -33,13 +33,26 @@ def _combined_list_text(
     return "; ".join(value for value in values if value)
 
 
-def _relationships_text(value: Any) -> str:
+def _relationships_text(
+    value: Any,
+    *,
+    related_names: list[str] | None = None,
+    max_items: int = 8,
+) -> str:
     if isinstance(value, dict):
         entries = []
-        for name, description in list(value.items())[:8]:
+        for name, description in value.items():
+            key = _clean(name, 80)
             rendered = _clean(description, 140)
-            if rendered:
-                entries.append(f"{_clean(name, 80)}: {rendered}")
+            if not rendered:
+                continue
+            if related_names is not None:
+                relation_text = f"{key} {rendered}"
+                if not any(_name_is_mentioned(person, relation_text) for person in related_names):
+                    continue
+            entries.append(f"{key}: {rendered}")
+            if len(entries) >= max(1, int(max_items)):
+                break
         return "; ".join(entries)
     return _clean(value, 300)
 
@@ -168,6 +181,7 @@ def build_character_card_context_prompt(
     compact: bool = False,
     comprehensive: bool = False,
     selected_names: list[str] | None = None,
+    scene_focused: bool = False,
 ) -> str:
     """Append relevant character references, with a lean mode for manuscript writing."""
     entries = story_bible.get("character_cards", [])
@@ -218,7 +232,7 @@ def build_character_card_context_prompt(
         return str(prompt or "")
 
     lines: list[str] = []
-    if roster_names and selected_names is None:
+    if roster_names and selected_names is None and not scene_focused:
         roster_line = (
             "Character cards registered for this novel (reference only): "
             + ", ".join(roster_names)
@@ -263,6 +277,89 @@ def build_character_card_context_prompt(
                     label = str(field).replace("_", " ").strip().title()
                     lines.append(f"{label}: {rendered}")
             continue
+        if compact and scene_focused:
+            # Scene cards are deliberately small: identity and the traits that
+            # help the Writer distinguish this person's behavior and dialogue.
+            values = (
+                (("age",), "Age", 40),
+                (("gender", "pronouns"), "Gender / pronouns", 50),
+                (("role",), "Role", 100),
+                (("occupation", "department"), "Occupation", 110),
+            )
+            for fields, label, limit in values:
+                raw = next((card.get(field) for field in fields if card.get(field) not in (None, "", [], {})), None)
+                rendered = _reference_value_text(raw)
+                if rendered:
+                    lines.append(f"{label}: {_clean(rendered, limit)}")
+
+            appearance = next(
+                (
+                    card.get(field)
+                    for field in ("appearance", "physical_description", "visual_description", "physical_traits")
+                    if card.get(field) not in (None, "", [], {})
+                ),
+                None,
+            )
+            if appearance is not None:
+                rendered = _reference_value_text(appearance)
+                if rendered:
+                    lines.append(f"Appearance: {_clean(rendered, 190)}")
+
+            personality = next(
+                (
+                    card.get(field)
+                    for field in ("personality", "personality_traits", "traits", "temperament")
+                    if card.get(field) not in (None, "", [], {})
+                ),
+                None,
+            )
+            if personality is not None:
+                rendered = (
+                    _list_text(personality, limit=3)
+                    if isinstance(personality, list)
+                    else _reference_value_text(personality)
+                )
+                if rendered:
+                    lines.append(f"Personality: {_clean(rendered, 190)}")
+
+            voice = next(
+                (
+                    card.get(field)
+                    for field in ("voice", "speech_style", "speaking_style", "voice_and_speech")
+                    if card.get(field) not in (None, "", [], {})
+                ),
+                None,
+            )
+            if voice is not None:
+                rendered = _reference_value_text(voice)
+                if rendered:
+                    lines.append(f"Voice: {_clean(rendered, 170)}")
+
+            description = card.get("description")
+            if description not in (None, "", [], {}):
+                rendered = _reference_value_text(description)
+                if rendered:
+                    lines.append(f"Defining detail: {_clean(rendered, 200)}")
+
+            scene_people = (
+                [_clean(item, 100) for item in selected_names if isinstance(item, str)]
+                if selected_names is not None
+                else [
+                    item for item in roster_names
+                    if _name_is_mentioned(item, query)
+                ]
+            )
+            related_names = [
+                item for item in scene_people if item.casefold() != name.casefold()
+            ]
+            relationships = _relationships_text(
+                card.get("relationships"), related_names=related_names, max_items=2
+            )
+            if relationships:
+                lines.append(f"Scene relationships: {_clean(relationships, 220)}")
+
+            continue
+
         if compact:
             for field, label in (
                 ("age", "Age"),
@@ -406,5 +503,130 @@ def build_story_bible_reference_context(
                 "AUTHOR'S OVERALL STORY APPROACH (flexible creative guidance)\n"
                 + preferences.strip()
             )
+
+    return "\n\n".join(sections)
+
+_SCENE_CONTEXT_STOP_WORDS = {
+    "about", "after", "again", "also", "and", "are", "around", "been", "before",
+    "being", "between", "but", "did", "does", "during", "each", "for", "from",
+    "had", "has", "have", "her", "him", "his", "into", "its", "just", "like",
+    "more", "most", "not", "now", "only", "our", "out", "over", "said", "same",
+    "she", "should", "some", "such", "than", "that", "the", "their", "them",
+    "then", "there", "these", "they", "this", "those", "through", "told", "under",
+    "very", "was", "were", "what", "when", "where", "which", "while", "who",
+    "will", "with", "would", "you", "your", "scene", "story", "current", "state",
+    "character", "chapter", "writer", "direction", "home", "house", "evening",
+    "dinner", "table", "group", "people", "everyone", "something", "anything",
+}
+
+
+def _scene_terms(value: str) -> set[str]:
+    return {
+        token
+        for token in re.findall(r"[a-z0-9]+", str(value or "").casefold())
+        if len(token) >= 3 and token not in _SCENE_CONTEXT_STOP_WORDS
+    }
+
+
+def _scene_character_names(
+    story_bible: dict[str, Any],
+    scene_text: str,
+    selected_names: list[str] | None,
+) -> list[str]:
+    if selected_names is not None:
+        source = selected_names
+    else:
+        source = []
+        entries = story_bible.get("character_cards", [])
+        if isinstance(entries, list):
+            for entry in entries:
+                if isinstance(entry, dict):
+                    card = entry
+                elif isinstance(entry, str) and entry.strip():
+                    card = {"name": Path(entry).stem}
+                else:
+                    continue
+                name = _clean(card.get("name"), 100)
+                if name and _name_is_mentioned(name, scene_text):
+                    source.append(name)
+    result = []
+    seen = set()
+    for name in source:
+        clean = _clean(name, 100)
+        key = clean.casefold()
+        if clean and key not in seen:
+            result.append(clean)
+            seen.add(key)
+    return result
+
+
+def build_scene_relevant_story_bible_reference_context(
+    story_bible: dict[str, Any],
+    scene_text: str,
+    *,
+    selected_names: list[str] | None = None,
+    max_canon_rules: int = 8,
+    max_relationships: int = 8,
+) -> str:
+    """Select only canon and relationship facts relevant to the current scene.
+
+    The complete Story Bible remains authoritative and unchanged. This function
+    creates a temporary, scene-specific view for the Writer.
+    """
+    if not isinstance(story_bible, dict):
+        return ""
+
+    scene_text = str(scene_text or "")
+    people = _scene_character_names(story_bible, scene_text, selected_names)
+    scene_terms = _scene_terms(scene_text)
+    sections: list[str] = []
+
+    raw_rules = story_bible.get("canon_rules")
+    if isinstance(raw_rules, str):
+        raw_rules = [raw_rules]
+    ranked_rules = []
+    if isinstance(raw_rules, list):
+        for index, raw in enumerate(raw_rules):
+            if not isinstance(raw, str) or not raw.strip():
+                continue
+            rule = " ".join(raw.split())
+            name_hits = sum(1 for person in people if _name_is_mentioned(person, rule))
+            overlap = len(_scene_terms(rule) & scene_terms)
+            score = name_hits * 6 + min(overlap, 4)
+            # Name-specific canon is strong evidence. Otherwise require at least
+            # two meaningful shared terms to avoid pulling in generic rules.
+            if score > 0 and (name_hits or overlap >= 2):
+                ranked_rules.append((score, index, rule))
+    ranked_rules.sort(key=lambda item: (-item[0], item[1]))
+    selected_rules = [item[2] for item in ranked_rules[:max(0, int(max_canon_rules))]]
+    if selected_rules:
+        sections.append(
+            "SCENE-RELEVANT FIXED CANON (facts to preserve, not extra scene beats)\n"
+            + "\n".join(f"- {rule[:520]}" for rule in selected_rules)
+        )
+
+    raw_relationships = story_bible.get("relationships")
+    ranked_relationships = []
+    if isinstance(raw_relationships, dict):
+        for index, (key, value) in enumerate(raw_relationships.items()):
+            label = _clean(key, 100)
+            description = _clean(value, 520)
+            if not label or not description:
+                continue
+            relation_text = f"{label}: {description}"
+            name_hits = sum(
+                1 for person in people if _name_is_mentioned(person, relation_text)
+            )
+            if name_hits:
+                ranked_relationships.append((name_hits, index, relation_text))
+    ranked_relationships.sort(key=lambda item: (-item[0], item[1]))
+    selected_relationships = [
+        item[2] for item in ranked_relationships[:max(0, int(max_relationships))]
+    ]
+    if selected_relationships:
+        sections.append(
+            "SCENE-RELEVANT RELATIONSHIPS (factual reference)\n"
+            + "\n".join(f"- {item[:620]}" for item in selected_relationships)
+        )
 
     return "\n\n".join(sections)

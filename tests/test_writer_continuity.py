@@ -64,6 +64,28 @@ class PreviousSceneContinuityTests(unittest.TestCase):
                 prompt,
             )
 
+    def test_balanced_context_includes_only_a_short_previous_scene_ending(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            opening = "EARLIER SCENE OPENING THAT SHOULD BE OMITTED."
+            ending = "THE LAST MOMENT OF THE PREVIOUS SCENE MUST REMAIN."
+            scene_text = opening + "\n\n" + ("unrelated middle prose " * 100) + "\n\n" + ending
+            self.write_scene(root, 1, 1, scene_text)
+
+            result = build_previous_scene_context_prompt(
+                "Begin after the gathering starts to wind down.",
+                root,
+                1,
+                2,
+                max_chars=360,
+            )
+
+        self.assertIn("brief ending excerpt; earlier scene text omitted", result)
+        self.assertIn(ending, result)
+        self.assertNotIn(opening, result)
+        self.assertLess(len(result), 800)
+        self.assertIn("Source: Chapter 01, Scene 01", result)
+
     def test_long_previous_scene_is_included_in_full_without_truncation(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
