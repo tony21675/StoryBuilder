@@ -89,78 +89,32 @@ class ScenePreparationPromptTests(unittest.TestCase):
             source.write_text(scene_text, encoding="utf-8")
         return source
 
-    def test_empty_novel_builds_an_opening_scene_prompt_without_scene_files(self):
+    def test_empty_novel_builds_a_lean_opening_scene_prompt_without_scene_files(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp) / "Empty Novel"
             self.make_novel(root)
 
-            prompt = build_scene_preparation_prompt(
-                root, "Empty Novel", 1, 1
-            )
+            prompt = build_scene_preparation_prompt(root, "Empty Novel", 1, 1)
 
             self.assertIn("Chapter 01, Scene 01", prompt)
             self.assertIn("This is the opening scene; no previous scene has been saved.", prompt)
-            self.assertNotIn("PREVIOUS SCENE CONTINUITY", prompt)
             self.assertIn("A small coastal town faces an unexpected change.", prompt)
-            self.assertIn("FIXED CANON", prompt)
             self.assertIn("A working harbor in the present day.", prompt)
-            self.assertIn("The harbor pilot does not leave the harbor during winter storms.", prompt)
-            self.assertIn("Mara-Jonah: Longtime friends and colleagues.", prompt)
-            self.assertIn("Let Chapter One take its time", prompt)
-            self.assertNotIn("Private_Detail.json", prompt)
-            self.assertIn("Genres: Mystery, Comedy", prompt)
-            self.assertIn("Mystery guidance:", prompt)
-            self.assertIn("Mood and tone: Cozy, Humorous", prompt)
-            self.assertIn("Intended audience: Adult", prompt)
-            self.assertIn("Adult audience guidance:", prompt)
-            self.assertIn("Explicit adult content is not enabled", prompt)
-            self.assertNotIn("Adventure guidance:", prompt)
-            self.assertIn("[Mara]", prompt)
-            self.assertIn("[Jonah]", prompt)
-            self.assertIn("[Private Detail]", prompt)
-            self.assertIn("Sexual Orientation: Straight", prompt)
-            self.assertIn("Occupation: Harbor Operations, Pilot", prompt)
-            self.assertIn("Background: Experienced harbor pilot", prompt)
-            self.assertIn("Skills: navigation; tide assessment; small-vessel handling", prompt)
-            self.assertIn("Hobbies: sailing; woodworking", prompt)
-            self.assertIn("Story Role: The pilot whose judgment guides the harbor crew.", prompt)
-            self.assertIn("Protective Nature: Looks out for the younger crew members.", prompt)
-            self.assertIn("Knowledge Rule: Does not know what other crew members have not shared.", prompt)
-            self.assertIn("Strengths: steady under pressure; patient", prompt)
-            self.assertIn("Weaknesses: takes on too much", prompt)
-            self.assertIn("Goals: Keep the harbor safe", prompt)
-            self.assertIn("Future Story Role: Becomes the crew's trusted coordinator", prompt)
-            self.assertIn("Social: Close with the harbor crew", prompt)
-            self.assertIn("Appearance: Height: 5 foot 7; Hair: dark brown", prompt)
-            self.assertIn("School: Harbor High", prompt)
-            self.assertIn("School Performance: Strong in science", prompt)
-            self.assertIn("Custom Planner Detail: This custom story fact must be retained.", prompt)
-            self.assertIn("Skills: engine maintenance; mechanical troubleshooting", prompt)
-            self.assertIn("Personality: quiet; witty", prompt)
-            self.assertIn("COMPLETE CHARACTER CARD REFERENCES", prompt)
-            self.assertIn("interests and hobbies are not automatically professional qualifications", prompt)
-            self.assertNotIn("SCENE CRAFT GUIDANCE", prompt)
-            self.assertNotIn("STORY OPENING AND PACING", prompt)
-            self.assertNotIn("supplementary guidance", prompt)
-            self.assertNotIn("A quiet or ordinary moment is valid scene material", prompt)
-            self.assertIn("one short paragraph of two to four sentences", prompt)
-            self.assertIn("Return one concise 'Scene direction:'", prompt)
-            self.assertIn("plain novel-planning language, not as a screenplay", prompt)
-            self.assertIn("Do not use INT./EXT. slug lines", prompt)
-            self.assertIn("Plan only the requested destination scene", prompt)
-            self.assertIn("do not continue into the next scene", prompt)
-            self.assertIn("where the scene ends to the Writer", prompt)
-            self.assertIn("No current AUTHOR'S DIRECTION was supplied.", prompt)
-            self.assertIn("StoryBuilder will leave this section completely blank", prompt)
-            self.assertIn("cannot create AUTHOR-REQUIRED BEATS", prompt)
-            self.assertIn("Do not copy, quote, restate, or paraphrase the author's direction anywhere else", prompt)
-            self.assertNotIn("None specified", prompt)
-            self.assertIn("QWEN-SELECTED ADDITIONAL BEATS are optional", prompt)
-            self.assertIn("Usually zero to three short additions", prompt)
-            self.assertIn("do not pad the plan", prompt)
+            self.assertIn("Return a short 'Scene direction:' paragraph of 2–4 sentences", prompt)
+            self.assertIn("not screenplay format", prompt)
+            self.assertIn("zero to three short bullets", prompt)
             self.assertIn("Leave ordinary dialogue, gestures, staging, and connective prose to the Writer", prompt)
+            self.assertNotIn("FIXED CANON", prompt)
+            self.assertNotIn("COMPLETE CHARACTER CARD REFERENCES", prompt)
+            self.assertNotIn("Private_Detail.json", prompt)
+            self.assertNotIn("Sexual Orientation: Straight", prompt)
+            self.assertNotIn("Experienced harbor pilot", prompt)
+            self.assertNotIn("Custom Planner Detail", prompt)
+            self.assertNotIn("Genres: Mystery, Comedy", prompt)
+            self.assertNotIn("Mystery guidance:", prompt)
+            self.assertNotIn("Mood and tone:", prompt)
+            self.assertNotIn("Let Chapter One take its time", prompt)
             self.assertNotIn("Natural endpoint:", prompt)
-            self.assertNotIn("stop at the natural endpoint", prompt.casefold())
             self.assertFalse((root / "Manuscript").exists())
             self.assertFalse((root / "current_state.json").exists())
 
@@ -198,7 +152,7 @@ class ScenePreparationPromptTests(unittest.TestCase):
         self.assertNotIn("[Private Detail]", prompt)
         self.assertIn("Allowed characters: none.", prompt)
 
-    def test_scene_preparation_includes_location_details_as_open_reference_material(self):
+    def test_scene_preparation_includes_only_the_named_location(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp) / "Novel with Locations"
             self.make_novel(root)
@@ -216,48 +170,60 @@ class ScenePreparationPromptTests(unittest.TestCase):
             bible_path.write_text(json.dumps(bible), encoding="utf-8")
 
             prompt = build_scene_preparation_prompt(
-                root, "Novel with Locations", 1, 1
+                root, "Novel with Locations", 1, 1,
+                author_direction="Set this scene in the Recreation Room.",
             )
 
-        self.assertIn("ESTABLISHED LOCATION REFERENCES FROM THIS NOVEL'S STORY BIBLE", prompt)
-        self.assertIn("not a restriction on creative invention", prompt)
-        self.assertIn("Supply Closet", prompt)
+        self.assertIn("RELEVANT LOCATION", prompt)
         self.assertIn("Recreation Room", prompt)
         self.assertIn("A simple recreation space.", prompt)
         self.assertIn("Inside the community center, off the main hall.", prompt)
         self.assertIn("A worn couch", prompt)
         self.assertIn("A folding game table", prompt)
-        self.assertIn("not a restriction on creative invention", prompt)
+        self.assertNotIn("Supply Closet", prompt)
 
-    def test_planner_receives_all_story_bible_canon_and_relationship_entries(self):
+    def test_planner_receives_only_scene_relevant_canon_relationships_and_cards(self):
         with tempfile.TemporaryDirectory() as temp:
-            root = Path(temp) / "Comprehensive Novel"
+            root = Path(temp) / "Focused Novel"
             self.make_novel(root)
             bible_path = root / "story_bible.json"
             bible = json.loads(bible_path.read_text(encoding="utf-8"))
-            bible["premise"] = "Premise opening. " + ("premise detail " * 70) + "Premise ending retained."
-            bible["setting"] = "Household and setting opening. " + ("setting detail " * 70) + "Setting ending retained."
             bible["canon_rules"] = [
-                f"Canon entry {index}: preserve this established fact."
-                for index in range(1, 15)
+                "Mara checks the north harbor tide chart before departure.",
+                "Mara does not leave the harbor during winter storms.",
+                "The mayor secretly owns a map to the smuggler's cove.",
+                *[f"Unrelated future canon entry {i}: preserve this fact." for i in range(4, 15)],
             ]
             bible["relationships"] = {
-                f"Connection {index}": f"Established relationship detail {index}."
-                for index in range(1, 19)
+                "Mara-Jonah": "Longtime friends and colleagues.",
+                "Mara-Private Detail": "A separate private connection.",
+                **{
+                    f"Connection {i}": f"Unrelated relationship detail {i}."
+                    for i in range(3, 19)
+                },
             }
             bible_path.write_text(json.dumps(bible), encoding="utf-8")
 
             prompt = build_scene_preparation_prompt(
-                root, "Comprehensive Novel", 1, 1,
-                author_direction="Have Mara receive a message.",
+                root, "Focused Novel", 1, 1,
+                author_direction="Mara and Jonah discuss the north harbor tide chart before departure.",
+                scene_cast=["Mara", "Jonah"],
             )
 
-        self.assertIn("Premise ending retained.", prompt)
-        self.assertIn("Setting ending retained.", prompt)
-        self.assertIn("Canon entry 14", prompt)
-        self.assertIn("Connection 18: Established relationship detail 18.", prompt)
+        self.assertIn("Mara checks the north harbor tide chart", prompt)
+        self.assertIn("Mara does not leave the harbor during winter storms", prompt)
+        self.assertIn("Mara-Jonah: Longtime friends and colleagues.", prompt)
+        self.assertIn("[Mara]", prompt)
+        self.assertIn("[Jonah]", prompt)
+        self.assertNotIn("[Private Detail]", prompt)
+        self.assertNotIn("smuggler's cove", prompt)
+        self.assertNotIn("Unrelated future canon entry", prompt)
+        self.assertNotIn("Mara-Private Detail", prompt)
+        self.assertNotIn("Connection 18", prompt)
+        self.assertNotIn("COMPLETE CHARACTER CARD REFERENCES", prompt)
+        self.assertNotIn("Sexual Orientation", prompt)
 
-    def test_author_direction_events_are_required_beats_and_qwen_can_add_its_own(self):
+    def test_author_direction_is_supplied_once_and_qwen_beats_are_optional(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp) / "Directed Novel"
             source = self.make_novel(root, scene_text="The crew finished their diagnostics.")
@@ -269,26 +235,19 @@ class ScenePreparationPromptTests(unittest.TestCase):
                 author_direction=direction,
             )
 
-            self.assertIn("AUTHOR'S DIRECTION", prompt)
-            self.assertIn(direction, prompt)
-            self.assertIn("AUTHOR-REQUIRED BEAT", prompt)
-            self.assertIn("StoryBuilder will insert the exact, unchanged contents", prompt)
-            self.assertIn("Do not extract, classify, summarize, paraphrase, reorder, or write entries", prompt)
-            self.assertIn("Do not move the author's requested events into QWEN-SELECTED ADDITIONAL BEATS", prompt)
-            self.assertIn("QWEN-SELECTED ADDITIONAL BEATS", prompt)
-            # A Planner request that names no character still receives every card.
-            self.assertIn("[Mara]", prompt)
-            self.assertIn("[Jonah]", prompt)
-            self.assertIn("[Private Detail]", prompt)
-            self.assertIn("Experienced harbor pilot", prompt)
-            self.assertIn("Longtime friends and colleagues", prompt)
-            self.assertIn("There is no quota or cap", prompt)
-            self.assertLess(
-                prompt.index("AUTHOR'S DIRECTION"),
-                prompt.index("AUTHOR-REQUIRED BEAT"),
-            )
+        self.assertIn("AUTHOR'S DIRECTION\n" + direction, prompt)
+        self.assertIn("AUTHOR-REQUIRED BEATS", prompt)
+        self.assertIn("StoryBuilder inserts the author's exact", prompt)
+        self.assertIn("Do not repeat or paraphrase the author's direction", prompt)
+        self.assertIn("QWEN-SELECTED ADDITIONAL BEATS", prompt)
+        self.assertIn("zero to three short bullets", prompt)
+        self.assertNotIn("[Mara]", prompt)
+        self.assertNotIn("[Jonah]", prompt)
+        self.assertNotIn("[Private Detail]", prompt)
+        self.assertNotIn("COMPLETE CHARACTER CARD REFERENCES", prompt)
+        self.assertNotIn("There is no quota or cap", prompt)
 
-    def test_blank_author_direction_leaves_required_beats_blank_even_with_prior_direction(self):
+    def test_blank_author_direction_does_not_promote_prior_direction_to_required_beats(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp) / "Unsteered Novel"
             source = self.make_novel(root, scene_text="The crew finished their diagnostics.")
@@ -300,34 +259,35 @@ class ScenePreparationPromptTests(unittest.TestCase):
                 previous_direction="Earlier prepared direction: Have Jonah send a message.",
             )
 
-            # Earlier planner output is reference material, not a source of
-            # author-required beats. An empty current field produces a blank section.
-            self.assertNotIn("\nAUTHOR'S DIRECTION\n", prompt)
-            self.assertIn("No current AUTHOR'S DIRECTION was supplied.", prompt)
-            self.assertIn("StoryBuilder will leave this section completely blank", prompt)
-            self.assertIn("prior prepared direction", prompt)
-            self.assertIn("cannot create AUTHOR-REQUIRED BEATS", prompt)
-            self.assertNotIn("None specified", prompt)
+        # The previous prepared direction is context only. The application still
+        # inserts the current author direction verbatim, which is empty here.
+        self.assertNotIn("\nAUTHOR'S DIRECTION\n", prompt)
+        self.assertIn("AUTHOR-REQUIRED BEATS' as an empty heading only", prompt)
+        self.assertIn("PREVIOUS PREPARED DIRECTION TO REFINE", prompt)
+        self.assertIn("Earlier prepared direction: Have Jonah send a message.", prompt)
+        self.assertIn("Refine the previous direction rather than starting over.", prompt)
+        self.assertNotIn("None specified", prompt)
 
-    def test_only_current_author_direction_can_supply_required_beats(self):
+    def test_author_direction_is_sent_once_and_previous_direction_stays_context_only(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp) / "Directed Novel"
             source = self.make_novel(root, scene_text="The crew finished their diagnostics.")
             direction = "Have Mission Control acknowledge the advisory and request updated readings."
+            previous = "Have Jonah open the workshop door."
 
             prompt = build_scene_preparation_prompt(
                 root, "Directed Novel", 1, 2,
                 source_scene_path=source,
                 author_direction=direction,
-                previous_direction="Have Jonah open the workshop door.",
+                previous_direction=previous,
             )
 
-            self.assertIn(direction, prompt)
-            self.assertIn("StoryBuilder will insert the exact, unchanged contents", prompt)
-            self.assertIn("Do not extract, classify, summarize, paraphrase, reorder, or write entries", prompt)
-            self.assertIn("prior prepared direction", prompt)
-            self.assertIn("StoryBuilder will insert the exact, unchanged contents", prompt)
-            self.assertIn("QWEN-SELECTED ADDITIONAL BEATS", prompt)
+        self.assertIn("AUTHOR'S DIRECTION\n" + direction, prompt)
+        self.assertIn("AUTHOR-REQUIRED BEATS' as an empty heading only", prompt)
+        self.assertIn("Do not repeat or paraphrase the author's direction", prompt)
+        self.assertIn("PREVIOUS PREPARED DIRECTION TO REFINE\n" + previous, prompt)
+        self.assertIn("QWEN-SELECTED ADDITIONAL BEATS", prompt)
+        self.assertNotIn("The author's direction remains authoritative", prompt)
 
     def test_next_scene_uses_selected_ending_and_only_matching_state_details(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -361,14 +321,7 @@ class ScenePreparationPromptTests(unittest.TestCase):
 
             self.assertIn("Chapter 01, Scene 11", prompt)
             self.assertIn("Mara watched the empty channel.", prompt)
-            self.assertIn("PREVIOUS SCENE CONTINUITY", prompt)
-            self.assertIn(
-                "Let the new scene feel like a natural continuation of the same story",
-                prompt,
-            )
-            self.assertIn("time, place, and focus may change when it makes sense", prompt)
-            self.assertNotIn("Continue directly from the final moment", prompt)
-            self.assertNotIn("Begin the Scene direction by", prompt)
+            self.assertIn("PREVIOUS SCENE ENDING", prompt)
             self.assertIn("The harbor lights have gone dark", prompt)
             self.assertIn("The north pier", prompt)
             self.assertIn("Mara, Jonah", prompt)
@@ -380,20 +333,19 @@ class ScenePreparationPromptTests(unittest.TestCase):
             )
             self.assertIn("[Mara]", prompt)
             self.assertIn("[Jonah]", prompt)
-            self.assertIn("[Private Detail]", prompt)
+            self.assertNotIn("[Private Detail]", prompt)
             self.assertNotIn("This should not be copied", prompt)
             self.assertNotIn("Private knowledge should stay out", prompt)
-            self.assertIn("The harbor pilot does not leave the harbor during winter storms.", prompt)
-            self.assertIn("Mara-Jonah: Longtime friends and colleagues.", prompt)
-            self.assertIn("Let Chapter One take its time", prompt)
+            self.assertNotIn("Let Chapter One take its time", prompt)
             self.assertEqual((root / "story_bible.json").read_bytes(), original_bible)
             self.assertEqual((root / "current_state.json").read_bytes(), original_state)
             self.assertEqual(source.read_bytes(), original_scene)
 
-    def test_long_previous_scene_is_included_in_full_without_truncation(self):
+
+    def test_long_previous_scene_is_limited_to_a_short_ending_excerpt(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp) / "Novel"
-            opening = "THE OPENING DETAIL THAT MUST SURVIVE."
+            opening = "THE OPENING DETAIL THAT MUST BE OMITTED."
             middle = "AN IMPORTANT DETAIL FROM THE MIDDLE OF THE SCENE."
             ending = "THE FINAL MOMENT OF THE PREVIOUS SCENE."
             scene_text = (
@@ -411,11 +363,11 @@ class ScenePreparationPromptTests(unittest.TestCase):
                 root, "Novel", 1, 11, source_scene_path=source
             )
 
-            self.assertIn("IMMEDIATELY PRECEDING SAVED SCENE (full continuity reference)", prompt)
-            self.assertIn(opening, prompt)
-            self.assertIn(middle, prompt)
-            self.assertIn(ending, prompt)
-            self.assertIn(scene_text, prompt)
+        self.assertIn("PREVIOUS SCENE ENDING (continuity only; earlier material omitted)", prompt)
+        self.assertNotIn(opening, prompt)
+        self.assertNotIn(middle, prompt)
+        self.assertIn(ending, prompt)
+        self.assertLess(len(prompt), 6500)
 
     def test_story_time_anchor_is_available_when_saved_state_position_is_older(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -439,7 +391,7 @@ class ScenePreparationPromptTests(unittest.TestCase):
             self.assertIn("Latest saved in-story time: Day 1, 16:00", prompt)
             self.assertIn("The game continued with friendly conversation.", prompt)
             self.assertNotIn("This old opening situation must not be treated as current.", prompt)
-            self.assertIn("Return one concise 'Scene direction:'", prompt)
+            self.assertIn("Return a short 'Scene direction:'", prompt)
             self.assertNotIn("Natural endpoint:", prompt)
             self.assertNotIn("STORY OPENING AND PACING", prompt)
             self.assertLess(len(scene_text), 6000)

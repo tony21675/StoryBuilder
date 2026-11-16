@@ -68,8 +68,8 @@ class CharacterRosterPromptTests(unittest.TestCase):
                 root, "Test Novel", 1, 2, source_scene_path=source
             )
 
-        self.assertIn(
-            "Character cards registered for this novel (reference only): Daniel, Morgan, Elena, Priya",
+        self.assertNotIn(
+            "Character cards registered for this novel (reference only)",
             prompt,
         )
         self.assertNotIn("Do not invent extra members", prompt)
@@ -77,17 +77,16 @@ class CharacterRosterPromptTests(unittest.TestCase):
         self.assertNotIn("Natural endpoint:", prompt)
         self.assertNotIn("two labeled parts", prompt)
         self.assertNotIn("final concrete beat", prompt)
-        self.assertIn("No current AUTHOR'S DIRECTION was supplied.", prompt)
-        self.assertIn("StoryBuilder will leave this section completely blank", prompt)
-        self.assertIn("AUTHOR-REQUIRED BEATS (APPLICATION-CONTROLLED)", prompt)
-        self.assertIn("where the scene ends to the Writer", prompt)
+        self.assertIn("AUTHOR-REQUIRED BEATS' as an empty heading only", prompt)
+        self.assertIn("Do not repeat or paraphrase the author's direction", prompt)
+        self.assertIn("where it naturally stops", prompt)
         self.assertIn("[Daniel]", prompt)
         self.assertIn("[Morgan]", prompt)
-        # Prepare Scene receives all character cards for broader story awareness.
-        # This is reference context, not an instruction to include everyone.
-        self.assertIn("[Elena]", prompt)
-        self.assertIn("[Priya]", prompt)
-        self.assertIn("not a cast checklist", prompt)
+        # The Planner now receives only the current scene cast, not every
+        # registered character in the novel.
+        self.assertNotIn("[Elena]", prompt)
+        self.assertNotIn("[Priya]", prompt)
+        self.assertIn("they are not a checklist", prompt)
 
     def test_write_context_receives_a_short_roster_for_the_selected_novel(self):
         with tempfile.TemporaryDirectory() as temporary:

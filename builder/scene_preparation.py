@@ -5,13 +5,11 @@ import re
 from pathlib import Path
 from typing import Any
 
-from builder.creative_direction import build_creative_direction_prompt
 from builder.odt_document import read_document
 from builder.story_bible_reader import load_story_bible
 from builder.character_context import (
     build_character_card_context_prompt,
     build_scene_cast_boundary_prompt,
-    build_story_bible_reference_context,
 )
 from builder.story_timeline import build_story_timeline_prompt
 
@@ -269,6 +267,145 @@ def blank_author_required_beats_when_unsteered(
     """Backward-compatible alias for the deterministic author-beat safeguard."""
     return apply_author_required_beats(suggestion, author_direction)
 
+def _planner_terms(value: str) -> set[str]:
+    """Return meaningful words for lightweight scene-context matching."""
+    stop_words = {
+        "about", "after", "again", "also", "and", "are", "around", "because",
+        "been", "before", "being", "between", "but", "did", "does", "during",
+        "each", "for", "from", "had", "has", "have", "her", "him", "his",
+        "into", "its", "just", "like", "more", "most", "not", "now", "only",
+        "our", "out", "over", "said", "same", "she", "should", "some", "such",
+        "than", "that", "the", "their", "them", "then", "there", "these",
+        "they", "this", "those", "through", "told", "under", "very", "was",
+        "were", "what", "when", "where", "which", "while", "who", "will",
+        "with", "would", "you", "your", "scene", "story", "chapter",
+    }
+    return {
+        token
+        for token in re.findall(r"[a-z0-9]+", str(value or "").casefold())
+        if len(token) >= 3 and token not in stop_words
+    }
+
+
+def _planner_previous_excerpt(value: str, limit: int = 1100) -> str:
+    """Keep only the end of the preceding scene as a compact continuity anchor."""
+    text = " ".join(str(value or "").split())
+    if len(text) <= limit:
+        return text
+    excerpt = text[-limit:]
+    first_space = excerpt.find(" ")
+    if 0 <= first_space < 80:
+        excerpt = excerpt[first_space + 1:]
+    return excerpt.strip()
+
+
+def _build_planner_relevant_story_context(
+    story_bible: dict[str, Any],
+    scene_text: str,
+    cast_names: list[str],
+) -> str:
+    """Select a few story facts and relationships that matter to this scene."""
+    query_terms = _planner_terms(scene_text)
+    sections: list[str] = []
+
+    canon = story_bible.get("canon_rules")
+    if isinstance(canon, str):
+        canon = [canon]
+    ranked_canon = []
+    if isinstance(canon, list):
+        for index, raw in enumerate(canon):
+            if not isinstance(raw, str) or not raw.strip():
+                continue
+            fact = " ".join(raw.split())
+            fact_terms = _planner_terms(fact)
+            overlap = len(query_terms & fact_terms)
+            name_hits = sum(
+                1 for name in cast_names
+                if re.search(
+                    rf"(?<![\w]){re.escape(name)}(?![\w])",
+                    fact,
+                    flags=re.IGNORECASE,
+                )
+            )
+            # A character name alone is not enough to drag unrelated plot canon
+            # into the Planner. Require at least one scene-specific term too.
+            if overlap >= 2 or (overlap >= 1 and name_hits):
+                ranked_canon.append((overlap * 3 + name_hits, index, fact))
+    ranked_canon.sort(key=lambda item: (-item[0], item[1]))
+    chosen_canon = [item[2] for item in ranked_canon[:5]]
+    if chosen_canon:
+        sections.append(
+            "RELEVANT ESTABLISHED FACTS\n"
+            + "\n".join(f"- {fact[:420]}" for fact in chosen_canon)
+        )
+
+    relationships = story_bible.get("relationships")
+    ranked_relationships = []
+    if isinstance(relationships, dict):
+        for index, (label, raw) in enumerate(relationships.items()):
+            description = " ".join(str(raw or "").split())
+            relation = f"{label}: {description}"
+            matching_people = [
+                name for name in cast_names
+                if re.search(
+                    rf"(?<![\w]){re.escape(name)}(?![\w])",
+                    relation,
+                    flags=re.IGNORECASE,
+                )
+            ]
+            overlap = len(query_terms & _planner_terms(relation))
+            # Include a relationship only when it connects at least two people
+            # selected for this scene, or is directly relevant in the author's
+            # wording. This avoids sending every relationship in the novel.
+            if len(matching_people) >= 2 and overlap >= 1:
+                ranked_relationships.append(
+                    (len(matching_people) * 3 + overlap, index, relation)
+                )
+    ranked_relationships.sort(key=lambda item: (-item[0], item[1]))
+    chosen_relationships = [item[2] for item in ranked_relationships[:4]]
+    if chosen_relationships:
+        sections.append(
+            "RELEVANT RELATIONSHIPS\n"
+            + "\n".join(f"- {relation[:420]}" for relation in chosen_relationships)
+        )
+
+    return "\n\n".join(sections)
+
+
+def _build_planner_location_context(
+    story_bible: dict[str, Any],
+    scene_text: str = "",
+    current_location: str = "",
+) -> str:
+    """Include only established locations clearly connected to this scene."""
+    locations = story_bible.get("locations")
+    if not isinstance(locations, dict) or not locations:
+        return ""
+
+    search_text = f"{scene_text}\n{current_location}"
+    search_terms = _planner_terms(search_text)
+    selected = []
+    for name, details in locations.items():
+        location_name = " ".join(str(name).replace("_", " ").split())
+        if not location_name:
+            continue
+        key_terms = _planner_terms(location_name)
+        overlap = len(key_terms & search_terms)
+        if location_name.casefold() in search_text.casefold() or overlap >= min(2, len(key_terms)):
+            rendered = _planner_location_value(details)
+            if len(rendered) > 520:
+                rendered = rendered[:517].rsplit(" ", 1)[0].rstrip() + "…"
+            selected.append((overlap, location_name, rendered))
+    selected.sort(key=lambda item: (-item[0], item[1]))
+    if not selected:
+        return ""
+
+    lines = ["RELEVANT LOCATION"]
+    for _overlap, name, details in selected[:2]:
+        lines.append(f"- {name}: {details or 'No additional details recorded.'}")
+    return "\n".join(lines)
+
+
 def build_scene_preparation_prompt(
     novel_path: str | Path,
     novel_name: str,
@@ -279,7 +416,7 @@ def build_scene_preparation_prompt(
     previous_direction: str | None = None,
     scene_cast: list[str] | None = None,
 ) -> str:
-    """Build a lean planning request with only the current scene's useful context."""
+    """Build a compact, scene-focused request for the Planner."""
     root = Path(novel_path).expanduser()
     try:
         story_bible = load_story_bible(root)
@@ -290,217 +427,182 @@ def build_scene_preparation_prompt(
     include_state = _state_matches_scene(
         current_state, int(chapter_number), int(scene_number), source_scene_path
     )
-    previous_ending = _previous_scene_text(source_scene_path)
 
-    title = _clean_text(story_bible.get("title"), limit=120) or _clean_text(
-        novel_name, limit=120
+    previous_text = _previous_scene_text(source_scene_path)
+    previous_ending = _planner_previous_excerpt(previous_text)
+    title = _clean_text(story_bible.get("title"), limit=100) or _clean_text(
+        novel_name, limit=100
     )
     author_direction_text = str(author_direction or "").strip()
-    previous_direction_text = _clean_text(previous_direction, limit=1200)
+    previous_direction_text = _clean_text(previous_direction, limit=900)
+
+    primary_location = ""
+    situation = ""
+    continuity_notes: list[str] = []
+    unresolved_questions: list[str] = []
+    state_cast: list[str] = []
+    if include_state:
+        situation = _clean_text(current_state.get("current_situation"), limit=420)
+        location_value = current_state.get("location")
+        if isinstance(location_value, dict):
+            primary_location = _clean_text(location_value.get("primary"), limit=120)
+        elif isinstance(location_value, str):
+            primary_location = _clean_text(location_value, limit=120)
+
+        raw_notes = current_state.get("continuity_notes")
+        if isinstance(raw_notes, list):
+            continuity_notes = [
+                _clean_text(note, limit=260)
+                for note in raw_notes
+                if isinstance(note, str) and note.strip()
+            ]
+
+        raw_questions = current_state.get("unresolved_questions")
+        if isinstance(raw_questions, list):
+            unresolved_questions = [
+                _clean_text(question, limit=140)
+                for question in raw_questions
+                if isinstance(question, str) and question.strip()
+            ][:1]
+
+        raw_cast = current_state.get("scene_cast")
+        if isinstance(raw_cast, list):
+            state_cast = [
+                _clean_text(name, limit=80)
+                for name in raw_cast
+                if isinstance(name, str) and name.strip()
+            ][:6]
+
+    cast_names = (
+        [_clean_text(name, limit=80) for name in scene_cast if isinstance(name, str) and name.strip()]
+        if scene_cast is not None
+        else state_cast
+    )
+    cast_names = list(dict.fromkeys(name for name in cast_names if name))
+
+    scene_reference_text = "\n".join(
+        part for part in (
+            author_direction_text,
+            previous_direction_text,
+            previous_ending,
+            situation,
+            primary_location,
+        ) if part
+    )
     sections = [
-        "Help the author prepare a natural direction for the next scene. This is planning, not manuscript prose.",
+        "Prepare one scene direction for the author. This is planning, not manuscript prose.",
         f"Destination: Chapter {int(chapter_number):02d}, Scene {int(scene_number):02d}.",
         f"Story: {title}",
     ]
 
-    # Qwen plans rather than writes prose, so preserve substantially more of
-    # the novel's premise and setting context for its decisions.
-    premise = _clean_text(story_bible.get("premise"), limit=3000)
-    setting = _clean_text(story_bible.get("setting"), limit=4000)
+    premise = _clean_text(story_bible.get("premise"), limit=850)
+    setting = _clean_text(story_bible.get("setting"), limit=900)
     if premise:
-        sections.append(f"Premise: {premise}")
+        sections.append(f"Story premise: {premise}")
     if setting:
         sections.append(f"Setting: {setting}")
 
-    story_reference = build_story_bible_reference_context(
-        story_bible, include_preferences=True, comprehensive=True
-    )
-    if story_reference:
-        sections.append(story_reference)
+    if cast_names:
+        sections.append("SELECTED SCENE CAST\n" + ", ".join(cast_names))
 
-    creative_direction = build_creative_direction_prompt(
-        story_bible.get("creative_direction")
+    relevant_story = _build_planner_relevant_story_context(
+        story_bible, scene_reference_text, cast_names
     )
-    if creative_direction:
-        sections.append(creative_direction)
+    if relevant_story:
+        sections.append(relevant_story)
 
-    location_context = _build_planner_location_context(story_bible)
+    location_context = _build_planner_location_context(
+        story_bible, scene_reference_text, primary_location
+    )
     if location_context:
         sections.append(location_context)
 
-    cast_names: list[str] = []
-    if scene_cast is not None:
-        cast_names = [
-            _clean_text(name, limit=80)
-            for name in scene_cast
-            if isinstance(name, str) and name.strip()
-        ]
     timeline_note = build_story_timeline_prompt(current_state.get("time_of_day"))
     if timeline_note:
         sections.append(timeline_note)
 
     if include_state:
-        situation = _clean_text(current_state.get("current_situation"), limit=600)
         if situation:
-            sections.append("CURRENT STORY SITUATION\n" + situation)
-
-        continuity_notes = current_state.get("continuity_notes")
-        if isinstance(continuity_notes, list):
-            notes = [
-                _clean_text(note, limit=500)
-                for note in continuity_notes
-                if isinstance(note, str) and note.strip()
-            ][:6]
-            if notes:
-                sections.append(
-                    "CURRENT CONTINUITY NOTES\n" + "\n".join(f"- {note}" for note in notes)
+            sections.append("CURRENT SCENE SITUATION\n" + situation)
+        if primary_location:
+            sections.append("CURRENT LOCATION\n" + primary_location)
+        if continuity_notes:
+            note_terms = _planner_terms(scene_reference_text)
+            relevant_notes = [
+                note for note in continuity_notes
+                if len(_planner_terms(note) & note_terms) >= 1
+                or any(
+                    re.search(rf"(?<![\w]){re.escape(name)}(?![\w])", note, re.IGNORECASE)
+                    for name in cast_names
                 )
-
-        locations = current_state.get("location")
-        if isinstance(locations, dict):
-            primary_location = _clean_text(locations.get("primary"), limit=120)
-            if primary_location:
-                sections.append(f"Current location: {primary_location}")
-
-        if scene_cast is None:
-            cast_value = current_state.get("scene_cast")
-            if isinstance(cast_value, list):
-                cast_names = [
-                    _clean_text(name, limit=80)
-                    for name in cast_value
-                    if isinstance(name, str) and name.strip()
-                ][:8]
-                if cast_names:
-                    sections.append("People currently involved: " + ", ".join(cast_names))
-
-        questions = current_state.get("unresolved_questions")
-        if isinstance(questions, list):
-            open_questions = [
-                _clean_text(question, limit=160)
-                for question in questions
-                if isinstance(question, str) and question.strip()
-            ][:2]
-            if open_questions:
-                sections.append("Still unresolved: " + " ".join(open_questions))
+            ][:3]
+            if relevant_notes:
+                sections.append(
+                    "RELEVANT CONTINUITY NOTES\n"
+                    + "\n".join(f"- {note}" for note in relevant_notes)
+                )
+        if unresolved_questions:
+            question_terms = _planner_terms(unresolved_questions[0])
+            if len(question_terms & _planner_terms(scene_reference_text)) >= 1:
+                sections.append("OPEN QUESTION\n" + unresolved_questions[0])
 
     character_supporting_text = "\n".join(
         part for part in (
             " ".join(cast_names),
-            previous_ending,
-            author_direction_text,
+            scene_reference_text,
         ) if part
     )
-    # An explicit scene cast is authoritative: do not load cards for anyone else.
     character_context = build_character_card_context_prompt(
         root,
         story_bible,
         "",
         supporting_text=character_supporting_text,
-        include_all=scene_cast is None,
-        compact=False,
-        comprehensive=True,
-        selected_names=scene_cast,
+        include_all=False,
+        compact=True,
+        comprehensive=False,
+        selected_names=cast_names if scene_cast is not None or cast_names else None,
+        scene_focused=True,
     )
     if character_context:
         sections.append(character_context)
 
     if previous_ending:
         sections.append(
-            "IMMEDIATELY PRECEDING SAVED SCENE (full continuity reference)\n" + previous_ending
-        )
-        sections.append(
-            "PREVIOUS SCENE CONTINUITY\n"
-            "Use the previous scene as context, not as a template. "
-            "Let the new scene feel like a natural continuation of the same story; "
-            "time, place, and focus may change when it makes sense."
+            "PREVIOUS SCENE ENDING (continuity only; earlier material omitted)\n"
+            + previous_ending
         )
     elif (int(chapter_number), int(scene_number)) == (1, 1):
         sections.append("This is the opening scene; no previous scene has been saved.")
 
     if previous_direction_text:
         sections.append(
-            "PREVIOUS PREPARED DIRECTION TO REFINE\n" + previous_direction_text
-        )
-        sections.append(
-            "Refine the previous direction rather than starting over."
+            "PREVIOUS PREPARED DIRECTION TO REFINE\n"
+            + previous_direction_text
+            + "\nRefine the previous direction rather than starting over."
         )
 
     if author_direction_text:
         sections.append("AUTHOR'S DIRECTION\n" + author_direction_text)
 
-    sections.append(
-        "PLANNER CONTEXT PRIORITIES\n"
-        "Treat the Story Bible's fixed canon, established relationships, complete character "
-        "references, location references, and current continuity as factual story context. "
-        "Preserve established identities, ages, relationships, households, residences, "
-        "occupations, schedules when recorded, and important possessions, including who "
-        "owns, wears, or carries them. Do not turn affectionate or metaphorical family "
-        "language (for example, 'like a daughter' or 'daughter of the heart') into literal "
-        "parentage or a shared household when the recorded relationships say otherwise. "
-        "Do not move a person or possession to another household or owner for convenience. "
-        "These references are for understanding the story, not a cast checklist: do not "
-        "include every character or visit every location just because they are listed. "
-        "Distinguish household residents from visitors: a close neighbor or family friend "
-        "does not become a resident because of the strength of the relationship. For a "
-        "domestic scene at someone's home, consider the recorded household members first; "
-        "do not casually displace or omit residents without a scene-specific reason. "
-        "Preserve any time-of-day marker in an occupation or work routine, such as a night "
-        "shift; do not turn it into a daytime shift or invent unrecorded work hours. "
-        "Preserve the exact meaning of requested times; distinguish a report/arrival time "
-        "from a meeting time or shift start/end."
-    )
+    sections.extend([
+        "PLANNING GUARDRAILS\n"
+        "Preserve established facts, relationships, households, schedules, and important possessions. "
+        "Use only the selected cast. Do not replay events already completed, add another scene, or move "
+        "past the requested scene's natural endpoint. Unknown details remain unknown; do not turn guesses "
+        "into established backstory or memories.",
+        "RETURN FORMAT\n"
+        "Return a short 'Scene direction:' paragraph of 2–4 sentences describing where this scene "
+        "starts, its broad movement, and where it naturally stops. Then include "
+        "'AUTHOR-REQUIRED BEATS' as an empty heading only; StoryBuilder inserts the author's exact "
+        "direction there. Do not repeat or paraphrase the author's direction anywhere in your reply. "
+        "Then include 'QWEN-SELECTED ADDITIONAL BEATS' with zero to three short bullets only if you "
+        "have genuinely useful additions not already requested. Otherwise leave that section empty. "
+        "Use plain novel-planning language, not screenplay format, script labels, camera directions, "
+        "scripted dialogue, finished prose, or separate Setting/Tone/Atmosphere essays. Leave ordinary "
+        "dialogue, gestures, staging, and connective prose to the Writer.",
+    ])
 
-    if author_direction_text:
-        author_beats_rule = (
-            "AUTHOR-REQUIRED BEATS (APPLICATION-CONTROLLED)\n"
-            "Do not extract, classify, summarize, paraphrase, reorder, or write entries in this section. "
-            "StoryBuilder will insert the exact, unchanged contents of the current AUTHOR'S DIRECTION "
-            "here after generation. Leave this section empty. Do not copy, quote, restate, or paraphrase the "
-            "author's direction anywhere else in your response, including the scene direction and additional "
-            "beats. Do not move the author's requested events into QWEN-SELECTED ADDITIONAL BEATS. "
-            "The prior prepared direction and previous scene are context only, not sources for required beats. "
-            "Your own additional ideas must never repeat, replace, reorder, or contradict the author's requested "
-            "events."
-        )
-    else:
-        author_beats_rule = (
-            "AUTHOR-REQUIRED BEATS (APPLICATION-CONTROLLED)\n"
-            "No current AUTHOR'S DIRECTION was supplied. StoryBuilder will leave this section completely "
-            "blank. The prior prepared direction, previous scene, and other context are reference only; they cannot supply required beats. Do not invent or infer required beats from any other context. You cannot create "
-            "AUTHOR-REQUIRED BEATS; put only your own genuinely additional ideas under "
-            "QWEN-SELECTED ADDITIONAL BEATS."
-        )
-
-    sections.extend(
-        [
-            "Use the supplied story information selectively. It is reference for preserving established facts, "
-            "not a checklist of material to include. Do not pull unrelated backstory or future plot details into "
-            "this scene. Treat unknown details as open rather than inventing them as established history.",
-            "Plan only the requested destination scene. Keep its time, place, cast, and endpoint within the "
-            "author's direction and established continuity. Do not replay events that the author says have "
-            "already happened, and do not continue into the next scene or a later time of day.",
-            author_beats_rule,
-            "QWEN-SELECTED ADDITIONAL BEATS are optional. Add only ideas that genuinely improve this "
-            "particular scene without repeating, replacing, reordering, or contradicting the author's events. "
-            "Usually zero to three short additions are enough; do not pad the plan or invent activity just to "
-            "fill the section. If nothing useful is additional, leave it empty.",
-            "Write in plain novel-planning language, not as a screenplay and not as finished manuscript prose. "
-            "Use this compact structure: 'Scene direction:' followed by one short paragraph of two to four "
-            "sentences describing the starting point, broad movement, and intended endpoint; then the two "
-            "beat headings. Do not use INT./EXT. slug lines, screenplay character labels, camera directions, "
-            "scripted dialogue, long numbered scene breakdowns, or separate Setting/Tone/Atmosphere essays. "
-            "Leave ordinary dialogue, gestures, staging, and connective prose to the Writer.",
-            "Do not invent specific memories, sensory experiences, calls, messages, props, relationships, "
-            "backstory, or future events unless the author or established canon supplies them. Do not turn "
-            "speculation into a remembered fact. When the author describes an emotional connection, preserve "
-            "its meaning without dictating the finished prose or explaining every feeling.",
-            "Return one concise 'Scene direction:' paragraph of two to four sentences, followed by the "
-            "AUTHOR-REQUIRED BEATS and QWEN-SELECTED ADDITIONAL BEATS sections. StoryBuilder will insert "
-            "the unchanged AUTHOR'S DIRECTION under AUTHOR-REQUIRED BEATS, so do not repeat it anywhere "
-            "in the generated direction. Do not copy, quote, restate, or paraphrase the author's direction "
-            "anywhere else in your response. Leave how the beats unfold and where the scene ends to the Writer.",
-        ]
-    )
     if scene_cast is not None:
         sections.append(build_scene_cast_boundary_prompt("", scene_cast))
+
     return "\n\n".join(part for part in sections if part)
