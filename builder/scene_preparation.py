@@ -454,11 +454,12 @@ def build_scene_preparation_prompt(
         author_beats_rule = (
             "AUTHOR-REQUIRED BEATS (APPLICATION-CONTROLLED)\n"
             "Do not extract, classify, summarize, paraphrase, reorder, or write entries in this section. "
-            "StoryBuilder inserts the exact, unchanged AUTHOR'S DIRECTION here after generation. Leave "
-            "this section empty. Do not copy, quote, restate, or paraphrase the author's direction anywhere "
-            "else in your response, including the scene direction and additional beats. The prior prepared "
-            "direction and previous scene are context only, not sources for required beats. Your own "
-            "additional ideas must never repeat, replace, reorder, or contradict the author's requested events."
+            "StoryBuilder will insert the exact, unchanged contents of the current AUTHOR'S DIRECTION "
+            "here after generation. Leave this section empty. Do not copy, quote, restate, or paraphrase the "
+            "author's direction anywhere else in your response, including the scene direction and additional "
+            "beats. The prior prepared direction and previous scene are context only, not sources for required "
+            "beats. Your own additional ideas must never repeat, replace, reorder, or contradict the author's "
+            "requested events."
         )
     else:
         author_beats_rule = (
@@ -492,8 +493,11 @@ def build_scene_preparation_prompt(
             "backstory, or future events unless the author or established canon supplies them. Do not turn "
             "speculation into a remembered fact. When the author describes an emotional connection, preserve "
             "its meaning without dictating the finished prose or explaining every feeling.",
-            "Return the compact structure only. StoryBuilder will insert the unchanged AUTHOR'S DIRECTION "
-            "under AUTHOR-REQUIRED BEATS, so do not repeat it anywhere in the generated direction.",
+            "Return one concise 'Scene direction:' paragraph of two to four sentences, followed by the "
+            "AUTHOR-REQUIRED BEATS and QWEN-SELECTED ADDITIONAL BEATS sections. StoryBuilder will insert "
+            "the unchanged AUTHOR'S DIRECTION under AUTHOR-REQUIRED BEATS, so do not repeat it anywhere "
+            "in the generated direction. Do not copy, quote, restate, or paraphrase the author's direction "
+            "anywhere else in your response. Leave how the beats unfold and where the scene ends to the Writer.",
         ]
     )
     if scene_cast is not None:
