@@ -314,7 +314,11 @@ def build_character_card_context_prompt(
                 None,
             )
             if personality is not None:
-                rendered = _reference_value_text(personality)
+                rendered = (
+                    _list_text(personality, limit=3)
+                    if isinstance(personality, list)
+                    else _reference_value_text(personality)
+                )
                 if rendered:
                     lines.append(f"Personality: {_clean(rendered, 190)}")
 
