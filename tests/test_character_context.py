@@ -194,6 +194,10 @@ class CharacterCardContextTests(unittest.TestCase):
                         "appearance": "Dark curls and a quick, familiar smile.",
                         "personality": ["thoughtful", "dry humor"],
                         "voice": "Usually understated; sharper and more playful with close friends.",
+                        "important_items": {
+                            "dog_tags": "Tony's former Army dog tags on their original chain. They hang lower on Tiffany than they did on Tony because he is larger-framed, resting on her upper chest between her breasts, not at or around her collarbone.",
+                            "phone": "A black smartphone with a cracked corner.",
+                        },
                         "relationships": {
                             "Maya": "Close friend; their bond is sister-like.",
                             "Tony": "Her father; they share a home.",
@@ -212,7 +216,7 @@ class CharacterCardContextTests(unittest.TestCase):
             prompt = build_character_card_context_prompt(
                 root,
                 bible,
-                "Tiffany and Maya are talking at home.",
+                "Tiffany and Maya are talking at home. Tiffany touches Tony's dog tags.",
                 compact=True,
                 scene_focused=True,
             )
@@ -222,6 +226,9 @@ class CharacterCardContextTests(unittest.TestCase):
         self.assertIn("Appearance: Dark curls", prompt)
         self.assertIn("Personality: thoughtful, dry humor", prompt)
         self.assertIn("Voice: Usually understated", prompt)
+        self.assertIn("Relevant important items: Dog Tags: Tony's former Army dog tags", prompt)
+        self.assertIn("upper chest between her breasts", prompt)
+        self.assertNotIn("black smartphone", prompt)
         self.assertIn("Scene relationships: Maya: Close friend", prompt)
         self.assertNotIn("share a home", prompt)
         self.assertNotIn("long unrelated biography", prompt)
