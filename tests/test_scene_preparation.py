@@ -247,7 +247,7 @@ class ScenePreparationPromptTests(unittest.TestCase):
         self.assertNotIn("COMPLETE CHARACTER CARD REFERENCES", prompt)
         self.assertNotIn("There is no quota or cap", prompt)
 
-    def test_blank_author_direction_leaves_required_beats_blank_even_with_prior_direction(self):
+    def test_blank_author_direction_does_not_promote_prior_direction_to_required_beats(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp) / "Unsteered Novel"
             source = self.make_novel(root, scene_text="The crew finished their diagnostics.")
@@ -259,34 +259,35 @@ class ScenePreparationPromptTests(unittest.TestCase):
                 previous_direction="Earlier prepared direction: Have Jonah send a message.",
             )
 
-            # Earlier planner output is reference material, not a source of
-            # author-required beats. An empty current field produces a blank section.
-            self.assertNotIn("\nAUTHOR'S DIRECTION\n", prompt)
-            self.assertIn("No current AUTHOR'S DIRECTION was supplied.", prompt)
-            self.assertIn("AUTHOR-REQUIRED BEATS' as an empty heading only", prompt)
-            self.assertIn("prior prepared direction", prompt)
-            self.assertIn("Do not repeat or paraphrase the author's direction", prompt)
-            self.assertNotIn("None specified", prompt)
+        # The previous prepared direction is context only. The application still
+        # inserts the current author direction verbatim, which is empty here.
+        self.assertNotIn("\nAUTHOR'S DIRECTION\n", prompt)
+        self.assertIn("AUTHOR-REQUIRED BEATS' as an empty heading only", prompt)
+        self.assertIn("PREVIOUS PREPARED DIRECTION TO REFINE", prompt)
+        self.assertIn("Earlier prepared direction: Have Jonah send a message.", prompt)
+        self.assertIn("Refine the previous direction rather than starting over.", prompt)
+        self.assertNotIn("None specified", prompt)
 
-    def test_only_current_author_direction_can_supply_required_beats(self):
+    def test_author_direction_is_sent_once_and_previous_direction_stays_context_only(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp) / "Directed Novel"
             source = self.make_novel(root, scene_text="The crew finished their diagnostics.")
             direction = "Have Mission Control acknowledge the advisory and request updated readings."
+            previous = "Have Jonah open the workshop door."
 
             prompt = build_scene_preparation_prompt(
                 root, "Directed Novel", 1, 2,
                 source_scene_path=source,
                 author_direction=direction,
-                previous_direction="Have Jonah open the workshop door.",
+                previous_direction=previous,
             )
 
-            self.assertIn(direction, prompt)
-            self.assertIn("StoryBuilder will insert the exact, unchanged contents", prompt)
-            self.assertIn("Do not extract, classify, summarize, paraphrase, reorder, or write entries", prompt)
-            self.assertIn("prior prepared direction", prompt)
-            self.assertIn("StoryBuilder will insert the exact, unchanged contents", prompt)
-            self.assertIn("QWEN-SELECTED ADDITIONAL BEATS", prompt)
+        self.assertIn("AUTHOR'S DIRECTION\n" + direction, prompt)
+        self.assertIn("AUTHOR-REQUIRED BEATS' as an empty heading only", prompt)
+        self.assertIn("Do not repeat or paraphrase the author's direction", prompt)
+        self.assertIn("PREVIOUS PREPARED DIRECTION TO REFINE\n" + previous, prompt)
+        self.assertIn("QWEN-SELECTED ADDITIONAL BEATS", prompt)
+        self.assertNotIn("The author's direction remains authoritative", prompt)
 
     def test_next_scene_uses_selected_ending_and_only_matching_state_details(self):
         with tempfile.TemporaryDirectory() as temp:
