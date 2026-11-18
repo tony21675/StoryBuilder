@@ -6,9 +6,9 @@ REMOTE="origin"
 usage() {
   echo "Usage: $0 start|finish"
   echo
-  echo "  start   Safely update the current StoryBuilder development branch before launch."
+  echo "  start   Safely update main before launching StoryBuilder."
   echo "          Uncommitted local changes are stashed and restored automatically."
-  echo "  finish  Commit and push StoryBuilder code changes on the current development branch."
+  echo "  finish  Commit and push StoryBuilder code changes on main."
   exit 1
 }
 
@@ -23,11 +23,10 @@ if [[ -z "$BRANCH" ]]; then
   exit 1
 fi
 
-# Keep the shell helper aligned with the app's Close & Sync App safeguards.
-# Work only on the existing development branch; never sync or push from main.
-if [[ "$BRANCH" == "main" ]]; then
-  echo "ERROR: StoryBuilder app sync is blocked on main."
-  echo "Use the existing development branch. No branch switch or deletion was attempted."
+# StoryBuilder application work and synchronization happen directly on main.
+if [[ "$BRANCH" != "main" ]]; then
+  echo "ERROR: StoryBuilder app sync is allowed only on main."
+  echo "Switch to main and retry. No branch switch or deletion was attempted."
   exit 1
 fi
 
