@@ -10,7 +10,7 @@ From the Linux computer:
 cd ~/Documents/StoryBuilder && ./start.sh
 ```
 
-The launcher synchronizes the current StoryBuilder branch before starting the app.
+The launcher synchronizes `main` before starting the app. All StoryBuilder application development, testing, commits, and pushes happen directly on `main`; do not create or switch to feature or redesign branches.
 
 The active Minimal Writer and Prepare Scene paths do not hard-code novel characters, settings, or plot rules. They read novel-specific information from the currently selected package's own Story Bible, character cards, locations, current state, and accepted manuscript. Shared Python prompts provide only general workflow guidance; a novel's special requirements belong in that novel's own files.
 
