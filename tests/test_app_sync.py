@@ -16,7 +16,7 @@ class AppSyncTests(unittest.TestCase):
         (root / "builder").mkdir()
         return root
 
-    def fake_git(self, root, *, dirty=False, branch="redesign/simplified-writing-workflow",
+    def fake_git(self, root, *, dirty=False, branch="main",
                  upstream=None, pull_code=0, unmerged=""):
         upstream = upstream or f"origin/{branch}"
         calls = []
@@ -61,16 +61,16 @@ class AppSyncTests(unittest.TestCase):
 
         return run, calls
 
-    def test_clean_sync_uses_current_development_branch_and_never_merges_main(self):
+    def test_clean_sync_uses_main_only(self):
         root = self.make_app_root()
         fake, calls = self.fake_git(root)
         with patch("builder.app_sync.subprocess.run", side_effect=fake):
             result = sync_storybuilder_repository(root)
 
         self.assertIn("application synchronized successfully", result)
-        self.assertIn(["pull", "--ff-only", "origin", "redesign/simplified-writing-workflow"], calls)
-        self.assertIn(["push", "origin", "redesign/simplified-writing-workflow"], calls)
-        self.assertFalse(any("main" in call for call in calls))
+        self.assertIn(["pull", "--ff-only", "origin", "main"], calls)
+        self.assertIn(["push", "origin", "main"], calls)
+        self.assertFalse(any(call and call[0] == "push" and call[-1] != "main" for call in calls))
 
     def test_dirty_app_files_are_committed_before_fetch_and_push(self):
         root = self.make_app_root()
@@ -89,15 +89,16 @@ class AppSyncTests(unittest.TestCase):
         with patch("builder.app_sync.subprocess.run", side_effect=fake):
             with self.assertRaisesRegex(StoryBuilderSyncError, "No push was attempted"):
                 sync_storybuilder_repository(root)
-        self.assertNotIn(["push", "origin", "redesign/simplified-writing-workflow"], calls)
-
-    def test_refuses_main_branch(self):
-        root = self.make_app_root()
-        fake, calls = self.fake_git(root, branch="main")
-        with patch("builder.app_sync.subprocess.run", side_effect=fake):
-            with self.assertRaisesRegex(StoryBuilderSyncError, "blocked syncing"):
-                sync_storybuilder_repository(root)
         self.assertNotIn(["push", "origin", "main"], calls)
+
+    def test_refuses_non_main_branch(self):
+        root = self.make_app_root()
+        branch = "redesign/simplified-writing-workflow"
+        fake, calls = self.fake_git(root, branch=branch)
+        with patch("builder.app_sync.subprocess.run", side_effect=fake):
+            with self.assertRaisesRegex(StoryBuilderSyncError, "allowed only on main"):
+                sync_storybuilder_repository(root)
+        self.assertNotIn(["push", "origin", branch], calls)
 
     def test_refuses_unmerged_conflict_files(self):
         root = self.make_app_root()
