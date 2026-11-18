@@ -106,7 +106,7 @@ class AppSyncTests(unittest.TestCase):
         with patch("builder.app_sync.subprocess.run", side_effect=fake):
             with self.assertRaisesRegex(StoryBuilderSyncError, "unresolved conflict files"):
                 sync_storybuilder_repository(root)
-        self.assertNotIn(["push", "origin", "redesign/simplified-writing-workflow"], calls)
+        self.assertNotIn(["push", "origin", "main"], calls)
 
 
 if __name__ == "__main__":
