@@ -1,8 +1,8 @@
 # Writer App handoff
 
-**Updated:** November 16, 2026  
+**Updated:** November 18, 2026  
 **Repository:** `tony21675/StoryBuilder`  
-**Branch:** `redesign/simplified-writing-workflow` (GitHub default and only branch)  
+**Branch:** `main` (GitHub default and sole working branch)  
 **Local path:** `~/Documents/StoryBuilder`
 
 ## Purpose
@@ -12,7 +12,7 @@ This is the single technical handoff for the StoryBuilder Writer. The Story Bibl
 ## Launch and local requirements
 
 - Run `cd ~/Documents/StoryBuilder && ./start.sh` to launch the Minimal Writer.
-- The launcher synchronizes the existing StoryBuilder branch before opening the app. It fast-forwards only; it does not force-push or resolve diverged history by overwriting local work.
+- The launcher requires the local repository to be on `main` and safely synchronizes `origin/main` before opening the app. It fast-forwards only; it does not force-push or resolve diverged history by overwriting local work. Uncommitted local changes are temporarily stashed and restored around the startup sync.
 - Default models directory: `~/Documents/Models` (GGUF files).
 - Default llama.cpp executable: `~/Documents/llama.cpp/build/bin/llama-cli`.
 - The default context is 16,384 tokens; output defaults to 4,000 tokens. Existing environment variables can override paths and limits, including `STORY_MODELS_DIR`, `STORY_LLAMA_PATH`, `STORY_NOVEL_ROOT`, `STORY_WRITER_CONTEXT`, and `STORY_WRITER_MAX_TOKENS`.
@@ -78,6 +78,7 @@ The Planner-to-Writer trace is an essential diagnostic and must remain active.
 - This handoff describes the shared Writer application only. Never put a novel's plot, character canon, or manuscript progress here.
 - Each novel has one `HANDOFF_LATEST.md`; that handoff points to the novel's own Story Bible, character cards, accepted manuscript, and `current_state.json`.
 - Treat discarded drafts and superseded handoffs as obsolete. Do not resurrect them because an old conversation or backup mentions them.
+- Keep StoryBuilder application development, testing, commits, and pushes directly on `main`. Do not create or switch to feature/redesign branches. Preserve existing historical branches, but do not use them for active work.
 - Keep the writing process flexible. Do one focused change at a time, discuss code/model changes first, and avoid rigid formulas or micromanaging prose.
 - Update this handoff after each meaningful Writer-app milestone. Keep the Story Bible app handoff separate.
 
