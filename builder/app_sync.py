@@ -35,12 +35,12 @@ def _failure(result: subprocess.CompletedProcess[str], fallback: str) -> StoryBu
 
 
 def sync_storybuilder_repository(app_path: str | Path) -> str:
-    """Sync only the StoryBuilder application repository on its current development branch.
+    """Sync the StoryBuilder application repository directly on main.
 
-    This intentionally refuses to switch branches, merge into main, or rebase local
-    commits. Local application changes are committed on the active branch, then the
-    remote is fetched and fast-forwarded if possible before pushing. Any divergence
-    or conflict stops safely without pushing.
+    This refuses to switch branches or rebase local commits. Local application
+    changes are committed on main, then the remote is fetched and fast-forwarded
+    if possible before pushing. Any divergence or conflict stops safely without
+    pushing.
     """
     app_root = Path(app_path).expanduser().resolve()
     if not app_root.is_dir():
@@ -87,10 +87,10 @@ def sync_storybuilder_repository(app_path: str | Path) -> str:
         raise StoryBuilderSyncError(
             "StoryBuilder is not on a normal branch. No files were committed or pushed."
         )
-    if branch == "main":
+    if branch != "main":
         raise StoryBuilderSyncError(
-            "Safety check blocked syncing StoryBuilder from main. Keep working on the existing "
-            "StoryBuilder development branch; no files were committed or pushed."
+            "StoryBuilder app synchronization is allowed only on main. Switch to main before "
+            "syncing; no files were committed or pushed."
         )
 
     upstream_result = _run_git(
