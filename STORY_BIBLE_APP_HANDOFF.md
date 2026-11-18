@@ -5,6 +5,17 @@
 **Branch:** `main` (GitHub default and sole working branch)  
 **Local path:** `~/Documents/StoryBuilder`
 
+## Future UI modernization (planned, not started)
+
+When work on the novel applications resumes, plan a gradual migration of the Story Bible interface from Tkinter to **PySide6**, using Vape Recipe Studio as the desktop usability and design reference.
+
+- Keep Story Bible and the Writer as separate applications. This is a shared UI toolkit and visual-standard decision, not a plan to combine them into one program.
+- Replace the Tkinter presentation layer only after the PySide6 version is ready. Preserve the existing Story Bible data model and behavior, including novel-package creation, premise and setting editing, creative direction, canon rules, character-card management, location management, and safe novel synchronization.
+- Aim for consistent, dependable text selection and clipboard shortcuts, comfortable scrolling in long text areas and dialogs, resizable windows and layouts, and usable forms, lists, and tables on both desktop monitors and smaller laptop screens.
+- Migrate incrementally and test against existing novel packages. Do not change story content, canon, character-card or location data, manuscript files, or novel repositories as part of a UI-only migration.
+- Keep the current Tkinter application usable until the PySide6 replacement has been tested and verified. The Writer can be migrated separately; the applications do not need to share one window or be released together.
+- Do not begin this modernization as part of unrelated maintenance; it is a future upgrade for when novel work resumes.
+
 ## Purpose
 
 This is the single technical handoff for the separate Story Bible application. The Writer has its own handoff in `WRITER_APP_HANDOFF.md`. Every novel has one separate `HANDOFF_LATEST.md` in that novel's repository.
