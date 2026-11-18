@@ -1,8 +1,8 @@
 # Story Bible App handoff
 
-**Updated:** November 11, 2026  
+**Updated:** November 18, 2026  
 **Repository:** `tony21675/StoryBuilder`  
-**Branch:** `redesign/simplified-writing-workflow` (GitHub default and only branch)  
+**Branch:** `main` (GitHub default and sole working branch)  
 **Local path:** `~/Documents/StoryBuilder`
 
 ## Purpose
@@ -14,7 +14,7 @@ The Story Bible app creates and edits reference data inside a selected novel pac
 ## Launch and synchronization
 
 - Run `cd ~/Documents/StoryBuilder && bash start_story_bible.sh`.
-- The launcher synchronizes the current StoryBuilder branch before opening the app. It fast-forwards only and does not force-push or overwrite diverged local work.
+- The launcher requires the shared StoryBuilder repository to be on `main` and safely synchronizes `origin/main` before opening the app. It fast-forwards only and does not force-push or overwrite diverged local work. Uncommitted local changes are temporarily stashed and restored around the startup sync.
 - The app shares the StoryBuilder code repository and branch with the Writer, but has a separate entry point and launcher.
 - The default novel library is `~/Documents/MyNovel`; `STORY_NOVEL_ROOT` can override it.
 - Novel-to-GitHub synchronization is a separate explicit action from app-code synchronization. It previews the selected novel's repository, branch, remote, and changes, then requires confirmation. It refuses unsafe divergence, unfinished Git operations, and protected local secret/encrypted paths.
@@ -33,6 +33,7 @@ The app does not turn novel facts into global Writer rules. Character cards, rel
 
 ## Safe working boundaries
 
+- Keep StoryBuilder and Story Bible application development, testing, commits, and pushes directly on the shared repository's `main` branch. Do not create or switch to feature/redesign branches. Preserve existing historical branches, but do not use them for active work.
 - Discuss schema or app changes before making them.
 - Do not migrate, flatten, or discard novel-specific fields just because the editor does not have a dedicated control for them.
 - Preserve local changes and inspect Git status before syncing. Never use force-push, hard reset, or overwrite to resolve a sync problem.
