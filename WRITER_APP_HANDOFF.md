@@ -3,7 +3,7 @@
 **Updated:** November 18, 2026  
 **Repository:** `tony21675/StoryBuilder`  
 **Branch:** `main` (GitHub default and sole working branch)  
-**Local path:** `~/Documents/StoryBuilder`
+**Local path:** `~/Projects/StoryBuilder`
 
 ## Future UI modernization (planned, not started)
 
@@ -21,7 +21,7 @@ This is the single technical handoff for the StoryBuilder Writer. The Story Bibl
 
 ## Launch and local requirements
 
-- Run `cd ~/Documents/StoryBuilder && ./start.sh` to launch the Minimal Writer.
+- Run `cd ~/Projects/StoryBuilder && ./start.sh` to launch the Minimal Writer.
 - The launcher requires the local repository to be on `main` and safely synchronizes `origin/main` before opening the app. It fast-forwards only; it does not force-push or resolve diverged history by overwriting local work. Uncommitted local changes are temporarily stashed and restored around the startup sync.
 - Default models directory: `~/Documents/Models` (GGUF files).
 - Default llama.cpp executable: `~/Documents/llama.cpp/build/bin/llama-cli`.
