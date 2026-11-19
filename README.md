@@ -7,21 +7,21 @@ StoryBuilder is being rebuilt piece by piece. The current app keeps local-model 
 From the Linux computer:
 
 ```bash
-cd ~/Documents/StoryBuilder && ./start.sh
+cd ~/Projects/StoryBuilder && ./start.sh
 ```
 
 The launcher synchronizes `main` before starting the app. All StoryBuilder application development, testing, commits, and pushes happen directly on `main`; do not create or switch to feature or redesign branches.
 
 The active Minimal Writer and Prepare Scene paths do not hard-code novel characters, settings, or plot rules. They read novel-specific information from the currently selected package's own Story Bible, character cards, locations, current state, and accepted manuscript. Shared Python prompts provide only general workflow guidance; a novel's special requirements belong in that novel's own files.
 
-After the safe app-code pull, both launchers refresh a separate local mirror of the project handoffs in `~/Documents/Project_Handoff_Backups`. A successful Writer or Story Bible sync of a selected novel refreshes that mirror again. The mirror contains only named Markdown handoff and story-direction files, not manuscripts, model files, credentials, encrypted files, or secret-letter assets. Run `python3 ~/Documents/StoryBuilder/backup_handoffs.py` to refresh it manually. Set `STORY_HANDOFF_BACKUP_DIR` to use a different backup directory. The GitHub repositories remain authoritative; this folder is an independent local safety copy.
+After the safe app-code pull, both launchers refresh a separate local mirror of the project handoffs in `~/Documents/Project_Handoff_Backups`. A successful Writer or Story Bible sync of a selected novel refreshes that mirror again. The mirror contains only named Markdown handoff and story-direction files, not manuscripts, model files, credentials, encrypted files, or secret-letter assets. Run `python3 ~/Projects/StoryBuilder/backup_handoffs.py` to refresh it manually. Set `STORY_HANDOFF_BACKUP_DIR` to use a different backup directory. The GitHub repositories remain authoritative; this folder is an independent local safety copy.
 
 ## App #2: Story Bible
 
 Story Bible is a separate companion app. Start it from the repository folder with:
 
 ```bash
-cd ~/Documents/StoryBuilder && bash start_story_bible.sh
+cd ~/Projects/StoryBuilder && bash start_story_bible.sh
 ```
 
 It currently has two tabs:
