@@ -3,7 +3,7 @@
 **Updated:** November 18, 2026  
 **Repository:** `tony21675/StoryBuilder`  
 **Branch:** `main` (GitHub default and sole working branch)  
-**Local path:** `~/Documents/StoryBuilder`
+**Local path:** `~/Projects/StoryBuilder`
 
 ## Future UI modernization (planned, not started)
 
@@ -24,7 +24,7 @@ The Story Bible app creates and edits reference data inside a selected novel pac
 
 ## Launch and synchronization
 
-- Run `cd ~/Documents/StoryBuilder && bash start_story_bible.sh`.
+- Run `cd ~/Projects/StoryBuilder && bash start_story_bible.sh`.
 - The launcher requires the shared StoryBuilder repository to be on `main` and safely synchronizes `origin/main` before opening the app. It fast-forwards only and does not force-push or overwrite diverged local work. Uncommitted local changes are temporarily stashed and restored around the startup sync.
 - The app shares the StoryBuilder code repository and branch with the Writer, but has a separate entry point and launcher.
 - The default novel library is `~/Documents/MyNovel`; `STORY_NOVEL_ROOT` can override it.
