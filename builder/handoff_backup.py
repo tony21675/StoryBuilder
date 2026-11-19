@@ -14,7 +14,7 @@ These are local mirrors of the current app and novel handoffs plus the separate 
 - Source files remain authoritative in their own project repositories.
 - This folder is an independent local safety copy, not a place to edit primary project records.
 - The mirrors refresh when StoryBuilder starts and after a successful app or selected-novel GitHub sync.
-- You can refresh them manually with: `python3 ~/Documents/StoryBuilder/backup_handoffs.py`
+- You can refresh them manually with: `python3 ~/Projects/StoryBuilder/backup_handoffs.py`
 - Manuscripts, model files, credentials, encrypted files, secret-letter files/references, and other project data are not mirrored by this utility.
 - Refresh removes only two explicitly retired duplicate handoff copies: the old StoryBuilder handoff index and The Long Way Home's former CHAT_HANDOFF filename. It does not prune other project files or folders.
 
