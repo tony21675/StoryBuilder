@@ -30,7 +30,7 @@ The original Tkinter interface remains available through that launcher. A parall
 cd ~/Projects/StoryBuilder && ./start_story_bible_qt.sh
 ```
 
-The Qt launcher uses the project's `.venv` and synchronizes `main` before launching. Install its UI dependency once with `.venv/bin/python -m pip install -r requirements-ui.txt`. The Qt version uses the same Story Bible read/write helpers and novel-package format; it does not convert or rewrite existing novels merely by opening them. The original launcher remains the normal fallback until the Qt interface has passed desktop testing.
+The Qt launcher uses the project's `.venv` and synchronizes `main` before launching. Install its UI dependency once with `.venv/bin/python -m pip install -r requirements-ui.txt`. The PySide6 launcher uses the project's `.venv`. On minimal Ubuntu/Mint installations, Qt may also need the system runtime libraries `libegl1`, `libgl1`, `libxcb-cursor0`, and `libxkbcommon-x11-0`; install them with `sudo apt install libegl1 libgl1 libxcb-cursor0 libxkbcommon-x11-0` if Qt reports a missing shared library. The Qt version uses the same Story Bible read/write helpers and novel-package format; it does not convert or rewrite existing novels merely by opening them. The original launcher remains the normal fallback until the Qt interface has passed desktop testing.
 
 It currently has two tabs:
 
