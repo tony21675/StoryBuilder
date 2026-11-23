@@ -24,6 +24,14 @@ Story Bible is a separate companion app. Start it from the repository folder wit
 cd ~/Projects/StoryBuilder && bash start_story_bible.sh
 ```
 
+The original Tkinter interface remains available through that launcher. A parallel PySide6 version is available for migration testing:
+
+```bash
+cd ~/Projects/StoryBuilder && ./start_story_bible_qt.sh
+```
+
+The Qt launcher uses the project's `.venv` and synchronizes `main` before launching. Install its UI dependency once with `.venv/bin/python -m pip install -r requirements-ui.txt`. The Qt version uses the same Story Bible read/write helpers and novel-package format; it does not convert or rewrite existing novels merely by opening them. The original launcher remains the normal fallback until the Qt interface has passed desktop testing.
+
 It currently has two tabs:
 
 - **Create Novel:** enter a title and optionally customize the folder name. The app creates a new package under the configured novel library (`STORY_NOVEL_ROOT`, default `~/Documents/MyNovel`), with a `story_bible.json` based on the existing template and a `Manuscript/Chapters/` directory. New Story Bibles include empty `premise` and `setting` text fields. It never overwrites an existing destination, initializes Git, or invents story content. The Minimal Writer can discover the new package after **Refresh Novels**.
@@ -82,7 +90,7 @@ By default, StoryBuilder looks for:
 - Models: `~/Documents/Models/*.gguf`
 - llama.cpp executable: `~/Documents/llama.cpp/build/bin/llama-cli`
 
-The paths can be changed through the existing environment variables in `builder/workspace.py`, including `STORY_MODELS_DIR`, `STORY_LLAMA_PATH`, and `STORY_NOVEL_ROOT`.
+The resource root defaults to `~/Documents`, independently of where the StoryBuilder source checkout lives. This keeps Models, MyNovel, and llama.cpp in their existing locations when the repository is stored under `~/Projects`. `STORY_WORKSPACE_ROOT` can override the shared resource root; the more specific `STORY_MODELS_DIR`, `STORY_LLAMA_PATH`, and `STORY_NOVEL_ROOT` variables continue to override individual paths.
 
 The launcher defaults to a 16,384-token context and 4,000 output tokens, configurable with `STORY_WRITER_CONTEXT` and `STORY_WRITER_MAX_TOKENS`.
 

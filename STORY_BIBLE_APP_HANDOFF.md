@@ -5,16 +5,18 @@
 **Branch:** `main` (GitHub default and sole working branch)  
 **Local path:** `~/Projects/StoryBuilder`
 
-## Future UI modernization (planned, not started)
+## PySide6 migration status
 
-When work on the novel applications resumes, plan a gradual migration of the Story Bible interface from Tkinter to **PySide6**, using Vape Recipe Studio as the desktop usability and design reference.
+The first PySide6 Story Bible implementation has been added alongside the existing Tkinter app. It is an independent entry point and does not replace the original launcher yet.
 
-- Keep Story Bible and the Writer as separate applications. This is a shared UI toolkit and visual-standard decision, not a plan to combine them into one program.
-- Replace the Tkinter presentation layer only after the PySide6 version is ready. Preserve the existing Story Bible data model and behavior, including novel-package creation, premise and setting editing, creative direction, canon rules, character-card management, location management, and safe novel synchronization.
-- Aim for consistent, dependable text selection and clipboard shortcuts, comfortable scrolling in long text areas and dialogs, resizable windows and layouts, and usable forms, lists, and tables on both desktop monitors and smaller laptop screens.
-- Migrate incrementally and test against existing novel packages. Do not change story content, canon, character-card or location data, manuscript files, or novel repositories as part of a UI-only migration.
-- Keep the current Tkinter application usable until the PySide6 replacement has been tested and verified. The Writer can be migrated separately; the applications do not need to share one window or be released together.
-- Do not begin this modernization as part of unrelated maintenance; it is a future upgrade for when novel work resumes.
+- Launch the parallel Qt version with `cd ~/Projects/StoryBuilder && ./start_story_bible_qt.sh`.
+- Install the UI dependency into the StoryBuilder virtual environment with `.venv/bin/python -m pip install -r requirements-ui.txt`. The pinned UI version is PySide6 6.12.0.
+- The Qt window includes Create Novel and View Story Bible, field-only premise/setting/writing-preferences saves, creative-direction editing, canon rules, character-card management, location management, and explicit novel-to-GitHub synchronization.
+- Character and location editors retain unrecognized and nested fields when untouched. Removing a character reference does not delete its source JSON file. The selected-novel sync preview remains confirmation-gated and continues to refuse unsafe divergence, unfinished Git operations, and protected local secret/encrypted paths.
+- The PySide6 app uses the existing Story Bible reader/writer helpers and existing novel package format. Opening or viewing a novel does not perform a schema migration or rewrite its files.
+- The existing Tkinter entry point and `start_story_bible.sh` remain intact as a fallback. Do not switch the normal launcher until the Qt app passes graphical smoke testing on the desktop and feature parity has been checked against a real, non-test novel.
+- The Writer remains on Tkinter for the next migration stage. Keep it a separate application; do not combine the two windows or change Writer model/prompt behavior during the Story Bible port.
+- The Qt regression tests run with `QT_QPA_PLATFORM=offscreen` and are included in the GitHub test workflows. Passing automated tests does not replace the author's live visual and workflow test on the mini PC.
 
 ## Purpose
 

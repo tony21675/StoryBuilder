@@ -5,8 +5,12 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+
+# Personal writing resources live in Documents, independently of the source
+# checkout location. STORY_WORKSPACE_ROOT remains the single override for users
+# who keep Models, MyNovel, and llama.cpp together somewhere else.
 WORKSPACE_ROOT = Path(
-    os.environ.get("STORY_WORKSPACE_ROOT", str(REPO_ROOT.parent))
+    os.environ.get("STORY_WORKSPACE_ROOT", str(Path.home() / "Documents"))
 ).expanduser().resolve()
 
 MODELS_DIR = Path(
@@ -23,7 +27,6 @@ LLAMA = Path(
 NOVEL_ROOT = Path(
     os.environ.get("STORY_NOVEL_ROOT", str(WORKSPACE_ROOT / "MyNovel"))
 ).expanduser().resolve()
-
 
 
 def find_novel_packages(novel_root: Path | None = None) -> list[Path]:

@@ -5,15 +5,14 @@
 **Branch:** `main` (GitHub default and sole working branch)  
 **Local path:** `~/Projects/StoryBuilder`
 
-## Future UI modernization (planned, not started)
+## UI migration status
 
-When work on the novel applications resumes, plan a gradual migration of the Writer interface from Tkinter to **PySide6**, using Vape Recipe Studio as the desktop usability and design reference.
+The Story Bible is the first of the two novel-app interfaces being migrated to PySide6. Its Qt version is being tested alongside the existing Tkinter version. The Writer remains on Tkinter until the Story Bible port has passed desktop testing.
 
-- Keep the Writer and Story Bible as separate applications. This is a shared UI toolkit and visual-standard decision, not a plan to combine them into one program.
-- Replace the Tkinter presentation layer only after the PySide6 version is ready. Preserve the existing Writer engine and workflows, including Qwen scene planning, Gemma prose generation, author-required beats, scene-cast boundaries, prompt tracing, model preferences, novel browsing, and safe novel synchronization.
-- Aim for consistent, dependable text selection and clipboard shortcuts, comfortable scrolling in long passages and dialogs, resizable windows and layouts, and usable forms, lists, and tables on both desktop monitors and smaller laptop screens.
-- Migrate incrementally and test each workflow against existing novel packages. Do not change story content, canon, manuscript formats, model configuration, prompt behavior, or novel data as part of a UI-only migration.
-- Keep the current Tkinter application usable until the PySide6 replacement has been tested and verified. Do not begin this modernization as part of unrelated maintenance; it is a future upgrade for when novel work resumes.
+- Keep the Writer and Story Bible as separate applications. They may share PySide6 theme and utility components, but must not be combined into one window.
+- The future Writer port must preserve the existing WriterEngine and workflows, including Qwen scene planning, Gemma prose generation, author-required beats, scene-cast boundaries, prompt tracing, model preferences, novel browsing, ODT/TXT editing, and safe novel synchronization.
+- Do not change story content, canon, manuscript formats, model configuration, prompt behavior, or novel data as part of a UI-only migration.
+- Keep `minimal_writer.py` and its existing launcher usable until a PySide6 Writer replacement has been tested and verified. Do not change Writer behavior as part of the Story Bible migration.
 
 ## Purpose
 

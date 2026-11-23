@@ -6,12 +6,12 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class ShellSyncTests(unittest.TestCase):
-    def test_sync_uses_current_development_branch_and_blocks_main(self):
+    def test_sync_requires_main_as_the_only_working_branch(self):
         script = (ROOT / "sync.sh").read_text(encoding="utf-8")
 
         self.assertIn('BRANCH="$(git branch --show-current)"', script)
-        self.assertIn('if [[ "$BRANCH" == "main" ]]', script)
-        self.assertNotIn('if [[ "$BRANCH" != "main" ]]', script)
+        self.assertIn('if [[ "$BRANCH" != "main" ]]', script)
+        self.assertNotIn('if [[ "$BRANCH" == "main" ]]', script)
         self.assertIn('UPSTREAM="$(git rev-parse --abbrev-ref --symbolic-full-name', script)
         self.assertIn('git pull --ff-only "$REMOTE" "$BRANCH"', script)
         self.assertNotIn("git pull --rebase", script)
