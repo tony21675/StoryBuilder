@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sys
 import threading
 from pathlib import Path
@@ -34,9 +35,12 @@ from builder.continuity_context import select_relevant_locations
 from builder.writer_continuity import build_previous_scene_context_prompt
 from builder.odt_document import read_document, save_document
 from builder.manuscript_assembly import assemble_chapter as assemble_chapter_document, assemble_finished_novel as assemble_finished_novel_document
+from builder.prompt_trace import PromptTrace, load_prompt_trace_enabled
+from builder.prompt_trace_sync import upload_prompt_trace
 from minimal_writer import (
     load_model_for_writing, write_from_prompt, build_author_required_direction_prompt,
     build_single_scene_scope_prompt, build_rewrite_scene_prompt, build_continue_prompt,
+    resolve_generation_scene_destination,
 )
 
 
@@ -112,6 +116,14 @@ class WriterQtWindow(QMainWindow):
         self.busy = False
         self.worker: TaskWorker | None = None
         self._streamed = False
+        self._pending_scene_prompt_trace = None
+        self._active_scene_preparation_trace = None
+        self._prepared_author_required_direction = ""
+        self._scene_preparation_original_prompt = ""
+        self._scene_preparation_original_author_direction = ""
+        self._scene_preparation_required_author_direction = ""
+        self._last_prompt_trace_path = None
+        self._last_prompt_trace_upload_result = None
 
         self._build_ui()
         self.refresh_models()
@@ -362,23 +374,31 @@ class WriterQtWindow(QMainWindow):
         self.update_controls()
 
     def task_failed(self, message: str):
+        if getattr(self, "_task_kind", "") == "prepare":
+            self._discard_scene_prompt_trace(self._active_scene_preparation_trace)
+            self._active_scene_preparation_trace = None
         if getattr(self, "_task_kind", "") == "write":
             if getattr(self, "_generation_mode", "") == "rewrite":
                 self.output_editor.setPlainText(getattr(self, "_generation_original", ""))
             elif not self._streamed:
                 self.output_editor.setPlainText(getattr(self, "_generation_original", ""))
         self.busy = False
-        self.status.setText("Task failed. Existing saved files were not changed.")
+        trace_note = self._prompt_trace_status_note() if getattr(self, "_task_kind", "") == "write" else ""
+        self.status.setText("Task failed. Existing saved files were not changed." + trace_note)
         self.update_controls()
         self.error("StoryBuilder task failed", message)
 
     def task_interrupted(self):
+        if getattr(self, "_task_kind", "") == "prepare":
+            self._discard_scene_prompt_trace(self._active_scene_preparation_trace)
+            self._active_scene_preparation_trace = None
         if getattr(self, "_task_kind", "") == "write" and getattr(self, "_generation_mode", "") == "rewrite":
             self.output_editor.setPlainText(getattr(self, "_generation_original", ""))
         self.busy = False
         self.loaded_model = None
         self.model_status.setText("Stopped. Model will reload on the next task.")
-        self.status.setText("Stopped. Any streamed partial text remains in the editor.")
+        trace_note = self._prompt_trace_status_note() if getattr(self, "_task_kind", "") == "write" else ""
+        self.status.setText("Stopped. Any streamed partial text remains in the editor." + trace_note)
         self.update_controls()
 
     def worker_finished(self):
@@ -403,6 +423,8 @@ class WriterQtWindow(QMainWindow):
         self.on_novel_changed(self.novel_picker.currentText())
 
     def on_novel_changed(self, name: str):
+        self._discard_scene_prompt_trace()
+        self._prepared_author_required_direction = ""
         self.scene_cast = None
         self.scene_cast_novel = None
         self.scene_cast_destination = None
@@ -470,6 +492,229 @@ class WriterQtWindow(QMainWindow):
         )
         return novel_name, novel_path, target_chapter, target_scene, source_scene, retry
 
+    def _discard_scene_prompt_trace(self, trace=None):
+        """Detach an unused trace without saving or uploading it."""
+        if trace is None:
+            trace = self._active_scene_preparation_trace or self._pending_scene_prompt_trace
+        if trace is None:
+            return
+        try:
+            self.engine.detach_prompt_trace(trace)
+        except Exception:
+            pass
+        if self._active_scene_preparation_trace is trace:
+            self._active_scene_preparation_trace = None
+        if self._pending_scene_prompt_trace is trace:
+            self._pending_scene_prompt_trace = None
+
+    def _start_prompt_trace(
+        self,
+        prompt: str,
+        model_path: str | Path | None = None,
+        *,
+        attach: bool = False,
+        chapter_number: int | None = None,
+        scene_number: int | None = None,
+        scene_direction: str | None = None,
+        author_guidance: str | None = None,
+        role: str = "scene_writer",
+    ):
+        """Create the same one-scene trace used by the established Writer."""
+        try:
+            if not load_prompt_trace_enabled():
+                return None
+        except Exception:
+            return None
+
+        novel_path = self.novel_packages.get(self.novel_picker.currentText())
+        selected_chapter = chapter_number
+        if selected_chapter is None:
+            selected_chapter = self.chapter_numbers.get(self.chapter_picker.currentText(), 1)
+        selected_scene = scene_number
+        if selected_scene is None:
+            selected_scene = scene_number_from_label(self.scene_picker.currentText()) or 1
+
+        current_state = {}
+        reference_files = []
+        if novel_path is not None:
+            for filename in ("story_bible.json", "current_state.json"):
+                reference_path = Path(novel_path) / filename
+                try:
+                    content = reference_path.read_text(encoding="utf-8")
+                except (OSError, UnicodeError):
+                    continue
+                reference_files.append((filename, content))
+                if filename == "current_state.json":
+                    try:
+                        parsed = json.loads(content)
+                    except (TypeError, ValueError):
+                        parsed = {}
+                    if isinstance(parsed, dict):
+                        current_state = parsed
+
+        captured_direction = (
+            scene_direction
+            if scene_direction is not None
+            else self.prompt_editor.toPlainText()
+            if hasattr(self, "prompt_editor")
+            else str(prompt or "")
+        )
+        captured_author = (
+            author_guidance
+            if author_guidance is not None
+            else self.author_direction.toPlainText().strip()
+            if hasattr(self, "author_direction")
+            else ""
+        )
+        try:
+            requested_model = (
+                str(model_path)
+                if is_openrouter_selection(model_path)
+                else Path(model_path).expanduser().resolve()
+                if model_path is not None
+                else getattr(self.engine, "model_path", None)
+            )
+            trace = PromptTrace(
+                chapter=int(selected_chapter or 1),
+                scene=int(selected_scene or 1),
+                model_path=requested_model,
+                current_state=current_state,
+                reference_files=reference_files,
+                contract={},
+                scene_direction=captured_direction,
+                author_guidance=captured_author,
+                system_prompt="" if model_path is not None else self.engine.system_prompt,
+            )
+        except Exception:
+            return None
+
+        if attach:
+            try:
+                self.engine.attach_prompt_trace(trace, role=role)
+            except Exception:
+                return None
+        return trace
+
+    def _finish_prompt_trace(self, trace, *, status: str, error: str | None = None) -> None:
+        self._last_prompt_trace_upload_result = None
+        if trace is None:
+            return
+        saved_path = None
+        try:
+            saved_path = trace.finish(status=status, error=error)
+        except Exception:
+            saved_path = None
+        self._last_prompt_trace_path = str(saved_path) if saved_path else None
+        if saved_path:
+            try:
+                self._last_prompt_trace_upload_result = upload_prompt_trace(saved_path)
+            except Exception as exc:
+                self._last_prompt_trace_upload_result = {
+                    "ok": False,
+                    "error": str(exc)[:700],
+                }
+        try:
+            self.engine.detach_prompt_trace(trace)
+        except Exception:
+            pass
+
+    def _claim_prepared_scene_prompt_trace(
+        self, mode: str, expected_destination: tuple[int, int] | None
+    ):
+        """Reuse a Planner trace only for the same novel and destination scene."""
+        trace = self._pending_scene_prompt_trace
+        if trace is None:
+            return None
+        try:
+            tracing_enabled = load_prompt_trace_enabled()
+        except Exception:
+            tracing_enabled = False
+        if not tracing_enabled:
+            self._discard_scene_prompt_trace(trace)
+            return None
+
+        current_path = self.novel_packages.get(self.novel_picker.currentText())
+        prepared_path = self.prepared_novel
+        try:
+            same_novel = (
+                current_path is not None
+                and prepared_path is not None
+                and Path(current_path).expanduser().resolve()
+                == Path(prepared_path).expanduser().resolve()
+            )
+        except (OSError, TypeError, ValueError):
+            same_novel = False
+        if (
+            not same_novel
+            or expected_destination is None
+            or self.prepared_destination != expected_destination
+        ):
+            self._discard_scene_prompt_trace(trace)
+            return None
+
+        self._pending_scene_prompt_trace = None
+        trace.record_event(
+            "prepared_direction_sent_to_writer",
+            generation_mode=str(mode),
+            final_scene_direction=self.prompt_editor.toPlainText(),
+            final_author_guidance=self.author_direction.toPlainText().strip(),
+            final_author_required_direction=self._prepared_author_required_direction_for_current_scene(
+                expected_destination
+            ),
+        )
+        return trace
+
+    def _prepared_author_required_direction_for_current_scene(
+        self, expected_destination: tuple[int, int] | None = None
+    ) -> str:
+        direction = str(self._prepared_author_required_direction or "").strip()
+        if not direction or self.prepared_novel is None or self.prepared_destination is None:
+            return ""
+        if expected_destination is None:
+            chapter = self.chapter_numbers.get(self.chapter_picker.currentText())
+            scene = scene_number_from_label(self.scene_picker.currentText())
+            expected_destination = (chapter, scene) if chapter and scene else None
+        current_path = self.novel_packages.get(self.novel_picker.currentText())
+        try:
+            if (
+                current_path is None
+                or expected_destination != self.prepared_destination
+                or Path(current_path).expanduser().resolve()
+                != Path(self.prepared_novel).expanduser().resolve()
+            ):
+                return ""
+        except (OSError, TypeError, ValueError):
+            return ""
+        return direction
+
+    def _author_required_direction_for_current_scene(
+        self, expected_destination: tuple[int, int] | None = None
+    ) -> str:
+        directions = []
+        for direction in (
+            self._prepared_author_required_direction_for_current_scene(expected_destination),
+            self.author_direction.toPlainText().strip(),
+        ):
+            if direction and direction not in directions:
+                directions.append(direction)
+        return "\n\n".join(directions)
+
+    def _prompt_trace_status_note(self) -> str:
+        notes = []
+        if self._last_prompt_trace_path:
+            notes.append(f"Prompt trace saved locally: {self._last_prompt_trace_path}.")
+        result = self._last_prompt_trace_upload_result
+        if isinstance(result, dict):
+            if result.get("ok"):
+                notes.append("Latest trace uploaded to the private GitHub trace repository.")
+            else:
+                detail = str(result.get("error") or "Unknown upload error").strip()
+                notes.append(
+                    "Private GitHub trace upload failed; the local trace is retained. "
+                    + detail
+                )
+        return (" " + " ".join(notes)) if notes else ""
+
     def prepare_scene(self):
         if self.busy:
             return
@@ -509,13 +754,77 @@ class WriterQtWindow(QMainWindow):
         except Exception as exc:
             self.error("Could not prepare scene", str(exc))
             return
+
+        pending_trace = self._pending_scene_prompt_trace
+        try:
+            can_extend_pending_trace = (
+                pending_trace is not None
+                and self.prepared_destination == (chapter, scene)
+                and self.prepared_novel is not None
+                and Path(self.prepared_novel).expanduser().resolve() == path.resolve()
+            )
+        except (OSError, TypeError, ValueError):
+            can_extend_pending_trace = False
+        if can_extend_pending_trace:
+            planner_trace = pending_trace
+            self._pending_scene_prompt_trace = None
+        else:
+            self._discard_scene_prompt_trace()
+            planner_trace = self._start_prompt_trace(
+                prompt,
+                model_path=planner,
+                attach=False,
+                chapter_number=chapter,
+                scene_number=scene,
+                scene_direction=old_prompt,
+                author_guidance=author,
+            )
+        self._active_scene_preparation_trace = planner_trace
+        if planner_trace is not None:
+            planner_trace.record_event(
+                "scene_preparation_attempt_started",
+                target_chapter=chapter,
+                target_scene=scene,
+                retry=bool(retry),
+                source_scene=Path(source).name if source else None,
+                author_direction=author,
+            )
+        self._scene_preparation_original_prompt = old_prompt
+        self._scene_preparation_original_author_direction = self.author_direction.toPlainText().strip()
+        self._scene_preparation_required_author_direction = author
         self._pending_planner_author = author
         self._pending_target = (chapter, scene)
+
         def work(_emit):
-            if self.loaded_model != planner or not self._engine_ready():
-                load_model_for_writing(self.engine, planner)
-                self.loaded_model = planner
-            return write_from_prompt(self.engine, prompt).strip()
+            trace_attached = False
+            try:
+                if self.loaded_model != planner or not self._engine_ready():
+                    load_model_for_writing(self.engine, planner)
+                    self.loaded_model = planner
+                if planner_trace is not None:
+                    try:
+                        self.engine.attach_prompt_trace(planner_trace, role="scene_planner")
+                        trace_attached = True
+                    except Exception as exc:
+                        planner_trace.record_event(
+                            "trace_attach_failed", role="scene_planner", error=str(exc)
+                        )
+                suggestion = write_from_prompt(self.engine, prompt).strip()
+                try:
+                    self.engine.clear_context()
+                except Exception as exc:
+                    if planner_trace is not None:
+                        planner_trace.record_event(
+                            "planner_context_reset_failed", error=str(exc)
+                        )
+                return suggestion
+            finally:
+                if trace_attached:
+                    try:
+                        self.engine.detach_prompt_trace(planner_trace)
+                    except Exception:
+                        pass
+
         self._task_kind = "prepare"
         self.run_task(work, label=f"Preparing Chapter {chapter:02d}, Scene {scene:02d} with Planner…")
 
@@ -529,7 +838,7 @@ class WriterQtWindow(QMainWindow):
     def _writer_context(self, prompt: str, profile: str):
         if profile == "minimal":
             prompt = build_scene_cast_boundary_prompt(prompt, self._active_cast())
-            prompt = build_author_required_direction_prompt(prompt, self.author_direction.toPlainText())
+            prompt = build_author_required_direction_prompt(prompt, self._author_required_direction_for_current_scene())
             chapter = self.chapter_numbers.get(self.chapter_picker.currentText())
             scene = scene_number_from_label(self.scene_picker.currentText())
             return build_single_scene_scope_prompt(prompt, chapter, scene)
@@ -549,7 +858,7 @@ class WriterQtWindow(QMainWindow):
         references = build_story_bible_reference_context(bible, comprehensive=comprehensive)
         if references:
             sections.append(references)
-        supporting = prompt + "\n" + self.author_direction.toPlainText()
+        supporting = prompt + "\n" + self._author_required_direction_for_current_scene()
         character_context = build_character_card_context_prompt(
             path, bible, "", supporting_text=supporting,
             include_all=comprehensive and self._active_cast() is None,
@@ -576,7 +885,7 @@ class WriterQtWindow(QMainWindow):
             except Exception:
                 pass
         prompt = build_scene_cast_boundary_prompt("\n\n".join(sections), self._active_cast())
-        prompt = build_author_required_direction_prompt(prompt, self.author_direction.toPlainText())
+        prompt = build_author_required_direction_prompt(prompt, self._author_required_direction_for_current_scene())
         chapter = self.chapter_numbers.get(self.chapter_picker.currentText())
         scene = scene_number_from_label(self.scene_picker.currentText())
         return build_single_scene_scope_prompt(prompt, chapter, scene)
@@ -631,6 +940,33 @@ class WriterQtWindow(QMainWindow):
         if writer is None:
             self.info("Choose a writing model", "Select the manuscript-writing model.")
             return
+        chapter = self.chapter_numbers.get(self.chapter_picker.currentText())
+        scene_label = self.scene_picker.currentText()
+        destination = resolve_generation_scene_destination(prompt, chapter, scene_label)
+        required_author_direction = self._author_required_direction_for_current_scene(destination)
+        self._last_prompt_trace_path = None
+        self._last_prompt_trace_upload_result = None
+        prompt_trace = self._claim_prepared_scene_prompt_trace(mode, destination)
+        if prompt_trace is None:
+            prompt_trace = self._start_prompt_trace(
+                prompt,
+                model_path=writer,
+                attach=False,
+                chapter_number=destination[0] if destination else chapter,
+                scene_number=destination[1] if destination else scene_number_from_label(scene_label),
+                author_guidance=required_author_direction,
+            )
+        if prompt_trace is not None:
+            prompt_trace.record_event(
+                "writer_generation_attempt_started",
+                generation_mode=str(mode),
+                writer_prompt_characters=len(prompt),
+                destination=(
+                    {"chapter": destination[0], "scene": destination[1]}
+                    if destination else None
+                ),
+            )
+
         original = self.output_editor.toPlainText()
         if mode == "continue":
             prefix = original if original.endswith("\n\n") else original + ("\n" if original.endswith("\n") else "\n\n")
@@ -642,12 +978,34 @@ class WriterQtWindow(QMainWindow):
         self._generation_original = original
         self._generation_mode = mode
         def work(emit):
-            if self.loaded_model != writer or not self._engine_ready():
-                load_model_for_writing(self.engine, writer)
-                self.loaded_model = writer
-            if mode == "rewrite":
-                self.engine.clear_context()
-            return write_from_prompt(self.engine, prompt, on_delta=emit)
+            trace_status = "completed"
+            trace_error = None
+            try:
+                if self.loaded_model != writer or not self._engine_ready():
+                    load_model_for_writing(self.engine, writer)
+                    self.loaded_model = writer
+                if prompt_trace is not None:
+                    try:
+                        self.engine.attach_prompt_trace(prompt_trace, role="scene_writer")
+                    except Exception as exc:
+                        prompt_trace.record_event(
+                            "trace_attach_failed", role="scene_writer", error=str(exc)
+                        )
+                if mode == "rewrite":
+                    self.engine.clear_context()
+                return write_from_prompt(self.engine, prompt, on_delta=emit)
+            except GenerationInterrupted as exc:
+                trace_status = "interrupted"
+                trace_error = str(exc)
+                raise
+            except Exception as exc:
+                trace_status = "failed"
+                trace_error = str(exc)
+                raise
+            finally:
+                self._finish_prompt_trace(
+                    prompt_trace, status=trace_status, error=trace_error
+                )
         self._task_kind = "write"
         self.run_task(work, streaming=True, label=f"{mode.title()} with {writer}…")
 
@@ -657,16 +1015,44 @@ class WriterQtWindow(QMainWindow):
             self.model_status.setText(f"Loaded: {result}")
             self.status.setText("Writing model loaded and ready.")
         elif kind == "prepare":
-            suggestion = apply_author_required_beats(str(result or ""), getattr(self, "_pending_planner_author", ""))
-            self.prompt_editor.setPlainText(suggestion)
-            chapter, scene = self._pending_target
-            self.prepared_destination = (chapter, scene)
-            self.prepared_novel = self.novel_packages.get(self.novel_picker.currentText())
-            self.prepared_source = self.scene_files.get(self.scene_picker.currentText())
-            self._select_destination(chapter, scene)
-            self.status.setText(f"Prepared Chapter {chapter:02d}, Scene {scene:02d}. Review the direction, then press Write.")
+            current_prompt = self.prompt_editor.toPlainText()
+            current_author = self.author_direction.toPlainText().strip()
+            if (
+                current_prompt != self._scene_preparation_original_prompt
+                or current_author != self._scene_preparation_original_author_direction
+            ):
+                self._discard_scene_prompt_trace(self._active_scene_preparation_trace)
+                self._active_scene_preparation_trace = None
+                self.status.setText(
+                    "The prompt or Author's Direction changed during preparation. "
+                    "Your edits were kept; prepare again to get a new suggestion."
+                )
+            else:
+                suggestion = apply_author_required_beats(
+                    str(result or ""), self._pending_planner_author
+                )
+                self.prompt_editor.setPlainText(suggestion)
+                chapter, scene = self._pending_target
+                self.prepared_destination = (chapter, scene)
+                self.prepared_novel = self.novel_packages.get(self.novel_picker.currentText())
+                self.prepared_source = self.scene_files.get(self.scene_picker.currentText())
+                self._prepared_author_required_direction = (
+                    self._scene_preparation_required_author_direction
+                )
+                self._select_destination(chapter, scene)
+                self._pending_scene_prompt_trace = self._active_scene_preparation_trace
+                self._active_scene_preparation_trace = None
+                self.status.setText(
+                    f"Prepared Chapter {chapter:02d}, Scene {scene:02d}. "
+                    "Review the direction, then press Write."
+                )
+        elif kind == "write":
+            self.status.setText(
+                "Generation finished. Review and edit the draft before saving."
+                + self._prompt_trace_status_note()
+            )
         else:
-            self.status.setText("Generation finished. Review and edit the draft before saving.")
+            self.status.setText("Task finished.")
         self.busy = False
         self.update_controls()
 
