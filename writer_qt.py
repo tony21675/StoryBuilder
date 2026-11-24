@@ -34,7 +34,10 @@ from builder.continuity_context import select_relevant_locations
 from builder.writer_continuity import build_previous_scene_context_prompt
 from builder.odt_document import read_document, save_document
 from builder.manuscript_assembly import assemble_chapter as assemble_chapter_document, assemble_finished_novel as assemble_finished_novel_document
-from minimal_writer import load_model_for_writing, write_from_prompt
+from minimal_writer import (
+    load_model_for_writing, write_from_prompt, build_author_required_direction_prompt,
+    build_single_scene_scope_prompt, build_rewrite_scene_prompt, build_continue_prompt,
+)
 
 
 class TaskWorker(QThread):
@@ -522,7 +525,11 @@ class WriterQtWindow(QMainWindow):
 
     def _writer_context(self, prompt: str, profile: str):
         if profile == "minimal":
-            return build_scene_cast_boundary_prompt(prompt, self._active_cast())
+            prompt = build_scene_cast_boundary_prompt(prompt, self._active_cast())
+            prompt = build_author_required_direction_prompt(prompt, self.author_direction.toPlainText())
+            chapter = self.chapter_numbers.get(self.chapter_picker.currentText())
+            scene = scene_number_from_label(self.scene_picker.currentText())
+            return build_single_scene_scope_prompt(prompt, chapter, scene)
         name = self.novel_picker.currentText()
         path = self.novel_packages.get(name)
         if path is None:
@@ -562,7 +569,11 @@ class WriterQtWindow(QMainWindow):
                     sections.append(prior)
             except Exception:
                 pass
-        return build_scene_cast_boundary_prompt("\n\n".join(sections), self._active_cast())
+        prompt = build_scene_cast_boundary_prompt("\n\n".join(sections), self._active_cast())
+        prompt = build_author_required_direction_prompt(prompt, self.author_direction.toPlainText())
+        chapter = self.chapter_numbers.get(self.chapter_picker.currentText())
+        scene = scene_number_from_label(self.scene_picker.currentText())
+        return build_single_scene_scope_prompt(prompt, chapter, scene)
 
     def _active_cast(self):
         path = self.novel_packages.get(self.novel_picker.currentText())
@@ -596,7 +607,8 @@ class WriterQtWindow(QMainWindow):
             return
         if not self.confirm("Rewrite current scene?", "The output editor will be replaced only after you confirm. Saved manuscript files are not changed."):
             return
-        self._start_generation(self._writer_context(prompt + "\n\nRewrite the scene as a fresh attempt. Follow the direction and author-required beats.", "balanced"), "rewrite")
+        rewrite_prompt = build_rewrite_scene_prompt(prompt, self.author_direction.toPlainText())
+        self._start_generation(self._writer_context(rewrite_prompt, "balanced"), "rewrite")
 
     def continue_writing(self):
         if self.busy:
@@ -605,7 +617,7 @@ class WriterQtWindow(QMainWindow):
         if not old.strip():
             self.info("Nothing to continue", "Write or open a passage first.")
             return
-        prompt = "Continue the current passage. Write only new material without repeating it. Develop the moment over several connected paragraphs.\n\nCURRENT PASSAGE:\n" + old
+        prompt = build_continue_prompt(old)
         self._start_generation(self._writer_context(prompt, "balanced"), "continue")
 
     def _start_generation(self, prompt: str, mode: str):
