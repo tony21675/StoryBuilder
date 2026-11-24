@@ -395,7 +395,10 @@ class WriterQtWindow(QMainWindow):
         self.novel_picker.blockSignals(True)
         self.novel_picker.clear()
         self.novel_picker.addItems(list(self.novel_packages))
-        self.novel_picker.setCurrentText(previous if previous in self.novel_packages else "")
+        if previous in self.novel_packages:
+            self.novel_picker.setCurrentText(previous)
+        else:
+            self.novel_picker.setCurrentIndex(-1)
         self.novel_picker.blockSignals(False)
         self.on_novel_changed(self.novel_picker.currentText())
 
