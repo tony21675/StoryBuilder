@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
     QApplication, QComboBox, QDialog, QDialogButtonBox, QFileDialog,
     QHBoxLayout, QLabel, QListWidget, QListWidgetItem, QMainWindow,
     QMessageBox, QPlainTextEdit, QPushButton, QSplitter, QVBoxLayout,
-    QWidget, QGroupBox, QFormLayout, QInputDialog
+    QWidget, QGroupBox, QFormLayout, QInputDialog, QTabWidget
 )
 
 from builder.qt_theme import apply_qt_theme
@@ -37,9 +37,11 @@ from builder.odt_document import read_document, save_document
 from builder.manuscript_assembly import assemble_chapter as assemble_chapter_document, assemble_finished_novel as assemble_finished_novel_document
 from builder.prompt_trace import PromptTrace, load_prompt_trace_enabled
 from builder.prompt_trace_sync import upload_prompt_trace
+from builder.prose_health import analyze_draft, format_draft_health_report
 from minimal_writer import (
     load_model_for_writing, write_from_prompt, build_author_required_direction_prompt,
     build_single_scene_scope_prompt, build_rewrite_scene_prompt, build_continue_prompt,
+    build_revision_prompt, build_location_context_prompt,
     resolve_generation_scene_destination,
 )
 
@@ -91,6 +93,105 @@ class SceneCastDialog(QDialog):
         return [item.text() for item in self.list_widget.selectedItems()]
 
 
+
+
+class RevisionRequestDialog(QDialog):
+    """Collect either AI revision instructions or exact replacement wording."""
+
+    def __init__(self, selected_text: str, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Revise Selected Passage")
+        self.resize(760, 620)
+        layout = QVBoxLayout(self)
+        layout.addWidget(QLabel("Selected passage (the source remains unchanged until you approve a revision):"))
+        self.source_editor = QPlainTextEdit()
+        self.source_editor.setPlainText(selected_text)
+        self.source_editor.setReadOnly(True)
+        self.source_editor.setMaximumHeight(130)
+        layout.addWidget(self.source_editor)
+
+        self.tabs = QTabWidget()
+        ai_panel = QWidget()
+        ai_layout = QVBoxLayout(ai_panel)
+        ai_layout.addWidget(QLabel("Describe the changes you want. The AI will revise only this passage."))
+        self.instruction_editor = QPlainTextEdit()
+        self.instruction_editor.setPlaceholderText("Describe the revision...")
+        ai_layout.addWidget(self.instruction_editor, 1)
+        replace_panel = QWidget()
+        replace_layout = QVBoxLayout(replace_panel)
+        replace_layout.addWidget(QLabel("Enter exact replacement text. Leave it empty to delete the selected passage."))
+        self.replacement_editor = QPlainTextEdit()
+        self.replacement_editor.setPlainText(selected_text)
+        replace_layout.addWidget(self.replacement_editor, 1)
+        self.tabs.addTab(ai_panel, "Revise with AI")
+        self.tabs.addTab(replace_panel, "Replace with Exact Text")
+        layout.addWidget(self.tabs, 1)
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.button(QDialogButtonBox.StandardButton.Ok).setText("Preview")
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+
+    @property
+    def use_ai(self) -> bool:
+        return self.tabs.currentIndex() == 0
+
+    def instruction(self) -> str:
+        return self.instruction_editor.toPlainText().strip()
+
+    def replacement(self) -> str:
+        return self.replacement_editor.toPlainText()
+
+
+class RevisionReviewDialog(QDialog):
+    """Let the author edit and approve a proposed replacement before insertion."""
+
+    def __init__(self, original: str, proposed: str, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Review Passage Change")
+        self.resize(820, 680)
+        layout = QVBoxLayout(self)
+        layout.addWidget(QLabel("Original passage"))
+        self.original_editor = QPlainTextEdit()
+        self.original_editor.setPlainText(original)
+        self.original_editor.setReadOnly(True)
+        self.original_editor.setMaximumHeight(160)
+        layout.addWidget(self.original_editor)
+        layout.addWidget(QLabel("Proposed replacement (make any final edits before applying)"))
+        self.proposal_editor = QPlainTextEdit()
+        self.proposal_editor.setPlainText(proposed)
+        layout.addWidget(self.proposal_editor, 1)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.button(QDialogButtonBox.StandardButton.Save).setText("Use Revision")
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+
+    def proposed_text(self) -> str:
+        return self.proposal_editor.toPlainText()
+
+
+class DraftReportDialog(QDialog):
+    """Show advisory findings in a selectable, copyable, scrollable viewer."""
+
+    def __init__(self, report: str, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Draft Check")
+        self.resize(760, 580)
+        layout = QVBoxLayout(self)
+        editor = QPlainTextEdit()
+        editor.setReadOnly(True)
+        editor.setPlainText(report)
+        layout.addWidget(editor, 1)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok)
+        buttons.accepted.connect(self.accept)
+        layout.addWidget(buttons)
+
 class WriterQtWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -124,6 +225,10 @@ class WriterQtWindow(QMainWindow):
         self._scene_preparation_required_author_direction = ""
         self._last_prompt_trace_path = None
         self._last_prompt_trace_upload_result = None
+        self._revision_document = ""
+        self._revision_start = 0
+        self._revision_end = 0
+        self._revision_original = ""
 
         self._build_ui()
         self.refresh_models()
@@ -201,7 +306,13 @@ class WriterQtWindow(QMainWindow):
         output_panel = QWidget()
         output_layout = QVBoxLayout(output_panel)
         output_layout.setContentsMargins(0, 0, 0, 0)
-        output_layout.addWidget(QLabel("Output (editable manuscript)"))
+        output_header = QHBoxLayout()
+        output_header.addWidget(QLabel("Output (editable manuscript)"), 1)
+        self.revise_button = QPushButton("Revise Selection")
+        self.check_draft_button = QPushButton("Check Draft")
+        output_header.addWidget(self.check_draft_button)
+        output_header.addWidget(self.revise_button)
+        output_layout.addLayout(output_header)
         self.output_editor = QPlainTextEdit()
         self.output_editor.setPlaceholderText("Generated prose appears here. You can edit it before saving.")
         output_layout.addWidget(self.output_editor, 1)
@@ -263,6 +374,9 @@ class WriterQtWindow(QMainWindow):
         self.save_scene_button.clicked.connect(self.save_to_selected_scene)
         self.assemble_chapter_button.clicked.connect(self.assemble_chapter)
         self.assemble_novel_button.clicked.connect(self.assemble_novel)
+        self.revise_button.clicked.connect(self.revise_selection)
+        self.check_draft_button.clicked.connect(self.check_draft)
+        self.output_editor.textChanged.connect(self.update_controls)
         self.update_controls()
 
     def info(self, title: str, message: str):
@@ -377,6 +491,8 @@ class WriterQtWindow(QMainWindow):
         if getattr(self, "_task_kind", "") == "prepare":
             self._discard_scene_prompt_trace(self._active_scene_preparation_trace)
             self._active_scene_preparation_trace = None
+        if getattr(self, "_task_kind", "") == "revision":
+            self._clear_revision_state()
         if getattr(self, "_task_kind", "") == "write":
             if getattr(self, "_generation_mode", "") == "rewrite":
                 self.output_editor.setPlainText(getattr(self, "_generation_original", ""))
@@ -384,7 +500,10 @@ class WriterQtWindow(QMainWindow):
                 self.output_editor.setPlainText(getattr(self, "_generation_original", ""))
         self.busy = False
         trace_note = self._prompt_trace_status_note() if getattr(self, "_task_kind", "") == "write" else ""
-        self.status.setText("Task failed. Existing saved files were not changed." + trace_note)
+        if getattr(self, "_task_kind", "") == "revision":
+            self.status.setText("Revision failed. The original passage was kept.")
+        else:
+            self.status.setText("Task failed. Existing saved files were not changed." + trace_note)
         self.update_controls()
         self.error("StoryBuilder task failed", message)
 
@@ -392,6 +511,8 @@ class WriterQtWindow(QMainWindow):
         if getattr(self, "_task_kind", "") == "prepare":
             self._discard_scene_prompt_trace(self._active_scene_preparation_trace)
             self._active_scene_preparation_trace = None
+        if getattr(self, "_task_kind", "") == "revision":
+            self._clear_revision_state()
         if getattr(self, "_task_kind", "") == "write" and getattr(self, "_generation_mode", "") == "rewrite":
             self.output_editor.setPlainText(getattr(self, "_generation_original", ""))
         self.busy = False
@@ -948,6 +1069,129 @@ class WriterQtWindow(QMainWindow):
         prompt = build_continue_prompt(old)
         self._start_generation(self._writer_context(prompt, "balanced"), "continue")
 
+    def revise_selection(self):
+        """Revise or exactly replace only the currently selected manuscript passage."""
+        if self.busy:
+            return
+        cursor = self.output_editor.textCursor()
+        if not cursor.hasSelection():
+            self.info(
+                "Select a passage",
+                "Highlight the sentence or paragraph you want to change, then click Revise Selection.",
+            )
+            return
+        start = cursor.selectionStart()
+        end = cursor.selectionEnd()
+        selected = cursor.selectedText().replace("\u2029", "\n")
+        if not selected.strip():
+            self.info("Select a passage", "Select some non-blank text to revise.")
+            return
+
+        dialog = RevisionRequestDialog(selected, self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        self._revision_document = self.output_editor.toPlainText()
+        self._revision_start = start
+        self._revision_end = end
+        self._revision_original = selected
+
+        if not dialog.use_ai:
+            self._show_revision_review(dialog.replacement())
+            return
+
+        instruction = dialog.instruction()
+        if not instruction:
+            self._clear_revision_state()
+            self.info("Add an instruction", "Describe what you want changed in the selected passage.")
+            return
+        writer = self.selected_model("writer")
+        if writer is None:
+            self._clear_revision_state()
+            self.info("Choose a writing model", "Select a writing model before revising a passage.")
+            return
+
+        prompt = build_revision_prompt(selected, instruction)
+        novel = self.novel_packages.get(self.novel_picker.currentText())
+        if novel is not None:
+            try:
+                bible = load_story_bible(novel)
+                locations = bible.get("locations", {})
+                if isinstance(locations, dict):
+                    prompt, _selected_locations = build_location_context_prompt(
+                        prompt, locations, selected
+                    )
+                creative = build_creative_direction_prompt(bible.get("creative_direction"))
+                if creative:
+                    prompt = prompt + "\n\n" + creative
+            except Exception as exc:
+                self._clear_revision_state()
+                self.error("Could not prepare revision context", str(exc))
+                return
+
+        self._task_kind = "revision"
+        self.output_editor.setReadOnly(True)
+
+        def work(_emit):
+            if self.loaded_model != writer or not self._engine_ready():
+                load_model_for_writing(self.engine, writer)
+                self.loaded_model = writer
+            return write_from_prompt(self.engine, prompt)
+
+        self.run_task(work, label=f"Revising selected passage with {writer}…")
+
+    def _show_revision_review(self, proposed: str):
+        dialog = RevisionReviewDialog(self._revision_original, proposed, self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            self._clear_revision_state()
+            self.status.setText("Kept original passage; no text was changed.")
+            return
+        current = self.output_editor.toPlainText()
+        start = self._revision_start
+        end = self._revision_end
+        original_document = self._revision_document
+        original_passage = self._revision_original
+        if current != original_document or current[start:end] != original_passage:
+            self._clear_revision_state()
+            self.error(
+                "Selection changed",
+                "The document changed while the revision was being prepared. "
+                "Nothing was replaced. Select the passage again and retry.",
+            )
+            return
+        cursor = self.output_editor.textCursor()
+        cursor.setPosition(start)
+        cursor.setPosition(end, cursor.MoveMode.KeepAnchor)
+        cursor.insertText(dialog.proposed_text())
+        self.output_editor.setTextCursor(cursor)
+        self._clear_revision_state()
+        self.status.setText("Revision applied to selected passage. Save when ready.")
+
+    def _clear_revision_state(self):
+        self.output_editor.setReadOnly(False)
+        self._revision_document = ""
+        self._revision_start = 0
+        self._revision_end = 0
+        self._revision_original = ""
+
+    def check_draft(self):
+        """Run the existing conservative advisory check without modifying the manuscript."""
+        if self.busy:
+            return
+        original = self.output_editor.toPlainText()
+        if not original.strip():
+            self.status.setText("There is no draft text to check.")
+            self.update_controls()
+            return
+        findings = analyze_draft(original)
+        report = format_draft_health_report(findings)
+        count = len(findings)
+        self.status.setText(
+            "Draft check complete: "
+            + (f"{count} possible finding(s)." if count else "no obvious mechanical issues found.")
+            + " No text was changed."
+        )
+        DraftReportDialog(report, self).exec()
+
     def _start_generation(self, prompt: str, mode: str):
         writer = self.selected_model("writer")
         if writer is None:
@@ -1059,6 +1303,19 @@ class WriterQtWindow(QMainWindow):
                     f"Prepared Chapter {chapter:02d}, Scene {scene:02d}. "
                     "Review the direction, then press Write."
                 )
+        elif kind == "revision":
+            self.busy = False
+            self._clear_revision_state()
+            proposal = str(result or "").strip()
+            if not proposal:
+                self._clear_revision_state()
+                self.error(
+                    "Empty revision",
+                    "The model returned no revised text. The original passage was kept.",
+                )
+                self.status.setText("Revision returned no text. The original passage was kept.")
+            else:
+                self._show_revision_review(proposal)
         elif kind == "write":
             if isinstance(result, str) and result and not self._streamed:
                 if self._generation_mode == "continue":
@@ -1239,7 +1496,7 @@ class WriterQtWindow(QMainWindow):
 
     def update_controls(self, *_):
         idle = not self.busy
-        for widget in (self.planner_picker, self.writer_picker, self.refresh_models_button, self.refresh_novels_button, self.novel_picker, self.chapter_picker, self.scene_picker, self.cast_button, self.prepare_button, self.write_button, self.minimal_button, self.full_button, self.rewrite_button, self.continue_button, self.new_session_button, self.open_button, self.save_button, self.save_as_button, self.save_new_scene_button, self.save_scene_button, self.assemble_chapter_button, self.assemble_novel_button):
+        for widget in (self.planner_picker, self.writer_picker, self.refresh_models_button, self.refresh_novels_button, self.novel_picker, self.chapter_picker, self.scene_picker, self.cast_button, self.prepare_button, self.write_button, self.minimal_button, self.full_button, self.rewrite_button, self.continue_button, self.new_session_button, self.open_button, self.save_button, self.save_as_button, self.save_new_scene_button, self.save_scene_button, self.assemble_chapter_button, self.assemble_novel_button, self.revise_button, self.check_draft_button):
             widget.setEnabled(idle)
         self.load_writer_button.setEnabled(idle and self.selected_model("writer") is not None)
         self.stop_button.setEnabled(self.busy)
@@ -1255,6 +1512,8 @@ class WriterQtWindow(QMainWindow):
         self.full_button.setEnabled(idle and self.selected_model("writer") is not None)
         self.rewrite_button.setEnabled(idle and self.selected_model("writer") is not None)
         self.continue_button.setEnabled(idle and self.selected_model("writer") is not None)
+        self.revise_button.setEnabled(idle)
+        self.check_draft_button.setEnabled(idle and bool(self.output_editor.toPlainText().strip()))
 
     def closeEvent(self, event: QCloseEvent):
         if self.busy:
