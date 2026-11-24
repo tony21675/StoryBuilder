@@ -116,3 +116,18 @@ The browser reads selected manuscript text without loading story state. **Save**
 ### LibreOffice Writer documents (ODT)
 
 The Minimal Writer opens and saves both LibreOffice Writer `.odt` documents and legacy UTF-8 `.txt` files. ODT is the preferred Save As format. Bold and italic Markdown markers are shown as actual formatted text in the editor and are saved as real ODT character styles; when text is saved as TXT, portable Markdown markers are retained. The scene browser prefers an ODT scene when matching TXT and ODT files both exist, so converted manuscripts are not shown twice. Existing TXT files remain supported and are not automatically deleted or rewritten.
+
+
+## App #1: PySide6 Writer migration test
+
+The Writer now has a parallel PySide6 implementation for staged testing:
+
+\`\`\`bash
+cd ~/Projects/StoryBuilder && ./start_writer_qt.sh
+\`\`\`
+
+This is an additive migration build. The original Tkinter Writer remains available through \`./start.sh\` and \`minimal_writer.py\`. Do not remove or replace it until the Qt Writer has passed live model-generation, save/reopen, revision, trace, and novel-sync checks.
+
+The initial Qt Writer build includes separate Planner and Writer selectors, model loading, novel/chapter/scene browsing, scene-cast selection, Prepare Scene with deterministic author-required-beat insertion, balanced/minimal/full prompt modes, streaming Write, Continue, confirmation-gated Rewrite, New Session, ODT/TXT open/save, new-scene saving, explicit selected-scene overwrite confirmation, and chapter/novel ODT assembly. It reuses the existing model engine, prompt/context builders, Story Bible schema, and manuscript helpers. Existing novel packages are not converted or rewritten by opening them.
+
+This is not yet full feature parity. Selected-passage revision, Check Draft, prompt-trace capture/upload, OpenRouter key/catalogue management, the original detailed saved-scene state update, and selected-novel GitHub sync still need to be ported and tested. Treat the Qt Writer as a migration preview until those items are completed. Never use it as a reason to remove or bypass the original Writer's safety checks.
