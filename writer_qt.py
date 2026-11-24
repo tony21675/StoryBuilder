@@ -545,19 +545,22 @@ class WriterQtWindow(QMainWindow):
         preferences = bible.get("writing_preferences")
         if isinstance(preferences, str) and preferences.strip():
             sections.append("HOW THIS NOVEL SHOULD READ\n" + preferences.strip())
-        references = build_story_bible_reference_context(bible)
+        comprehensive = profile == "full"
+        references = build_story_bible_reference_context(bible, comprehensive=comprehensive)
         if references:
             sections.append(references)
         supporting = prompt + "\n" + self.author_direction.toPlainText()
         character_context = build_character_card_context_prompt(
             path, bible, "", supporting_text=supporting,
-            compact=True, selected_names=self._active_cast(), scene_focused=True,
+            include_all=comprehensive and self._active_cast() is None,
+            compact=not comprehensive, comprehensive=comprehensive,
+            selected_names=self._active_cast(), scene_focused=not comprehensive,
         )
         if character_context:
             sections.append(character_context)
         locations = bible.get("locations", {})
         if isinstance(locations, dict):
-            relevant = select_relevant_locations(locations, "", supporting)
+            relevant = locations if comprehensive else select_relevant_locations(locations, "", supporting)
             if relevant:
                 lines = ["RELEVANT SAVED LOCATIONS"]
                 for location, detail in relevant.items():
@@ -567,7 +570,7 @@ class WriterQtWindow(QMainWindow):
         scene = scene_number_from_label(self.scene_picker.currentText())
         if chapter and scene:
             try:
-                prior = build_previous_scene_context_prompt("", path, chapter, scene, max_chars=1400)
+                prior = build_previous_scene_context_prompt("", path, chapter, scene, max_chars=None if comprehensive else 1400)
                 if prior.strip():
                     sections.append(prior)
             except Exception:
