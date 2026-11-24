@@ -192,8 +192,10 @@ class WriterQtTests(unittest.TestCase):
         self.window._revision_original = "A selected sentence."
         self.window.output_editor.setPlainText("Changed document.")
         with patch.object(writer_qt, "RevisionReviewDialog") as review:
-            self.window._show_revision_review("Replacement.")
+            with patch.object(self.window, "error") as show_error:
+                self.window._show_revision_review("Replacement.")
         review.assert_not_called()
+        show_error.assert_called_once()
         self.assertEqual(self.window.output_editor.toPlainText(), "Changed document.")
 
     def test_check_draft_is_advisory_and_does_not_change_text(self):
