@@ -73,6 +73,36 @@ class WriterQtTests(unittest.TestCase):
         self.assertEqual(trace.data["inputs"]["author_guidance"], "Required event")
         self.assertIn("story_bible.json", [item["name"] for item in trace.data["inputs"]["reference_files"]])
 
+    def test_writer_context_uses_resolved_scene_for_author_required_beats(self):
+        self.window.novel_picker.setCurrentText(self.package.name)
+        self.window.chapter_picker.setCurrentText("Chapter 01")
+        self.window.scene_picker.setCurrentText("Scene 02")
+        self.window.prepared_novel = self.package
+        self.window.prepared_destination = (1, 1)
+        self.window._prepared_author_required_direction = "Tony reads Sarah's letter."
+        captured = {}
+        def record_direction(prompt, direction):
+            captured["direction"] = direction
+            return prompt
+        with patch.object(writer_qt, "build_author_required_direction_prompt", side_effect=record_direction):
+            with patch.object(writer_qt, "build_scene_cast_boundary_prompt", side_effect=lambda prompt, _cast: prompt):
+                prompt = self.window._writer_context(
+                    "Chapter 01, Scene 01\nA quiet opening.",
+                    "minimal",
+                )
+        self.assertEqual(captured["direction"], "Tony reads Sarah's letter.")
+        self.assertIn("Scene 01", prompt)
+
+    def test_writer_success_restores_result_when_runtime_did_not_stream(self):
+        self.window._task_kind = "write"
+        self.window._generation_mode = "write"
+        self.window._generation_original = "Previous draft"
+        self.window._streamed = False
+        self.window.busy = True
+        self.window.task_succeeded("Final model response.")
+        self.assertEqual(self.window.output_editor.toPlainText(), "Final model response.")
+        self.assertFalse(self.window.busy)
+
     def test_prepared_trace_is_claimed_only_for_same_novel_and_scene(self):
         self.window.novel_picker.setCurrentText(self.package.name)
         self.window.chapter_picker.setCurrentText("Chapter 01")
