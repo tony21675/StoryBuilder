@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import json
 import os
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -215,6 +217,33 @@ class WriterQtTests(unittest.TestCase):
         self.assertTrue(self.window.save_new_scene())
         scene_dir = self.package / "Manuscript" / "Chapters" / "Chapter_01"
         self.assertTrue((scene_dir / "Chapter_01_Section_01.odt").is_file())
+        state_path = self.package / "current_state.json"
+        self.assertTrue(state_path.is_file())
+        state = json.loads(state_path.read_text(encoding="utf-8"))
+        self.assertEqual(state["chapter"], 1)
+        self.assertEqual(state["scene"], 1)
+        self.assertTrue(state["scene_completed"])
+        self.assertEqual(state["status"], "in_progress")
+
+    def test_novel_sync_requires_confirmation_before_running_sync_helper(self):
+        self.window.novel_picker.setCurrentText(self.package.name)
+        preview = SimpleNamespace(
+            repository=self.package,
+            branch="main",
+            remote_url="git@github.com:example/novel.git",
+            local_commits=("abc1234 local commit",),
+            changed_files=("story_bible.json",),
+        )
+        with patch.object(writer_qt, "inspect_novel_repository", return_value=preview):
+            with patch.object(self.window, "confirm", return_value=False):
+                with patch.object(writer_qt, "sync_novel_repository") as sync:
+                    self.window.sync_selected_novel_to_github()
+        sync.assert_not_called()
+        self.assertIn("cancelled", self.window.status.text().lower())
+
+    def test_openrouter_settings_are_available_as_an_optional_workflow(self):
+        self.assertTrue(hasattr(self.window, "openrouter_settings_button"))
+        self.assertEqual(self.window.openrouter_settings_button.text(), "OpenRouter Settings")
 
 
 if __name__ == "__main__":
