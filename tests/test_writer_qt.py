@@ -9,6 +9,7 @@ from unittest.mock import patch
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtWidgets import QApplication
+from PySide6.QtGui import QTextCursor
 
 import writer_qt
 from builder.novel_creator import create_novel_package
@@ -146,6 +147,64 @@ class WriterQtTests(unittest.TestCase):
         self.assertTrue((self.root / "prompt_trace.json").is_file())
         upload.assert_called_once()
         self.assertTrue(self.window._last_prompt_trace_upload_result["ok"])
+
+    def test_exact_revision_replaces_only_the_selected_passage_after_approval(self):
+        self.window.output_editor.setPlainText("Keep this. Change this. Keep that.")
+        cursor = self.window.output_editor.textCursor()
+        cursor.setPosition(12)
+        cursor.setPosition(24, QTextCursor.MoveMode.KeepAnchor)
+        self.window.output_editor.setTextCursor(cursor)
+
+        class RequestDialog:
+            def __init__(self, selected, _parent):
+                self.selected = selected
+            def exec(self):
+                return writer_qt.QDialog.DialogCode.Accepted
+            @property
+            def use_ai(self):
+                return False
+            def replacement(self):
+                return "Revised wording."
+
+        class ReviewDialog:
+            def __init__(self, original, proposed, _parent):
+                self.original = original
+                self.proposed = proposed
+            def exec(self):
+                return writer_qt.QDialog.DialogCode.Accepted
+            def proposed_text(self):
+                return self.proposed
+
+        with patch.object(writer_qt, "RevisionRequestDialog", RequestDialog):
+            with patch.object(writer_qt, "RevisionReviewDialog", ReviewDialog):
+                self.window.revise_selection()
+
+        self.assertEqual(
+            self.window.output_editor.toPlainText(),
+            "Keep this. Revised wording. Keep that.",
+        )
+
+    def test_revision_is_discarded_if_document_changes_before_approval(self):
+        self.window.output_editor.setPlainText("A selected sentence. And more text.")
+        self.window._revision_document = "A selected sentence. And more text."
+        self.window._revision_start = 0
+        self.window._revision_end = len("A selected sentence.")
+        self.window._revision_original = "A selected sentence."
+        self.window.output_editor.setPlainText("Changed document.")
+        with patch.object(writer_qt, "RevisionReviewDialog") as review:
+            self.window._show_revision_review("Replacement.")
+        review.assert_not_called()
+        self.assertEqual(self.window.output_editor.toPlainText(), "Changed document.")
+
+    def test_check_draft_is_advisory_and_does_not_change_text(self):
+        original = "A short draft that should remain unchanged."
+        self.window.output_editor.setPlainText(original)
+        with patch.object(writer_qt, "analyze_draft", return_value=[]) as analyze:
+            with patch.object(writer_qt, "DraftReportDialog") as report:
+                self.window.check_draft()
+        analyze.assert_called_once_with(original)
+        report.assert_called_once()
+        self.assertEqual(self.window.output_editor.toPlainText(), original)
 
     def test_save_new_scene_writes_only_under_selected_novel(self):
         self.window.novel_picker.setCurrentText(self.package.name)
