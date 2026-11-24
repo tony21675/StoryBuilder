@@ -24,6 +24,7 @@ class WriterQtTests(unittest.TestCase):
         self.previous_root = writer_qt.NOVEL_ROOT
         writer_qt.NOVEL_ROOT = self.root
         self.package = create_novel_package("Qt Writer Test", novel_root=self.root)
+        (self.package / "Manuscript" / "Chapters" / "Chapter_01").mkdir(parents=True, exist_ok=True)
         self.window = writer_qt.WriterQtWindow()
 
     def tearDown(self):
