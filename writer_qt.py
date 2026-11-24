@@ -836,16 +836,29 @@ class WriterQtWindow(QMainWindow):
             return False
 
     def _writer_context(self, prompt: str, profile: str):
+        selected_chapter = self.chapter_numbers.get(self.chapter_picker.currentText())
+        destination = resolve_generation_scene_destination(
+            prompt, selected_chapter, self.scene_picker.currentText()
+        )
+        chapter, scene = destination or (
+            selected_chapter,
+            scene_number_from_label(self.scene_picker.currentText()),
+        )
+        author_direction = self._author_required_direction_for_current_scene(destination)
+        scene_cast = self._active_cast(destination)
+
         if profile == "minimal":
-            prompt = build_scene_cast_boundary_prompt(prompt, self._active_cast())
-            prompt = build_author_required_direction_prompt(prompt, self._author_required_direction_for_current_scene())
-            chapter = self.chapter_numbers.get(self.chapter_picker.currentText())
-            scene = scene_number_from_label(self.scene_picker.currentText())
+            prompt = build_scene_cast_boundary_prompt(prompt, scene_cast)
+            prompt = build_author_required_direction_prompt(prompt, author_direction)
             return build_single_scene_scope_prompt(prompt, chapter, scene)
+
         name = self.novel_picker.currentText()
         path = self.novel_packages.get(name)
         if path is None:
-            return build_scene_cast_boundary_prompt(prompt, self._active_cast())
+            prompt = build_scene_cast_boundary_prompt(prompt, scene_cast)
+            prompt = build_author_required_direction_prompt(prompt, author_direction)
+            return build_single_scene_scope_prompt(prompt, chapter, scene)
+
         bible = load_story_bible(path)
         sections = [prompt]
         creative = build_creative_direction_prompt(bible.get("creative_direction"))
@@ -858,12 +871,12 @@ class WriterQtWindow(QMainWindow):
         references = build_story_bible_reference_context(bible, comprehensive=comprehensive)
         if references:
             sections.append(references)
-        supporting = prompt + "\n" + self._author_required_direction_for_current_scene()
+        supporting = prompt + "\n" + author_direction
         character_context = build_character_card_context_prompt(
             path, bible, "", supporting_text=supporting,
-            include_all=comprehensive and self._active_cast() is None,
+            include_all=comprehensive and scene_cast is None,
             compact=not comprehensive, comprehensive=comprehensive,
-            selected_names=self._active_cast(), scene_focused=not comprehensive,
+            selected_names=scene_cast, scene_focused=not comprehensive,
         )
         if character_context:
             sections.append(character_context)
@@ -875,29 +888,29 @@ class WriterQtWindow(QMainWindow):
                 for location, detail in relevant.items():
                     lines.append(f"{location}: {detail}")
                 sections.append("\n".join(lines))
-        chapter = self.chapter_numbers.get(self.chapter_picker.currentText())
-        scene = scene_number_from_label(self.scene_picker.currentText())
         if chapter and scene:
             try:
-                prior = build_previous_scene_context_prompt("", path, chapter, scene, max_chars=None if comprehensive else 1400)
+                prior = build_previous_scene_context_prompt(
+                    "", path, chapter, scene,
+                    max_chars=None if comprehensive else 1400,
+                )
                 if prior.strip():
                     sections.append(prior)
             except Exception:
                 pass
-        prompt = build_scene_cast_boundary_prompt("\n\n".join(sections), self._active_cast())
-        prompt = build_author_required_direction_prompt(prompt, self._author_required_direction_for_current_scene())
-        chapter = self.chapter_numbers.get(self.chapter_picker.currentText())
-        scene = scene_number_from_label(self.scene_picker.currentText())
+        prompt = build_scene_cast_boundary_prompt("\n\n".join(sections), scene_cast)
+        prompt = build_author_required_direction_prompt(prompt, author_direction)
         return build_single_scene_scope_prompt(prompt, chapter, scene)
 
-    def _active_cast(self):
+    def _active_cast(self, expected_destination=None):
         path = self.novel_packages.get(self.novel_picker.currentText())
         if self.scene_cast is None or path is None or self.scene_cast_novel != path.resolve():
             return None
-        chapter = self.chapter_numbers.get(self.chapter_picker.currentText())
-        scene = scene_number_from_label(self.scene_picker.currentText())
-        destination = (chapter, scene) if chapter and scene else None
-        if self.scene_cast_destination and destination != self.scene_cast_destination:
+        if expected_destination is None:
+            chapter = self.chapter_numbers.get(self.chapter_picker.currentText())
+            scene = scene_number_from_label(self.scene_picker.currentText())
+            expected_destination = (chapter, scene) if chapter and scene else None
+        if self.scene_cast_destination and expected_destination != self.scene_cast_destination:
             return None
         return list(self.scene_cast)
 
@@ -1047,6 +1060,11 @@ class WriterQtWindow(QMainWindow):
                     "Review the direction, then press Write."
                 )
         elif kind == "write":
+            if isinstance(result, str) and result and not self._streamed:
+                if self._generation_mode == "continue":
+                    self.output_editor.setPlainText(self._generation_prefix + result)
+                else:
+                    self.output_editor.setPlainText(result)
             self.status.setText(
                 "Generation finished. Review and edit the draft before saving."
                 + self._prompt_trace_status_note()
