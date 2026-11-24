@@ -307,7 +307,7 @@ class WriterQtWindow(QMainWindow):
             value = self.models.get(picker.currentText())
             if value is not None:
                 roles[role] = str(value) if is_openrouter_selection(value) else Path(value).name
-        save_model_roles(roles)
+        save_model_roles(planner=roles.get("planner", ""), writer=roles.get("writer", ""))
 
     def load_writer(self):
         model = self.selected_model("writer")
