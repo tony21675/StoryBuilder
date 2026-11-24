@@ -151,8 +151,8 @@ class WriterQtTests(unittest.TestCase):
     def test_exact_revision_replaces_only_the_selected_passage_after_approval(self):
         self.window.output_editor.setPlainText("Keep this. Change this. Keep that.")
         cursor = self.window.output_editor.textCursor()
-        cursor.setPosition(12)
-        cursor.setPosition(24, QTextCursor.MoveMode.KeepAnchor)
+        cursor.setPosition(11)
+        cursor.setPosition(23, QTextCursor.MoveMode.KeepAnchor)
         self.window.output_editor.setTextCursor(cursor)
 
         class RequestDialog:
