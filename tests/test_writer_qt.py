@@ -225,6 +225,27 @@ class WriterQtTests(unittest.TestCase):
         self.assertTrue(state["scene_completed"])
         self.assertEqual(state["status"], "in_progress")
 
+    def test_selected_scene_missing_after_confirmation_is_not_recreated(self):
+        scene_dir = self.package / "Manuscript" / "Chapters" / "Chapter_01"
+        scene_dir.mkdir(parents=True, exist_ok=True)
+        target = scene_dir / "Chapter_01_Section_01.odt"
+        target.write_text("existing scene")
+        self.window.novel_picker.setCurrentText(self.package.name)
+        self.window.chapter_picker.setCurrentText("Chapter 01")
+        self.window.scene_picker.addItem("Scene 01")
+        self.window.scene_picker.setCurrentText("Scene 01")
+        self.window.scene_files["Scene 01"] = target
+        self.window.selected_scene_source = target
+        def remove_during_confirmation(*_args):
+            target.unlink()
+            return True
+        with patch.object(self.window, "confirm", side_effect=remove_during_confirmation):
+            with patch.object(writer_qt, "save_document") as save:
+                with patch.object(self.window, "error"):
+                    self.assertFalse(self.window.save_to_selected_scene())
+        save.assert_not_called()
+        self.assertFalse(target.exists())
+
     def test_novel_sync_requires_confirmation_before_running_sync_helper(self):
         self.window.novel_picker.setCurrentText(self.package.name)
         preview = SimpleNamespace(
