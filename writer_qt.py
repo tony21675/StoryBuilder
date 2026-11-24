@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
     QApplication, QComboBox, QDialog, QDialogButtonBox, QFileDialog,
     QHBoxLayout, QLabel, QListWidget, QListWidgetItem, QMainWindow,
     QMessageBox, QPlainTextEdit, QPushButton, QSplitter, QVBoxLayout,
-    QWidget, QGroupBox, QFormLayout, QInputDialog, QTabWidget
+    QWidget, QGroupBox, QFormLayout, QInputDialog, QTabWidget, QLineEdit
 )
 
 from builder.qt_theme import apply_qt_theme
@@ -20,7 +20,9 @@ from builder.workspace import MODELS_DIR, NOVEL_ROOT
 from builder.writer_engine import WriterEngine, GenerationInterrupted
 from builder.openrouter import (
     RoutedWriterEngine, has_openrouter_api_key, load_cached_openrouter_models,
-    is_openrouter_selection, openrouter_model_selection
+    is_openrouter_selection, openrouter_model_selection, fetch_openrouter_free_models,
+    load_openrouter_api_key, save_openrouter_api_key, delete_openrouter_api_key,
+    save_cached_openrouter_models,
 )
 from builder.model_preferences import load_model_roles, resolve_model_roles, save_model_roles
 from builder.novel_browser import list_novel_packages, list_scene_chapters, list_scene_files
@@ -247,11 +249,13 @@ class WriterQtWindow(QMainWindow):
         self.writer_picker = QComboBox()
         self.refresh_models_button = QPushButton("Refresh Models")
         self.load_writer_button = QPushButton("Load Writer")
+        self.openrouter_settings_button = QPushButton("OpenRouter Settings")
         self.model_status = QLabel("Only the model needed for the selected task is loaded.")
         model_form.addRow("Prepare Scene model", self.planner_picker)
         writer_row = QHBoxLayout()
         writer_row.addWidget(self.writer_picker, 1)
         writer_row.addWidget(self.refresh_models_button)
+        writer_row.addWidget(self.openrouter_settings_button)
         writer_row.addWidget(self.load_writer_button)
         writer_widget = QWidget()
         writer_widget.setLayout(writer_row)
@@ -350,6 +354,7 @@ class WriterQtWindow(QMainWindow):
         page.addWidget(self.status)
 
         self.refresh_models_button.clicked.connect(self.refresh_models)
+        self.openrouter_settings_button.clicked.connect(self.open_openrouter_settings)
         self.load_writer_button.clicked.connect(self.load_writer)
         self.load_scene_button.clicked.connect(self.load_scene_copy)
         self.planner_picker.activated.connect(lambda _index: self.save_model_roles())
@@ -387,6 +392,108 @@ class WriterQtWindow(QMainWindow):
 
     def confirm(self, title: str, message: str) -> bool:
         return QMessageBox.question(self, title, message, QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No) == QMessageBox.StandardButton.Yes
+
+    def open_openrouter_settings(self):
+        """Manage the saved remote API key and refresh the cached free catalogue."""
+        if self.busy:
+            return
+        dialog = QDialog(self)
+        dialog.setWindowTitle("OpenRouter Settings")
+        dialog.resize(650, 390)
+        layout = QVBoxLayout(dialog)
+        privacy = QLabel(
+            "OpenRouter is optional. Local GGUF models remain available. When you use a "
+            "remote model, the current prompt, StoryBuilder context included in that prompt, "
+            "and generated response are sent through OpenRouter to the selected model provider. "
+            "Review the provider's privacy terms before using remote models."
+        )
+        privacy.setWordWrap(True)
+        layout.addWidget(privacy)
+        layout.addWidget(QLabel("OpenRouter API key"))
+        key_editor = QLineEdit()
+        key_editor.setEchoMode(QLineEdit.EchoMode.Password)
+        key_editor.setPlaceholderText("Paste a key, or leave blank to use the saved/environment key")
+        layout.addWidget(key_editor)
+        key_note = QLabel(
+            "Saved keys use the existing user configuration file with owner-only permissions. "
+            "The OPENROUTER_API_KEY environment variable is also supported."
+        )
+        key_note.setWordWrap(True)
+        layout.addWidget(key_note)
+        status = QLabel(
+            "An API key is configured." if has_openrouter_api_key()
+            else "No API key configured."
+        )
+        status.setWordWrap(True)
+        layout.addWidget(status)
+        buttons = QHBoxLayout()
+        refresh = QPushButton("Save Key & Refresh Free Models")
+        remove = QPushButton("Remove Saved Key")
+        close = QPushButton("Close")
+        buttons.addWidget(refresh)
+        buttons.addWidget(remove)
+        buttons.addStretch(1)
+        buttons.addWidget(close)
+        layout.addLayout(buttons)
+
+        self._openrouter_settings_dialog = dialog
+        self._openrouter_status_label = status
+        self._openrouter_key_editor = key_editor
+        self._openrouter_refresh_button = refresh
+        self._openrouter_remove_button = remove
+
+        def refresh_catalogue():
+            if self.busy:
+                return
+            entered_key = key_editor.text().strip()
+            if entered_key:
+                try:
+                    save_openrouter_api_key(entered_key)
+                except (OSError, ValueError) as exc:
+                    self.error("Could not save OpenRouter key", str(exc))
+                    return
+                key_editor.clear()
+            api_key = load_openrouter_api_key()
+            if not api_key:
+                status.setText("Add an API key first, then refresh the free-model catalogue.")
+                return
+            refresh.setEnabled(False)
+            remove.setEnabled(False)
+            status.setText("Contacting OpenRouter and refreshing the free-model catalogue…")
+
+            def work(_emit):
+                models = fetch_openrouter_free_models(api_key)
+                # The previous cache is left untouched unless the fetch succeeds.
+                save_cached_openrouter_models(models)
+                return models
+
+            self._task_kind = "openrouter_refresh"
+            self.run_task(
+                work,
+                label="Refreshing OpenRouter free-model catalogue…",
+            )
+
+        def remove_saved_key():
+            if self.busy:
+                return
+            try:
+                delete_openrouter_api_key()
+            except OSError as exc:
+                self.error("Could not remove saved OpenRouter key", str(exc))
+                return
+            self.refresh_models()
+            status.setText(
+                "Saved key removed. OPENROUTER_API_KEY remains active."
+                if has_openrouter_api_key()
+                else "Saved OpenRouter key removed. Local models are unchanged."
+            )
+            key_editor.clear()
+
+        refresh.clicked.connect(refresh_catalogue)
+        remove.clicked.connect(remove_saved_key)
+        close.clicked.connect(dialog.close)
+        dialog.setModal(False)
+        dialog.show()
 
     def refresh_models(self):
         try:
@@ -500,7 +607,17 @@ class WriterQtWindow(QMainWindow):
                 self.output_editor.setPlainText(getattr(self, "_generation_original", ""))
         self.busy = False
         trace_note = self._prompt_trace_status_note() if getattr(self, "_task_kind", "") == "write" else ""
-        if getattr(self, "_task_kind", "") == "revision":
+        if getattr(self, "_task_kind", "") == "openrouter_refresh":
+            if getattr(self, "_openrouter_status_label", None) is not None:
+                self._openrouter_status_label.setText(
+                    "The catalogue could not be refreshed. The previous cache was kept."
+                )
+            if getattr(self, "_openrouter_refresh_button", None) is not None:
+                self._openrouter_refresh_button.setEnabled(True)
+            if getattr(self, "_openrouter_remove_button", None) is not None:
+                self._openrouter_remove_button.setEnabled(True)
+            self.status.setText("OpenRouter refresh failed. The previous model cache was kept.")
+        elif getattr(self, "_task_kind", "") == "revision":
             self.status.setText("Revision failed. The original passage was kept.")
         else:
             self.status.setText("Task failed. Existing saved files were not changed." + trace_note)
@@ -1277,7 +1394,24 @@ class WriterQtWindow(QMainWindow):
 
     def task_succeeded(self, result):
         kind = getattr(self, "_task_kind", "")
-        if kind == "load":
+        if kind == "openrouter_refresh":
+            models = list(result or [])
+            self.refresh_models()
+            free_count = sum(
+                1 for item in models
+                if str(item.get("id", "")).endswith(":free")
+            )
+            if getattr(self, "_openrouter_status_label", None) is not None:
+                self._openrouter_status_label.setText(
+                    f"Catalogue refreshed. {free_count} pinned free models and the "
+                    "automatic free-model router are now available in both selectors."
+                )
+            self.status.setText("OpenRouter model catalogue refreshed.")
+            if getattr(self, "_openrouter_refresh_button", None) is not None:
+                self._openrouter_refresh_button.setEnabled(True)
+            if getattr(self, "_openrouter_remove_button", None) is not None:
+                self._openrouter_remove_button.setEnabled(True)
+        elif kind == "load":
             self.model_status.setText(f"Loaded: {result}")
             self.status.setText("Writing model loaded and ready.")
         elif kind == "prepare":
@@ -1505,7 +1639,7 @@ class WriterQtWindow(QMainWindow):
 
     def update_controls(self, *_):
         idle = not self.busy
-        for widget in (self.planner_picker, self.writer_picker, self.refresh_models_button, self.refresh_novels_button, self.novel_picker, self.chapter_picker, self.scene_picker, self.cast_button, self.prepare_button, self.write_button, self.minimal_button, self.full_button, self.rewrite_button, self.continue_button, self.new_session_button, self.open_button, self.save_button, self.save_as_button, self.save_new_scene_button, self.save_scene_button, self.assemble_chapter_button, self.assemble_novel_button, self.revise_button, self.check_draft_button):
+        for widget in (self.planner_picker, self.writer_picker, self.refresh_models_button, self.openrouter_settings_button, self.refresh_novels_button, self.novel_picker, self.chapter_picker, self.scene_picker, self.cast_button, self.prepare_button, self.write_button, self.minimal_button, self.full_button, self.rewrite_button, self.continue_button, self.new_session_button, self.open_button, self.save_button, self.save_as_button, self.save_new_scene_button, self.save_scene_button, self.assemble_chapter_button, self.assemble_novel_button, self.revise_button, self.check_draft_button):
             widget.setEnabled(idle)
         self.load_writer_button.setEnabled(idle and self.selected_model("writer") is not None)
         self.stop_button.setEnabled(self.busy)
