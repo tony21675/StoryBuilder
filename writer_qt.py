@@ -276,10 +276,12 @@ class WriterQtWindow(QMainWindow):
         self.chapter_picker = QComboBox()
         self.scene_picker = QComboBox()
         self.refresh_novels_button = QPushButton("Refresh Novels")
+        self.sync_novel_button = QPushButton("Sync Novel to GitHub")
         self.load_scene_button = QPushButton("Load Scene Copy")
         project_row.addWidget(QLabel("Novel"))
         project_row.addWidget(self.novel_picker, 2)
         project_row.addWidget(self.refresh_novels_button)
+        project_row.addWidget(self.sync_novel_button)
         project_row.addWidget(QLabel("Chapter"))
         project_row.addWidget(self.chapter_picker)
         project_row.addWidget(QLabel("Scene"))
@@ -367,6 +369,7 @@ class WriterQtWindow(QMainWindow):
         self.planner_picker.activated.connect(lambda _index: self.save_model_roles())
         self.writer_picker.activated.connect(lambda _index: self.save_model_roles())
         self.refresh_novels_button.clicked.connect(self.refresh_novels)
+        self.sync_novel_button.clicked.connect(self.sync_selected_novel_to_github)
         self.novel_picker.currentTextChanged.connect(self.on_novel_changed)
         self.chapter_picker.currentTextChanged.connect(self.on_chapter_changed)
         self.scene_picker.currentTextChanged.connect(self.update_controls)
@@ -614,7 +617,10 @@ class WriterQtWindow(QMainWindow):
                 self.output_editor.setPlainText(getattr(self, "_generation_original", ""))
         self.busy = False
         trace_note = self._prompt_trace_status_note() if getattr(self, "_task_kind", "") == "write" else ""
-        if getattr(self, "_task_kind", "") == "scene_state":
+        if getattr(self, "_task_kind", "") == "novel_sync":
+            self.status.setText("Novel sync failed. Check the message before retrying.")
+            self.error("Novel sync failed", message)
+        elif getattr(self, "_task_kind", "") == "scene_state":
             novel_name, chapter, scene = self._saved_scene_state_target or ("Novel", 1, 1)
             self.status.setText(
                 f"Saved new scene: {novel_name} / Chapter {chapter:02d} / Scene {scene:02d}. "
@@ -744,6 +750,79 @@ class WriterQtWindow(QMainWindow):
             pending_source_scene_path=self.prepared_source,
         )
         return novel_name, novel_path, target_chapter, target_scene, source_scene, retry
+
+    def sync_selected_novel_to_github(self):
+        """Preview and explicitly confirm syncing only the selected novel repository."""
+        if self.busy:
+            return
+        name = self.novel_picker.currentText().strip()
+        novel_path = self.novel_packages.get(name)
+        if novel_path is None:
+            self.info("Choose a novel", "Select an existing novel package before syncing it to GitHub.")
+            return
+        try:
+            preview = inspect_novel_repository(novel_path)
+        except NovelGitSyncError as exc:
+            self.status.setText("Novel sync blocked; no push was attempted.")
+            self.error("Cannot sync novel", str(exc))
+            return
+
+        lines = [
+            "Review the sync target before proceeding:",
+            "",
+            f"Novel folder: {preview.repository}",
+            f"Branch: {preview.branch}",
+            f"GitHub remote: {preview.remote_url}",
+            "",
+            "This operation is confined to this novel's own Git repository.",
+            "It will fetch, fast-forward only when possible, restore any safety stash, "
+            "then commit and push this novel branch if needed.",
+            "StoryBuilder source code is not part of this operation.",
+            "Diverged branches, unresolved operations/conflicts, unexpected upstreams, "
+            "and local-only secret/encrypted paths block syncing.",
+            "",
+        ]
+        if self.output_editor.toPlainText() != self.saved_text:
+            lines.extend([
+                "WARNING: The Writer pane contains unsaved edits.",
+                "They will not be included until saved to a file.",
+                "",
+            ])
+        if preview.local_commits:
+            lines.append(
+                "Local commits ahead of the last fetched origin branch "
+                "(the list may change after fetching):"
+            )
+            shown = preview.local_commits[:10]
+            lines.extend(f"  • {item}" for item in shown)
+            if len(preview.local_commits) > len(shown):
+                lines.append(f"  • …and {len(preview.local_commits) - len(shown)} more commit(s)")
+            lines.append("")
+        if preview.changed_files:
+            lines.append("Local file changes to include in the commit:")
+            shown = preview.changed_files[:15]
+            lines.extend(f"  • {item}" for item in shown)
+            if len(preview.changed_files) > len(shown):
+                lines.append(f"  • …and {len(preview.changed_files) - len(shown)} more file(s)")
+        else:
+            lines.append(
+                "No uncommitted file changes detected. The sync will still check for "
+                "a safe fast-forward and push the selected branch if needed."
+            )
+        lines.extend(["", "Proceed with syncing this novel to GitHub?"])
+        if not self.confirm("Confirm novel sync", "\n".join(lines)):
+            self.status.setText("Novel sync cancelled; no Git operation started.")
+            return
+
+        self._task_kind = "novel_sync"
+
+        def work(_emit):
+            return sync_novel_repository(novel_path)
+
+        self.run_task(
+            work,
+            label=f"Syncing {name} to GitHub on branch {preview.branch}…",
+        )
 
     def _discard_scene_prompt_trace(self, trace=None):
         """Detach an unused trace without saving or uploading it."""
@@ -1409,7 +1488,15 @@ class WriterQtWindow(QMainWindow):
 
     def task_succeeded(self, result):
         kind = getattr(self, "_task_kind", "")
-        if kind == "scene_state":
+        if kind == "novel_sync":
+            selected_name = self.novel_picker.currentText()
+            sync_message = getattr(result, "message", "Novel sync completed.")
+            self.refresh_novels()
+            if selected_name in self.novel_packages:
+                self.novel_picker.setCurrentText(selected_name)
+                self.on_novel_changed(selected_name)
+            self.status.setText(sync_message)
+        elif kind == "scene_state":
             novel_name, chapter, scene = self._saved_scene_state_target or ("Novel", 1, 1)
             story_time = str((result or {}).get("story_time", "") or "")
             reset_error = self._scene_state_reset_error or (result or {}).get("reset_error")
@@ -1754,10 +1841,11 @@ class WriterQtWindow(QMainWindow):
 
     def update_controls(self, *_):
         idle = not self.busy
-        for widget in (self.planner_picker, self.writer_picker, self.refresh_models_button, self.openrouter_settings_button, self.refresh_novels_button, self.novel_picker, self.chapter_picker, self.scene_picker, self.cast_button, self.prepare_button, self.write_button, self.minimal_button, self.full_button, self.rewrite_button, self.continue_button, self.new_session_button, self.open_button, self.save_button, self.save_as_button, self.save_new_scene_button, self.save_scene_button, self.assemble_chapter_button, self.assemble_novel_button, self.revise_button, self.check_draft_button):
+        for widget in (self.planner_picker, self.writer_picker, self.refresh_models_button, self.openrouter_settings_button, self.refresh_novels_button, self.sync_novel_button, self.novel_picker, self.chapter_picker, self.scene_picker, self.cast_button, self.prepare_button, self.write_button, self.minimal_button, self.full_button, self.rewrite_button, self.continue_button, self.new_session_button, self.open_button, self.save_button, self.save_as_button, self.save_new_scene_button, self.save_scene_button, self.assemble_chapter_button, self.assemble_novel_button, self.revise_button, self.check_draft_button):
             widget.setEnabled(idle)
         self.load_writer_button.setEnabled(idle and self.selected_model("writer") is not None)
         self.stop_button.setEnabled(self.busy and getattr(self, "_task_kind", "") != "openrouter_refresh")
+        self.sync_novel_button.setEnabled(idle and self.novel_picker.currentText() in self.novel_packages)
         self.load_scene_button.setEnabled(idle and self.scene_picker.currentText() in self.scene_files)
         self.save_scene_button.setEnabled(idle and self.selected_scene_source is not None and self.scene_picker.currentText() in self.scene_files)
         has_target = self.novel_picker.currentText() in self.novel_packages and self.chapter_picker.currentText() in self.chapter_numbers
