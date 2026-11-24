@@ -40,6 +40,12 @@ from builder.manuscript_assembly import assemble_chapter as assemble_chapter_doc
 from builder.prompt_trace import PromptTrace, load_prompt_trace_enabled
 from builder.prompt_trace_sync import upload_prompt_trace
 from builder.prose_health import analyze_draft, format_draft_health_report
+from builder.scene_state_update import (
+    load_current_state, advance_saved_scene_markers, write_current_state,
+    build_saved_scene_state_prompt, parse_saved_scene_state_patch,
+    merge_saved_scene_state,
+)
+from builder.novel_git_sync import inspect_novel_repository, sync_novel_repository, NovelGitSyncError
 from minimal_writer import (
     load_model_for_writing, write_from_prompt, build_author_required_direction_prompt,
     build_single_scene_scope_prompt, build_rewrite_scene_prompt, build_continue_prompt,
@@ -231,6 +237,7 @@ class WriterQtWindow(QMainWindow):
         self._revision_start = 0
         self._revision_end = 0
         self._revision_original = ""
+        self._saved_scene_state_target = None
 
         self._build_ui()
         self.refresh_models()
@@ -607,7 +614,15 @@ class WriterQtWindow(QMainWindow):
                 self.output_editor.setPlainText(getattr(self, "_generation_original", ""))
         self.busy = False
         trace_note = self._prompt_trace_status_note() if getattr(self, "_task_kind", "") == "write" else ""
-        if getattr(self, "_task_kind", "") == "openrouter_refresh":
+        if getattr(self, "_task_kind", "") == "scene_state":
+            novel_name, chapter, scene = self._saved_scene_state_target or ("Novel", 1, 1)
+            self.status.setText(
+                f"Saved new scene: {novel_name} / Chapter {chapter:02d} / Scene {scene:02d}. "
+                "The scene position was recorded, but ending-state analysis failed; "
+                "existing story details were preserved."
+            )
+            self.error("Scene ending-state update failed", message)
+        elif getattr(self, "_task_kind", "") == "openrouter_refresh":
             if getattr(self, "_openrouter_status_label", None) is not None:
                 self._openrouter_status_label.setText(
                     "The catalogue could not be refreshed. The previous cache was kept."
@@ -1394,7 +1409,22 @@ class WriterQtWindow(QMainWindow):
 
     def task_succeeded(self, result):
         kind = getattr(self, "_task_kind", "")
-        if kind == "openrouter_refresh":
+        if kind == "scene_state":
+            novel_name, chapter, scene = self._saved_scene_state_target or ("Novel", 1, 1)
+            story_time = str((result or {}).get("story_time", "") or "")
+            reset_error = self._scene_state_reset_error or (result or {}).get("reset_error")
+            message = (
+                f"Saved new scene and updated its ending state: {novel_name} / "
+                f"Chapter {chapter:02d} / Scene {scene:02d}."
+            )
+            if story_time:
+                message += f" Story time: {story_time}."
+            if reset_error:
+                message += " The model session could not be cleared after the state update; reload the model before writing again."
+                self.loaded_model = None
+            self.status.setText(message)
+            self._scene_state_reset_error = None
+        elif kind == "openrouter_refresh":
             models = list(result or [])
             self.refresh_models()
             free_count = sum(
@@ -1568,7 +1598,8 @@ class WriterQtWindow(QMainWindow):
     def save_new_scene(self):
         if self.busy:
             return False
-        novel = self.novel_packages.get(self.novel_picker.currentText())
+        novel_name = self.novel_picker.currentText().strip()
+        novel = self.novel_packages.get(novel_name)
         chapter = self.chapter_numbers.get(self.chapter_picker.currentText())
         text = self.output_editor.toPlainText()
         if novel is None or chapter is None:
@@ -1581,22 +1612,106 @@ class WriterQtWindow(QMainWindow):
         try:
             folder.mkdir(parents=True, exist_ok=True)
             existing = list_scene_files(novel, chapter)
-            number = max((n for n, _ in existing), default=0) + 1
-            while (folder / f"Chapter_{chapter:02d}_Section_{number:02d}.odt").exists() or (folder / f"Chapter_{chapter:02d}_Section_{number:02d}.txt").exists():
+            saved_numbers = {number for number, _path in existing}
+            requested = scene_number_from_label(self.scene_picker.currentText())
+            if requested is None or requested in saved_numbers:
+                number = max(saved_numbers, default=0) + 1
+            else:
+                number = requested
+            while (
+                (folder / f"Chapter_{chapter:02d}_Section_{number:02d}.odt").exists()
+                or (folder / f"Chapter_{chapter:02d}_Section_{number:02d}.txt").exists()
+            ):
                 number += 1
             target = folder / f"Chapter_{chapter:02d}_Section_{number:02d}.odt"
             saved = save_document(target, text)
         except Exception as exc:
             self.error("Could not save new scene", str(exc))
             return False
-        self.selected_scene_source = saved
+        self._discard_scene_prompt_trace()
+        self._prepared_author_required_direction = ""
+        self.prepared_destination = None
+        self.prepared_novel = None
+        self.prepared_source = None
+        self.selected_scene_source = saved.resolve()
         self.current_file = None
         self.saved_text = text
         self.on_chapter_changed(self.chapter_picker.currentText())
-        self.scene_picker.setCurrentText(f"Scene {number:02d}")
         self._select_destination(chapter, number)
         self.status.setText(f"Saved new scene: {saved}")
+        self._start_saved_scene_state_update(novel, novel_name, chapter, number, text)
         return True
+
+    def _start_saved_scene_state_update(
+        self, novel_path: str | Path, novel_name: str,
+        chapter_number: int, scene_number: int, scene_text: str,
+    ):
+        """Record the accepted scene position before optionally analyzing its ending."""
+        state_path = Path(novel_path).expanduser() / "current_state.json"
+        try:
+            current_state = load_current_state(state_path)
+            marked_state = advance_saved_scene_markers(
+                current_state, chapter_number, scene_number
+            )
+            write_current_state(state_path, marked_state)
+        except (OSError, UnicodeError, ValueError, TypeError) as exc:
+            self.status.setText(
+                f"Scene saved, but current_state.json could not be updated: {exc}"
+            )
+            return
+
+        model_path = self.loaded_model
+        if model_path is None or getattr(self.engine, "active_selection", None) is None:
+            self.model_status.setText("Scene position recorded. Load a model to analyze the ending state.")
+            self.status.setText(
+                f"Saved new scene: {novel_name} / Chapter {chapter_number:02d} / "
+                f"Scene {scene_number:02d}. Scene progress was recorded; load a model "
+                "to analyze the ending time and situation."
+            )
+            return
+
+        self._saved_scene_state_target = (
+            str(novel_name), int(chapter_number), int(scene_number)
+        )
+        self._task_kind = "scene_state"
+
+        def work(_emit):
+            before_state = load_current_state(state_path)
+            prompt = build_saved_scene_state_prompt(
+                before_state, chapter_number, scene_number, scene_text
+            )
+            reset_error = None
+            try:
+                self.engine.clear_context()
+                response = self.engine.generate(prompt)
+                characters = (
+                    before_state.get("scene_cast")
+                    if isinstance(before_state.get("scene_cast"), list)
+                    else None
+                )
+                patch = parse_saved_scene_state_patch(
+                    before_state, response, scene_characters=characters
+                )
+                updated_state = merge_saved_scene_state(
+                    before_state, patch, chapter_number, scene_number
+                )
+                write_current_state(state_path, updated_state)
+                story_time = str(updated_state.get("time_of_day", "") or "")
+                return {"story_time": story_time, "reset_error": None}
+            finally:
+                try:
+                    self.engine.clear_context()
+                except Exception as exc:
+                    reset_error = str(exc)
+                if reset_error:
+                    self._scene_state_reset_error = reset_error
+
+        self._scene_state_reset_error = None
+        self.run_task(
+            work,
+            label=f"Updating ending state from Chapter {chapter_number:02d}, Scene {scene_number:02d}…",
+        )
+
 
     def save_to_selected_scene(self):
         if self.busy or self.selected_scene_source is None:
@@ -1642,7 +1757,7 @@ class WriterQtWindow(QMainWindow):
         for widget in (self.planner_picker, self.writer_picker, self.refresh_models_button, self.openrouter_settings_button, self.refresh_novels_button, self.novel_picker, self.chapter_picker, self.scene_picker, self.cast_button, self.prepare_button, self.write_button, self.minimal_button, self.full_button, self.rewrite_button, self.continue_button, self.new_session_button, self.open_button, self.save_button, self.save_as_button, self.save_new_scene_button, self.save_scene_button, self.assemble_chapter_button, self.assemble_novel_button, self.revise_button, self.check_draft_button):
             widget.setEnabled(idle)
         self.load_writer_button.setEnabled(idle and self.selected_model("writer") is not None)
-        self.stop_button.setEnabled(self.busy)
+        self.stop_button.setEnabled(self.busy and getattr(self, "_task_kind", "") != "openrouter_refresh")
         self.load_scene_button.setEnabled(idle and self.scene_picker.currentText() in self.scene_files)
         self.save_scene_button.setEnabled(idle and self.selected_scene_source is not None and self.scene_picker.currentText() in self.scene_files)
         has_target = self.novel_picker.currentText() in self.novel_packages and self.chapter_picker.currentText() in self.chapter_numbers
