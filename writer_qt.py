@@ -616,19 +616,25 @@ class WriterQtWindow(QMainWindow):
             elif not self._streamed:
                 self.output_editor.setPlainText(getattr(self, "_generation_original", ""))
         self.busy = False
-        trace_note = self._prompt_trace_status_note() if getattr(self, "_task_kind", "") == "write" else ""
-        if getattr(self, "_task_kind", "") == "novel_sync":
+        kind = getattr(self, "_task_kind", "")
+        trace_note = self._prompt_trace_status_note() if kind == "write" else ""
+        error_title = "StoryBuilder task failed"
+        if kind == "novel_sync":
             self.status.setText("Novel sync failed. Check the message before retrying.")
-            self.error("Novel sync failed", message)
-        elif getattr(self, "_task_kind", "") == "scene_state":
+            error_title = "Novel sync failed"
+        elif kind == "scene_state":
             novel_name, chapter, scene = self._saved_scene_state_target or ("Novel", 1, 1)
             self.status.setText(
                 f"Saved new scene: {novel_name} / Chapter {chapter:02d} / Scene {scene:02d}. "
                 "The scene position was recorded, but ending-state analysis failed; "
                 "existing story details were preserved."
             )
-            self.error("Scene ending-state update failed", message)
-        elif getattr(self, "_task_kind", "") == "openrouter_refresh":
+            if self._scene_state_reset_error:
+                self.loaded_model = None
+                self.model_status.setText("Model session reset failed. Reload the model before writing again.")
+            self._scene_state_reset_error = None
+            error_title = "Scene ending-state update failed"
+        elif kind == "openrouter_refresh":
             if getattr(self, "_openrouter_status_label", None) is not None:
                 self._openrouter_status_label.setText(
                     "The catalogue could not be refreshed. The previous cache was kept."
@@ -638,26 +644,36 @@ class WriterQtWindow(QMainWindow):
             if getattr(self, "_openrouter_remove_button", None) is not None:
                 self._openrouter_remove_button.setEnabled(True)
             self.status.setText("OpenRouter refresh failed. The previous model cache was kept.")
-        elif getattr(self, "_task_kind", "") == "revision":
+            error_title = "OpenRouter refresh failed"
+        elif kind == "revision":
             self.status.setText("Revision failed. The original passage was kept.")
+            error_title = "Revision failed"
         else:
             self.status.setText("Task failed. Existing saved files were not changed." + trace_note)
         self.update_controls()
-        self.error("StoryBuilder task failed", message)
+        self.error(error_title, message)
 
     def task_interrupted(self):
-        if getattr(self, "_task_kind", "") == "prepare":
+        kind = getattr(self, "_task_kind", "")
+        if kind == "prepare":
             self._discard_scene_prompt_trace(self._active_scene_preparation_trace)
             self._active_scene_preparation_trace = None
-        if getattr(self, "_task_kind", "") == "revision":
+        if kind == "revision":
             self._clear_revision_state()
-        if getattr(self, "_task_kind", "") == "write" and getattr(self, "_generation_mode", "") == "rewrite":
+        if kind == "write" and getattr(self, "_generation_mode", "") == "rewrite":
             self.output_editor.setPlainText(getattr(self, "_generation_original", ""))
         self.busy = False
         self.loaded_model = None
         self.model_status.setText("Stopped. Model will reload on the next task.")
-        trace_note = self._prompt_trace_status_note() if getattr(self, "_task_kind", "") == "write" else ""
-        self.status.setText("Stopped. Any streamed partial text remains in the editor." + trace_note)
+        if kind == "scene_state":
+            novel_name, chapter, scene = self._saved_scene_state_target or ("Novel", 1, 1)
+            self.status.setText(
+                f"Saved new scene: {novel_name} / Chapter {chapter:02d} / Scene {scene:02d}. "
+                "Scene position was recorded; ending-state analysis was stopped and existing story details were kept."
+            )
+        else:
+            trace_note = self._prompt_trace_status_note() if kind == "write" else ""
+            self.status.setText("Stopped. Any streamed partial text remains in the editor." + trace_note)
         self.update_controls()
 
     def worker_finished(self):
