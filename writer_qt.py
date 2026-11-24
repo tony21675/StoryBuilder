@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Callable
 
 from PySide6.QtCore import QObject, QThread, Signal
-from PySide6.QtGui import QCloseEvent
+from PySide6.QtGui import QCloseEvent, QTextCursor
 from PySide6.QtWidgets import (
     QApplication, QComboBox, QDialog, QDialogButtonBox, QFileDialog,
     QHBoxLayout, QLabel, QListWidget, QListWidgetItem, QMainWindow,
@@ -1150,7 +1150,7 @@ class WriterQtWindow(QMainWindow):
         end = self._revision_end
         original_document = self._revision_document
         original_passage = self._revision_original
-        if current != original_document or current[start:end] != original_passage:
+        if current != original_document:
             self._clear_revision_state()
             self.error(
                 "Selection changed",
@@ -1160,7 +1160,7 @@ class WriterQtWindow(QMainWindow):
             return
         cursor = self.output_editor.textCursor()
         cursor.setPosition(start)
-        cursor.setPosition(end, cursor.MoveMode.KeepAnchor)
+        cursor.setPosition(end, QTextCursor.MoveMode.KeepAnchor)
         cursor.insertText(dialog.proposed_text())
         self.output_editor.setTextCursor(cursor)
         self._clear_revision_state()
@@ -1305,7 +1305,7 @@ class WriterQtWindow(QMainWindow):
                 )
         elif kind == "revision":
             self.busy = False
-            self._clear_revision_state()
+            self.output_editor.setReadOnly(False)
             proposal = str(result or "").strip()
             if not proposal:
                 self._clear_revision_state()
