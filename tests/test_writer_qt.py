@@ -49,6 +49,7 @@ class WriterQtTests(unittest.TestCase):
         self.assertEqual(self.window.author_direction.toPlainText(), "Keep the required event.")
 
     def test_empty_scene_cast_remains_distinct_from_unselected_cast(self):
+        self.window.novel_picker.setCurrentText(self.package.name)
         self.window.scene_cast = []
         self.window.scene_cast_novel = self.package.resolve()
         self.assertEqual(self.window._active_cast(), [])
