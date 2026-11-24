@@ -1,6 +1,6 @@
 # Writer App handoff
 
-**Updated:** November 18, 2026  
+**Updated:** November 23, 2026  
 **Repository:** `tony21675/StoryBuilder`  
 **Branch:** `main` (GitHub default and sole working branch)  
 **Local path:** `~/Projects/StoryBuilder`
@@ -115,6 +115,6 @@ The initial Qt build currently covers:
 
 The port reuses existing model, scene-planning, character-context, Story Bible, manuscript, and document helpers. No Story Bible or manuscript schema migration is intended.
 
-**Not yet ported or verified:** selected-passage revision and exact replacement, Check Draft, full prompt-trace capture and upload, OpenRouter settings/key/catalogue refresh, the original saved-scene ending-state analysis/update, and safe selected-novel GitHub sync. Do not claim feature parity or retire the Tkinter Writer until these are implemented and tested. In particular, do not weaken or bypass the existing prompt trace requirement or novel-sync safety checks.
+**Still not yet ported or fully verified:** selected-passage revision and exact replacement, Check Draft, OpenRouter settings/key/catalogue refresh, the original saved-scene ending-state analysis/update, and safe selected-novel GitHub sync. Planner-to-Writer prompt-trace capture is now wired into the Qt flow: the same trace object follows Prepare Scene through Write, records both model calls and the prepared direction, saves the single local trace, and attempts the existing private-repository upload. Keep this requirement active; do not claim feature parity or retire the Tkinter Writer until the remaining workflows are implemented and tested.
 
 CI now compiles \`writer_qt.py\`, checks the new launcher syntax, and discovers \`tests/test_writer_qt.py\`. Automated CI passing is not a substitute for a live desktop check. Next validation should use the separate Qt launcher and a disposable test novel before any real manuscript is saved or overwritten.
