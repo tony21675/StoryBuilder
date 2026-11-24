@@ -98,3 +98,23 @@ The strict Author-Required Beats source rule and empty-input output safeguard ar
 - [Python tests](https://github.com/tony21675/StoryBuilder/actions/runs/43185289198)
 
 The regression tests cover an empty Author's Direction (including when a previous prepared direction contains event language), Markdown-formatted section headings, preservation of Qwen-selected additions, and non-empty Author's Direction behavior. The wider suite also covers the existing Planner and Writer workflows. CI success does not claim every computer has pulled or locally tested this revision.
+
+
+## PySide6 migration update
+
+**Updated:** November 23, 2026
+
+A separate first-pass Qt Writer now exists at \`writer_qt.py\`, launched with \`./start_writer_qt.sh\`. It is an additive migration preview; \`minimal_writer.py\` and \`./start.sh\` remain the known-good Tkinter fallback.
+
+The initial Qt build currently covers:
+- Independent Planner and Writer model selectors, saved model-role preferences, and on-demand loading.
+- Novel, chapter, and scene browsing, plus an author-selected multi-select scene cast.
+- Prepare Scene using the existing planner prompt builder and deterministic insertion of the exact Author's Direction under AUTHOR-REQUIRED BEATS.
+- Balanced, minimal, and full-context modes; streaming Write, Continue, confirmation-gated Rewrite, Stop, and New Session.
+- ODT/TXT open and save, save-new-scene, confirmation-gated overwrite of a loaded selected scene, and chapter/finished-novel assembly.
+
+The port reuses existing model, scene-planning, character-context, Story Bible, manuscript, and document helpers. No Story Bible or manuscript schema migration is intended.
+
+**Not yet ported or verified:** selected-passage revision and exact replacement, Check Draft, full prompt-trace capture and upload, OpenRouter settings/key/catalogue refresh, the original saved-scene ending-state analysis/update, and safe selected-novel GitHub sync. Do not claim feature parity or retire the Tkinter Writer until these are implemented and tested. In particular, do not weaken or bypass the existing prompt trace requirement or novel-sync safety checks.
+
+CI now compiles \`writer_qt.py\`, checks the new launcher syntax, and discovers \`tests/test_writer_qt.py\`. Automated CI passing is not a substitute for a live desktop check. Next validation should use the separate Qt launcher and a disposable test novel before any real manuscript is saved or overwritten.
