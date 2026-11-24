@@ -1140,6 +1140,16 @@ class WriterQtWindow(QMainWindow):
         self.run_task(work, label=f"Revising selected passage with {writer}…")
 
     def _show_revision_review(self, proposed: str):
+        current = self.output_editor.toPlainText()
+        if current != self._revision_document:
+            self._clear_revision_state()
+            self.error(
+                "Selection changed",
+                "The document changed while the revision was being prepared. "
+                "Nothing was replaced. Select the passage again and retry.",
+            )
+            return
+
         dialog = RevisionReviewDialog(self._revision_original, proposed, self)
         if dialog.exec() != QDialog.DialogCode.Accepted:
             self._clear_revision_state()
@@ -1149,12 +1159,11 @@ class WriterQtWindow(QMainWindow):
         start = self._revision_start
         end = self._revision_end
         original_document = self._revision_document
-        original_passage = self._revision_original
         if current != original_document:
             self._clear_revision_state()
             self.error(
                 "Selection changed",
-                "The document changed while the revision was being prepared. "
+                "The document changed while the revision was being reviewed. "
                 "Nothing was replaced. Select the passage again and retry.",
             )
             return
