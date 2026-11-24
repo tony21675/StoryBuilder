@@ -1821,17 +1821,41 @@ class WriterQtWindow(QMainWindow):
             self.info("Load a scene first", "Use Load Scene Copy before overwriting a selected manuscript scene.")
             return False
         target = self.scene_files.get(self.scene_picker.currentText())
-        if target is None or not target.is_file():
+        if target is None:
+            self.error("Scene unavailable", "Choose an existing manuscript scene to overwrite.")
+            return False
+        target = target.expanduser().resolve()
+        if not target.is_file():
             self.error("Scene unavailable", "The selected manuscript scene no longer exists.")
             return False
-        if not self.confirm("Confirm scene overwrite", f"This replaces the existing scene file:\n\n{target}\n\nContinue?"):
+
+        loaded_source = self.selected_scene_source.expanduser().resolve()
+        warning = (
+            "This replaces the existing scene file with the text currently in the editor:"
+            f"\n\n{target}\n\nCancel to leave the file untouched."
+        )
+        if loaded_source != target:
+            warning += f"\n\nThis is different from the scene originally loaded:\n{loaded_source}"
+        if not self.confirm("Confirm scene overwrite", warning):
+            self.status.setText("Save to Selected Scene cancelled; no file changed.")
             return False
+
+        # Recheck after confirmation to avoid accidentally recreating a removed scene.
+        if not target.is_file():
+            self.error("Scene unavailable", f"The selected scene file no longer exists:\n\n{target}")
+            return False
+        text = self.output_editor.toPlainText()
         try:
-            save_document(target, self.output_editor.toPlainText())
+            saved = save_document(target, text)
         except Exception as exc:
             self.error("Could not save scene", str(exc))
             return False
-        self.status.setText(f"Updated selected scene: {target}")
+
+        # Ordinary Save remains Save As after writing into a manuscript scene.
+        self.current_file = None
+        self.selected_scene_source = saved.resolve()
+        self.saved_text = text
+        self.status.setText(f"Updated selected scene: {saved}. Ordinary Save still opens Save As.")
         return True
 
     def assemble_chapter(self):
