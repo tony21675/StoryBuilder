@@ -129,7 +129,7 @@ class RevisionRequestDialog(QDialog):
         replace_layout = QVBoxLayout(replace_panel)
         replace_layout.addWidget(QLabel("Enter exact replacement text. Leave it empty to delete the selected passage."))
         self.replacement_editor = QPlainTextEdit()
-        self.replacement_editor.setPlainText(selected_text)
+        # Match the original Writer: exact replacement starts blank, and blank means delete.
         replace_layout.addWidget(self.replacement_editor, 1)
         self.tabs.addTab(ai_panel, "Revise with AI")
         self.tabs.addTab(replace_panel, "Replace with Exact Text")
@@ -671,6 +671,8 @@ class WriterQtWindow(QMainWindow):
                 f"Saved new scene: {novel_name} / Chapter {chapter:02d} / Scene {scene:02d}. "
                 "Scene position was recorded; ending-state analysis was stopped and existing story details were kept."
             )
+        elif kind == "revision":
+            self.status.setText("Revision stopped. The original passage was kept.")
         else:
             trace_note = self._prompt_trace_status_note() if kind == "write" else ""
             self.status.setText("Stopped. Any streamed partial text remains in the editor." + trace_note)
