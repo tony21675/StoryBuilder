@@ -225,6 +225,9 @@ class WriterQtWindow(QMainWindow):
 
         self.refresh_models_button.clicked.connect(self.refresh_models)
         self.load_writer_button.clicked.connect(self.load_writer)
+        self.load_scene_button.clicked.connect(self.load_scene_copy)
+        self.planner_picker.activated.connect(lambda _index: self.save_model_roles())
+        self.writer_picker.activated.connect(lambda _index: self.save_model_roles())
         self.refresh_novels_button.clicked.connect(self.refresh_novels)
         self.novel_picker.currentTextChanged.connect(self.on_novel_changed)
         self.chapter_picker.currentTextChanged.connect(self.on_chapter_changed)
@@ -306,6 +309,17 @@ class WriterQtWindow(QMainWindow):
                 roles[role] = str(value) if is_openrouter_selection(value) else Path(value).name
         save_model_roles(roles)
 
+    def load_writer(self):
+        model = self.selected_model("writer")
+        if model is None or self.busy:
+            return
+        def work(_emit):
+            load_model_for_writing(self.engine, model)
+            self.loaded_model = model
+            return model
+        self._task_kind = "load"
+        self.run_task(work, label=f"Loading writing model: {model}")
+
     def selected_model(self, role: str):
         picker = self.planner_picker if role == "planner" else self.writer_picker
         return self.models.get(picker.currentText())
@@ -345,12 +359,19 @@ class WriterQtWindow(QMainWindow):
         self.update_controls()
 
     def task_failed(self, message: str):
+        if getattr(self, "_task_kind", "") == "write":
+            if getattr(self, "_generation_mode", "") == "rewrite":
+                self.output_editor.setPlainText(getattr(self, "_generation_original", ""))
+            elif not self._streamed:
+                self.output_editor.setPlainText(getattr(self, "_generation_original", ""))
         self.busy = False
         self.status.setText("Task failed. Existing saved files were not changed.")
         self.update_controls()
         self.error("StoryBuilder task failed", message)
 
     def task_interrupted(self):
+        if getattr(self, "_task_kind", "") == "write" and getattr(self, "_generation_mode", "") == "rewrite":
+            self.output_editor.setPlainText(getattr(self, "_generation_original", ""))
         self.busy = False
         self.loaded_model = None
         self.model_status.setText("Stopped. Model will reload on the next task.")
@@ -489,8 +510,8 @@ class WriterQtWindow(QMainWindow):
                 load_model_for_writing(self.engine, planner)
                 self.loaded_model = planner
             return write_from_prompt(self.engine, prompt).strip()
-        self.run_task(work, label=f"Preparing Chapter {chapter:02d}, Scene {scene:02d} with Planner…")
         self._task_kind = "prepare"
+        self.run_task(work, label=f"Preparing Chapter {chapter:02d}, Scene {scene:02d} with Planner…")
 
     def _engine_ready(self):
         child = getattr(self.engine, "child", None)
@@ -614,7 +635,10 @@ class WriterQtWindow(QMainWindow):
 
     def task_succeeded(self, result):
         kind = getattr(self, "_task_kind", "")
-        if kind == "prepare":
+        if kind == "load":
+            self.model_status.setText(f"Loaded: {result}")
+            self.status.setText("Writing model loaded and ready.")
+        elif kind == "prepare":
             suggestion = apply_author_required_beats(str(result or ""), getattr(self, "_pending_planner_author", ""))
             self.prompt_editor.setPlainText(suggestion)
             chapter, scene = self._pending_target
