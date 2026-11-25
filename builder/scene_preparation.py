@@ -428,19 +428,16 @@ def build_scene_preparation_prompt(
         current_state, int(chapter_number), int(scene_number), source_scene_path
     )
 
-    previous_text = _previous_scene_text(source_scene_path)
+    previous_source = previous_saved_scene(root, int(chapter_number), int(scene_number))
+    previous_text = _previous_scene_text(previous_source[2] if previous_source else source_scene_path)
     saved_handoff = (
-        load_scene_handoff(source_scene_path, previous_text)
-        if source_scene_path and previous_text
+        load_scene_handoff(previous_source[2], previous_text)
+        if previous_source and previous_text
         else None
     )
     previous_ending = (
-        format_scene_handoff(
-            saved_handoff,
-            int(chapter_number) if int(chapter_number) else 1,
-            int(scene_number) if int(scene_number) else 1,
-        )
-        if saved_handoff
+        format_scene_handoff(saved_handoff, previous_source[0], previous_source[1])
+        if saved_handoff and previous_source
         else _planner_previous_excerpt(previous_text)
     )
     title = _clean_text(story_bible.get("title"), limit=100) or _clean_text(
