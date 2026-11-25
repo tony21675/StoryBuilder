@@ -4,6 +4,7 @@ from pathlib import Path
 
 from builder.novel_browser import list_scene_chapters, list_scene_files
 from builder.odt_document import read_document
+from builder.scene_handoff import format_scene_handoff, load_scene_handoff
 
 
 def previous_saved_scene(
@@ -48,6 +49,12 @@ def build_previous_scene_context_prompt(
 
     if not previous_text:
         return str(prompt or "")
+
+    handoff = load_scene_handoff(source_path, previous_text)
+    if handoff:
+        continuity_context = format_scene_handoff(handoff, source_chapter, source_scene)
+        base = str(prompt or "").rstrip()
+        return f"{base}\\n\\n{continuity_context}" if base else continuity_context
 
     excerpt = previous_text
     excerpt_note = "full text"
