@@ -1520,11 +1520,16 @@ class WriterQtWindow(QMainWindow):
         elif kind == "scene_state":
             novel_name, chapter, scene = self._saved_scene_state_target or ("Novel", 1, 1)
             story_time = str((result or {}).get("story_time", "") or "")
+            handoff_status = str((result or {}).get("handoff_status", "") or "")
             reset_error = self._scene_state_reset_error or (result or {}).get("reset_error")
             message = (
                 f"Saved new scene and updated its ending state: {novel_name} / "
                 f"Chapter {chapter:02d} / Scene {scene:02d}."
             )
+            if handoff_status == "created":
+                message += " Scene continuity handoff saved."
+            elif handoff_status and handoff_status != "not_created":
+                message += " Scene continuity handoff was not created; the next scene will use the previous-scene excerpt."
             if story_time:
                 message += f" Story time: {story_time}."
             if reset_error:
