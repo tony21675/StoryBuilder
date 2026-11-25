@@ -35,7 +35,7 @@ from builder.character_context import (
 from builder.creative_direction import build_creative_direction_prompt
 from builder.continuity_context import select_relevant_locations
 from builder.writer_continuity import build_previous_scene_context_prompt
-from builder.odt_document import read_document, save_document
+from builder.scene_handoff import (\n    build_handoff_extraction_prompt, parse_handoff_response, save_scene_handoff,\n)\nfrom builder.odt_document import read_document, save_document
 from builder.manuscript_assembly import assemble_chapter as assemble_chapter_document, assemble_finished_novel as assemble_finished_novel_document
 from builder.prompt_trace import PromptTrace, load_prompt_trace_enabled
 from builder.prompt_trace_sync import upload_prompt_trace
@@ -1802,7 +1802,37 @@ class WriterQtWindow(QMainWindow):
                 )
                 write_current_state(state_path, updated_state)
                 story_time = str(updated_state.get("time_of_day", "") or "")
-                return {"story_time": story_time, "reset_error": None}
+
+                # Create a separate, factual continuity handoff from the full accepted scene.
+                handoff_status = "not_created"
+                try:
+                    scene_path = None
+                    for saved_number, saved_path in list_scene_files(Path(novel_path).expanduser(), chapter_number):
+                        if int(saved_number) == int(scene_number):
+                            scene_path = saved_path
+                            break
+                    if scene_path is not None and Path(scene_path).is_file():
+                        handoff_prompt = build_handoff_extraction_prompt(
+                            chapter_number, scene_number, scene_text
+                        )
+                        self.engine.clear_context()
+                        handoff_response = self.engine.generate(handoff_prompt)
+                        parsed_handoff = parse_handoff_response(handoff_response)
+                        if parsed_handoff:
+                            save_scene_handoff(scene_path, scene_text, parsed_handoff)
+                            handoff_status = "created"
+                        else:
+                            handoff_status = "invalid_response"
+                    else:
+                        handoff_status = "scene_file_not_found"
+                except Exception as handoff_exc:
+                    handoff_status = f"failed: {handoff_exc}"
+
+                return {
+                    "story_time": story_time,
+                    "reset_error": None,
+                    "handoff_status": handoff_status,
+                }
             finally:
                 try:
                     self.engine.clear_context()
