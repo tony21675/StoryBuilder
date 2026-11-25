@@ -109,6 +109,27 @@ def build_handoff_extraction_prompt(chapter: int, scene: int, accepted_scene: st
     )
 
 
+def parse_handoff_response(response: str) -> dict[str, Any] | None:
+    """Parse JSON handoff output, allowing a surrounding Markdown code fence."""
+    raw = str(response or "").strip()
+    if not raw:
+        return None
+    raw = raw.removeprefix("```json").removeprefix("```").strip()
+    if raw.endswith("```"):
+        raw = raw[:-3].strip()
+    try:
+        return normalize_handoff(json.loads(raw))
+    except json.JSONDecodeError:
+        start = raw.find("{")
+        end = raw.rfind("}")
+        if start < 0 or end <= start:
+            return None
+        try:
+            return normalize_handoff(json.loads(raw[start:end + 1]))
+        except json.JSONDecodeError:
+            return None
+
+
 def format_scene_handoff(handoff: dict[str, Any], chapter: int, scene: int) -> str:
     normalized = normalize_handoff(handoff)
     if normalized is None:
