@@ -225,6 +225,77 @@ class WriterQtTests(unittest.TestCase):
         self.assertTrue(state["scene_completed"])
         self.assertEqual(state["status"], "in_progress")
 
+    def test_saving_existing_scene_starts_handoff_extraction(self):
+        scene_dir = self.package / "Manuscript" / "Chapters" / "Chapter_01"
+        scene_dir.mkdir(parents=True, exist_ok=True)
+        target = scene_dir / "Chapter_01_Section_01.odt"
+        target.write_text("Existing accepted scene.", encoding="utf-8")
+        self.window.novel_picker.setCurrentText(self.package.name)
+        self.window.chapter_picker.setCurrentText("Chapter 01")
+        if self.window.scene_picker.findText("Scene 01") < 0:
+            self.window.scene_picker.addItem("Scene 01")
+        self.window.scene_picker.setCurrentText("Scene 01")
+        self.window.scene_files["Scene 01"] = target
+        self.window.selected_scene_source = target
+        self.window.output_editor.setPlainText("Updated accepted scene.")
+
+        with patch.object(self.window, "confirm", return_value=True):
+            with patch.object(writer_qt, "save_document", return_value=target):
+                with patch.object(self.window, "_start_scene_handoff_update") as extract:
+                    self.assertTrue(self.window.save_to_selected_scene())
+
+        extract.assert_called_once_with(
+            target, self.package.name, 1, 1, "Updated accepted scene."
+        )
+
+    def test_existing_scene_handoff_update_writes_sidecar_without_advancing_state(self):
+        from builder.scene_handoff import load_scene_handoff
+
+        scene_dir = self.package / "Manuscript" / "Chapters" / "Chapter_01"
+        scene_dir.mkdir(parents=True, exist_ok=True)
+        target = scene_dir / "Chapter_01_Section_10.odt"
+        target.write_text("Accepted scene text.", encoding="utf-8")
+        handoff_payload = {
+            "ending": "Mara and Noah leave the shop together.",
+            "events": ["They leave the package undisturbed."],
+            "character_knowledge": {"Mara": "She noticed the package."},
+            "physical_continuity": ["The package remains inside the shop."],
+            "unresolved": ["The package's purpose is unknown."],
+        }
+        fake_engine = SimpleNamespace(
+            active_selection=object(),
+            clear_context=lambda: None,
+            generate=lambda _prompt: json.dumps(handoff_payload),
+        )
+        self.window.engine = fake_engine
+        self.window.loaded_model = Path("/models/test.gguf")
+        state_path = self.package / "current_state.json"
+        state_path.write_text(
+            json.dumps({"chapter": 1, "scene": 9, "scene_completed": True}),
+            encoding="utf-8",
+        )
+        captured = {}
+
+        def capture_task(task, *, label):
+            captured["task"] = task
+            captured["label"] = label
+
+        with patch.object(self.window, "run_task", side_effect=capture_task):
+            self.window._start_scene_handoff_update(
+                target,
+                self.package.name,
+                1,
+                10,
+                "Accepted scene text.",
+            )
+
+        result = captured["task"](lambda _chunk: None)
+        self.assertEqual(result["handoff_status"], "created")
+        saved_handoff = load_scene_handoff(target, "Accepted scene text.")
+        self.assertEqual(saved_handoff["ending"], handoff_payload["ending"])
+        state = json.loads(state_path.read_text(encoding="utf-8"))
+        self.assertEqual(state["scene"], 9)
+
     def test_selected_scene_missing_after_confirmation_is_not_recreated(self):
         scene_dir = self.package / "Manuscript" / "Chapters" / "Chapter_01"
         scene_dir.mkdir(parents=True, exist_ok=True)
