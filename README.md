@@ -44,6 +44,10 @@ Premise, Setting, and Canon Rules saves reread the Story Bible before applying t
 
 To switch computers, sync the desired real novel on the current computer, then open Story Bible on the other computer and sync that same novel there. Keep the computers on the same GitHub repository and branch.
 
+## Scene continuity handoffs
+
+When a saved scene is analyzed for ending-state updates, StoryBuilder also asks the currently loaded model to extract a compact continuity handoff from the accepted scene text. The handoff is stored beside the manuscript scene in a separate `.continuity.json` file; it does not alter manuscript text or Story Bible canon. It records the scene ending, events in order, character-specific knowledge, physical continuity, and unresolved threads. The source-text fingerprint prevents a stale handoff from being used after the scene is edited. When a valid handoff exists, Prepare Scene and writing prompts use it instead of the previous-scene excerpt. If handoff generation fails or a saved scene has no valid handoff, the existing previous-scene excerpt remains the fallback.
+
 ## Optional OpenRouter models
 
 The Minimal Writer can use local GGUF models through llama.cpp or optional remote models through OpenRouter. Planner and Writer selections are independent, so either role can use a local model or an OpenRouter model. Mixed setups are supported, for example local Qwen planning with an OpenRouter writer, or the reverse. The original local workflow remains available without an OpenRouter account.
