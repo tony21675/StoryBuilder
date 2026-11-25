@@ -131,7 +131,7 @@ class WriterQtTests(unittest.TestCase):
         self.assertEqual(event["details"]["final_scene_direction"], "Final planner direction")
         self.assertEqual(event["details"]["final_author_required_direction"], "Author beat")
 
-    def test_finishing_prompt_trace_saves_locally_and_attempts_upload(self):
+    def test_finishing_prompt_trace_saves_locally_without_uploading(self):
         trace = writer_qt.PromptTrace(
             chapter=1,
             scene=1,
@@ -144,10 +144,37 @@ class WriterQtTests(unittest.TestCase):
             system_prompt="",
             path=self.root / "prompt_trace.json",
         )
-        with patch.object(writer_qt, "upload_prompt_trace", return_value={"ok": True, "url": "https://example.invalid/trace"}) as upload:
+        with patch.object(writer_qt, "upload_prompt_trace") as upload:
             self.window._finish_prompt_trace(trace, status="completed")
         self.assertTrue((self.root / "prompt_trace.json").is_file())
-        upload.assert_called_once()
+        upload.assert_not_called()
+        self.assertIsNone(self.window._last_prompt_trace_upload_result)
+
+    def test_prompt_trace_upload_runs_only_after_manual_button_action(self):
+        trace_path = self.root / "prompt_trace.json"
+        trace_path.write_text('{"test": true}', encoding="utf-8")
+        self.window._last_prompt_trace_path = str(trace_path)
+        captured = {}
+        upload_result = {
+            "ok": True,
+            "url": "https://github.com/tony21675/StoryBuilder-Traces/blob/main/prompt_trace.json",
+        }
+
+        def capture_task(task, **kwargs):
+            captured["task"] = task
+            captured["label"] = kwargs.get("label")
+
+        with patch.object(writer_qt, "upload_prompt_trace", return_value=upload_result) as upload:
+            with patch.object(self.window, "run_task", side_effect=capture_task):
+                self.window.upload_latest_prompt_trace()
+            upload.assert_not_called()
+            self.assertIn("Uploading prompt trace", captured["label"])
+            result = captured["task"](None)
+            upload.assert_called_once_with(trace_path)
+            self.window._task_kind = "trace_upload"
+            self.window.task_succeeded(result)
+
+        self.assertIn("uploaded", self.window.status.text().lower())
         self.assertTrue(self.window._last_prompt_trace_upload_result["ok"])
 
     def test_exact_revision_replaces_only_the_selected_passage_after_approval(self):
