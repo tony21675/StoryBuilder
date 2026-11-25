@@ -347,13 +347,21 @@ class WriterQtWindow(QMainWindow):
         self.continue_button = QPushButton("Continue")
         self.stop_button = QPushButton("Stop")
         self.new_session_button = QPushButton("New Session")
+        for button in (self.write_button, self.minimal_button, self.full_button, self.rewrite_button, self.continue_button, self.stop_button, self.new_session_button):
+            controls.addWidget(button)
+        page.addLayout(controls)
+
+        trace_controls = QHBoxLayout()
         self.upload_trace_button = QPushButton("Upload Prompt Trace")
         self.upload_trace_button.setToolTip(
             "Upload the latest locally saved prompt trace to your private GitHub trace repository."
         )
-        for button in (self.write_button, self.minimal_button, self.full_button, self.rewrite_button, self.continue_button, self.stop_button, self.new_session_button, self.upload_trace_button):
-            controls.addWidget(button)
-        page.addLayout(controls)
+        trace_controls.addWidget(self.upload_trace_button)
+        trace_controls.addWidget(
+            QLabel("Prompt traces stay on this computer until you choose to upload them."),
+            1,
+        )
+        page.addLayout(trace_controls)
 
         file_controls = QHBoxLayout()
         self.open_button = QPushButton("Open Text / ODT")
