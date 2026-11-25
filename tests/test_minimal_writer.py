@@ -1358,41 +1358,37 @@ class MinimalWriterTests(unittest.TestCase):
                 "Keep the mood light.",
             )
 
-            upload_result = {
-                "ok": True,
-                "repository": "tony21675/StoryBuilder-Traces",
-                "url": "https://github.com/tony21675/StoryBuilder-Traces/blob/main/prompt_trace.json",
-            }
-            with patch(
-                "minimal_writer.upload_prompt_trace", return_value=upload_result
-            ) as upload:
+            with patch("minimal_writer.upload_prompt_trace") as upload:
                 app._finish_prompt_trace(trace, status="completed")
 
-            upload.assert_called_once_with(trace_path)
+            upload.assert_not_called()
             self.assertEqual(detached, [trace])
             self.assertEqual(app._last_prompt_trace_path, str(trace_path))
-            self.assertEqual(app._last_prompt_trace_upload_result, upload_result)
+            self.assertIsNone(app._last_prompt_trace_upload_result)
 
-    def test_prompt_trace_upload_failure_keeps_local_trace_available(self):
+    def test_prompt_trace_upload_failure_keeps_local_trace_available_after_manual_click(self):
         with tempfile.TemporaryDirectory() as temporary:
             trace_path = Path(temporary) / "prompt_trace.json"
-            trace = type(
-                "Trace",
-                (),
-                {"finish": lambda self, **kwargs: trace_path},
-            )()
+            trace_path.write_text('{"test": true}', encoding="utf-8")
             app = MinimalWriterApp.__new__(MinimalWriterApp)
-            app.engine = FakeEngine()
+            app.busy = False
+            app.root = FakeRoot()
+            app.status_var = FakeStatus()
+            app._last_prompt_trace_path = str(trace_path)
+            app._trace_upload_busy = False
+            app._update_controls = lambda: None
 
             failure = {"ok": False, "error": "GitHub CLI is not authenticated."}
             with patch(
                 "minimal_writer.upload_prompt_trace", return_value=failure
             ) as upload:
-                app._finish_prompt_trace(trace, status="completed")
+                with patch("minimal_writer.threading.Thread", ImmediateThread):
+                    app.upload_latest_prompt_trace()
 
             upload.assert_called_once_with(trace_path)
             self.assertEqual(app._last_prompt_trace_path, str(trace_path))
             self.assertEqual(app._last_prompt_trace_upload_result, failure)
+            self.assertIn("local trace is still available", app.status_var.value.lower())
 
     def test_normal_write_uses_balanced_context_and_bounded_previous_scene_excerpt(self):
         app = MinimalWriterApp.__new__(MinimalWriterApp)
