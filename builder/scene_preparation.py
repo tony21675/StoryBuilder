@@ -12,7 +12,7 @@ from builder.character_context import (
     build_scene_cast_boundary_prompt,
 )
 from builder.story_timeline import build_story_timeline_prompt
-
+from builder.scene_handoff import format_scene_handoff, load_scene_handoff\n
 
 _SCENE_FILENAME_RE = re.compile(
     r"^Chapter_(\d+)_Section_(\d+)\.(?:odt|txt)$",
@@ -429,7 +429,20 @@ def build_scene_preparation_prompt(
     )
 
     previous_text = _previous_scene_text(source_scene_path)
-    previous_ending = _planner_previous_excerpt(previous_text)
+    saved_handoff = (
+        load_scene_handoff(source_scene_path, previous_text)
+        if source_scene_path and previous_text
+        else None
+    )
+    previous_ending = (
+        format_scene_handoff(
+            saved_handoff,
+            int(chapter_number) if int(chapter_number) else 1,
+            int(scene_number) if int(scene_number) else 1,
+        )
+        if saved_handoff
+        else _planner_previous_excerpt(previous_text)
+    )
     title = _clean_text(story_bible.get("title"), limit=100) or _clean_text(
         novel_name, limit=100
     )
