@@ -637,6 +637,13 @@ class WriterQtWindow(QMainWindow):
                 self.model_status.setText("Model session reset failed. Reload the model before writing again.")
             self._scene_state_reset_error = None
             error_title = "Scene ending-state update failed"
+        elif kind == "scene_handoff":
+            novel_name, chapter, scene = self._scene_handoff_target or ("Novel", 1, 1)
+            self.status.setText(
+                f"Updated existing scene: {novel_name} / Chapter {chapter:02d} / Scene {scene:02d}. "
+                "The manuscript was saved, but continuity handoff extraction failed."
+            )
+            error_title = "Scene continuity handoff failed"
         elif kind == "openrouter_refresh":
             if getattr(self, "_openrouter_status_label", None) is not None:
                 self._openrouter_status_label.setText(
@@ -1537,6 +1544,25 @@ class WriterQtWindow(QMainWindow):
                 self.loaded_model = None
             self.status.setText(message)
             self._scene_state_reset_error = None
+        elif kind == "scene_handoff":
+            novel_name, chapter, scene = self._scene_handoff_target or ("Novel", 1, 1)
+            handoff_status = str((result or {}).get("handoff_status", "") or "")
+            reset_error = (result or {}).get("reset_error")
+            message = (
+                f"Updated existing scene: {novel_name} / Chapter {chapter:02d} / "
+                f"Scene {scene:02d}."
+            )
+            if handoff_status == "created":
+                message += " Scene continuity handoff saved."
+            else:
+                message += " Scene continuity handoff was not created; the next scene will use the previous-scene excerpt."
+                detail = str(handoff_status or "unknown error")
+                if detail not in {"not_created", "unknown error"}:
+                    message += f" Details: {detail}."
+            if reset_error:
+                message += " The model session could not be cleared; reload the model before writing again."
+                self.loaded_model = None
+            self.status.setText(message)
         elif kind == "openrouter_refresh":
             models = list(result or [])
             self.refresh_models()
@@ -1856,6 +1882,63 @@ class WriterQtWindow(QMainWindow):
         )
 
 
+    def _start_scene_handoff_update(
+        self,
+        scene_path: str | Path,
+        novel_name: str,
+        chapter_number: int,
+        scene_number: int,
+        scene_text: str,
+    ):
+        """Create a continuity handoff for an existing scene without changing story position."""
+        target = Path(scene_path).expanduser().resolve()
+        self._scene_handoff_target = (
+            str(novel_name), int(chapter_number), int(scene_number)
+        )
+        if self.loaded_model is None or getattr(self.engine, "active_selection", None) is None:
+            self.status.setText(
+                f"Updated selected scene: {target}. The manuscript is saved, but a model "
+                "must be loaded to create its continuity handoff."
+            )
+            return
+
+        self._task_kind = "scene_handoff"
+
+        def work(_emit):
+            handoff_status = "not_created"
+            reset_error = None
+            try:
+                if not target.is_file():
+                    handoff_status = "scene_file_not_found"
+                else:
+                    handoff_prompt = build_handoff_extraction_prompt(
+                        chapter_number, scene_number, scene_text
+                    )
+                    self.engine.clear_context()
+                    handoff_response = self.engine.generate(handoff_prompt)
+                    parsed_handoff = parse_handoff_response(handoff_response)
+                    if parsed_handoff:
+                        save_scene_handoff(target, scene_text, parsed_handoff)
+                        handoff_status = "created"
+                    else:
+                        handoff_status = "invalid_response"
+            except Exception as exc:
+                handoff_status = f"failed: {exc}"
+            finally:
+                try:
+                    self.engine.clear_context()
+                except Exception as exc:
+                    reset_error = str(exc)
+            return {
+                "handoff_status": handoff_status,
+                "reset_error": reset_error,
+            }
+
+        self.run_task(
+            work,
+            label=f"Creating continuity handoff for Chapter {chapter_number:02d}, Scene {scene_number:02d}…",
+        )
+
     def save_to_selected_scene(self):
         if self.busy or self.selected_scene_source is None:
             self.info("Load a scene first", "Use Load Scene Copy before overwriting a selected manuscript scene.")
@@ -1896,6 +1979,14 @@ class WriterQtWindow(QMainWindow):
         self.selected_scene_source = saved.resolve()
         self.saved_text = text
         self.status.setText(f"Updated selected scene: {saved}. Ordinary Save still opens Save As.")
+        novel_name = self.novel_picker.currentText().strip()
+        novel = self.novel_packages.get(novel_name)
+        chapter_number = self.chapter_numbers.get(self.chapter_picker.currentText())
+        scene_number = scene_number_from_label(self.scene_picker.currentText())
+        if novel is not None and chapter_number is not None and scene_number is not None:
+            self._start_scene_handoff_update(
+                saved, novel_name, chapter_number, scene_number, text
+            )
         return True
 
     def assemble_chapter(self):
