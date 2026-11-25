@@ -35,7 +35,10 @@ from builder.character_context import (
 from builder.creative_direction import build_creative_direction_prompt
 from builder.continuity_context import select_relevant_locations
 from builder.writer_continuity import build_previous_scene_context_prompt
-from builder.scene_handoff import (\n    build_handoff_extraction_prompt, parse_handoff_response, save_scene_handoff,\n)\nfrom builder.odt_document import read_document, save_document
+from builder.scene_handoff import (
+    build_handoff_extraction_prompt, parse_handoff_response, save_scene_handoff,
+)
+from builder.odt_document import read_document, save_document
 from builder.manuscript_assembly import assemble_chapter as assemble_chapter_document, assemble_finished_novel as assemble_finished_novel_document
 from builder.prompt_trace import PromptTrace, load_prompt_trace_enabled
 from builder.prompt_trace_sync import upload_prompt_trace
