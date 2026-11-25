@@ -40,7 +40,9 @@ from builder.scene_handoff import (
 )
 from builder.odt_document import read_document, save_document
 from builder.manuscript_assembly import assemble_chapter as assemble_chapter_document, assemble_finished_novel as assemble_finished_novel_document
-from builder.prompt_trace import PromptTrace, load_prompt_trace_enabled
+from builder.prompt_trace import (
+    PromptTrace, default_prompt_trace_path, load_prompt_trace_enabled,
+)
 from builder.prompt_trace_sync import upload_prompt_trace
 from builder.prose_health import analyze_draft, format_draft_health_report
 from builder.scene_state_update import (
@@ -234,7 +236,7 @@ class WriterQtWindow(QMainWindow):
         self._scene_preparation_original_prompt = ""
         self._scene_preparation_original_author_direction = ""
         self._scene_preparation_required_author_direction = ""
-        self._last_prompt_trace_path = None
+        self._last_prompt_trace_path = str(default_prompt_trace_path())
         self._last_prompt_trace_upload_result = None
         self._revision_document = ""
         self._revision_start = 0
@@ -345,7 +347,11 @@ class WriterQtWindow(QMainWindow):
         self.continue_button = QPushButton("Continue")
         self.stop_button = QPushButton("Stop")
         self.new_session_button = QPushButton("New Session")
-        for button in (self.write_button, self.minimal_button, self.full_button, self.rewrite_button, self.continue_button, self.stop_button, self.new_session_button):
+        self.upload_trace_button = QPushButton("Upload Prompt Trace")
+        self.upload_trace_button.setToolTip(
+            "Upload the latest locally saved prompt trace to your private GitHub trace repository."
+        )
+        for button in (self.write_button, self.minimal_button, self.full_button, self.rewrite_button, self.continue_button, self.stop_button, self.new_session_button, self.upload_trace_button):
             controls.addWidget(button)
         page.addLayout(controls)
 
@@ -385,6 +391,7 @@ class WriterQtWindow(QMainWindow):
         self.continue_button.clicked.connect(self.continue_writing)
         self.stop_button.clicked.connect(self.stop_task)
         self.new_session_button.clicked.connect(self.new_session)
+        self.upload_trace_button.clicked.connect(self.upload_latest_prompt_trace)
         self.open_button.clicked.connect(self.open_document)
         self.save_button.clicked.connect(self.save_document)
         self.save_as_button.clicked.connect(self.save_document_as)
@@ -644,6 +651,11 @@ class WriterQtWindow(QMainWindow):
                 "The manuscript was saved, but continuity handoff extraction failed."
             )
             error_title = "Scene continuity handoff failed"
+        elif kind == "trace_upload":
+            self.status.setText(
+                "Prompt trace upload failed. The local trace is still available. " + str(message)
+            )
+            error_title = "Prompt trace upload failed"
         elif kind == "openrouter_refresh":
             if getattr(self, "_openrouter_status_label", None) is not None:
                 self._openrouter_status_label.setText(
@@ -964,19 +976,36 @@ class WriterQtWindow(QMainWindow):
             saved_path = trace.finish(status=status, error=error)
         except Exception:
             saved_path = None
-        self._last_prompt_trace_path = str(saved_path) if saved_path else None
         if saved_path:
-            try:
-                self._last_prompt_trace_upload_result = upload_prompt_trace(saved_path)
-            except Exception as exc:
-                self._last_prompt_trace_upload_result = {
-                    "ok": False,
-                    "error": str(exc)[:700],
-                }
+            self._last_prompt_trace_path = str(saved_path)
         try:
             self.engine.detach_prompt_trace(trace)
         except Exception:
             pass
+
+    def upload_latest_prompt_trace(self):
+        """Upload the latest local prompt trace only after an explicit button click."""
+        if self.busy:
+            return
+        trace_path = Path(
+            self._last_prompt_trace_path or default_prompt_trace_path()
+        ).expanduser()
+        if not trace_path.is_file():
+            self.info(
+                "No prompt trace available",
+                "A prompt trace will be available here after a scene generation is completed.",
+            )
+            return
+
+        self._task_kind = "trace_upload"
+
+        def work(_emit):
+            return upload_prompt_trace(trace_path)
+
+        self.run_task(
+            work,
+            label="Uploading prompt trace to your private GitHub repository…",
+        )
 
     def _claim_prepared_scene_prompt_trace(
         self, mode: str, expected_destination: tuple[int, int] | None
@@ -1449,7 +1478,7 @@ class WriterQtWindow(QMainWindow):
         scene_label = self.scene_picker.currentText()
         destination = resolve_generation_scene_destination(prompt, chapter, scene_label)
         required_author_direction = self._author_required_direction_for_current_scene(destination)
-        self._last_prompt_trace_path = None
+        self._last_prompt_trace_path = str(default_prompt_trace_path())
         self._last_prompt_trace_upload_result = None
         prompt_trace = self._claim_prepared_scene_prompt_trace(mode, destination)
         if prompt_trace is None:
@@ -1563,6 +1592,23 @@ class WriterQtWindow(QMainWindow):
                 message += " The model session could not be cleared; reload the model before writing again."
                 self.loaded_model = None
             self.status.setText(message)
+        elif kind == "trace_upload":
+            upload_result = result if isinstance(result, dict) else {
+                "ok": False, "error": "GitHub returned an unexpected upload result."
+            }
+            self._last_prompt_trace_upload_result = upload_result
+            if upload_result.get("ok"):
+                url = str(upload_result.get("url") or "").strip()
+                message = "Prompt trace uploaded to the private GitHub trace repository."
+                if url:
+                    message += f" {url}"
+                self.status.setText(message)
+            else:
+                detail = str(upload_result.get("error") or "Unknown upload error")
+                self.status.setText(
+                    "Prompt trace upload failed. The local trace is still available. "
+                    + detail
+                )
         elif kind == "openrouter_refresh":
             models = list(result or [])
             self.refresh_models()
@@ -2012,7 +2058,7 @@ class WriterQtWindow(QMainWindow):
 
     def update_controls(self, *_):
         idle = not self.busy
-        for widget in (self.planner_picker, self.writer_picker, self.refresh_models_button, self.openrouter_settings_button, self.refresh_novels_button, self.sync_novel_button, self.novel_picker, self.chapter_picker, self.scene_picker, self.cast_button, self.prepare_button, self.write_button, self.minimal_button, self.full_button, self.rewrite_button, self.continue_button, self.new_session_button, self.open_button, self.save_button, self.save_as_button, self.save_new_scene_button, self.save_scene_button, self.assemble_chapter_button, self.assemble_novel_button, self.revise_button, self.check_draft_button):
+        for widget in (self.planner_picker, self.writer_picker, self.refresh_models_button, self.openrouter_settings_button, self.refresh_novels_button, self.sync_novel_button, self.novel_picker, self.chapter_picker, self.scene_picker, self.cast_button, self.prepare_button, self.write_button, self.minimal_button, self.full_button, self.rewrite_button, self.continue_button, self.new_session_button, self.upload_trace_button, self.open_button, self.save_button, self.save_as_button, self.save_new_scene_button, self.save_scene_button, self.assemble_chapter_button, self.assemble_novel_button, self.revise_button, self.check_draft_button):
             widget.setEnabled(idle)
         self.load_writer_button.setEnabled(idle and self.selected_model("writer") is not None)
         self.stop_button.setEnabled(self.busy and getattr(self, "_task_kind", "") != "openrouter_refresh")
@@ -2031,6 +2077,8 @@ class WriterQtWindow(QMainWindow):
         self.continue_button.setEnabled(idle and self.selected_model("writer") is not None)
         self.revise_button.setEnabled(idle)
         self.check_draft_button.setEnabled(idle and bool(self.output_editor.toPlainText().strip()))
+        trace_path = Path(self._last_prompt_trace_path or default_prompt_trace_path()).expanduser()
+        self.upload_trace_button.setEnabled(idle and trace_path.is_file())
 
     def closeEvent(self, event: QCloseEvent):
         if self.busy:
