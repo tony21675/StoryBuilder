@@ -78,9 +78,9 @@ Prepare Scene plans one destination scene. The Writer also receives a one-scene 
 The Planner-to-Writer trace is an essential diagnostic and must remain active.
 
 - The trace records the planner input and raw response, the final direction presented to the Writer, the original author-required direction, the complete assembled Writer prompt, and the Writer response.
-- It is saved locally after the prose-generation attempt and uploaded to the existing private `StoryBuilder-Traces` repository.
-- That repository intentionally retains the latest `prompt_trace.json`, overwriting the prior latest trace. The local trace remains available if upload fails.
-- Do not disable tracing, change its upload timing, create extra trace copies in the repository, or weaken local retention without explicit discussion.
+- It is saved locally after the prose-generation attempt. Upload is manual only, using the Writer's **Upload Prompt Trace** button; never upload automatically.
+- The button uploads the latest local `prompt_trace.json` to the existing private `StoryBuilder-Traces` repository. That repository intentionally retains only the latest trace, overwriting the prior latest trace.
+- Keep local trace capture and retention active. Do not add automatic uploads or extra trace copies in the repository.
 
 ## Source-of-truth and working rules
 
