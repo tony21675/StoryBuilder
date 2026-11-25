@@ -12,7 +12,7 @@ from builder.character_context import (
     build_scene_cast_boundary_prompt,
 )
 from builder.story_timeline import build_story_timeline_prompt
-from builder.scene_handoff import format_scene_handoff, load_scene_handoff\n
+from builder.scene_handoff import format_scene_handoff, load_scene_handoff
 
 _SCENE_FILENAME_RE = re.compile(
     r"^Chapter_(\d+)_Section_(\d+)\.(?:odt|txt)$",
