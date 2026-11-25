@@ -53,7 +53,9 @@ from builder.novel_git_sync import (
     inspect_novel_repository,
     sync_novel_repository,
 )
-from builder.prompt_trace import PromptTrace, load_prompt_trace_enabled
+from builder.prompt_trace import (
+    PromptTrace, default_prompt_trace_path, load_prompt_trace_enabled,
+)
 from builder.prompt_trace_sync import upload_prompt_trace
 from builder.model_preferences import (
     load_model_roles,
@@ -571,6 +573,9 @@ class MinimalWriterApp:
         self._revision_end_mark = "storybuilder_revision_end"
         self._revision_original = ""
         self._revision_active = False
+        self._last_prompt_trace_path = str(default_prompt_trace_path())
+        self._last_prompt_trace_upload_result = None
+        self._trace_upload_busy = False
 
         root.title("StoryBuilder Minimal Writer - Untitled")
         root.geometry("1080x820")
@@ -868,6 +873,20 @@ class MinimalWriterApp:
             actions, text="New Session", command=self.new_session
         )
         self.new_session_button.pack(side="left", padx=(8, 0))
+
+        trace_controls = ttk.Frame(outer)
+        trace_controls.pack(fill="x", pady=(0, 8))
+        self.upload_trace_button = ttk.Button(
+            trace_controls,
+            text="Upload Prompt Trace",
+            command=self.upload_latest_prompt_trace,
+            state="disabled",
+        )
+        self.upload_trace_button.pack(side="left", padx=(0, 8))
+        ttk.Label(
+            trace_controls,
+            text="Prompt traces stay on this computer until you choose to upload them.",
+        ).pack(side="left", fill="x", expand=True)
 
         self.stop_button = ttk.Button(
             actions, text="Stop Writing", command=self.stop_writing, state="disabled"
@@ -3510,23 +3529,70 @@ class MinimalWriterApp:
             saved_path = trace.finish(status=status, error=error)
         except Exception:
             saved_path = None
-        self._last_prompt_trace_path = str(saved_path) if saved_path else None
         if saved_path:
-            try:
-                self._last_prompt_trace_upload_result = upload_prompt_trace(saved_path)
-            except Exception as exc:
-                # Remote diagnostics are optional. Keep the local trace and never
-                # turn a completed writing operation into a failure if upload fails.
-                self._last_prompt_trace_upload_result = {
-                    "ok": False,
-                    "error": str(exc)[:700],
-                }
+            self._last_prompt_trace_path = str(saved_path)
         detach = getattr(self.engine, "detach_prompt_trace", None)
         if callable(detach):
             try:
                 detach(trace)
             except Exception:
                 pass
+
+    def upload_latest_prompt_trace(self) -> None:
+        """Upload the latest local trace only after the author clicks the button."""
+        if self.busy or getattr(self, "_trace_upload_busy", False):
+            return
+        trace_path = Path(
+            getattr(self, "_last_prompt_trace_path", None) or default_prompt_trace_path()
+        ).expanduser()
+        if not trace_path.is_file():
+            self.status_var.set(
+                "No saved prompt trace is available yet. Complete a scene generation first."
+            )
+            return
+
+        self._trace_upload_busy = True
+        if hasattr(self, "upload_trace_button"):
+            self.upload_trace_button.configure(state="disabled")
+        self.status_var.set("Uploading prompt trace to your private GitHub repository…")
+
+        def worker() -> None:
+            try:
+                result = upload_prompt_trace(trace_path)
+            except Exception as exc:
+                result = {"ok": False, "error": str(exc)[:700]}
+
+            def finish_upload() -> None:
+                self._trace_upload_busy = False
+                self._last_prompt_trace_upload_result = result
+                if result.get("ok"):
+                    url = str(result.get("url") or "").strip()
+                    message = "Prompt trace uploaded to the private GitHub trace repository."
+                    if url:
+                        message += f" {url}"
+                    self.status_var.set(message)
+                else:
+                    detail = str(result.get("error") or "Unknown upload error")
+                    self.status_var.set(
+                        "Prompt trace upload failed. The local trace is still available. "
+                        + detail
+                    )
+                self._update_controls()
+
+            try:
+                self.root.after(0, finish_upload)
+            except Exception:
+                self._trace_upload_busy = False
+
+        try:
+            threading.Thread(target=worker, daemon=True).start()
+        except Exception as exc:
+            self._trace_upload_busy = False
+            self.status_var.set(
+                "Could not start prompt trace upload. The local trace is still available. "
+                + str(exc)
+            )
+            self._update_controls()
 
     def _begin_generation(
         self, prompt: str, mode: str, *, context_profile: str = "balanced"
@@ -3588,7 +3654,7 @@ class MinimalWriterApp:
         self._pre_generation_saved_text = self.saved_output_text
         self._generation_mode = mode
         self._generation_had_chunks = False
-        self._last_prompt_trace_path = None
+        self._last_prompt_trace_path = str(default_prompt_trace_path())
         self._last_prompt_trace_upload_result = None
         prompt_trace = self._claim_prepared_scene_prompt_trace(
             mode, expected_destination=generation_destination
@@ -4443,6 +4509,19 @@ class MinimalWriterApp:
         self.new_session_button.configure(
             state="normal" if idle and has_writer_model else "disabled"
         )
+        if hasattr(self, "upload_trace_button"):
+            trace_path = Path(
+                getattr(self, "_last_prompt_trace_path", None) or default_prompt_trace_path()
+            ).expanduser()
+            self.upload_trace_button.configure(
+                state=(
+                    "normal"
+                    if idle
+                    and not getattr(self, "_trace_upload_busy", False)
+                    and trace_path.is_file()
+                    else "disabled"
+                )
+            )
         self.open_button.configure(state="normal" if idle else "disabled")
         self.save_button.configure(state="normal" if idle else "disabled")
         self.save_as_button.configure(state="normal" if idle else "disabled")
