@@ -6,6 +6,10 @@ from pathlib import Path
 from typing import Any
 
 from builder.odt_document import read_document
+from builder.creative_direction import (
+    build_creative_direction_prompt,
+    normalize_creative_direction,
+)
 from builder.story_bible_reader import load_story_bible
 from builder.character_context import (
     build_character_card_context_prompt,
@@ -512,6 +516,21 @@ def build_scene_preparation_prompt(
         sections.append(f"Story premise: {premise}")
     if setting:
         sections.append(f"Setting: {setting}")
+
+    # Pass only this novel's saved Creative Direction to the Planner. This keeps
+    # Qwen aligned with the Writer without loading every available genre profile
+    # or adding default guidance to novels that have no selections.
+    creative_direction = normalize_creative_direction(
+        story_bible.get("creative_direction"), strict=False
+    )
+    has_creative_direction = bool(
+        creative_direction["genres"]
+        or creative_direction["moods"]
+        or creative_direction["audience"]
+        or creative_direction["explicit_adult_content"]
+    )
+    if has_creative_direction:
+        sections.append(build_creative_direction_prompt(creative_direction))
 
     if cast_names:
         sections.append("SELECTED SCENE CAST\n" + ", ".join(cast_names))
