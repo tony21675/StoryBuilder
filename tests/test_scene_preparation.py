@@ -110,13 +110,67 @@ class ScenePreparationPromptTests(unittest.TestCase):
             self.assertNotIn("Sexual Orientation: Straight", prompt)
             self.assertNotIn("Experienced harbor pilot", prompt)
             self.assertNotIn("Custom Planner Detail", prompt)
-            self.assertNotIn("Genres: Mystery, Comedy", prompt)
-            self.assertNotIn("Mystery guidance:", prompt)
-            self.assertNotIn("Mood and tone:", prompt)
+            self.assertIn("Genres: Mystery, Comedy", prompt)
+            self.assertIn("Mystery guidance:", prompt)
+            self.assertIn("meaningful question or uncertainty", prompt)
+            self.assertIn("Comedy guidance:", prompt)
+            self.assertIn("Let humor grow from character", prompt)
+            self.assertIn("Mood and tone: Cozy, Humorous", prompt)
+            self.assertIn("Intended audience: Adult", prompt)
+            self.assertIn("Explicit adult content is not enabled", prompt)
             self.assertNotIn("Let Chapter One take its time", prompt)
             self.assertNotIn("Natural endpoint:", prompt)
             self.assertFalse((root / "Manuscript").exists())
             self.assertFalse((root / "current_state.json").exists())
+
+    def test_planner_receives_only_genres_selected_for_this_novel(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "Mystery Only"
+            self.make_novel(root)
+            bible_path = root / "story_bible.json"
+            story_bible = json.loads(bible_path.read_text(encoding="utf-8"))
+            story_bible["creative_direction"] = {
+                "genres": ["Mystery"],
+                "moods": ["Tense"],
+                "audience": "Adult",
+                "explicit_adult_content": False,
+            }
+            bible_path.write_text(
+                json.dumps(story_bible, indent=2), encoding="utf-8"
+            )
+
+            prompt = build_scene_preparation_prompt(root, "Mystery Only", 1, 1)
+
+            self.assertIn("Genres: Mystery", prompt)
+            self.assertIn("Mystery guidance:", prompt)
+            self.assertIn("Mood and tone: Tense", prompt)
+            self.assertIn("Intended audience: Adult", prompt)
+            self.assertNotIn("Comedy guidance:", prompt)
+            self.assertNotIn("Genres: Mystery, Comedy", prompt)
+
+    def test_planner_receives_no_app_wide_profiles_when_novel_has_no_selections(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "No Genre Selected"
+            self.make_novel(root)
+            bible_path = root / "story_bible.json"
+            story_bible = json.loads(bible_path.read_text(encoding="utf-8"))
+            story_bible["creative_direction"] = {
+                "genres": [],
+                "moods": [],
+                "audience": "",
+                "explicit_adult_content": False,
+            }
+            bible_path.write_text(
+                json.dumps(story_bible, indent=2), encoding="utf-8"
+            )
+
+            prompt = build_scene_preparation_prompt(root, "No Genre Selected", 1, 1)
+
+            self.assertNotIn("Mystery guidance:", prompt)
+            self.assertNotIn("Comedy guidance:", prompt)
+            self.assertNotIn("Genres:", prompt)
+            self.assertNotIn("Mood and tone:", prompt)
+            self.assertNotIn("Explicit adult content is not enabled", prompt)
 
     def test_explicit_scene_cast_limits_planner_cards_and_adds_binding_boundary(self):
         with tempfile.TemporaryDirectory() as temp:
