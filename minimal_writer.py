@@ -64,6 +64,7 @@ from builder.model_preferences import (
 )
 from builder.scene_state_update import (
     advance_saved_scene_markers,
+    advance_to_next_chapter,
     build_saved_scene_state_prompt,
     load_current_state,
     merge_saved_scene_state,
@@ -739,8 +740,12 @@ class MinimalWriterApp:
         self.chapter_picker = ttk.Combobox(
             novel_row, textvariable=self.chapter_var, state="readonly", width=12
         )
-        self.chapter_picker.pack(side="left", padx=(0, 12))
+        self.chapter_picker.pack(side="left", padx=(0, 6))
         self.chapter_picker.bind("<<ComboboxSelected>>", self._on_chapter_selected)
+        self.new_chapter_button = ttk.Button(
+            novel_row, text="New Chapter", command=self.create_next_chapter
+        )
+        self.new_chapter_button.pack(side="left", padx=(0, 12))
 
         ttk.Label(novel_row, text="Scene").pack(side="left", padx=(0, 6))
         self.scene_var = tk.StringVar()
@@ -1833,6 +1838,118 @@ class MinimalWriterApp:
         current = self.chapter_var.get().strip()
         self.chapter_var.set(current if current in self.chapter_numbers else labels[0])
         self._on_chapter_selected()
+
+    def create_next_chapter(self) -> bool:
+        """Complete the latest saved chapter and create the next chapter at Scene 01."""
+        if self.busy:
+            return False
+
+        novel_name = self.novel_var.get().strip()
+        novel_path = self.novel_packages.get(novel_name)
+        chapter_number = self.chapter_numbers.get(self.chapter_var.get().strip())
+        if novel_path is None or chapter_number is None:
+            self._showinfo("Choose a chapter", "Select a novel and chapter first.")
+            return False
+
+        chapters = list_scene_chapters(novel_path)
+        if not chapters or chapter_number != max(chapters):
+            self._showinfo(
+                "Choose the latest chapter",
+                "New Chapter can only complete the latest chapter in this novel. "
+                "Select the last chapter before continuing.",
+            )
+            return False
+
+        saved_scenes = list_scene_files(novel_path, chapter_number)
+        if not saved_scenes:
+            self._showinfo(
+                "No saved scenes",
+                f"Chapter {chapter_number:02d} has no saved scenes to complete. "
+                "Save at least one scene first.",
+            )
+            return False
+        final_scene, final_scene_path = saved_scenes[-1]
+
+        if self._output_text() != getattr(self, "saved_output_text", ""):
+            self._showinfo(
+                "Unsaved draft",
+                "The Output pane has unsaved changes. Save or clear that draft before "
+                "starting a new chapter. Nothing has been changed.",
+            )
+            return False
+
+        next_chapter = int(chapter_number) + 1
+        chapters_root = Path(novel_path).expanduser() / "Manuscript" / "Chapters"
+        next_folder = chapters_root / f"Chapter_{next_chapter:02d}"
+        if next_folder.exists():
+            self._showinfo(
+                "Chapter already exists",
+                f"{next_folder} already exists. Select that chapter from the Chapter list instead.",
+            )
+            return False
+
+        state_path = Path(novel_path).expanduser() / "current_state.json"
+        try:
+            current_state = load_current_state(state_path)
+            next_state = advance_to_next_chapter(
+                current_state, chapter_number, final_scene
+            )
+        except (OSError, UnicodeError, ValueError, TypeError) as exc:
+            self._showerror("Could not prepare next chapter", str(exc))
+            return False
+
+        message = (
+            f"Mark Chapter {chapter_number:02d} complete through Scene {final_scene:02d} "
+            f"and start Chapter {next_chapter:02d}, Scene 01?\\n\\n"
+            f"StoryBuilder will create {next_folder.name} and move current_state.json "
+            f"to Chapter {next_chapter:02d}, Scene 01. Chapter {chapter_number:02d}, "
+            f"Scene {final_scene:02d} remains the continuity reference.\\n\\n"
+            "No manuscript scene will be edited or deleted."
+        )
+        if not self._askyesno("Create next chapter", message):
+            self.status_var.set("New Chapter cancelled. No files or story state changed.")
+            return False
+
+        try:
+            next_folder.mkdir(parents=False, exist_ok=False)
+            write_current_state(state_path, next_state)
+        except (OSError, UnicodeError, ValueError, TypeError) as exc:
+            try:
+                next_folder.rmdir()
+            except OSError:
+                pass
+            self._showerror("Could not create next chapter", str(exc))
+            return False
+
+        self._discard_scene_prompt_trace()
+        self._clear_prepared_scene_target()
+        self._clear_scene_cast_selection()
+        self.prompt_box.delete("1.0", "end")
+        self.author_direction_box.delete("1.0", "end")
+        self.selected_scene_source = None
+
+        self.chapter_numbers = {
+            f"Chapter {number:02d}": number
+            for number in list_scene_chapters(novel_path)
+        }
+        self.chapter_picker.configure(values=list(self.chapter_numbers))
+        next_label = f"Chapter {next_chapter:02d}"
+        self.chapter_var.set(next_label)
+        self._on_chapter_selected()
+        self.scene_picker.configure(values=["Scene 01"])
+        self.scene_var.set("Scene 01")
+        self._prepared_scene_destination = (next_chapter, 1)
+        self._prepared_scene_novel_path = Path(novel_path).expanduser().resolve()
+        self._prepared_scene_source_scene_path = final_scene_path.resolve()
+        self._prepared_author_required_direction = ""
+        self.status_var.set(
+            f"Chapter {chapter_number:02d} completed through Scene {final_scene:02d}. "
+            f"Ready for Chapter {next_chapter:02d}, Scene 01. The previous chapter's "
+            "last saved scene remains the continuity reference."
+        )
+        self._update_document_title()
+        self._update_controls()
+        return True
 
     def _handle_novel_context_change(self, novel_path: Path | None) -> None:
         """Clear novel-specific directions and model history only when selection changes."""
@@ -4428,6 +4545,23 @@ class MinimalWriterApp:
             self.refresh_novels_button.configure(state="normal" if idle else "disabled")
             self.chapter_picker.configure(state="readonly" if idle else "disabled")
             self.scene_picker.configure(state="readonly" if idle else "disabled")
+            if hasattr(self, "new_chapter_button"):
+                selected_novel_path = self.novel_packages.get(self.novel_var.get().strip())
+                selected_chapter = self.chapter_numbers.get(self.chapter_var.get().strip())
+                available_chapters = list_scene_chapters(selected_novel_path) if selected_novel_path else []
+                has_saved_scenes = bool(
+                    selected_novel_path is not None
+                    and selected_chapter is not None
+                    and list_scene_files(selected_novel_path, selected_chapter)
+                )
+                self.new_chapter_button.configure(
+                    state=(
+                        "normal"
+                        if idle and has_saved_scenes and available_chapters
+                        and selected_chapter == max(available_chapters)
+                        else "disabled"
+                    )
+                )
             self.load_scene_button.configure(
                 state=(
                     "normal"
