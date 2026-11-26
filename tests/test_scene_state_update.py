@@ -125,6 +125,85 @@ class SavedSceneStateUpdateTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             advance_to_next_chapter(self.starting_state, 1, 0)
 
+    def test_tk_writer_new_chapter_updates_state_and_selects_scene_one(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            novel = Path(temporary) / "Novel"
+            chapter_folder = novel / "Manuscript" / "Chapters" / "Chapter_01"
+            chapter_folder.mkdir(parents=True)
+            final_scene = chapter_folder / "Chapter_01_Section_05.txt"
+            final_scene.write_text("Final accepted scene.", encoding="utf-8")
+            state_path = novel / "current_state.json"
+            state_path.write_text(
+                json.dumps({
+                    "chapter": 1,
+                    "scene": 5,
+                    "status": "in_progress",
+                    "scene_completed": True,
+                    "chapter_completed": False,
+                    "scene_cast": ["Tony", "Tiffany"],
+                    "current_situation": "Everyone is home.",
+                }),
+                encoding="utf-8",
+            )
+
+            class FakeVar:
+                def __init__(self, value=""):
+                    self.value = value
+                def get(self):
+                    return self.value
+                def set(self, value):
+                    self.value = value
+
+            class FakePicker:
+                def __init__(self):
+                    self.values = []
+                def configure(self, **kwargs):
+                    self.values = kwargs.get("values", self.values)
+
+            app = MinimalWriterApp.__new__(MinimalWriterApp)
+            app.busy = False
+            app.novel_var = FakeVar("Novel")
+            app.chapter_var = FakeVar("Chapter 01")
+            app.scene_var = FakeVar()
+            app.novel_packages = {"Novel": novel}
+            app.chapter_numbers = {"Chapter 01": 1}
+            app.saved_output_text = ""
+            app._output_text = lambda: ""
+            app._askyesno = lambda *_args: True
+            app._showinfo = lambda *_args: None
+            app._showerror = lambda *_args: self.fail("Unexpected chapter creation error")
+            app._discard_scene_prompt_trace = lambda: None
+            app._clear_prepared_scene_target = lambda: None
+            app._clear_scene_cast_selection = lambda: None
+            app.prompt_box = type("Editor", (), {"delete": lambda *_args: None})()
+            app.author_direction_box = type("Editor", (), {"delete": lambda *_args: None})()
+            app.chapter_picker = FakePicker()
+            app.scene_picker = FakePicker()
+            app._on_chapter_selected = lambda: None
+            app._update_document_title = lambda: None
+            app._update_controls = lambda: None
+            app.status_var = FakeStatus()
+            app.scene_files = {}
+            app.selected_scene_source = final_scene
+
+            self.assertTrue(app.create_next_chapter())
+
+            updated = json.loads(state_path.read_text(encoding="utf-8"))
+            self.assertEqual(updated["chapter"], 2)
+            self.assertEqual(updated["scene"], 1)
+            self.assertFalse(updated["scene_completed"])
+            self.assertTrue(updated["chapter_completed"])
+            self.assertEqual(updated["completed_through_chapter"], 1)
+            self.assertEqual(updated["completed_through_scene"], 5)
+            self.assertEqual(updated["scene_cast"], [])
+            self.assertTrue(
+                (novel / "Manuscript" / "Chapters" / "Chapter_02").is_dir()
+            )
+            self.assertEqual(app.chapter_var.get(), "Chapter 02")
+            self.assertEqual(app.scene_var.get(), "Scene 01")
+            self.assertEqual(app._prepared_scene_destination, (2, 1))
+            self.assertEqual(app._prepared_scene_source_scene_path, final_scene.resolve())
+
     def test_prompt_uses_existing_day_night_baseline_and_saved_scene_ending(self):
         prose = (
             "Opening paragraph from earlier in the scene.\n\n"
