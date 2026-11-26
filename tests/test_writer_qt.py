@@ -15,6 +15,7 @@ from PySide6.QtGui import QTextCursor
 
 import writer_qt
 from builder.novel_creator import create_novel_package
+from builder.writer_continuity import previous_saved_scene
 
 
 class WriterQtTests(unittest.TestCase):
@@ -39,6 +40,69 @@ class WriterQtTests(unittest.TestCase):
         self.window.close()
         writer_qt.NOVEL_ROOT = self.previous_root
         self.temp_dir.cleanup()
+
+    def test_new_chapter_advances_state_and_keeps_previous_chapter_for_continuity(self):
+        self.window.novel_picker.setCurrentText(self.package.name)
+        chapter_folder = self.package / "Manuscript" / "Chapters" / "Chapter_01"
+        final_scene = chapter_folder / "Chapter_01_Section_05.txt"
+        final_scene.write_text(
+            "The final scene of Chapter One ends with the family together.",
+            encoding="utf-8",
+        )
+        (self.package / "current_state.json").write_text(
+            json.dumps({
+                "chapter": 1,
+                "scene": 5,
+                "status": "in_progress",
+                "scene_completed": True,
+                "chapter_completed": False,
+                "scene_cast": ["Tony", "Tiffany"],
+                "current_situation": "The family is safe at home.",
+                "time_of_day": "Late evening.",
+            }),
+            encoding="utf-8",
+        )
+
+        with patch.object(self.window, "confirm", return_value=True):
+            self.assertTrue(self.window.create_next_chapter())
+
+        updated = json.loads(
+            (self.package / "current_state.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(updated["chapter"], 2)
+        self.assertEqual(updated["scene"], 1)
+        self.assertFalse(updated["scene_completed"])
+        self.assertTrue(updated["chapter_completed"])
+        self.assertEqual(updated["completed_through_chapter"], 1)
+        self.assertEqual(updated["completed_through_scene"], 5)
+        self.assertEqual(updated["scene_cast"], [])
+        self.assertEqual(updated["current_situation"], "The family is safe at home.")
+        self.assertTrue(
+            (self.package / "Manuscript" / "Chapters" / "Chapter_02").is_dir()
+        )
+        self.assertEqual(self.window.chapter_picker.currentText(), "Chapter 02")
+        self.assertEqual(self.window.scene_picker.currentText(), "Scene 01")
+        self.assertEqual(self.window.prepared_destination, (2, 1))
+
+        previous = previous_saved_scene(self.package, 2, 1)
+        self.assertIsNotNone(previous)
+        self.assertEqual((previous[0], previous[1]), (1, 5))
+        self.assertEqual(previous[2], final_scene)
+
+    def test_new_chapter_refuses_to_discard_unsaved_output(self):
+        self.window.novel_picker.setCurrentText(self.package.name)
+        final_scene = (
+            self.package / "Manuscript" / "Chapters" / "Chapter_01"
+            / "Chapter_01_Section_01.txt"
+        )
+        final_scene.write_text("A saved scene.", encoding="utf-8")
+        self.window.output_editor.setPlainText("Unsaved draft.")
+        with patch.object(self.window, "info") as show_info:
+            self.assertFalse(self.window.create_next_chapter())
+        show_info.assert_called_once()
+        self.assertFalse(
+            (self.package / "Manuscript" / "Chapters" / "Chapter_02").exists()
+        )
 
     def test_lists_existing_novel_without_auto_loading(self):
         self.assertEqual(self.window.novel_picker.count(), 1)
