@@ -46,7 +46,7 @@ from builder.prompt_trace import (
 from builder.prompt_trace_sync import upload_prompt_trace
 from builder.prose_health import analyze_draft, format_draft_health_report
 from builder.scene_state_update import (
-    load_current_state, advance_saved_scene_markers, write_current_state,
+    load_current_state, advance_saved_scene_markers, advance_to_next_chapter, write_current_state,
     build_saved_scene_state_prompt, parse_saved_scene_state_patch,
     merge_saved_scene_state,
 )
@@ -289,6 +289,8 @@ class WriterQtWindow(QMainWindow):
         project_row.addWidget(self.sync_novel_button)
         project_row.addWidget(QLabel("Chapter"))
         project_row.addWidget(self.chapter_picker)
+        self.new_chapter_button = QPushButton("New Chapter")
+        project_row.addWidget(self.new_chapter_button)
         project_row.addWidget(QLabel("Scene"))
         project_row.addWidget(self.scene_picker)
         project_row.addWidget(self.load_scene_button)
@@ -389,6 +391,7 @@ class WriterQtWindow(QMainWindow):
         self.sync_novel_button.clicked.connect(self.sync_selected_novel_to_github)
         self.novel_picker.currentTextChanged.connect(self.on_novel_changed)
         self.chapter_picker.currentTextChanged.connect(self.on_chapter_changed)
+        self.new_chapter_button.clicked.connect(self.create_next_chapter)
         self.scene_picker.currentTextChanged.connect(self.update_controls)
         self.cast_button.clicked.connect(self.choose_scene_cast)
         self.prepare_button.clicked.connect(self.prepare_scene)
@@ -1788,6 +1791,117 @@ class WriterQtWindow(QMainWindow):
         self.output_editor.setPlainText(text)
         self.status.setText(f"Loaded a copy of {path.name}. Use Save New Scene or explicitly overwrite the selected scene.")
 
+    def create_next_chapter(self):
+        """Complete the latest saved chapter and create the next chapter at Scene 01."""
+        if self.busy:
+            return False
+
+        novel_name = self.novel_picker.currentText().strip()
+        novel = self.novel_packages.get(novel_name)
+        chapter = self.chapter_numbers.get(self.chapter_picker.currentText())
+        if novel is None or chapter is None:
+            self.info("Choose a chapter", "Select a novel and chapter first.")
+            return False
+
+        chapters = list_scene_chapters(novel)
+        if not chapters or chapter != max(chapters):
+            self.info(
+                "Choose the latest chapter",
+                "New Chapter can only complete the latest chapter in this novel. "
+                "Select the last chapter before continuing.",
+            )
+            return False
+
+        saved_scenes = list_scene_files(novel, chapter)
+        if not saved_scenes:
+            self.info(
+                "No saved scenes",
+                f"Chapter {chapter:02d} has no saved scenes to complete. Save at least one scene first.",
+            )
+            return False
+        final_scene, final_scene_path = saved_scenes[-1]
+
+        if self.output_editor.toPlainText() != self.saved_text:
+            self.info(
+                "Unsaved draft",
+                "The Output pane has unsaved changes. Save or clear that draft before "
+                "starting a new chapter. Nothing has been changed.",
+            )
+            return False
+
+        next_chapter = int(chapter) + 1
+        chapters_root = Path(novel).expanduser() / "Manuscript" / "Chapters"
+        next_folder = chapters_root / f"Chapter_{next_chapter:02d}"
+        if next_folder.exists():
+            self.info(
+                "Chapter already exists",
+                f"{next_folder} already exists. Select that chapter from the Chapter list instead.",
+            )
+            return False
+
+        state_path = Path(novel).expanduser() / "current_state.json"
+        try:
+            current_state = load_current_state(state_path)
+            next_state = advance_to_next_chapter(current_state, chapter, final_scene)
+        except (OSError, UnicodeError, ValueError, TypeError) as exc:
+            self.error("Could not prepare next chapter", str(exc))
+            return False
+
+        message = (
+            f"Mark Chapter {chapter:02d} complete through Scene {final_scene:02d} "
+            f"and start Chapter {next_chapter:02d}, Scene 01?\n\n"
+            f"StoryBuilder will create {next_folder.name} and move current_state.json "
+            f"to Chapter {next_chapter:02d}, Scene 01. Chapter {chapter:02d}, "
+            f"Scene {final_scene:02d} remains the continuity reference.\n\n"
+            "No manuscript scene will be edited or deleted."
+        )
+        if not self.confirm("Create next chapter", message):
+            self.status.setText("New Chapter cancelled. No files or story state changed.")
+            return False
+
+        try:
+            next_folder.mkdir(parents=False, exist_ok=False)
+            write_current_state(state_path, next_state)
+        except (OSError, UnicodeError, ValueError, TypeError) as exc:
+            try:
+                next_folder.rmdir()
+            except OSError:
+                pass
+            self.error("Could not create next chapter", str(exc))
+            return False
+
+        self._discard_scene_prompt_trace()
+        self._prepared_author_required_direction = ""
+        self.scene_cast = None
+        self.scene_cast_novel = None
+        self.scene_cast_destination = None
+        self.author_direction.clear()
+        self.prompt_editor.clear()
+        self.cast_summary.setText("No scene cast selected.")
+        self.selected_scene_source = None
+
+        self.chapter_numbers = {
+            f"Chapter {number:02d}": number
+            for number in list_scene_chapters(novel)
+        }
+        self.chapter_picker.blockSignals(True)
+        self.chapter_picker.clear()
+        self.chapter_picker.addItems(list(self.chapter_numbers))
+        self.chapter_picker.blockSignals(False)
+        next_label = f"Chapter {next_chapter:02d}"
+        self.on_chapter_changed(next_label)
+        self._select_destination(next_chapter, 1)
+        self.prepared_destination = (next_chapter, 1)
+        self.prepared_novel = Path(novel).expanduser().resolve()
+        self.prepared_source = final_scene_path.resolve()
+        self.status.setText(
+            f"Chapter {chapter:02d} completed through Scene {final_scene:02d}. "
+            f"Ready for Chapter {next_chapter:02d}, Scene 01. The previous chapter's "
+            "last saved scene remains the continuity reference."
+        )
+        self.update_controls()
+        return True
+
     def save_new_scene(self):
         if self.busy:
             return False
@@ -2066,7 +2180,7 @@ class WriterQtWindow(QMainWindow):
 
     def update_controls(self, *_):
         idle = not self.busy
-        for widget in (self.planner_picker, self.writer_picker, self.refresh_models_button, self.openrouter_settings_button, self.refresh_novels_button, self.sync_novel_button, self.novel_picker, self.chapter_picker, self.scene_picker, self.cast_button, self.prepare_button, self.write_button, self.minimal_button, self.full_button, self.rewrite_button, self.continue_button, self.new_session_button, self.upload_trace_button, self.open_button, self.save_button, self.save_as_button, self.save_new_scene_button, self.save_scene_button, self.assemble_chapter_button, self.assemble_novel_button, self.revise_button, self.check_draft_button):
+        for widget in (self.planner_picker, self.writer_picker, self.refresh_models_button, self.openrouter_settings_button, self.refresh_novels_button, self.sync_novel_button, self.novel_picker, self.chapter_picker, self.scene_picker, self.new_chapter_button, self.cast_button, self.prepare_button, self.write_button, self.minimal_button, self.full_button, self.rewrite_button, self.continue_button, self.new_session_button, self.upload_trace_button, self.open_button, self.save_button, self.save_as_button, self.save_new_scene_button, self.save_scene_button, self.assemble_chapter_button, self.assemble_novel_button, self.revise_button, self.check_draft_button):
             widget.setEnabled(idle)
         self.load_writer_button.setEnabled(idle and self.selected_model("writer") is not None)
         self.stop_button.setEnabled(self.busy and getattr(self, "_task_kind", "") != "openrouter_refresh")
@@ -2074,6 +2188,17 @@ class WriterQtWindow(QMainWindow):
         self.load_scene_button.setEnabled(idle and self.scene_picker.currentText() in self.scene_files)
         self.save_scene_button.setEnabled(idle and self.selected_scene_source is not None and self.scene_picker.currentText() in self.scene_files)
         has_target = self.novel_picker.currentText() in self.novel_packages and self.chapter_picker.currentText() in self.chapter_numbers
+        chapter_number = self.chapter_numbers.get(self.chapter_picker.currentText())
+        available_chapters = list(self.chapter_numbers.values())
+        has_saved_scenes = bool(
+            has_target and list_scene_files(
+                self.novel_packages[self.novel_picker.currentText()], chapter_number
+            )
+        )
+        self.new_chapter_button.setEnabled(
+            idle and has_saved_scenes and bool(available_chapters)
+            and chapter_number == max(available_chapters)
+        )
         self.save_new_scene_button.setEnabled(idle and has_target)
         self.assemble_chapter_button.setEnabled(idle and has_target and bool(self.scene_files))
         self.assemble_novel_button.setEnabled(idle and bool(self.novel_packages.get(self.novel_picker.currentText())))
