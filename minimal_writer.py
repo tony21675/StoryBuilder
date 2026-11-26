@@ -1900,10 +1900,10 @@ class MinimalWriterApp:
 
         message = (
             f"Mark Chapter {chapter_number:02d} complete through Scene {final_scene:02d} "
-            f"and start Chapter {next_chapter:02d}, Scene 01?\\n\\n"
+            f"and start Chapter {next_chapter:02d}, Scene 01?\n\n"
             f"StoryBuilder will create {next_folder.name} and move current_state.json "
             f"to Chapter {next_chapter:02d}, Scene 01. Chapter {chapter_number:02d}, "
-            f"Scene {final_scene:02d} remains the continuity reference.\\n\\n"
+            f"Scene {final_scene:02d} remains the continuity reference.\n\n"
             "No manuscript scene will be edited or deleted."
         )
         if not self._askyesno("Create next chapter", message):
