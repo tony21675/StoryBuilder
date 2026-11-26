@@ -118,3 +118,12 @@ The port reuses existing model, scene-planning, character-context, Story Bible, 
 **Feature ports now present in the Qt Writer:** selected-passage AI revision and exact replacement with explicit review, advisory Check Draft, OpenRouter key/catalogue settings, saved-scene position plus validated ending-state updates, selected-novel GitHub sync through the existing safety checker, and Planner-to-Writer PromptTrace capture. The same trace object follows Prepare Scene through Write, records both model calls and the prepared direction, saves the single local trace, and waits for an explicit **Upload Prompt Trace** button click before sending it to the private repository. Automated CI has passed the Qt Writer regression tests, but the new flows have not yet had complete live desktop validation. Keep the original Tkinter Writer available until model generation, trace upload, revision, state update, save/reopen, OpenRouter refresh, and safe novel sync pass on a disposable test novel. Do not weaken or bypass trace upload or novel-sync safety checks.
 
 CI now compiles \`writer_qt.py\`, checks the new launcher syntax, and discovers \`tests/test_writer_qt.py\`. Automated CI passing is not a substitute for a live desktop check. Next validation should use the separate Qt launcher and a disposable test novel before any real manuscript is saved or overwritten.
+
+
+## Selected Creative Direction in Prepare Scene (November 25, 2026)
+
+- `builder/scene_preparation.py` now reads the selected novel's `creative_direction` from its Story Bible and uses `build_creative_direction_prompt` to add only the selected genres, moods, audience guidance, and explicit-content boundary to Qwen's Prepare Scene prompt.
+- No app-wide profiles are injected when the novel has no Creative Direction selections. The Planner does not receive unselected genre profiles, writing preferences, or every profile file.
+- Gemma's existing Balanced and Full Writer context behavior remains unchanged. Minimal Writer context remains intentionally minimal.
+- Regression coverage verifies selected Mystery/Comedy guidance, mood and audience guidance, and isolation from unselected Comedy when only Mystery is selected.
+- CI run: https://github.com/tony21675/StoryBuilder/actions/runs/45726214186 (check final result before claiming tests pass).
