@@ -69,6 +69,33 @@ def advance_saved_scene_markers(
     return updated
 
 
+def advance_to_next_chapter(
+    current_state: dict[str, Any],
+    completed_chapter: int,
+    final_scene: int,
+) -> dict[str, Any]:
+    """Close one chapter and point current state at the next unwritten scene."""
+    if not isinstance(current_state, dict):
+        raise ValueError("The current story state must be a JSON object.")
+
+    chapter = int(completed_chapter)
+    scene = int(final_scene)
+    if chapter < 1 or scene < 1:
+        raise ValueError("A completed chapter and its final scene must be positive numbers.")
+
+    updated = dict(current_state)
+    updated["completed_through_chapter"] = chapter
+    updated["completed_through_scene"] = scene
+    updated["chapter"] = chapter + 1
+    updated["scene"] = 1
+    updated["scene_completed"] = False
+    updated["chapter_completed"] = True
+    updated["scene_cast"] = []
+    if str(updated.get("status", "")).strip().casefold() in {"", "story_start"}:
+        updated["status"] = "in_progress"
+    return updated
+
+
 def _ending_excerpt(accepted_scene: str, max_chars: int = ENDING_CONTEXT_CHARS) -> str:
     text = str(accepted_scene or "").strip()
     if not text:
