@@ -120,6 +120,16 @@ The port reuses existing model, scene-planning, character-context, Story Bible, 
 CI now compiles \`writer_qt.py\`, checks the new launcher syntax, and discovers \`tests/test_writer_qt.py\`. Automated CI passing is not a substitute for a live desktop check. Next validation should use the separate Qt launcher and a disposable test novel before any real manuscript is saved or overwritten.
 
 
+## New Chapter workflow (November 25, 2026)
+
+- Both the normal Tkinter Writer (start.sh) and parallel Qt Writer (start_writer_qt.sh) now provide a **New Chapter** action.
+- The action is available only for the latest chapter folder when it contains at least one saved scene. It refuses to proceed with unsaved Output-pane changes, and requires explicit confirmation.
+- On confirmation it creates the next chapter folder, records the completed-through chapter and final scene, and moves current_state.json to the next unwritten destination: chapter = previous chapter + 1, scene = 1, scene_completed = false, and chapter_completed = true.
+- The transition clears the previous scene's scene_cast so the next scene's cast is selected afresh. It preserves current story facts, including location, situation, physical state, and in-story time.
+- The UI selects the new chapter and Scene 01. Prepare Scene still obtains the immediately preceding saved scene through previous_saved_scene, so the prior chapter's final scene and its continuity handoff remain the next scene's reference. No manuscript scene is rewritten or deleted.
+- completed_through_chapter and completed_through_scene preserve the chapter-boundary record. Saving the first scene in the new chapter changes the active scene markers to completed and clears the transient chapter_completed flag.
+- Regression tests cover current-state advancement, preservation of story facts, fresh cast selection, next-chapter folder/UI selection, and use of the previous chapter's final scene for continuity. Desktop model generation and live interaction still need validation on the user's machine.
+
 ## Selected Creative Direction in Prepare Scene (November 25, 2026)
 
 - `builder/scene_preparation.py` now reads the selected novel's `creative_direction` from its Story Bible and uses `build_creative_direction_prompt` to add only the selected genres, moods, audience guidance, and explicit-content boundary to Qwen's Prepare Scene prompt.
