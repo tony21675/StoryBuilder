@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 from builder.scene_state_update import (
     advance_saved_scene_markers,
+    advance_to_next_chapter,
     build_saved_scene_state_prompt,
     load_current_state,
     merge_saved_scene_state,
@@ -77,6 +78,52 @@ class SavedSceneStateUpdateTests(unittest.TestCase):
             "Day 2, nighttime at the Mars research outpost.",
         )
         self.assertEqual(self.starting_state["chapter"], 1)
+
+    def test_chapter_transition_marks_previous_chapter_and_targets_next_scene_one(self):
+        current = dict(self.starting_state)
+        current.update({
+            "chapter": 1,
+            "scene": 5,
+            "scene_completed": True,
+            "chapter_completed": False,
+            "current_situation": "The family has settled in for the night.",
+            "scene_cast": ["Tony", "Tiffany"],
+        })
+
+        updated = advance_to_next_chapter(current, 1, 5)
+
+        self.assertEqual(updated["chapter"], 2)
+        self.assertEqual(updated["scene"], 1)
+        self.assertFalse(updated["scene_completed"])
+        self.assertTrue(updated["chapter_completed"])
+        self.assertEqual(updated["completed_through_chapter"], 1)
+        self.assertEqual(updated["completed_through_scene"], 5)
+        self.assertEqual(updated["scene_cast"], [])
+        self.assertEqual(
+            updated["current_situation"],
+            "The family has settled in for the night.",
+        )
+        self.assertEqual(
+            updated["time_of_day"],
+            self.starting_state["time_of_day"],
+        )
+        # The original state remains unchanged.
+        self.assertEqual(current["chapter"], 1)
+        self.assertEqual(current["scene"], 5)
+        self.assertEqual(current["scene_cast"], ["Tony", "Tiffany"])
+
+        first_new_scene = advance_saved_scene_markers(updated, 2, 1)
+        self.assertEqual(first_new_scene["chapter"], 2)
+        self.assertEqual(first_new_scene["scene"], 1)
+        self.assertTrue(first_new_scene["scene_completed"])
+        self.assertFalse(first_new_scene["chapter_completed"])
+        self.assertEqual(first_new_scene["completed_through_chapter"], 1)
+
+    def test_chapter_transition_rejects_invalid_coordinates(self):
+        with self.assertRaises(ValueError):
+            advance_to_next_chapter(self.starting_state, 0, 5)
+        with self.assertRaises(ValueError):
+            advance_to_next_chapter(self.starting_state, 1, 0)
 
     def test_prompt_uses_existing_day_night_baseline_and_saved_scene_ending(self):
         prose = (
